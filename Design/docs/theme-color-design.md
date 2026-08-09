@@ -4,7 +4,7 @@
 
 The former Appearance design described platform/system wallpaper colors. That
 model was Android-specific and did not define useful behavior on iOS or Desktop.
-MelodyTrove now has one cross-platform model: current artwork may provide the
+TidePlayer now has one cross-platform model: current artwork may provide the
 active seed, while the saved manual seed is always the fallback.
 
 ## User flow
@@ -30,7 +30,7 @@ palette.
 - Live Appearance design: `Design/src/app/App.tsx`
 - Reusable design module and state boards:
   `Design/src/app/ThemeColorDesign.tsx`
-- Product tokens and behavior: `Design/docs/MelodyTrove-PDS-v3.md`
+- Product tokens and behavior: `Design/docs/TidePlayer-PDS-v3.md`
 - Built prototype export: `Design/dist/`
 - Visual exports: `Design/exports/theme-color/`
 

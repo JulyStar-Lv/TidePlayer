@@ -1,4 +1,4 @@
-# MelodyTrove Room KMP Schema
+# TidePlayer Room KMP Schema
 
 Date: 2026-07-28
 

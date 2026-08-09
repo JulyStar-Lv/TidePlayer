@@ -1,4 +1,4 @@
-# MelodyTrove Final Architecture Report
+# TidePlayer Final Architecture Report
 
 Date: 2026-07-27
 
@@ -7,7 +7,7 @@ This document records the current architecture after the Komi Store-style KMP/CM
 ## 1. Module Tree
 
 ```text
-MelodyTrove/
+TidePlayer/
 ├── androidApp/                         Android application entry point
 ├── desktopApp/                         Desktop JVM application entry point
 ├── iosApp/                             iOS Xcode project and Swift entry point

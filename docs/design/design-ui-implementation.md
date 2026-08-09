@@ -1,4 +1,4 @@
-# MelodyTrove Design UI implementation
+# TidePlayer Design UI implementation
 
 This document maps the production Compose Multiplatform UI to the source-of-truth prototype in `Design/`.
 

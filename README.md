@@ -1,339 +1,282 @@
-# MelodyTrove
+# TidePlayer
 
-[English](./README.md) · [简体中文](./README.zh-CN.md)
+TidePlayer 是一款使用 Kotlin Multiplatform、Compose Multiplatform、Rust 和 UniFFI 构建的**本地优先、私人音乐收藏播放器**。项目面向 Android、iOS 和 Desktop 提供统一音乐库，并通过清晰的音源边界隔离临时播放资源、账号凭据和 Provider 特有数据。
 
-MelodyTrove（旋律珍藏）is a self-hosted and local-first music player built with Kotlin Multiplatform, Compose Multiplatform, Rust, and UniFFI. It provides one shared music library across Android, iOS, and Desktop while keeping playback resources, credentials, and provider-specific details behind explicit source boundaries.
-
-> This project was formerly published as TideTunes. Existing installs and integrations are covered by the documented compatibility migration.
+> [!NOTE]
+> 当前产品名称为 **TidePlayer**。项目曾以 **MelodyTrove** 和更早的 **TideTunes** 名称发布；已有安装、数据目录、备份和 Deep Link 由兼容迁移层继续支持。GitHub 仓库目前仍保留历史仓库地址 `JulyStar-Lv/MelodyTrove`。
 
 > [!IMPORTANT]
-> MelodyTrove is under active development. Release versions follow Git tags, while development builds include the commit count and SHA; user-facing behavior, database migrations, and extension APIs may continue to evolve before a stable release.
+> TidePlayer 仍在积极开发中。发布版本跟随 Git 标签，开发版本会包含提交数和短 SHA；在稳定版本发布前，用户界面、数据库迁移和扩展 API 仍可能继续调整。
 
-## Highlights
+## 项目亮点
 
-- **Android, iOS, and Desktop** from a shared Kotlin and Compose codebase.
-- **Local, WebDAV, and SMB2/3 music sources** with browsing, indexed search, streaming, and downloads.
-- **Source-agnostic Room KMP library** for tracks, albums, artists, genres, artwork, lyrics, playlists, downloads, and sync state.
-- **Adaptive UI** with compact bottom navigation, medium navigation rail, and large-screen desktop sidebar layouts.
-- **Cross-platform playback abstraction** backed by Android Media3, iOS AVPlayer, and a Rust/rodio Desktop engine.
-- **One shared Rust software DSP** for Android Media3 PCM, iOS AVPlayer processing taps, and Desktop rodio, with live 10-band/parametric EQ and advanced effects.
-- **Offline downloads** through Android WorkManager, iOS background URLSession, and a Desktop coroutine scheduler.
-- **Selective remote metadata scanning** for WebDAV and SMB with Fast, Standard, and Full modes.
-- **JavaScript metadata plugins** compatible with Lyrico Plugin API v1-v3, executed in isolated QuickJS runtimes.
-- **Rust backend** for remote storage, metadata parsing, plugin execution, playback support, and UniFFI bindings.
+- 使用同一套 Kotlin 与 Compose 代码支持 **Android、iOS 和 Desktop**。
+- 支持 **本地、WebDAV 和 SMB2/3 音源**，具备目录浏览、索引搜索、在线播放和下载能力。
+- 使用 **Room KMP 统一曲库** 管理曲目、专辑、艺术家、流派、封面、歌词、播放列表、下载和同步状态。
+- 提供 **自适应界面**：手机使用底部导航，中等窗口使用导航栏，大屏和桌面使用侧边栏布局。
+- 使用统一播放抽象，并分别接入 Android Media3、iOS AVPlayer 和 Desktop Rust/rodio 播放引擎。
+- Android Media3 PCM、iOS AVPlayer Processing Tap 和 Desktop rodio 使用**同一套 Rust 软件 DSP**，支持实时 10 段/参数均衡与高级音效。
+- 支持跨平台离线下载：Android WorkManager、iOS 后台 URLSession、Desktop 协程调度器。
+- WebDAV 和 SMB 支持 Fast、Standard、Full 三种可选元数据扫描模式。
+- 支持兼容 Lyrico Plugin API v1-v3 的 JavaScript 元数据插件，并在隔离的 QuickJS Runtime 中运行。
+- Rust 后端负责远端存储、元数据解析、插件执行、桌面播放支持和 UniFFI 绑定。
 
-## Current Features
+## 当前功能
 
-### Music library and browsing
+### 音乐库与浏览
 
-- Home, Search, Library, and Settings top-level destinations.
-- Track, album, artist, genre, playlist, recently added, recently played, radio, queue, lyrics, and now-playing screens.
-- Room-backed full-text library search and source-scoped provider search.
-- Canonical tracks that may reference multiple playable source items.
-- Playlist persistence with stable ordering.
-- Embedded and sidecar lyrics, artwork metadata, and raw audio tags.
-- Responsive navigation and desktop-specific toolbar/right-panel layouts.
+- 首页、搜索、音乐库、设置四个一级入口。
+- 支持曲目、专辑、艺术家、流派、播放列表、最近添加、最近播放、音乐电台、播放队列、歌词和正在播放页面。
+- 基于 Room FTS 的本地曲库全文搜索，以及按音源账号索引的 Provider 搜索。
+- 同一规范化曲目可以关联多个可播放来源文件。
+- 播放列表持久化和稳定排序。
+- 支持内嵌歌词、外挂歌词、封面元数据和原始音频标签。
+- 支持手机、平板、大屏和桌面窗口的响应式导航布局。
 
-### Music sources
+### 音源支持
 
-| Source | Browse | Search | Stream | Download | Incremental sync |
+| 音源 | 浏览 | 搜索 | 播放 | 下载 | 增量同步 |
 | --- | :---: | :---: | :---: | :---: | :---: |
-| Local | Yes | Yes | Yes | Yes | No |
-| WebDAV | Yes | Yes | Yes | Yes | No |
-| SMB2/3 | Yes | Yes | Yes | Yes | No |
+| 本地 | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| WebDAV | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| SMB2/3 | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
 
-Source adapters authenticate, browse, search, and resolve playback resources. They do not write directly to the canonical music tables.
+音源适配器负责鉴权、浏览、搜索和解析播放资源，不会直接写入规范化音乐表。
 
-### Remote metadata scan modes
+### 远程音源元数据扫描模式
 
-| Mode | Behavior |
+| 模式 | 行为 |
 | --- | --- |
-| **Fast** | Reads core tags and audio properties, detects embedded-artwork presence and embedded-lyrics kind without extracting either payload, and skips lyrics content and raw tags. |
-| **Standard** | Reads core tags, audio properties, and embedded lyrics, detects embedded-artwork presence without extracting or caching the image, and classifies lyrics as plain, line-timed, word-timed, or TTML. This is the default for new installations. |
-| **Full** | Reads core tags, audio properties, artwork, lyrics, and raw metadata. |
+| **Fast** | 读取核心标签和音频属性，探测内嵌封面是否存在及内嵌歌词类型，但不提取两者载荷，并跳过歌词正文和原始标签。 |
+| **Standard** | 读取核心标签、音频属性和内嵌歌词，探测是否存在内嵌封面但不提取或缓存图片，并把歌词分类为普通、逐行、逐字或 TTML。新安装默认使用此模式。 |
+| **Full** | 读取核心标签、音频属性、封面、歌词和原始元数据。 |
 
-Skipped optional metadata is preserved rather than deleted. Missing artwork or lyrics can be backfilled later from Settings without forcing the remote file fingerprint to change.
+被跳过的可选元数据不会被删除。用户可以之后在设置中补全缺失封面或歌词，无需伪造远端文件变更，也不要求文件指纹发生变化。
 
-Fast and Standard persist per-source artwork presence and embedded-lyrics kind in `track_source_ref` without storing image bytes or, in Fast mode, lyrics content in Room. Seekable formats such as MP3, M4A/MP4, FLAC, APE/WavPack, and ID3 inside WAV/AIFF skip the image payload. Ogg/Opus artwork is commonly embedded in a Vorbis Comment packet, so the containing comment packet may still need to be read.
+Fast/Standard 会把每个来源文件的封面存在状态和内嵌歌词类型保存到 `track_source_ref`，但不会把图片二进制写入 Room；Fast 也不会保存歌词正文。MP3、M4A/MP4、FLAC、APE/WavPack 以及 WAV/AIFF 内嵌 ID3 等可定位格式会直接跳过图片载荷；Ogg/Opus 的图片通常内联在 Vorbis Comment 数据包中，因此仍可能需要读取包含图片的注释数据包。
 
-When external word-timed or TTML lyrics are ranked ahead of the available plain-lyrics fallback, playback performs one best-effort automatic Lyrico lookup. Scanning never calls plugins, and audio startup does not wait for the lookup.
+当用户把外部逐字歌词或 TTML 排在当前普通歌词之前时，播放器会在开始播放后尽力执行一次 Lyrico 自动查询。扫描阶段不调用插件，音频起播也不会等待歌词查询。
 
-### Playback and downloads
+### 播放与下载
 
-- Shared playback state, position, queue, play mode, and now-playing presentation contracts.
-- Playback URLs, headers, cookies, and expiring tokens are resolved just before playback and are not stored in Room.
-- Android playback through Media3 and MediaSession.
-- iOS playback through an AVPlayer-backed engine adapter.
-- Desktop playback through the Rust/rodio backend.
-- Persistent download tasks with pause, resume, retry, cancel, and progress state.
-- Platform schedulers:
-  - Android: WorkManager
-  - iOS: background URLSession
-  - Desktop: coroutine-based scheduler
+- 统一的播放状态、播放进度、队列、播放模式和正在播放展示契约。
+- 播放 URL、请求头、Cookie 和短期 Token 只在实际播放前解析，不写入 Room。
+- Android 使用 Media3 和 MediaSession。
+- iOS 使用 AVPlayer 播放引擎适配器。
+- Desktop 使用 Rust/rodio 播放后端。
+- 下载任务持久化，支持暂停、继续、重试、取消和进度更新。
+- 平台下载调度器：Android WorkManager、iOS 后台 URLSession、Desktop 协程调度器。
 
-### Lyrico-compatible metadata plugins
+### 兼容 Lyrico 的元数据插件
 
-MelodyTrove supports user-supplied ZIP plugins that implement Lyrico Plugin API v1-v3 `MetaSource` behavior. Plugins extend metadata, cover, and lyric lookup; they are intentionally separate from general playback `MusicSource` providers.
+TidePlayer 支持用户从本地导入实现 Lyrico Plugin API v1-v3 `MetaSource` 行为的 ZIP 插件。插件用于扩展歌曲元数据、封面和歌词查询，不会被当作通用播放 `MusicSource` 使用。
 
-Accepted manual matches update the library's canonical metadata without modifying the audio
-file. Those descriptive fields remain protected during background scans until **Reset from
-file** explicitly reloads the current tags from the preferred available source.
-
-The current plugin pipeline is:
+当前插件链路：
 
 ```text
-Plugin ZIP
-  -> validation and bounded extraction
-  -> Room-backed installation and configuration
-  -> observable MetaSource registry
-  -> lazy isolated QuickJS worker
+插件 ZIP
+  -> 校验与受限解压
+  -> 基于 Room 的安装、配置和持久化
+  -> 可观察的 MetaSource 注册表
+  -> 延迟创建的独立 QuickJS Worker
   -> searchSongs / getLyrics / searchCovers
-  -> normalized MelodyTrove metadata results
+  -> 统一的 TidePlayer 元数据结果
 ```
 
-Implemented plugin capabilities include:
+已经实现的插件能力包括：
 
-- ZIP import, manifest validation, update, enable/disable, configuration, cache clearing, and uninstall.
-- Official v3 configuration field types and conditional field visibility.
-- Manual, automatic, and batch lookup permissions.
-- Structured, translated, romanized, and raw lyric formats.
-- Song and cover result aliases used by real-world Lyrico plugins.
-- Per-plugin runtime isolation, memory/stack limits, timeouts, cancellation, and poisoned-runtime recovery.
-- Host APIs for HTTP, cache, crypto, base64, bytes, compression, XML, logging, app, and runtime information.
-- Redirect and private-network validation, response-size limits, and sensitive-log filtering.
+- ZIP 导入、manifest 校验、更新、启用/禁用、配置、清理缓存和卸载。
+- Lyrico v3 官方配置字段类型和条件显示。
+- 手动、自动和批量查询权限。
+- 结构化歌词、翻译歌词、罗马音歌词和多种原始歌词格式。
+- 兼容真实 Lyrico 插件常见的歌曲、封面结果包装和字段别名。
+- 每个插件独立 Runtime、内存/栈限制、超时、取消和中毒 Runtime 重建。
+- 提供 HTTP、缓存、加密、Base64、字节、压缩、XML、日志、应用和运行时信息 Host API。
+- HTTP 重定向和私有网络校验、响应大小限制，以及敏感日志过滤。
 
-Third-party plugin ZIPs are not bundled or downloaded by MelodyTrove; users provide them locally. See [Plugin Runtime](./docs/plugin-runtime.md) for the compatibility and security model.
+TidePlayer 不内置或自动下载第三方插件 ZIP，插件文件由用户自行提供。详细兼容性和安全模型请参阅[插件运行时文档](./docs/plugin-runtime.md)。
 
-## Architecture
+## 架构
 
 ```mermaid
 flowchart TD
-    A[Android App] --> S[shared app assembly]
+    A[Android App] --> S[shared 应用装配层]
     I[iOS App] --> S
     D[Desktop App] --> S
 
-    S --> F[feature modules]
-    S --> V[service modules]
-    S --> M[source modules]
-    S --> C[core modules]
+    S --> F[feature 功能模块]
+    S --> V[service 服务模块]
+    S --> M[source 音源模块]
+    S --> C[core 核心模块]
     S --> R[Room KMP / DataStore / Koin]
-    S --> U[UniFFI bridge]
-    U --> X[Rust workspace]
+    S --> U[UniFFI 桥接]
+    U --> X[Rust Workspace]
 
     M --> C
     V --> C
     F --> C
 ```
 
-### Design principles
+### 架构原则
 
-1. **One UI-facing database**  
-   Android, iOS, and Desktop use the same Room KMP schema with bundled SQLite.
+1. **一个面向 UI 的统一数据库**：Android、iOS 和 Desktop 使用同一套 Room KMP Schema，并统一使用 bundled SQLite。
+2. **规范化曲库与 Provider 无关**：曲目、专辑、艺术家、流派、歌词、封面、播放列表和下载记录不归属于某个特定 Provider。
+3. **音源身份单独保存**：音源账号、曲库根目录、来源对象、同步游标、Provider 扩展属性和曲目来源引用单独建模。
+4. **临时播放资源不属于曲目元数据**：签名 URL、HTTP 请求头、Token、Cookie 和临时回环地址在播放时动态解析，不作为曲目字段持久化。
+5. **功能模块依赖契约，而不是平台播放引擎**：commonMain 仅使用播放、下载、同步、音源和 Repository 接口；Media3、AVPlayer、rodio、Room 和 UniFFI 保留在平台层或数据边界。
+6. **元数据插件不是播放音源**：JavaScript 插件通过 `MetaSource` 提供元数据查询；本地、WebDAV 和 SMB 通过 `MusicSource` 提供浏览和播放。
 
-2. **Canonical library data is provider-independent**  
-   Tracks, albums, artists, genres, lyrics, artwork, playlists, and downloads do not belong to WebDAV or any other provider.
+详细文档：
 
-3. **Source identity is stored separately**  
-   Source accounts, library roots, source items, sync cursors, provider properties, and track-to-source references preserve remote identity without polluting canonical music entities.
+- [架构报告](./docs/architecture/final-architecture.md)
+- [Room KMP 数据库结构](./docs/database/schema.md)
+- [SMB 音源](./docs/music-sources/smb.md)
+- [插件运行时](./docs/plugin-runtime.md)
+- [共享 DSP 架构](./docs/audio/dsp-architecture.md)
+- [DSP 效果与参数](./docs/audio/dsp-effects.md)
+- [DSP 平台支持与基准](./docs/audio/dsp-platform-support.md)
+- [测试报告](./docs/testing/test-report.md)
 
-4. **Transient playback resources are never canonical data**  
-   Signed URLs, HTTP headers, tokens, cookies, and temporary loopback URLs are resolved at playback time and are not persisted as track fields.
+## 仓库结构
 
-5. **Features depend on contracts, not platform engines**  
-   Common code consumes playback, download, sync, source, and repository interfaces. Media3, AVPlayer, rodio, Room, and UniFFI stay at platform or data boundaries.
-
-6. **Metadata plugins are not playback providers**  
-   JavaScript plugins implement metadata lookup through `MetaSource`; Local, WebDAV, and SMB implement playback and browsing through `MusicSource`.
-
-More detailed documents:
-
-- [Architecture report](./docs/architecture/final-architecture.md)
-- [Room KMP schema](./docs/database/schema.md)
-- [SMB music source](./docs/music-sources/smb.md)
-- [Plugin runtime](./docs/plugin-runtime.md)
-- [Shared DSP architecture](./docs/audio/dsp-architecture.md)
-- [DSP effects and parameters](./docs/audio/dsp-effects.md)
-- [DSP platform support and benchmarks](./docs/audio/dsp-platform-support.md)
-- [Test report](./docs/testing/test-report.md)
-
-## Repository Structure
+> 仓库当前仍使用历史 GitHub slug `MelodyTrove`；下方目录名按当前产品名称展示。
 
 ```text
-MelodyTrove/
-├── androidApp/                  Android application entry point
-├── desktopApp/                  Desktop JVM application entry point
-├── iosApp/                      SwiftUI container and Xcode project
-├── shared/                      App assembly, navigation, DI, Room, data layer, platform actuals
+TidePlayer/
+├── androidApp/                  Android 应用入口
+├── desktopApp/                  Desktop JVM 应用入口
+├── iosApp/                      SwiftUI 容器与 Xcode 工程
+├── shared/                      应用装配、导航、DI、Room、数据层和平台 actual
 ├── core/
-│   ├── domain/                  Pure domain models and repository contracts
-│   ├── presentation/            Shared design system and presentation utilities
-│   ├── lyrics-core/             Shared lyric models and processing
-│   └── lyrics-ui/               Shared lyric UI
+│   ├── domain/                  纯领域模型和 Repository 契约
+│   ├── presentation/            共享设计系统和展示层工具
+│   ├── lyrics-core/             共享歌词模型与处理逻辑
+│   └── lyrics-ui/               共享歌词 UI
 ├── source/
-│   ├── api/                     MusicSource contracts and registry
-│   ├── local/                   Local source adapter
-│   ├── smb/                     SMB2/3 source adapter
-│   └── webdav/                  WebDAV source adapter
+│   ├── api/                     MusicSource 契约和注册表
+│   ├── local/                   本地音源适配器
+│   ├── smb/                     SMB2/3 音源适配器
+│   └── webdav/                  WebDAV 音源适配器
 ├── service/
-│   ├── playback/domain/         Playback engine/controller/queue contracts
-│   ├── playback/presentation/   Now Playing and playback UI state
-│   ├── download/domain/         Download contracts and use cases
-│   ├── download/data/           Persistent download implementation
-│   ├── librarysync/domain/      Library sync contracts
-│   └── librarysync/data/        Sync persistence and coordination
-├── feature/                     Home, library, search, settings, sources, playlists, etc.
+│   ├── playback/domain/         播放引擎、控制器和队列契约
+│   ├── playback/presentation/   正在播放和播放 UI 状态
+│   ├── download/domain/         下载契约与 UseCase
+│   ├── download/data/           持久化下载实现
+│   ├── librarysync/domain/      曲库同步契约
+│   └── librarysync/data/        同步持久化与协调逻辑
+├── feature/                     首页、曲库、搜索、设置、音源、播放列表等功能
 ├── rust-libs/
-│   ├── audio-dsp/               Platform-independent realtime DSP core
-│   ├── backend/                 UniFFI-facing backend facade
-│   ├── async-runtime/           Shared Rust async runtime support
-│   ├── storage-backend/         Remote storage and scanning
-│   ├── audio-metadata/          Audio metadata extraction
-│   ├── plugin-runtime/          QuickJS plugin host
-│   ├── order-key/               Stable ordering keys
-│   └── uniffi-bindgen/          UniFFI binding generator helper
-├── build-logic/convention/      Gradle convention plugins
-├── docs/                        Architecture, schema, runtime, and test documentation
-├── Design/                      UI design references and generated design assets
-└── gradle/libs.versions.toml    Central dependency and plugin version catalog
+│   ├── audio-dsp/               平台无关的实时 DSP 核心
+│   ├── app-backend/             面向 UniFFI 的后端门面
+│   ├── async-runtime/           Rust 异步运行时支持
+│   ├── storage-backend/         远端存储和扫描
+│   ├── audio-metadata/          音频元数据提取
+│   ├── plugin-runtime/          QuickJS 插件 Host
+│   ├── order-key/               稳定排序键
+│   └── uniffi-bindgen/          UniFFI 绑定生成辅助工具
+├── build-logic/convention/      Gradle Convention Plugin
+├── docs/                        架构、数据库、运行时和测试文档
+├── Design/                      UI 设计参考与生成的设计资源
+└── gradle/libs.versions.toml    依赖和插件版本目录
 ```
 
-The Gradle project currently includes dedicated feature modules for Home, Search, Downloads, Settings, Playlist, Sources, Importing, Onboarding, Queue, Radio, Lyrics, Album, Artist, Browse, Library, Recently Added, and Recently Played.
+## 技术栈
 
-## Technology Stack
-
-| Area | Technologies |
+| 范围 | 技术 |
 | --- | --- |
-| Shared language | Kotlin 2.4, Kotlin Multiplatform |
-| UI | Compose Multiplatform, JetBrains Navigation Compose, Miuix |
-| Dependency injection | Koin |
-| Persistence | Room KMP, bundled SQLite, DataStore |
-| Concurrency and serialization | Coroutines, kotlinx.serialization, kotlinx.datetime |
-| Android playback | AndroidX Media3 / MediaSession |
-| iOS host | SwiftUI, UIKit bridge, AVPlayer engine adapter |
-| Desktop | Compose Desktop, JVM 21, Rust/rodio playback |
-| Native backend | Rust, UniFFI, Gobley Gradle integration |
-| Plugins | QuickJS-based JavaScript runtime, Lyrico Plugin API v1-v3 |
-| CI | GitHub Actions, Gradle, Cargo |
+| 共享语言 | Kotlin 2.4、Kotlin Multiplatform |
+| UI | Compose Multiplatform、JetBrains Navigation Compose、Miuix |
+| 依赖注入 | Koin |
+| 数据持久化 | Room KMP、bundled SQLite、DataStore |
+| 并发与序列化 | Coroutines、kotlinx.serialization、kotlinx.datetime |
+| Android 播放 | AndroidX Media3 / MediaSession |
+| iOS 宿主 | SwiftUI、UIKit Bridge、AVPlayer 播放适配器 |
+| Desktop | Compose Desktop、JVM 21、Rust/rodio 播放 |
+| Native 后端 | Rust、UniFFI、Gobley Gradle 集成 |
+| 插件 | QuickJS JavaScript Runtime、Lyrico Plugin API v1-v3 |
+| CI | GitHub Actions、Gradle、Cargo |
 
-## Requirements
+## 开发环境要求
 
-### Common
+### 通用环境
 
 - Git
 - JDK 21
-- Rust stable toolchain with Cargo
-- A recent Android Studio or IntelliJ IDEA with Kotlin Multiplatform support
+- Rust stable 工具链和 Cargo
+- 较新的 Android Studio 或支持 Kotlin Multiplatform 的 IntelliJ IDEA
 
 ### Android
 
-- Android SDK platform 37 and compatible build tools
-- Android NDK with Rust Android target support; CI currently uses NDK `r28-beta2`
-- Rust targets:
+- Android SDK Platform 37 和兼容的 Build Tools
+- 支持 Rust Android Target 的 Android NDK；当前 CI 使用 NDK `r28-beta2`
+- Rust Android Target：
 
 ```bash
 rustup target add aarch64-linux-android x86_64-linux-android
 cargo install --locked cargo-ndk@3.5.4
 ```
 
-The Android app uses `minSdk 29`, `targetSdk 34`, and `compileSdk 37`. The packaged application currently targets `arm64-v8a`; shared native builds also cover `x86_64` for development and tests.
+Android 应用使用 `minSdk 29`、`targetSdk 34` 和 `compileSdk 37`。当前打包应用面向 `arm64-v8a`，共享 Native 构建还包含用于开发和测试的 `x86_64`。
 
 ### iOS
 
-- macOS with Xcode
-- iOS 16.0 or later
-- Apple Silicon, or an arm64 iOS Simulator destination
+- macOS 和 Xcode
+- iOS 16.0 或更高版本
+- Apple Silicon，或 arm64 iOS Simulator 目标
 
-The Gradle project defines `iosArm64` and `iosSimulatorArm64`. An x86_64 simulator target is not configured.
+Gradle 工程定义 `iosArm64` 和 `iosSimulatorArm64`，未配置 x86_64 Simulator Target。
 
 ### Linux Desktop
 
-Install ALSA development headers and `pkg-config` before building the Desktop target:
+构建 Desktop 目标前需要安装 ALSA 开发头文件和 `pkg-config`：
 
 ```bash
 sudo apt-get update
 sudo apt-get install --yes libasound2-dev pkg-config
 ```
 
-## Build from Source
+## 从源码构建
 
-Clone the repository:
+仓库目前仍使用历史 GitHub 地址：
 
 ```bash
 git clone https://github.com/JulyStar-Lv/MelodyTrove.git
 cd MelodyTrove
 ```
 
-Development builds resolve to `appVersionBase-dev.<commit-count>+<short-sha>`.
-Tags named `vX.Y.Z` or `pre-vX.Y.Z-beta.N` become the release version. For
-reproducible external builds, set `APP_VERSION_NAME` and `APP_VERSION_CODE`
-explicitly; `./gradlew printAppVersion` prints the resolved values.
+开发构建版本格式为 `appVersionBase-dev.<提交数>+<短 SHA>`。`vX.Y.Z` 或 `pre-vX.Y.Z-beta.N` 标签会成为发布版本。外部构建可显式设置 `APP_VERSION_NAME` 和 `APP_VERSION_CODE`；运行 `./gradlew printAppVersion` 可以查看最终解析结果。
 
 ### Android
-
-Build a debug APK:
 
 ```bash
 ./gradlew :androidApp:assembleDebug
 ```
 
-The APK is generated under `androidApp/build/outputs/apk/`.
-
-Release builds require `androidApp/key.properties` and a valid signing keystore. Do not commit signing credentials.
+APK 输出目录为 `androidApp/build/outputs/apk/`。Release 构建需要配置 `androidApp/key.properties` 和有效签名密钥，请勿提交签名凭据。
 
 ### Desktop
 
-Run the Desktop application:
-
 ```bash
 ./gradlew :desktopApp:run
-```
-
-Compile the Desktop target and run shared Desktop tests:
-
-```bash
 ./gradlew :desktopApp:compileKotlinDesktop :shared:desktopTest
-```
-
-Package a distribution for the current operating system:
-
-```bash
 ./gradlew :desktopApp:packageDistributionForCurrentOS
 ```
 
-Compose Desktop is configured for DMG, MSI, and DEB distributions.
+Compose Desktop 已配置 DMG、MSI 和 DEB 输出格式。
 
 ### iOS
-
-Open the Xcode project:
 
 ```bash
 open iosApp/App.xcodeproj
 ```
 
-Select the `App` scheme and an arm64 simulator or physical device. The Xcode build phase invokes:
+选择 `App` Scheme 和 arm64 Simulator 或真机。Xcode Build Phase 会自动调用：
 
 ```bash
 ./gradlew :shared:embedAndSignAppleFrameworkForXcode
 ```
 
-A command-line simulator build can be run with:
-
-```bash
-xcodebuild \
-  -project iosApp/App.xcodeproj \
-  -scheme App \
-  -configuration Debug \
-  -sdk iphonesimulator \
-  -destination 'generic/platform=iOS Simulator' \
-  ARCHS=arm64 \
-  ONLY_ACTIVE_ARCH=YES \
-  CODE_SIGNING_ALLOWED=NO \
-  build
-```
-
-### Rust workspace
-
-Format, lint, and test the Rust workspace:
+### Rust Workspace
 
 ```bash
 cargo fmt --manifest-path rust-libs/Cargo.toml --all -- --check
@@ -341,84 +284,87 @@ cargo clippy --manifest-path rust-libs/Cargo.toml --workspace --all-targets -- -
 cargo test --manifest-path rust-libs/Cargo.toml --workspace
 ```
 
-## Testing and CI
+## 测试与 CI
 
-The `Build validation` GitHub Actions workflow runs on pushes and pull requests to `main`.
-
-Current CI gates include:
-
-- Android debug APK compilation with JDK 21, Android SDK 37, NDK, and Rust Android targets.
-- Desktop Kotlin compilation and shared Desktop tests.
-- Rust formatting, Clippy, workspace unit tests, and focused plugin-runtime validation are documented in the repository test report.
-- Cross-platform checks cover Android, Desktop, and iOS Simulator shared compilation.
-
-Useful local commands:
+仓库 CI 会在推送到 `main` 或向 `main` 创建 Pull Request 时执行构建与检查。常用本地命令：
 
 ```bash
-# Repository-wide Gradle tests
 ./gradlew test
-
-# Shared Desktop tests
 ./gradlew :shared:desktopTest
-
-# Android shared unit tests
 ./gradlew :shared:testDebugUnitTest
-
-# iOS Simulator shared tests
 ./gradlew :shared:iosSimulatorArm64Test
-
-# Cross-platform compile gate
 ./gradlew \
   :shared:compileDebugKotlinAndroid \
   :desktopApp:compileKotlinDesktop \
   :shared:compileKotlinIosSimulatorArm64
 ```
 
-Some live WebDAV tests require runtime-provided credentials. Secrets must never be committed to the repository.
+部分 WebDAV Live Test 需要运行时提供账号凭据，任何 Secret 都不得提交到仓库。
 
-## Development Notes
+## 品牌与兼容标识
 
-- Keep pure domain models free of Compose, Room, Media3, AVFoundation, rodio, and UniFFI types.
-- Keep provider-specific fields in source entities or source item properties instead of adding them to canonical track entities.
-- Resolve expiring playback resources at the playback boundary.
-- Prefer immutable screen state with explicit Action/Event contracts for feature UI.
-- Add Room migrations for every schema change and keep exported schemas updated.
-- Do not commit WebDAV credentials, OAuth tokens, plugin secrets, signing files, or third-party plugin ZIPs.
-- Run the relevant Gradle and Cargo checks before opening a pull request.
+当前产品品牌为 **TidePlayer**。稳定技术标识继续使用品牌中立名称，以避免再次改名造成数据或 API 迁移：
 
-## Known Limitations
+| 范围 | 当前标识 |
+| --- | --- |
+| Kotlin/Java 根包 | `io.github.julystar.musicapp` |
+| Android Application ID | `io.github.julystar.musicapp` |
+| iOS Bundle ID | `io.github.julystar.musicapp` |
+| Apple Shared Framework | `SharedKit` |
+| Rust / UniFFI | `app-backend` / `app_backend` / `uniffi.app_backend` |
+| 数据库 | `library.db` |
+| Preferences | `settings.preferences_pb` |
+| Desktop 数据目录 | 平台数据目录下的 `TidePlayer` |
+| 主 Deep Link Scheme | `tideplayer` |
 
-- The project is still pre-stable and does not guarantee backward compatibility for every development build.
-- The iOS Simulator target is arm64 only.
-- Third-party Lyrico plugin ZIPs are user supplied and are not distributed by MelodyTrove.
-- Runtime `include(path)` is intentionally unavailable after deterministic include-directory bundling; plugins cannot read arbitrary local files.
-- Android production process termination relies on normal operating-system resource reclamation.
-- Android lint currently has repository/tooling compatibility issues documented in the test report; build and unit-test gates remain the primary validation path.
+`MelodyTrove` 和 `TideTunes` 只作为历史兼容标识保留。详细规则见：
 
-## Roadmap
+- [品牌命名规则](./docs/branding/naming-policy.md)
+- [历史兼容标识](./docs/branding/legacy-identifiers.md)
+- [外部迁移清单](./docs/branding/external-migration-checklist.md)
 
-Near-term work is focused on:
+## 开发约定
 
-- Hardening real-world Lyrico plugin compatibility and plugin diagnostics.
-- Improving large-library import, incremental sync, background scanning, and metadata backfill performance.
-- Continuing the adaptive UI/UX, accessibility, and desktop interaction work.
-- Expanding source providers and improving provider-specific sync behavior.
-- Strengthening release packaging, automated distribution, and end-user documentation.
+- 纯领域模型不得依赖 Compose、Room、Media3、AVFoundation、rodio 或 UniFFI 类型。
+- Provider 特有字段应保存到来源实体或来源对象扩展属性，不要直接加入规范化 `track`。
+- 短期有效的播放资源必须在播放边界动态解析。
+- 功能 UI 优先使用不可变 State 和明确的 Action/Event 契约。
+- 每次 Room Schema 变更都必须提供 Migration，并更新导出的 Schema。
+- 禁止提交 WebDAV 密码、OAuth Token、插件 Secret、签名文件或第三方插件 ZIP。
+- 提交 Pull Request 前应执行相关 Gradle、Cargo、品牌和 HMI i18n 检查。
 
-The roadmap is directional and may change as the architecture and platform support mature.
+## 当前限制
 
-## Contributing
+- 项目仍处于稳定版之前，开发版本之间不保证所有行为完全兼容。
+- iOS Simulator 当前仅支持 arm64。
+- 第三方 Lyrico 插件 ZIP 由用户自行提供，TidePlayer 不负责分发。
+- 配置的 include 目录会在构建 Bundle 时按确定顺序合并，运行时 `include(path)` 被有意禁用，插件不能任意读取本地文件。
+- Android 正常生产进程退出依赖操作系统回收进程资源。
 
-Issues and pull requests are welcome. Before submitting a change:
+## 路线图
 
-1. Keep changes within the existing module and dependency boundaries.
-2. Add or update tests for behavior changes.
-3. Run the relevant Gradle and Cargo checks.
-4. Document schema, plugin API, source contract, or platform requirement changes.
-5. Never include private credentials, copyrighted plugin packages, or personal library data.
+近期工作重点包括：
 
-## License
+- 继续提高真实 Lyrico 插件兼容性和插件诊断能力。
+- 优化大曲库导入、增量同步、后台扫描和元数据补全性能。
+- 持续改进自适应 UI/UX、无障碍能力和桌面交互。
+- 扩展更多音源 Provider，并增强各 Provider 的同步能力。
+- 完善安装包构建、自动发布和面向最终用户的使用文档。
 
-Most of MelodyTrove is licensed under the [GNU General Public License v3.0](./LICENSE.md).
+以上路线图仅表示当前方向，可能随着架构和平台支持成熟度调整。
 
-The [`order-key`](./rust-libs/order-key) crate is available under either the Apache License 2.0 or the MIT License.
+## 参与贡献
+
+欢迎提交 Issue 和 Pull Request。提交修改前请确认：
+
+1. 遵守现有模块和依赖边界。
+2. 为行为变更新增或更新测试。
+3. 执行相关 Gradle 和 Cargo 检查。
+4. 同步记录数据库、插件 API、音源契约或平台要求的变化。
+5. 不包含任何私密凭据、受版权保护的插件包或个人音乐库数据。
+
+## 许可证
+
+TidePlayer 的大部分代码使用 [GNU General Public License v3.0](./LICENSE.md) 许可证。
+
+[`order-key`](./rust-libs/order-key) Crate 可在 Apache License 2.0 或 MIT License 二选一的条款下使用。

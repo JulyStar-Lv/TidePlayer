@@ -1,6 +1,6 @@
 # Third-party licenses and notices
 
-This file records third-party work directly relevant to MelodyTrove's shared audio DSP implementation. The repository's own license remains GNU GPL v3 as described by [`LICENSE.md`](./LICENSE.md).
+This file records third-party work directly relevant to TidePlayer's shared audio DSP implementation. The repository's own license remains GNU GPL v3 as described by [`LICENSE.md`](./LICENSE.md).
 
 ## RawS Music
 
@@ -10,9 +10,9 @@ This file records third-party work directly relevant to MelodyTrove's shared aud
 - Copyright: 2024–2026 RawSMusic Contributors
 - License: Apache License 2.0; a copy is available at [`license/LICENSE-APACHE`](./license/LICENSE-APACHE)
 
-MelodyTrove studied and rewrote software DSP ideas from the Apache-2.0 main repository, principally its DSP engine, automatic peak limiter, loudness/balance, mono bass, dynamic EQ, Moog ladder, stereo width, speaker output, stereo scene, ambisonic/spatial, analytic HRTF, compact BRIR, Android binaural spatial, and FFT-convolver source files and their Kotlin/JNI control layer. The resulting implementation is modified for a platform-independent Rust realtime pipeline and is not a verbatim copy of the RawS application.
+TidePlayer studied and rewrote software DSP ideas from the Apache-2.0 main repository, principally its DSP engine, automatic peak limiter, loudness/balance, mono bass, dynamic EQ, Moog ladder, stereo width, speaker output, stereo scene, ambisonic/spatial, analytic HRTF, compact BRIR, Android binaural spatial, and FFT-convolver source files and their Kotlin/JNI control layer. The resulting implementation is modified for a platform-independent Rust realtime pipeline and is not a verbatim copy of the RawS application.
 
-Attribution headers are present on the adapted/re-written files in `rust-libs/audio-dsp/src`. The bridge and platform adapters are MelodyTrove integration code.
+Attribution headers are present on the adapted/re-written files in `rust-libs/audio-dsp/src`. The bridge and platform adapters are TidePlayer integration code.
 
 The following were explicitly **not imported**:
 
@@ -34,4 +34,4 @@ RawS Music's upstream notice states:
 - Source: <https://crates.io/crates/triple_buffer>
 - License: Mozilla Public License 2.0
 
-`triple_buffer` transports complete immutable DSP configuration snapshots from control threads to realtime consumers. MelodyTrove does not modify the crate. Its source and license are resolved through Cargo; the upstream MPL-2.0 text is also available at <https://www.mozilla.org/MPL/2.0/>.
+`triple_buffer` transports complete immutable DSP configuration snapshots from control threads to realtime consumers. TidePlayer does not modify the crate. Its source and license are resolved through Cargo; the upstream MPL-2.0 text is also available at <https://www.mozilla.org/MPL/2.0/>.

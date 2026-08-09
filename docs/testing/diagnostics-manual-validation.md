@@ -47,7 +47,7 @@ Requires Android 11/API 30 or newer.
 ## User-requested safe mode
 
 1. In the Diagnostics Center, choose **Use safe mode on next launch**.
-2. Close and reopen MelodyTrove.
+2. Close and reopen TidePlayer.
 3. Confirm the minimal safe-mode UI appears without a fabricated crash incident.
 4. Choose **Try normal startup** and confirm normal initialization can proceed even though there is
    no incident ID associated with the user request.

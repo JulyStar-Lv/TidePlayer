@@ -1,4 +1,4 @@
-# MelodyTrove Compose UI 差异矩阵
+# TidePlayer Compose UI 差异矩阵
 
 审计日期：2026-07-25。设计证据按优先级来自 `Design/src/app/App.tsx`、
 `Design/src/imports/pasted_text/design-system-v3.md` 与

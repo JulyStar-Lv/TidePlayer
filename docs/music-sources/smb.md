@@ -1,6 +1,6 @@
 # SMB Music Source
 
-MelodyTrove supports SMB2 and SMB3 shares as indexed music sources. SMB1 is not
+TidePlayer supports SMB2 and SMB3 shares as indexed music sources. SMB1 is not
 implemented and the client never negotiates or falls back to SMB1.
 
 ## Capabilities
@@ -18,7 +18,7 @@ implemented and the client never negotiates or falls back to SMB1.
 The implementation uses the pure-Rust `smb2` 0.13.1 crate. It provides SMB2/3,
 NTLMv2, Guest, Domain/Workgroup, signing, encryption, directory enumeration,
 and positioned `read_at` without OpenSSL, Kerberos, GSSAPI, or a platform SMB
-dynamic library. MelodyTrove uses bounded connection and reader pools around
+dynamic library. TidePlayer uses bounded connection and reader pools around
 that client rather than exposing `smb://` URLs to a platform player.
 
 ## Account configuration
@@ -72,7 +72,7 @@ available. A server that mandates either feature is allowed to negotiate it
 normally. Older servers that cannot meet a selected requirement return an
 Unsupported error instead of silently weakening the connection.
 
-Encryption protects SMB traffic between MelodyTrove and the server. The
+Encryption protects SMB traffic between TidePlayer and the server. The
 localhost playback gateway remains bound to `127.0.0.1` and uses a random,
 per-session token.
 
@@ -94,7 +94,7 @@ Fast, Standard, and Full metadata modes reuse the existing remote Range
 metadata reader. A failed or inaccessible file is recorded diagnostically and
 does not silently remove the rest of a successful directory result. Imported
 tracks are stored in the common Room library and are available to global and
-source-scoped indexed search. MelodyTrove does not issue live full-text queries
+source-scoped indexed search. TidePlayer does not issue live full-text queries
 to the SMB server.
 
 Incremental synchronization and SMB Change Notify are not part of the first
@@ -136,7 +136,7 @@ and all schedulers reject a changed total size. Pause retains partial data;
 cancel deletes it.
 
 iOS cannot assume that a system background URLSession can reconnect to a
-short-lived localhost gateway after MelodyTrove has been terminated. The first
+short-lived localhost gateway after TidePlayer has been terminated. The first
 version retains resume data and the playback session in memory, but reliable
 resume across process termination is not guaranteed. Keep the app process
 alive for long SMB downloads; a killed download may need Retry.

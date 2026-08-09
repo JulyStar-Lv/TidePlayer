@@ -3,7 +3,7 @@
 Date: 2026-06-28
 
 This note records the required source/API evaluation before adding Miuix to
-MelodyTrove. It intentionally does not add a dependency yet; adoption should go
+TidePlayer. It intentionally does not add a dependency yet; adoption should go
 through `core/presentation` wrappers so feature screens do not depend directly
 on third-party UI APIs.
 
@@ -36,9 +36,9 @@ on third-party UI APIs.
   into preference or overlay component names.
 - Release `v0.9.2` notes `miuix-blur` Android minSdk moved to API 33.
 
-## MelodyTrove compatibility
+## TidePlayer compatibility
 
-Current MelodyTrove versions in `gradle/libs.versions.toml`:
+Current TidePlayer versions in `gradle/libs.versions.toml`:
 
 - Kotlin: `2.4.0`
 - Compose Multiplatform: `1.11.1`
@@ -84,7 +84,7 @@ Defer these modules:
 - Keep Miuix imports inside `core/presentation` wrappers such as
   `AppButton`, `AppIconButton`, `AppNavigationBar`, `AppNavigationRail`,
   `AppSidebar`, `AppCard`, `AppDialog`, and `AppScaffold`.
-- Feature screens should depend on MelodyTrove wrapper APIs, not Miuix APIs.
+- Feature screens should depend on TidePlayer wrapper APIs, not Miuix APIs.
 - Keep current Material/App components until each wrapper is migrated and
   verified.
 - Do not add `miuix-blur` until Android minSdk and fallback behavior are

@@ -4,7 +4,7 @@ Date: 2026-07-28
 
 ## Decision
 
-MelodyTrove now uses one cross-platform theme-seed model:
+TidePlayer now uses one cross-platform theme-seed model:
 
 - the current artwork supplies the active seed when artwork color is enabled and
   extraction succeeds;
@@ -101,7 +101,7 @@ iOS Compact evidence from a fresh iPhone 16e / iOS 26.4 simulator:
 2. Run `./gradlew :androidApp:assembleDebug`.
 3. Run
    `adb install -r androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk`.
-4. Open MelodyTrove → Settings → Appearance.
+4. Open TidePlayer → Settings → Appearance.
 5. Confirm Theme color cannot open while artwork color is on.
 6. Turn artwork color off, confirm Theme color becomes enabled, then capture the
    picker, Brand Pink light/dark, Yellow light/dark, and the no-artwork fallback.
