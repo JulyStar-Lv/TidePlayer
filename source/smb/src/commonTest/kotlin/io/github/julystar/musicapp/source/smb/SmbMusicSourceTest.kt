@@ -10,6 +10,7 @@ import io.github.julystar.musicapp.source.api.LegacyStorageDirectoryLister
 import io.github.julystar.musicapp.source.api.LegacyStorageKind
 import io.github.julystar.musicapp.source.api.LegacyStoragePlaybackResolver
 import io.github.julystar.musicapp.source.api.LegacyStorageSearchProvider
+import io.github.julystar.musicapp.source.api.LegacySmbServerDirectoryLister
 import io.github.julystar.musicapp.source.api.MusicSourceRegistry
 import io.github.julystar.musicapp.source.api.SmbSourceConfiguration
 import io.github.julystar.musicapp.source.api.SourceAuthResult
@@ -42,6 +43,29 @@ class SmbMusicSourceTest {
         )
         assertTrue("alice" !in address)
         assertTrue("secret" !in address)
+    }
+
+    @Test
+    fun configurationWithoutShareBuildsServerRootAddress() {
+        assertEquals(
+            "smb://nas.local",
+            configuration().copy(share = "", rootPath = "").toSmbAddress(),
+        )
+    }
+
+    @Test
+    fun pathConfigurationListsFromTheSmbServerRoot() = runTest {
+        var listedPath: String? = null
+        val source = source(
+            serverLister = LegacySmbServerDirectoryLister { _, directoryId ->
+                listedPath = directoryId
+                SourceListResult.Success(emptyList())
+            },
+        )
+
+        source.listPathConfiguration(SourceAccountId("storage:7"), "/Music")
+
+        assertEquals("/Music", listedPath)
     }
 
     @Test
@@ -163,6 +187,10 @@ class SmbMusicSourceTest {
         search: LegacyStorageSearchProvider = LegacyStorageSearchProvider { _, _, _, _, _ ->
             SourceSearchResult.Success(emptyList())
         },
+        serverLister: LegacySmbServerDirectoryLister =
+            LegacySmbServerDirectoryLister { accountId, directoryId ->
+                lister.list(accountId, directoryId, LegacyStorageKind.Smb)
+            },
         playback: LegacyStoragePlaybackResolver = object : LegacyStoragePlaybackResolver {
             override suspend fun resolve(
                 accountId: SourceAccountId,
@@ -181,6 +209,7 @@ class SmbMusicSourceTest {
             directoryLister = lister,
             playbackResolver = playback,
             searchProvider = search,
+            serverDirectoryLister = serverLister,
         )
     }
 

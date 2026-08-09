@@ -33,7 +33,6 @@ function contrastColor(hex: string) {
 }
 
 function primaryButtonColors(seed: string, dark: boolean) {
-  // Match the sampled Apple Music primary action colors for the Brand Pink theme.
   if (normalizeHex(seed) === "#FF5B8A") {
     return dark
       ? { background: "#FA2E48", foreground: "#FFFFFF" }

@@ -1,6 +1,8 @@
 package io.github.julystar.musicapp.navigation
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
@@ -48,6 +50,8 @@ import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeCl
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkAnimatedVisibilityScope
+import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkSharedTransitionScope
 import io.github.julystar.musicapp.feature.album.presentation.navigation.albumGraph
 import io.github.julystar.musicapp.feature.artist.presentation.navigation.artistGraph
 import io.github.julystar.musicapp.feature.browse.presentation.navigation.browseGraph
@@ -106,7 +110,13 @@ internal fun RootNavHost(
             navController = navController,
             startDestination = MusicGraph.Home,
             enterTransition = {
-                if (isImmersivePlayerRoute(targetState.destination.route)) {
+                if (isArtworkDetailTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    EnterTransition.None
+                } else if (isImmersivePlayerRoute(targetState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
                 } else {
                     slideIn(
@@ -116,7 +126,13 @@ internal fun RootNavHost(
                 }
             },
             exitTransition = {
-                if (isImmersivePlayerRoute(targetState.destination.route)) {
+                if (isArtworkDetailTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    ExitTransition.None
+                } else if (isImmersivePlayerRoute(targetState.destination.route)) {
                     immediateExitTransition(playerTransitionDurationMillis)
                 } else {
                     slideOut(
@@ -126,7 +142,13 @@ internal fun RootNavHost(
                 }
             },
             popEnterTransition = {
-                if (isImmersivePlayerRoute(initialState.destination.route)) {
+                if (isArtworkDetailTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    EnterTransition.None
+                } else if (isImmersivePlayerRoute(initialState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
                 } else {
                     slideIn(
@@ -136,7 +158,13 @@ internal fun RootNavHost(
                 }
             },
             popExitTransition = {
-                if (isImmersivePlayerRoute(initialState.destination.route)) {
+                if (isArtworkDetailTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    ExitTransition.None
+                } else if (isImmersivePlayerRoute(initialState.destination.route)) {
                     immediateExitTransition(playerTransitionDurationMillis)
                 } else {
                     slideOut(
@@ -162,42 +190,57 @@ internal fun RootNavHost(
             },
         )
         composable<MusicGraph.Playlists> {
-            val createPlaylistVM: CreatePlaylistVM = koinViewModel()
-            PlaylistsListRoot(
-                onNavigateToPlaylist = { id ->
-                    navController.navigate(MusicGraph.Playlist(id))
-                },
-                onCreatePlaylist = createPlaylistVM::openModal,
-            )
-            CreatePlaylistRoot(
-                createPlaylistVM = createPlaylistVM,
-                onNavigateToImport = {
-                    navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylist))
-                },
-                onNavigateToCoverImport = {
-                    navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylistCover))
-                },
-            )
+            val animatedVisibilityScope = this
+            CompositionLocalProvider(
+                LocalDetailArtworkAnimatedVisibilityScope provides animatedVisibilityScope,
+            ) {
+                val createPlaylistVM: CreatePlaylistVM = koinViewModel()
+                PlaylistsListRoot(
+                    onNavigateToPlaylist = { id ->
+                        navController.navigate(MusicGraph.Playlist(id))
+                    },
+                    onCreatePlaylist = createPlaylistVM::openModal,
+                )
+                CreatePlaylistRoot(
+                    createPlaylistVM = createPlaylistVM,
+                    onNavigateToImport = {
+                        navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylist))
+                    },
+                    onNavigateToCoverImport = {
+                        navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylistCover))
+                    },
+                )
+            }
         }
         composable<MusicGraph.Playlist> {
-            PlaylistRoot(
-                scaffoldPadding = args.scaffoldPadding,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToImport = {
-                    navController.navigate(MusicGraph.Import(RouteImportType.Music))
-                },
-            )
-            EditPlaylistRoot(
-                onNavigateToCoverImport = {
-                    navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylistCover))
-                },
-            )
+            val animatedVisibilityScope = this
+            CompositionLocalProvider(
+                LocalDetailArtworkAnimatedVisibilityScope provides animatedVisibilityScope,
+            ) {
+                PlaylistRoot(
+                    scaffoldPadding = args.scaffoldPadding,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToImport = {
+                        navController.navigate(MusicGraph.Import(RouteImportType.Music))
+                    },
+                )
+                EditPlaylistRoot(
+                    onNavigateToCoverImport = {
+                        navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylistCover))
+                    },
+                )
+            }
         }
         composable<MusicGraph.Favorites> {
-            FavoritesPlaylistRoot(
-                scaffoldPadding = args.scaffoldPadding,
-                onNavigateBack = { navController.popBackStack() },
-            )
+            val animatedVisibilityScope = this
+            CompositionLocalProvider(
+                LocalDetailArtworkAnimatedVisibilityScope provides animatedVisibilityScope,
+            ) {
+                FavoritesPlaylistRoot(
+                    scaffoldPadding = args.scaffoldPadding,
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
         }
         browseGraph(
             onNavigateBack = { navController.popBackStack() },
@@ -260,6 +303,7 @@ internal fun RootNavHost(
         val sharedTransitionScope = this
         CompositionLocalProvider(
             LocalPlayerArtworkSharedTransitionScope provides sharedTransitionScope,
+            LocalDetailArtworkSharedTransitionScope provides sharedTransitionScope,
         ) {
             if (showSecondaryMiniPlayer) {
                 SecondaryRootNavigationLayout(
@@ -322,6 +366,16 @@ internal fun shouldShowPersistentMiniPlayer(route: String?): Boolean =
 
 internal fun isImmersivePlayerRoute(route: String?): Boolean =
     isRouteNowPlaying(route) || isRouteLyrics(route)
+
+internal fun isArtworkDetailRoute(route: String?): Boolean {
+    val routeName = route?.substringBefore('/') ?: return false
+    return routeName == "Album" || routeName.endsWith(".Album") ||
+        routeName == "Playlist" || routeName.endsWith(".Playlist") ||
+        routeName == "Favorites" || routeName.endsWith(".Favorites")
+}
+
+private fun isArtworkDetailTransition(initialRoute: String?, targetRoute: String?): Boolean =
+    isArtworkDetailRoute(initialRoute) || isArtworkDetailRoute(targetRoute)
 
 internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
     val routeName = route?.substringBefore('/') ?: return false

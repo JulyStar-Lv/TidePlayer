@@ -312,6 +312,7 @@ private fun CurrentDirectoryAction(
     currentPath: String,
     horizontalPadding: Dp,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val bottomContentInset = LocalDesignBottomContentInset.current
@@ -356,6 +357,7 @@ private fun CurrentDirectoryAction(
                 text = stringResource(Res.string.import_library_select_current),
                 variant = DesignButtonVariant.Primary,
                 minWidth = 132.dp,
+                enabled = enabled,
                 onClick = onClick,
             )
         }
@@ -484,9 +486,13 @@ private fun ImportEntries(
             }
         }
         if (choosingDirectory) {
+            val selectedAccountIsSmb = state.storageAccounts
+                .firstOrNull { account -> account.accountId == state.selectedStorageAccountId }
+                ?.isSmb == true
             CurrentDirectoryAction(
                 currentPath = currentPath,
                 horizontalPadding = horizontalPadding,
+                enabled = !selectedAccountIsSmb || currentPath != "/",
                 modifier = Modifier
                     .align(Alignment.BottomCenter),
                 onClick = { onAction(ImportAction.FinishCurrentDirectory) },

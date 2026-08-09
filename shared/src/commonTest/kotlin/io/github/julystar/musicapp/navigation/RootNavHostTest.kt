@@ -40,6 +40,25 @@ class RootNavHostTest {
     }
 
     @Test
+    fun `album playlist and favorites routes use artwork-only detail transitions`() {
+        listOf(
+            "Album/{id}",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Album/{id}",
+            "Playlist/{id}",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Playlist/{id}",
+            "Favorites",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Favorites",
+        ).forEach { route ->
+            assertTrue(isArtworkDetailRoute(route), route)
+        }
+
+        assertFalse(isArtworkDetailRoute(null))
+        assertFalse(isArtworkDetailRoute("Home"))
+        assertFalse(isArtworkDetailRoute("Artist/{id}"))
+        assertFalse(isArtworkDetailRoute("Playlists"))
+    }
+
+    @Test
     fun `persistent mini player is shown on secondary routes`() {
         listOf(
             "io.github.julystar.musicapp.MusicGraph.Album",

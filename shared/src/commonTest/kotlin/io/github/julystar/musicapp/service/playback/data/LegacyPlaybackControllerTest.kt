@@ -181,6 +181,24 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
+    fun restoresPlaybackPlaylistFromPersistedTrackIds() {
+        val playlist = playlist(
+            id = 3,
+            musics = listOf(
+                musicAbstract(id = 1, title = "One"),
+                musicAbstract(id = 2, title = "Two"),
+                musicAbstract(id = 3, title = "Three"),
+            ),
+        )
+
+        val queue = playlist.forPlaybackTrackIds(listOf(3L, 1L))
+
+        assertEquals(listOf(3L, 1L), queue?.musics?.map { it.meta.id.value })
+        assertEquals(2uL, queue?.abstr?.musicCount)
+        assertEquals(360_000.milliseconds, queue?.abstr?.duration)
+    }
+
+    @Test
     @OptIn(ExperimentalCoroutinesApi::class)
     fun replacementQueuePublishesBeforeStaleMetadataLookupCompletes() = runTest {
         val oldQueue = playbackQueue(size = 75, firstTrackId = 1L)

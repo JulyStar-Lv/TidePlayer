@@ -155,13 +155,14 @@ sealed interface SettingsAction {
     data object OpenAddWebDavDialog : SettingsAction
     data class OpenEditWebDavDialog(val accountId: SourceAccountId) : SettingsAction
     data object DismissWebDavDialog : SettingsAction
-    data class SetWebDavDialogName(val value: String) : SettingsAction
-    data class SetWebDavDialogServerUrl(val value: String) : SettingsAction
-    data class SetWebDavDialogUsername(val value: String) : SettingsAction
-    data class SetWebDavDialogRootPath(val value: String) : SettingsAction
-    data object ResetWebDavConnectionTest : SettingsAction
-    data class TestWebDavConnection(val password: String) : SettingsAction
-    data class SaveWebDavAccount(val password: String) : SettingsAction
+    data class TestWebDavConnection(
+        val password: String,
+        val draft: WebDavAccountDialogState? = null,
+    ) : SettingsAction
+    data class SaveWebDavAccount(
+        val password: String,
+        val draft: WebDavAccountDialogState? = null,
+    ) : SettingsAction
     data class RequestDeleteWebDavAccount(
         val accountId: SourceAccountId,
         val title: String,
@@ -169,19 +170,14 @@ sealed interface SettingsAction {
     data object OpenAddSmbDialog : SettingsAction
     data class OpenEditSmbDialog(val accountId: SourceAccountId) : SettingsAction
     data object DismissSmbDialog : SettingsAction
-    data class SetSmbDialogName(val value: String) : SettingsAction
-    data class SetSmbDialogHost(val value: String) : SettingsAction
-    data class SetSmbDialogPort(val value: String) : SettingsAction
-    data class SetSmbDialogShare(val value: String) : SettingsAction
-    data class SetSmbDialogRootPath(val value: String) : SettingsAction
-    data class SetSmbDialogDomain(val value: String) : SettingsAction
-    data class SetSmbDialogUsername(val value: String) : SettingsAction
-    data class SetSmbDialogGuestAccess(val value: Boolean) : SettingsAction
-    data class SetSmbDialogRequireSigning(val value: Boolean) : SettingsAction
-    data class SetSmbDialogRequireEncryption(val value: Boolean) : SettingsAction
-    data object ResetSmbConnectionTest : SettingsAction
-    data class TestSmbConnection(val password: String) : SettingsAction
-    data class SaveSmbAccount(val password: String) : SettingsAction
+    data class TestSmbConnection(
+        val password: String,
+        val draft: SmbAccountDialogState? = null,
+    ) : SettingsAction
+    data class SaveSmbAccount(
+        val password: String,
+        val draft: SmbAccountDialogState? = null,
+    ) : SettingsAction
     data class RequestDeleteSmbAccount(
         val accountId: SourceAccountId,
         val title: String,

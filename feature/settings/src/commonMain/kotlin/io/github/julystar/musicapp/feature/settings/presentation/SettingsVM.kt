@@ -377,19 +377,10 @@ class SettingsVM(
             SettingsAction.OpenAddWebDavDialog -> openAddWebDavDialog()
             is SettingsAction.OpenEditWebDavDialog -> openEditWebDavDialog(action.accountId)
             SettingsAction.DismissWebDavDialog -> dismissWebDavDialog()
-            is SettingsAction.SetWebDavDialogName -> updateWebDavDialog { it.copy(name = action.value) }
-            is SettingsAction.SetWebDavDialogServerUrl -> updateWebDavDialog {
-                it.copy(serverUrl = action.value)
+            is SettingsAction.TestWebDavConnection -> {
+                testWebDavConnection(action.password, action.draft)
             }
-            is SettingsAction.SetWebDavDialogUsername -> updateWebDavDialog {
-                it.copy(username = action.value)
-            }
-            is SettingsAction.SetWebDavDialogRootPath -> updateWebDavDialog {
-                it.copy(rootPath = action.value)
-            }
-            SettingsAction.ResetWebDavConnectionTest -> resetWebDavTest()
-            is SettingsAction.TestWebDavConnection -> testWebDavConnection(action.password)
-            is SettingsAction.SaveWebDavAccount -> saveWebDavAccount(action.password)
+            is SettingsAction.SaveWebDavAccount -> saveWebDavAccount(action.password, action.draft)
             is SettingsAction.RequestDeleteWebDavAccount -> {
                 pendingConfirmation.value = SettingsConfirmation.DeleteWebDavAccount(
                     accountId = action.accountId,
@@ -399,27 +390,8 @@ class SettingsVM(
             SettingsAction.OpenAddSmbDialog -> openAddSmbDialog()
             is SettingsAction.OpenEditSmbDialog -> openEditSmbDialog(action.accountId)
             SettingsAction.DismissSmbDialog -> dismissSmbDialog()
-            is SettingsAction.SetSmbDialogName -> updateSmbDialog { it.copy(name = action.value) }
-            is SettingsAction.SetSmbDialogHost -> updateSmbDialog { it.copy(host = action.value) }
-            is SettingsAction.SetSmbDialogPort -> updateSmbDialog {
-                it.copy(port = action.value.filter(Char::isDigit))
-            }
-            is SettingsAction.SetSmbDialogShare -> updateSmbDialog { it.copy(share = action.value) }
-            is SettingsAction.SetSmbDialogRootPath -> updateSmbDialog { it.copy(rootPath = action.value) }
-            is SettingsAction.SetSmbDialogDomain -> updateSmbDialog { it.copy(domain = action.value) }
-            is SettingsAction.SetSmbDialogUsername -> updateSmbDialog { it.copy(username = action.value) }
-            is SettingsAction.SetSmbDialogGuestAccess -> updateSmbDialog {
-                it.copy(guestAccess = action.value)
-            }
-            is SettingsAction.SetSmbDialogRequireSigning -> updateSmbDialog {
-                it.copy(requireSigning = action.value)
-            }
-            is SettingsAction.SetSmbDialogRequireEncryption -> updateSmbDialog {
-                it.copy(requireEncryption = action.value)
-            }
-            SettingsAction.ResetSmbConnectionTest -> resetSmbTest()
-            is SettingsAction.TestSmbConnection -> testSmbConnection(action.password)
-            is SettingsAction.SaveSmbAccount -> saveSmbAccount(action.password)
+            is SettingsAction.TestSmbConnection -> testSmbConnection(action.password, action.draft)
+            is SettingsAction.SaveSmbAccount -> saveSmbAccount(action.password, action.draft)
             is SettingsAction.RequestDeleteSmbAccount -> {
                 pendingConfirmation.value = SettingsConfirmation.DeleteSmbAccount(
                     accountId = action.accountId,
@@ -572,7 +544,7 @@ class SettingsVM(
             .filter { item -> item.isWebDav && item.enabled }
             .forEach { item -> scanWebDavAccount(item.accountId) }
         state.value.sourceAccounts
-            .filter { item -> item.isSmb && item.enabled }
+            .filter { item -> item.isSmb && item.enabled && !item.rootPath.isNullOrBlank() }
             .forEach { item -> scanSmbAccount(item.accountId) }
     }
 
@@ -683,13 +655,12 @@ class SettingsVM(
         resetWebDavTest()
     }
 
-    private fun updateWebDavDialog(block: (WebDavAccountDialogState) -> WebDavAccountDialogState) {
-        webDavDialog.value = webDavDialog.value?.let(block)
+    private fun testWebDavConnection(
+        password: String,
+        submittedDraft: WebDavAccountDialogState? = null,
+    ) {
+        val dialog = submittedDraft ?: webDavDialog.value ?: return
         resetWebDavTest()
-    }
-
-    private fun testWebDavConnection(password: String) {
-        val dialog = webDavDialog.value ?: return
         viewModelScope.launch {
             val draft = dialog.toWebDavDraftOrNull(password) ?: return@launch
             webDavConnectionTestStatus.value = SourceConnectionTestStatus.Testing
@@ -731,8 +702,11 @@ class SettingsVM(
         }
     }
 
-    private fun saveWebDavAccount(password: String) {
-        val dialog = webDavDialog.value ?: return
+    private fun saveWebDavAccount(
+        password: String,
+        submittedDraft: WebDavAccountDialogState? = null,
+    ) {
+        val dialog = submittedDraft ?: webDavDialog.value ?: return
         viewModelScope.launch {
             val draft = dialog.toWebDavDraftOrNull(password) ?: return@launch
             sourceOperationInProgress.value = true
@@ -812,13 +786,12 @@ class SettingsVM(
         resetSmbTest()
     }
 
-    private fun updateSmbDialog(block: (SmbAccountDialogState) -> SmbAccountDialogState) {
-        smbDialog.value = smbDialog.value?.let(block)
+    private fun testSmbConnection(
+        password: String,
+        submittedDraft: SmbAccountDialogState? = null,
+    ) {
+        val dialog = submittedDraft ?: smbDialog.value ?: return
         resetSmbTest()
-    }
-
-    private fun testSmbConnection(password: String) {
-        val dialog = smbDialog.value ?: return
         viewModelScope.launch {
             val draft = dialog.toSmbDraftOrNull(password) ?: return@launch
             smbConnectionTestStatus.value = SourceConnectionTestStatus.Testing
@@ -840,8 +813,11 @@ class SettingsVM(
         }
     }
 
-    private fun saveSmbAccount(password: String) {
-        val dialog = smbDialog.value ?: return
+    private fun saveSmbAccount(
+        password: String,
+        submittedDraft: SmbAccountDialogState? = null,
+    ) {
+        val dialog = submittedDraft ?: smbDialog.value ?: return
         viewModelScope.launch {
             val draft = dialog.toSmbDraftOrNull(password) ?: return@launch
             sourceOperationInProgress.value = true
@@ -867,8 +843,14 @@ class SettingsVM(
             }
             return
         }
+        if (account.rootPath.isNullOrBlank()) {
+            viewModelScope.launch {
+                emitFeedback(Res.string.settings_feedback_smb_path_required)
+            }
+            return
+        }
         viewModelScope.launch {
-            val rootPath = account.rootPath.normalizedRootPath()
+            val rootPath = "/"
             syncFolder(
                 request = LibrarySyncRequest(
                     accountId = accountId,
@@ -899,10 +881,6 @@ class SettingsVM(
             return null
         }
         val shareValue = share.trim().trim('/')
-        if (shareValue.isBlank()) {
-            emitFeedback(Res.string.settings_feedback_smb_share_required)
-            return null
-        }
         val usernameValue = username.trim()
         if (!guestAccess && usernameValue.isBlank()) {
             emitFeedback(Res.string.settings_feedback_smb_username_required)

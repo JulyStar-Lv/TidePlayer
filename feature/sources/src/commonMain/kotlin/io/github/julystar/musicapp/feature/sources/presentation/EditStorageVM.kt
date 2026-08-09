@@ -30,7 +30,6 @@ data class Validated(
     val aliasEmpty: Boolean = false,
     val usernameEmpty: Boolean = false,
     val passwordEmpty: Boolean = false,
-    val smbShareEmpty: Boolean = false,
     val smbPortInvalid: Boolean = false,
 ) {
     fun valid(): Boolean {
@@ -38,7 +37,6 @@ data class Validated(
             !aliasEmpty &&
             !usernameEmpty &&
             !passwordEmpty &&
-            !smbShareEmpty &&
             !smbPortInvalid
     }
 }
@@ -214,12 +212,6 @@ class EditStorageVM constructor(
             is SourceEditorAction.SmbPortChanged -> updateDraft { draft ->
                 draft.copy(smbPort = action.value.toIntOrNull() ?: 0)
             }
-            is SourceEditorAction.SmbShareChanged -> updateDraft { draft ->
-                draft.copy(smbShare = action.value)
-            }
-            is SourceEditorAction.SmbRootPathChanged -> updateDraft { draft ->
-                draft.copy(smbRootPath = action.value)
-            }
             is SourceEditorAction.SmbDomainChanged -> updateDraft { draft ->
                 draft.copy(smbDomain = action.value)
             }
@@ -313,8 +305,6 @@ class EditStorageVM constructor(
                 SourceEditorType.Emby -> draft.id == null && draft.secret.isBlank()
                 SourceEditorType.OneDrive -> draft.secret.isBlank()
             },
-            smbShareEmpty = draft.storageType == SourceEditorType.Smb &&
-                draft.smbShare.isBlank(),
             smbPortInvalid = draft.storageType == SourceEditorType.Smb &&
                 draft.smbPort !in 1..65535,
         )
@@ -485,7 +475,6 @@ private fun Validated.toSourceEditorValidation(): SourceEditorValidation {
         aliasEmpty = aliasEmpty,
         usernameEmpty = usernameEmpty,
         passwordEmpty = passwordEmpty,
-        smbShareEmpty = smbShareEmpty,
         smbPortInvalid = smbPortInvalid,
     )
 }

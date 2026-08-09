@@ -8,7 +8,7 @@ pub use backend::{
 };
 pub use bytes;
 pub use impls::{
-    BuildOneDriveArg, BuildSmbArg, BuildWebdavArg, LocalBackend, OneDriveBackend, OneDriveDrive,
-    SmbBackend, Webdav,
+    list_smb_server_path, BuildOneDriveArg, BuildSmbArg, BuildWebdavArg, LocalBackend,
+    OneDriveBackend, OneDriveDrive, SmbBackend, Webdav,
 };
 pub use reqwest::StatusCode;

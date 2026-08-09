@@ -35,13 +35,10 @@
     <string name="storage_edit_username">USERNAME</string>
     <string name="storage_edit_smb_server">SERVER</string>
     <string name="storage_edit_smb_port">PORT</string>
-    <string name="storage_edit_smb_share">SHARE</string>
-    <string name="storage_edit_smb_root">ROOT PATH</string>
     <string name="storage_edit_smb_domain">DOMAIN OR WORKGROUP</string>
     <string name="storage_edit_smb_guest">GUEST ACCESS</string>
     <string name="storage_edit_smb_signing">REQUIRE SIGNING</string>
     <string name="storage_edit_smb_encryption">REQUIRE ENCRYPTION</string>
-    <string name="storage_edit_smb_share_required">Share cannot be empty</string>
     <string name="storage_edit_smb_port_invalid">Port must be between 1 and 65535</string>
     <string name="storage_test_testing">Testing connection…</string>
     <string name="storage_test_success">Connection successful</string>

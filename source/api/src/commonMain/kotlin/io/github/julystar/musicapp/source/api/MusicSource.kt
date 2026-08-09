@@ -17,6 +17,11 @@ interface MusicSource {
         directoryId: String? = null,
     ): SourceListResult
 
+    suspend fun listPathConfiguration(
+        accountId: SourceAccountId,
+        directoryId: String? = null,
+    ): SourceListResult = list(accountId, directoryId)
+
     suspend fun search(
         accountId: SourceAccountId,
         query: String,

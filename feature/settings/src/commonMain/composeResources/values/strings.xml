@@ -401,14 +401,11 @@
     <string name="settings_webdav_root">Root path</string>
     <string name="settings_smb_add_title">Add SMB share</string>
     <string name="settings_smb_edit_title">Edit SMB share</string>
-    <string name="settings_smb_dialog_summary">Connect to a Windows, NAS, or Samba music share.</string>
     <string name="settings_smb_name">Name (optional)</string>
     <string name="settings_smb_host">Server or IP address</string>
     <string name="settings_smb_port">Port</string>
-    <string name="settings_smb_share">Share name</string>
     <string name="settings_smb_root">Folder inside share (optional)</string>
     <string name="settings_smb_guest">Guest access</string>
-    <string name="settings_smb_guest_summary">Connect without a username or password</string>
     <string name="settings_smb_username">Username</string>
     <string name="settings_smb_password_new">Password</string>
     <string name="settings_smb_password_edit">Password (leave blank to keep unchanged)</string>
@@ -471,7 +468,7 @@
     <string name="settings_feedback_password_required">Enter a password, or clear the username for anonymous access</string>
     <string name="settings_feedback_smb_host_required">Enter the server or IP address</string>
     <string name="settings_feedback_smb_port_invalid">Enter a valid SMB port</string>
-    <string name="settings_feedback_smb_share_required">Enter the SMB share name</string>
+    <string name="settings_feedback_smb_path_required">Configure a music path before scanning this SMB source</string>
     <string name="settings_feedback_smb_username_required">Enter a username, or enable guest access</string>
     <string name="settings_feedback_smb_password_required">Enter a password, or enable guest access</string>
     <string name="settings_feedback_scan_complete">Scan complete: %1$s, scanned %2$s, added %3$s, modified %4$s, deleted %5$s, skipped %6$s, metadata requests %7$s, %8$s read, %9$s ms</string>

@@ -55,8 +55,10 @@ import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
 import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
 import kotlinx.coroutines.launch
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.cover_default_playlist_image
@@ -336,7 +338,7 @@ private fun PlaylistHero(
     compact: Boolean,
     titleAlpha: Float,
 ) {
-    val artworkSize = if (compact) 112.dp else 220.dp
+    val artworkSize = if (compact) 144.dp else 260.dp
     val artworkRadius = if (compact) 18.dp else 24.dp
     val titleSize = if (compact) 24.sp else 36.sp
     val titleLineHeight = if (compact) 29.sp else 42.sp
@@ -348,21 +350,30 @@ private fun PlaylistHero(
         horizontalArrangement = Arrangement.spacedBy(if (compact) 16.dp else 28.dp),
         verticalAlignment = if (compact) Alignment.CenterVertically else Alignment.Bottom,
     ) {
-        Box(
-            modifier = Modifier
-                .size(artworkSize)
-                .clip(RoundedCornerShape(artworkRadius))
-                .background(MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
-        ) {
-            if (state.cover == null) {
-                Image(
-                    modifier = Modifier.fillMaxSize(),
-                    painter = painterResource(CoreRes.drawable.cover_default_playlist_image),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                ArtworkImage(modifier = Modifier.fillMaxSize(), artwork = state.cover)
+        if (state.isFavorites) {
+            FavoritesPlaylistArtwork(
+                size = artworkSize,
+                cornerRadius = artworkRadius,
+                modifier = Modifier.playlistArtworkSharedElement(state.playlistId),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .playlistArtworkSharedElement(state.playlistId)
+                    .size(artworkSize)
+                    .clip(RoundedCornerShape(artworkRadius))
+                    .background(MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
+            ) {
+                if (state.cover == null) {
+                    Image(
+                        modifier = Modifier.fillMaxSize(),
+                        painter = painterResource(CoreRes.drawable.cover_default_playlist_image),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    ArtworkImage(modifier = Modifier.fillMaxSize(), artwork = state.cover)
+                }
             }
         }
         Column(

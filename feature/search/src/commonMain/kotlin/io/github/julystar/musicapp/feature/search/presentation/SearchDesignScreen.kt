@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.components.QualityBadge
 import io.github.julystar.musicapp.core.presentation.components.QualityBadgeType
 import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
@@ -53,9 +54,11 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.components.DesignSearchBar
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.designListDivider
+import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import io.github.julystar.musicapp.feature.search.domain.SearchAlbumItem
 import io.github.julystar.musicapp.feature.search.domain.SearchArtistItem
 import io.github.julystar.musicapp.feature.search.domain.SearchTrackItem
@@ -468,7 +471,7 @@ private fun SearchTrendingRow(
             )
             Text(
                 text = "${track.artist} · ${track.album}",
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -591,7 +594,7 @@ private fun SearchResultRow(
             }
             Text(
                 text = listOfNotNull(track.artist, track.sourceLabel.takeIf { it.isNotBlank() }).joinToString(" · "),
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -621,24 +624,33 @@ private fun SearchAlbumResultRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(
+        ArtworkImage(
+            artwork = Artwork.LibraryAlbum(album.id),
+            contentScale = ContentScale.Crop,
             modifier = Modifier
+                .albumArtworkSharedElement(album.id)
                 .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(DesignPalette.SupportBlue, DesignPalette.SupportGreen),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(Res.drawable.icon_music_note),
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.82f),
-                modifier = Modifier.size(16.dp),
-            )
-        }
+                .clip(RoundedCornerShape(10.dp)),
+            fallback = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                listOf(DesignPalette.SupportBlue, DesignPalette.SupportGreen),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_music_note),
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.82f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            },
+        )
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),

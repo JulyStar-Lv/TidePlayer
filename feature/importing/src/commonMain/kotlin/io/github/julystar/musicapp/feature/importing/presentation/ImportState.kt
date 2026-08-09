@@ -35,6 +35,7 @@ data class ImportPathUi(
 data class ImportStorageAccountUi(
     val accountId: SourceAccountId,
     val isLocal: Boolean,
+    val isSmb: Boolean = false,
     val name: String,
     val subtitle: String,
 )
@@ -62,4 +63,3 @@ sealed interface ImportAction {
 sealed interface ImportEvent {
     data object NavigateBack : ImportEvent
 }
-

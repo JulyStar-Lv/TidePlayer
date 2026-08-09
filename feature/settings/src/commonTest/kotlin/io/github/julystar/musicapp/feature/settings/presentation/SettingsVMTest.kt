@@ -347,22 +347,26 @@ class SettingsVMTest {
 
         withStartedViewModel(environment) { viewModel ->
             viewModel.onAction(SettingsAction.OpenAddSmbDialog)
-            viewModel.onAction(SettingsAction.SetSmbDialogName("Home NAS"))
-            viewModel.onAction(SettingsAction.SetSmbDialogHost("nas.example.test"))
-            viewModel.onAction(SettingsAction.SetSmbDialogPort("1445"))
-            viewModel.onAction(SettingsAction.SetSmbDialogShare("Music"))
-            viewModel.onAction(SettingsAction.SetSmbDialogRootPath("Lossless"))
-            viewModel.onAction(SettingsAction.SetSmbDialogUsername("music"))
-            viewModel.onAction(SettingsAction.SetSmbDialogRequireSigning(true))
-            viewModel.onAction(SettingsAction.SaveSmbAccount("top-secret"))
+            viewModel.onAction(
+                SettingsAction.SaveSmbAccount(
+                    password = "top-secret",
+                    draft = SmbAccountDialogState(
+                        name = "Home NAS",
+                        host = "nas.example.test",
+                        port = "1445",
+                        username = "music",
+                        requireSigning = true,
+                    ),
+                ),
+            )
             advanceUntilIdle()
 
             val draft = storage.upsertedDraft ?: error("SMB draft was not saved")
             assertEquals(SourceEditorType.Smb, draft.storageType)
             assertEquals("nas.example.test", draft.smbHost)
             assertEquals(1445, draft.smbPort)
-            assertEquals("Music", draft.smbShare)
-            assertEquals("Lossless", draft.smbRootPath)
+            assertEquals("", draft.smbShare)
+            assertEquals("", draft.smbRootPath)
             assertTrue(draft.smbRequireSigning)
             assertEquals("top-secret", draft.secret)
             assertNull(viewModel.state.value.smbDialog)
@@ -575,7 +579,9 @@ class SettingsVMTest {
         val accountId = storageSourceAccountId(2L)
         val storage = FakeStorageRepository().apply {
             accounts.value = listOf(
-                sourceAccount(2L, BuiltInSourceIds.Smb, "NAS", 0),
+                sourceAccount(2L, BuiltInSourceIds.Smb, "NAS", 0).copy(
+                    rootPath = "/Music/Lossless",
+                ),
             )
             editorState = SourceEditorStorageState(
                 accountId = accountId,

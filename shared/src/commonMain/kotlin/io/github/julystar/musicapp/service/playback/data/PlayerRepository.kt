@@ -333,6 +333,7 @@ class PlayerRepository(
                 playlistId = currentPlaylist.abstr.meta.id.value,
                 positionMs = positionMs.coerceAtLeast(0L),
                 wasPlaying = wasPlaying,
+                queueTrackIds = currentPlaylist.musics.map { music -> music.meta.id.value },
             ),
         )
     }

@@ -1,7 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::schema::StorageEntryLoc;
-use storage_backend::{BuildOneDriveArg, BuildWebdavArg, OneDriveBackend, Webdav};
+use crate::schema::{StorageEntryLoc, StorageType};
+use storage_backend::{
+    list_smb_server_path, BuildOneDriveArg, BuildSmbArg, BuildWebdavArg, OneDriveBackend, Webdav,
+};
 
 use crate::{
     error::{BError, BResult},
@@ -171,8 +173,27 @@ pub async fn ct_test_storage(
 ) -> BResult<StorageConnectionTestResult> {
     let arg = normalize_arg_upsert_storage(arg);
     let cx = cx.get_context();
-    let backend = build_storage_backend_by_arg(cx, arg)?;
-    let res = backend.list("/".to_string()).await;
+    let res = if arg.typ == StorageType::Smb {
+        let mut smb_arg = BuildSmbArg::from_url(
+            &arg.addr,
+            arg.username.clone(),
+            arg.password.clone(),
+            arg.is_anonymous,
+            Duration::from_secs(5),
+        )?;
+        if smb_arg.share.is_empty() {
+            smb_arg.root_path.clear();
+            list_smb_server_path(smb_arg, "/".to_string()).await
+        } else {
+            build_storage_backend_by_arg(cx, arg)?
+                .list("/".to_string())
+                .await
+        }
+    } else {
+        build_storage_backend_by_arg(cx, arg)?
+            .list("/".to_string())
+            .await
+    };
 
     match res {
         Ok(_) => Ok(StorageConnectionTestResult::Success),
@@ -195,6 +216,42 @@ pub async fn ct_test_storage(
             } else {
                 Ok(StorageConnectionTestResult::OtherError)
             }
+        }
+    }
+}
+
+#[uniffi::export]
+pub async fn ct_list_smb_server_entry_children(
+    _cx: Arc<Backend>,
+    storage: Storage,
+    arg: StorageEntryLoc,
+) -> BResult<ListStorageEntryChildrenResp> {
+    if storage.typ != StorageType::Smb {
+        return Ok(ListStorageEntryChildrenResp::Unsupported);
+    }
+    let mut smb_arg = BuildSmbArg::from_url(
+        &storage.addr,
+        storage.username,
+        storage.password,
+        storage.is_anonymous,
+        Duration::from_secs(5),
+    )?;
+    smb_arg.share.clear();
+    smb_arg.root_path.clear();
+    let storage_id = arg.storage_id;
+    match list_smb_server_path(smb_arg, arg.path).await {
+        Ok(entries) => Ok(ListStorageEntryChildrenResp::Ok(
+            entries
+                .into_iter()
+                .map(|entry| storage_entry(storage_id, entry))
+                .collect(),
+        )),
+        Err(error) => {
+            tracing::warn!(
+                kind = ?storage_error_kind(&error),
+                "SMB server directory listing failed"
+            );
+            Ok(list_error_response(&error))
         }
     }
 }

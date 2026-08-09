@@ -34,6 +34,7 @@ class AppPreferencesRepository(
             playlistId = playlistId,
             positionMs = preferences[LAST_POSITION_MS_KEY] ?: 0L,
             wasPlaying = preferences[LAST_WAS_PLAYING_KEY] ?: false,
+            queueTrackIds = preferences[LAST_QUEUE_TRACK_IDS_KEY]?.toTrackIds(),
         )
     }
 
@@ -49,6 +50,9 @@ class AppPreferencesRepository(
             preferences[LAST_PLAYLIST_ID_KEY] = session.playlistId
             preferences[LAST_POSITION_MS_KEY] = session.positionMs.coerceAtLeast(0L)
             preferences[LAST_WAS_PLAYING_KEY] = session.wasPlaying
+            session.queueTrackIds?.let { trackIds ->
+                preferences[LAST_QUEUE_TRACK_IDS_KEY] = trackIds.joinToString(separator = ",")
+            } ?: preferences.remove(LAST_QUEUE_TRACK_IDS_KEY)
         }
     }
 
@@ -58,6 +62,7 @@ class AppPreferencesRepository(
             preferences.remove(LAST_PLAYLIST_ID_KEY)
             preferences.remove(LAST_POSITION_MS_KEY)
             preferences.remove(LAST_WAS_PLAYING_KEY)
+            preferences.remove(LAST_QUEUE_TRACK_IDS_KEY)
         }
     }
 
@@ -91,6 +96,13 @@ class AppPreferencesRepository(
                     preferences[LAST_TRACK_ID_KEY] = targetTrackId
                 }
             }
+            preferences[LAST_QUEUE_TRACK_IDS_KEY]?.let { encodedTrackIds ->
+                preferences[LAST_QUEUE_TRACK_IDS_KEY] = encodedTrackIds
+                    .toTrackIds()
+                    .map { trackId -> replacements[trackId] ?: trackId }
+                    .distinct()
+                    .joinToString(separator = ",")
+            }
         }
     }
 }
@@ -100,11 +112,15 @@ data class PersistedPlaybackSession(
     val playlistId: Long,
     val positionMs: Long,
     val wasPlaying: Boolean,
+    val queueTrackIds: List<Long>? = null,
 )
+
+private fun String.toTrackIds(): List<Long> = split(',').mapNotNull(String::toLongOrNull)
 
 private val PLAY_MODE_KEY = stringPreferencesKey("playMode")
 private val LAST_TRACK_ID_KEY = longPreferencesKey("playback.lastTrackId")
 private val LAST_PLAYLIST_ID_KEY = longPreferencesKey("playback.lastPlaylistId")
 private val LAST_POSITION_MS_KEY = longPreferencesKey("playback.lastPositionMs")
 private val LAST_WAS_PLAYING_KEY = booleanPreferencesKey("playback.lastWasPlaying")
+private val LAST_QUEUE_TRACK_IDS_KEY = stringPreferencesKey("playback.queueTrackIds")
 private val FAVORITE_TRACK_IDS_KEY = stringSetPreferencesKey("library.favoriteTrackIds")

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -63,6 +62,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_ID
 import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryArtistItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
@@ -75,8 +75,11 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.designListDivider
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
+import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.DrawableResource
@@ -1233,6 +1236,7 @@ private fun AlbumCard(
     ) {
         Box(
             modifier = Modifier
+                .albumArtworkSharedElement(album.id)
                 .size(artworkSize)
                 .shadow(DesignTokens.elevation.card, artworkShape, clip = false)
                 .clip(artworkShape)
@@ -1526,13 +1530,25 @@ private fun PlaylistListView(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (playlist.isFavorites) {
-                        FavoritesPlaylistArtwork()
+                        FavoritesPlaylistArtwork(
+                            size = 56.dp,
+                            cornerRadius = 12.dp,
+                            modifier = Modifier.playlistArtworkSharedElement(
+                                LIBRARY_PLAYBACK_PLAYLIST_ID,
+                            ),
+                        )
                     } else {
+                        val summary = playlist.summary
+                        val artworkModifier = if (summary == null) {
+                            Modifier
+                        } else {
+                            Modifier.playlistArtworkSharedElement(summary.id)
+                        }
                         ArtworkImage(
-                            modifier = Modifier
+                            modifier = artworkModifier
                                 .size(56.dp)
                                 .clip(RoundedCornerShape(12.dp)),
-                            artwork = playlist.summary?.coverArtwork,
+                            artwork = summary?.coverArtwork,
                         )
                     }
                     Column(
@@ -1611,52 +1627,6 @@ private fun PlaylistListView(
             if (index < playlists.lastIndex) {
                 DesignListDivider()
             }
-        }
-    }
-}
-
-@Composable
-private fun FavoritesPlaylistArtwork() {
-    val shape = RoundedCornerShape(12.dp)
-    val primary = MiuixTheme.colorScheme.primary
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        MiuixTheme.colorScheme.tertiaryContainer,
-                        MiuixTheme.colorScheme.surfaceVariant,
-                    ),
-                ),
-            )
-            .border(1.dp, primary.copy(alpha = 0.16f), shape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(CoreRes.drawable.icon_heart_filled),
-            contentDescription = null,
-            tint = primary.copy(alpha = 0.14f),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = 10.dp, y = 10.dp)
-                .size(54.dp),
-        )
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(primary.copy(alpha = 0.14f))
-                .border(1.dp, primary.copy(alpha = 0.26f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(CoreRes.drawable.icon_heart_filled),
-                contentDescription = null,
-                tint = primary,
-                modifier = Modifier.size(18.dp),
-            )
         }
     }
 }

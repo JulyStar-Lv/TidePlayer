@@ -31,6 +31,13 @@ fun interface LegacyStorageDirectoryLister {
     ): SourceListResult
 }
 
+fun interface LegacySmbServerDirectoryLister {
+    suspend fun list(
+        accountId: SourceAccountId,
+        directoryId: String?,
+    ): SourceListResult
+}
+
 interface LegacyStoragePlaybackResolver {
     suspend fun resolve(
         accountId: SourceAccountId,

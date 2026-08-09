@@ -103,12 +103,25 @@ class SmbStorageRepositoryIntegrationTest {
                     id = storageId,
                     secret = "",
                     smbPort = 445,
+                    smbShare = "",
                     smbRootPath = "",
                     smbDomain = "",
                     smbRequireSigning = false,
                     smbRequireEncryption = false,
                 )
             )
+            assertEquals(
+                "smb://nas.local",
+                repository.storageForRust(uniffi.app_backend.StorageId(storageId))?.addr,
+            )
+            assertEquals(
+                "",
+                repository.loadEditorState(storageId)?.draft?.smbShare,
+            )
+            assertNull(database.sourceAccountDao().get(storageId)?.rootPath)
+
+            repository.setAccountRootPath(accountId, "/Music Share")
+
             assertEquals(
                 "smb://nas.local/Music%20Share",
                 repository.storageForRust(uniffi.app_backend.StorageId(storageId))?.addr,
@@ -117,6 +130,7 @@ class SmbStorageRepositoryIntegrationTest {
                 "Music Share",
                 repository.loadEditorState(storageId)?.draft?.smbShare,
             )
+            assertEquals("/Music Share", database.sourceAccountDao().get(storageId)?.rootPath)
 
             RemoteLibraryImportCoordinator(
                 database = database,
@@ -136,7 +150,7 @@ class SmbStorageRepositoryIntegrationTest {
                 )
             )
             val accountAfterScanStarted = assertNotNull(database.sourceAccountDao().get(storageId))
-            assertEquals("/", accountAfterScanStarted.rootPath)
+            assertEquals("/Music Share", accountAfterScanStarted.rootPath)
             assertTrue(
                 accountAfterScanStarted.providerConfig.orEmpty()
                     .contains("\"share\":\"Music Share\"")

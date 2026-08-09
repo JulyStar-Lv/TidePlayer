@@ -8,6 +8,7 @@ import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceId
 import io.github.julystar.musicapp.core.domain.repository.PermissionChecker
 import io.github.julystar.musicapp.source.api.ImportRepository
+import io.github.julystar.musicapp.source.api.BuiltInSourceIds
 import io.github.julystar.musicapp.core.domain.model.ImportSelectionMode
 import io.github.julystar.musicapp.feature.importing.presentation.ImportAction
 import io.github.julystar.musicapp.feature.importing.presentation.ImportEvent
@@ -304,6 +305,7 @@ class ImportVM constructor(
 
     fun finishCurrentDirectory() {
         val account = currentAccount() ?: return
+        if (account.sourceId == BuiltInSourceIds.Smb && currentPath() == "/") return
         importRepository.onFinishCurrentDirectory(
             SourceDirectorySelection(
                 sourceId = account.sourceId,
@@ -359,12 +361,18 @@ class ImportVM constructor(
                 return@launch
             }
 
-            when (
-                val result = source.list(
+            val result = if (selectionMode.value == ImportSelectionMode.CurrentDirectory) {
+                source.listPathConfiguration(
                     accountId = account.accountId,
                     directoryId = currentPath(),
                 )
-            ) {
+            } else {
+                source.list(
+                    accountId = account.accountId,
+                    directoryId = currentPath(),
+                )
+            }
+            when (result) {
                 is SourceListResult.Success -> {
                     _loadState.value = ImportLoadState.Ready
                     _entries.value = result.nodes
@@ -442,6 +450,7 @@ private fun StorageAccountInfo.toImportStorageAccountUi(): ImportStorageAccountU
     return ImportStorageAccountUi(
         accountId = accountId,
         isLocal = isLocal,
+        isSmb = sourceId == BuiltInSourceIds.Smb,
         name = title,
         subtitle = subtitle,
     )

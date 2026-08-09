@@ -6,5 +6,5 @@ mod webdav;
 pub use local::LocalBackend;
 
 pub use onedrive::{BuildOneDriveArg, OneDriveBackend, OneDriveDrive};
-pub use smb::{BuildSmbArg, SmbBackend};
+pub use smb::{list_smb_server_path, BuildSmbArg, SmbBackend};
 pub use webdav::{BuildWebdavArg, Webdav};

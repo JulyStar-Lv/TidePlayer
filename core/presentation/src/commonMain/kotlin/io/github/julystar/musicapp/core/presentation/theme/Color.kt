@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import top.yukonga.miuix.kmp.theme.Colors
@@ -25,6 +24,10 @@ object DesignPalette {
     val SecondaryButtonDark = Color(0xFF404141)
     val OnSecondaryButtonLight = Color(0xFF242424)
     val OnSecondaryButtonDark = Color(0xFFE2E2E2)
+    val SecondaryTextLight = Color(0xFF6E6E73)
+    val SecondaryTextDark = Color(0xFF98989D)
+    val TertiaryTextLight = Color(0xFF8E8E93)
+    val TertiaryTextDark = Color(0xFF8E8E93)
     val Secondary = Color(0xFF7A6CFF)
     val SupportBlue = Color(0xFF3D9AFF)
     val SupportOrange = Color(0xFFFF8A3D)
@@ -82,26 +85,16 @@ object DesignGradients {
 
 @Composable
 internal fun designPrimaryButtonColor(): Color {
-    if (!usesBrandButtonPalette()) return MiuixTheme.colorScheme.primary
-    return if (usesDarkButtonPalette()) {
-        DesignPalette.BrandButtonDark
-    } else {
-        DesignPalette.BrandButtonLight
-    }
+    return MiuixTheme.colorScheme.primary
 }
 
 @Composable
 internal fun designOnPrimaryButtonColor(): Color {
-    return if (usesBrandButtonPalette()) {
-        DesignPalette.BrandButtonForeground
-    } else {
-        MiuixTheme.colorScheme.onPrimary
-    }
+    return MiuixTheme.colorScheme.onPrimary
 }
 
 @Composable
 internal fun designSecondaryButtonColor(): Color {
-    if (!usesBrandButtonPalette()) return MiuixTheme.colorScheme.secondaryVariant
     return if (usesDarkButtonPalette()) {
         DesignPalette.SecondaryButtonDark
     } else {
@@ -111,17 +104,11 @@ internal fun designSecondaryButtonColor(): Color {
 
 @Composable
 internal fun designOnSecondaryButtonColor(): Color {
-    if (!usesBrandButtonPalette()) return MiuixTheme.colorScheme.onSecondaryVariant
     return if (usesDarkButtonPalette()) {
         DesignPalette.OnSecondaryButtonDark
     } else {
         DesignPalette.OnSecondaryButtonLight
     }
-}
-
-@Composable
-private fun usesBrandButtonPalette(): Boolean {
-    return LocalThemeSeedState.current.effectiveSeedArgb == DEFAULT_MANUAL_THEME_SEED_ARGB
 }
 
 @Composable

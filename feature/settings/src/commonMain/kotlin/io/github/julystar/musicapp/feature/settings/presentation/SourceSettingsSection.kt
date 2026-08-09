@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -23,6 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -35,9 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,18 +56,19 @@ import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
 import io.github.julystar.musicapp.core.presentation.components.AppSwitch
-import io.github.julystar.musicapp.core.presentation.components.DesignButton
-import io.github.julystar.musicapp.core.presentation.components.DesignButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
 import io.github.julystar.musicapp.core.presentation.components.DesignChevron
 import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
 import io.github.julystar.musicapp.core.presentation.components.DesignDialog
+import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
+import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
+import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
+import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.DesignLinearProgressIndicator
 import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignTextField
 import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -458,21 +465,23 @@ private fun UnifiedLibraryCard(
                             },
                         ),
                 )
-                DesignButton(
-                    text = stringResource(
+                DesignIconButton(
+                    size = DesignIconButtonSize.Medium,
+                    variant = if (active) {
+                        DesignIconButtonVariant.Error
+                    } else {
+                        DesignIconButtonVariant.Default
+                    },
+                    colors = if (active) null else DesignIconButtonColors(
+                        iconTint = MiuixTheme.colorScheme.primary,
+                    ),
+                    painter = painterResource(
+                        if (active) Res.drawable.icon_close else Res.drawable.icon_source_refresh,
+                    ),
+                    contentDescription = stringResource(
                         if (active) Res.string.settings_cancel else Res.string.settings_scan_now,
                     ),
-                    variant = if (active) {
-                        DesignButtonVariant.Secondary
-                    } else {
-                        DesignButtonVariant.Primary
-                    },
                     enabled = active || canScan,
-                    minHeight = 40.dp,
-                    insideMargin = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 14.dp,
-                        vertical = 8.dp,
-                    ),
                     onClick = {
                         onAction(
                             if (active) SettingsAction.CancelActiveScans
@@ -481,11 +490,17 @@ private fun UnifiedLibraryCard(
                     },
                 )
             }
-            if (active) {
-                DesignLinearProgressIndicator(
-                    progress = progress,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+            ) {
+                if (active) {
+                    DesignLinearProgressIndicator(
+                        progress = progress,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }
@@ -845,7 +860,8 @@ private fun SourceActionsButton(
                         SourceMenuItem(
                             icon = Res.drawable.icon_source_refresh,
                             label = stringResource(Res.string.settings_source_scan_action),
-                            enabled = account.enabled,
+                            enabled = account.enabled &&
+                                (!account.isSmb || !account.rootPath.isNullOrBlank()),
                             onClick = {
                                 menuOpen = false
                                 onAction(SettingsAction.ScanSourceAccount(account.accountId))
@@ -1627,9 +1643,19 @@ private fun WebDavAccountDialog(
         if (dialog != null) retainedDialog = dialog
     }
     val activeDialog = dialog ?: retainedDialog ?: return
+    var draft by remember(activeDialog.accountId, activeDialog.isEditing) {
+        mutableStateOf(activeDialog)
+    }
     var password by remember(activeDialog.accountId, activeDialog.isEditing) { mutableStateOf("") }
+    var showConnectionTestResult by remember(activeDialog.accountId, activeDialog.isEditing) {
+        mutableStateOf(false)
+    }
     LaunchedEffect(dialogVisible, activeDialog.accountId, activeDialog.isEditing) {
-        if (dialogVisible) password = ""
+        if (dialogVisible) {
+            draft = activeDialog
+            password = ""
+            showConnectionTestResult = false
+        }
     }
     DesignDialog(
         show = dialogVisible,
@@ -1638,63 +1664,67 @@ private fun WebDavAccountDialog(
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
                 text = stringResource(
-                    if (activeDialog.isEditing) Res.string.settings_webdav_edit_title
+                    if (draft.isEditing) Res.string.settings_webdav_edit_title
                     else Res.string.settings_webdav_add_title
                 ),
                 style = MiuixTheme.textStyles.title3,
                 color = MiuixTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(12.dp))
-            DesignTextField(
-                value = activeDialog.name,
-                onValueChange = { onAction(SettingsAction.SetWebDavDialogName(it)) },
-                label = stringResource(Res.string.settings_webdav_name),
-                singleLine = true,
+            SourceDialogTextField(
+                value = draft.name,
+                onValueChange = {
+                    draft = draft.copy(name = it)
+                    showConnectionTestResult = false
+                },
+                placeholder = stringResource(Res.string.settings_webdav_name),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            DesignTextField(
-                value = activeDialog.serverUrl,
-                onValueChange = { onAction(SettingsAction.SetWebDavDialogServerUrl(it)) },
-                label = stringResource(Res.string.settings_webdav_url),
-                singleLine = true,
+            SourceDialogTextField(
+                value = draft.serverUrl,
+                onValueChange = {
+                    draft = draft.copy(serverUrl = it)
+                    showConnectionTestResult = false
+                },
+                placeholder = stringResource(Res.string.settings_webdav_url),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            DesignTextField(
-                value = activeDialog.username,
-                onValueChange = { onAction(SettingsAction.SetWebDavDialogUsername(it)) },
-                label = stringResource(Res.string.settings_webdav_username),
-                singleLine = true,
+            SourceDialogTextField(
+                value = draft.username,
+                onValueChange = {
+                    draft = draft.copy(username = it)
+                    showConnectionTestResult = false
+                },
+                placeholder = stringResource(Res.string.settings_webdav_username),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            DesignTextField(
+            SourceDialogTextField(
                 value = password,
                 onValueChange = {
                     password = it
-                    onAction(SettingsAction.ResetWebDavConnectionTest)
+                    showConnectionTestResult = false
                 },
-                label = stringResource(
-                    if (activeDialog.isEditing) Res.string.settings_webdav_password_edit
+                placeholder = stringResource(
+                    if (draft.isEditing) Res.string.settings_webdav_password_edit
                     else Res.string.settings_webdav_password_new
                 ),
-                singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
-            state.webDavConnectionTestMessage?.let { message ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = message,
-                    style = MiuixTheme.textStyles.body2,
-                    color = if (state.webDavConnectionTestStatus == SourceConnectionTestStatus.Error) {
-                        MiuixTheme.colorScheme.error
-                    } else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SourceConnectionTestMessage(
+                    message = state.webDavConnectionTestMessage
+                        ?.takeIf { showConnectionTestResult },
+                    status = state.webDavConnectionTestStatus,
+                    modifier = Modifier.weight(1f),
+                )
                 DesignTextButton(
                     text = stringResource(Res.string.settings_cancel),
                     variant = DesignTextButtonVariant.Default,
@@ -1705,13 +1735,16 @@ private fun WebDavAccountDialog(
                     text = stringResource(Res.string.settings_test),
                     variant = DesignTextButtonVariant.Default,
                     size = DesignTextButtonSize.Medium,
-                    onClick = { onAction(SettingsAction.TestWebDavConnection(password)) },
+                    onClick = {
+                        showConnectionTestResult = true
+                        onAction(SettingsAction.TestWebDavConnection(password, draft))
+                    },
                 )
                 DesignTextButton(
                     text = stringResource(Res.string.settings_save),
                     variant = DesignTextButtonVariant.Primary,
                     size = DesignTextButtonSize.Medium,
-                    onClick = { onAction(SettingsAction.SaveWebDavAccount(password)) },
+                    onClick = { onAction(SettingsAction.SaveWebDavAccount(password, draft)) },
                 )
             }
         }
@@ -1730,9 +1763,19 @@ private fun SmbAccountDialog(
         if (dialog != null) retainedDialog = dialog
     }
     val activeDialog = dialog ?: retainedDialog ?: return
+    var draft by remember(activeDialog.accountId, activeDialog.isEditing) {
+        mutableStateOf(activeDialog)
+    }
     var password by remember(activeDialog.accountId, activeDialog.isEditing) { mutableStateOf("") }
+    var showConnectionTestResult by remember(activeDialog.accountId, activeDialog.isEditing) {
+        mutableStateOf(false)
+    }
     LaunchedEffect(dialogVisible, activeDialog.accountId, activeDialog.isEditing) {
-        if (dialogVisible) password = ""
+        if (dialogVisible) {
+            draft = activeDialog
+            password = ""
+            showConnectionTestResult = false
+        }
     }
     DesignDialog(
         show = dialogVisible,
@@ -1741,100 +1784,90 @@ private fun SmbAccountDialog(
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
                 text = stringResource(
-                    if (activeDialog.isEditing) Res.string.settings_smb_edit_title
+                    if (draft.isEditing) Res.string.settings_smb_edit_title
                     else Res.string.settings_smb_add_title,
                 ),
                 style = MiuixTheme.textStyles.title3,
                 color = MiuixTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(Res.string.settings_smb_dialog_summary),
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
             Spacer(modifier = Modifier.height(12.dp))
-            DesignTextField(
-                value = activeDialog.name,
-                onValueChange = { onAction(SettingsAction.SetSmbDialogName(it)) },
-                label = stringResource(Res.string.settings_smb_name),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            DesignTextField(
-                value = activeDialog.host,
-                onValueChange = { onAction(SettingsAction.SetSmbDialogHost(it)) },
-                label = stringResource(Res.string.settings_smb_host),
-                singleLine = true,
+            SourceDialogTextField(
+                value = draft.name,
+                onValueChange = {
+                    draft = draft.copy(name = it)
+                    showConnectionTestResult = false
+                },
+                placeholder = stringResource(Res.string.settings_smb_name),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DesignTextField(
-                    value = activeDialog.port,
-                    onValueChange = { onAction(SettingsAction.SetSmbDialogPort(it)) },
-                    label = stringResource(Res.string.settings_smb_port),
-                    singleLine = true,
-                    modifier = Modifier.weight(0.36f),
+                SourceDialogTextField(
+                    value = draft.host,
+                    onValueChange = {
+                        draft = draft.copy(host = it)
+                        showConnectionTestResult = false
+                    },
+                    placeholder = stringResource(Res.string.settings_smb_host),
+                    modifier = Modifier.weight(0.72f),
                 )
-                DesignTextField(
-                    value = activeDialog.share,
-                    onValueChange = { onAction(SettingsAction.SetSmbDialogShare(it)) },
-                    label = stringResource(Res.string.settings_smb_share),
-                    singleLine = true,
-                    modifier = Modifier.weight(0.64f),
+                SourceDialogTextField(
+                    value = draft.port,
+                    onValueChange = {
+                        draft = draft.copy(port = it.filter(Char::isDigit))
+                        showConnectionTestResult = false
+                    },
+                    placeholder = stringResource(Res.string.settings_smb_port),
+                    modifier = Modifier.weight(0.28f),
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             SourceDialogSwitchRow(
                 title = stringResource(Res.string.settings_smb_guest),
-                summary = stringResource(Res.string.settings_smb_guest_summary),
-                checked = activeDialog.guestAccess,
+                checked = draft.guestAccess,
                 onCheckedChange = {
                     if (it) password = ""
-                    onAction(SettingsAction.SetSmbDialogGuestAccess(it))
+                    draft = draft.copy(guestAccess = it)
+                    showConnectionTestResult = false
                 },
             )
-            if (!activeDialog.guestAccess) {
+            if (!draft.guestAccess) {
                 Spacer(modifier = Modifier.height(8.dp))
-                DesignTextField(
-                    value = activeDialog.username,
-                    onValueChange = { onAction(SettingsAction.SetSmbDialogUsername(it)) },
-                    label = stringResource(Res.string.settings_smb_username),
-                    singleLine = true,
+                SourceDialogTextField(
+                    value = draft.username,
+                    onValueChange = {
+                        draft = draft.copy(username = it)
+                        showConnectionTestResult = false
+                    },
+                    placeholder = stringResource(Res.string.settings_smb_username),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                DesignTextField(
+                SourceDialogTextField(
                     value = password,
                     onValueChange = {
                         password = it
-                        onAction(SettingsAction.ResetSmbConnectionTest)
+                        showConnectionTestResult = false
                     },
-                    label = stringResource(
-                        if (activeDialog.isEditing) Res.string.settings_smb_password_edit
+                    placeholder = stringResource(
+                        if (draft.isEditing) Res.string.settings_smb_password_edit
                         else Res.string.settings_smb_password_new,
                     ),
-                    singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            state.smbConnectionTestMessage?.let { message ->
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = message,
-                    style = MiuixTheme.textStyles.body2,
-                    color = if (state.smbConnectionTestStatus == SourceConnectionTestStatus.Error) {
-                        MiuixTheme.colorScheme.error
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
-                )
-            }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SourceConnectionTestMessage(
+                    message = state.smbConnectionTestMessage
+                        ?.takeIf { showConnectionTestResult },
+                    status = state.smbConnectionTestStatus,
+                    modifier = Modifier.weight(1f),
+                )
                 DesignTextButton(
                     text = stringResource(Res.string.settings_cancel),
                     variant = DesignTextButtonVariant.Default,
@@ -1845,13 +1878,16 @@ private fun SmbAccountDialog(
                     text = stringResource(Res.string.settings_test),
                     variant = DesignTextButtonVariant.Default,
                     size = DesignTextButtonSize.Medium,
-                    onClick = { onAction(SettingsAction.TestSmbConnection(password)) },
+                    onClick = {
+                        showConnectionTestResult = true
+                        onAction(SettingsAction.TestSmbConnection(password, draft))
+                    },
                 )
                 DesignTextButton(
                     text = stringResource(Res.string.settings_save),
                     variant = DesignTextButtonVariant.Primary,
                     size = DesignTextButtonSize.Medium,
-                    onClick = { onAction(SettingsAction.SaveSmbAccount(password)) },
+                    onClick = { onAction(SettingsAction.SaveSmbAccount(password, draft)) },
                 )
             }
         }
@@ -1859,9 +1895,82 @@ private fun SmbAccountDialog(
 }
 
 @Composable
+private fun SourceConnectionTestMessage(
+    message: String?,
+    status: SourceConnectionTestStatus,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.padding(end = 8.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        message?.let {
+            Text(
+                text = it,
+                style = MiuixTheme.textStyles.body2,
+                color = if (status == SourceConnectionTestStatus.Error) {
+                    MiuixTheme.colorScheme.error
+                } else {
+                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SourceDialogTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(16.dp)
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = MiuixTheme.textStyles.main.copy(
+            color = MiuixTheme.colorScheme.onSurface,
+        ),
+        cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
+        visualTransformation = visualTransformation,
+        interactionSource = interactionSource,
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(shape)
+            .background(MiuixTheme.colorScheme.secondaryContainer)
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) MiuixTheme.colorScheme.primary else Color.Transparent,
+                shape = shape,
+            )
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        decorationBox = { innerTextField ->
+            Box(contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                innerTextField()
+            }
+        },
+    )
+}
+
+@Composable
 private fun SourceDialogSwitchRow(
     title: String,
-    summary: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -1871,23 +1980,17 @@ private fun SourceDialogSwitchRow(
             .clip(RoundedCornerShape(16.dp))
             .background(MiuixTheme.colorScheme.surfaceContainerHigh)
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = MiuixTheme.colorScheme.onSurface,
-                style = MiuixTheme.textStyles.body2,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = summary,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                style = MiuixTheme.textStyles.footnote1,
-            )
-        }
+        Text(
+            text = title,
+            color = MiuixTheme.colorScheme.onSurface,
+            style = MiuixTheme.textStyles.body2,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
         AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

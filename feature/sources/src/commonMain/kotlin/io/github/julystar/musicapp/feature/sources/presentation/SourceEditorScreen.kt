@@ -78,10 +78,7 @@ import musicapp.feature.sources.generated.resources.storage_edit_smb_encryption
 import musicapp.feature.sources.generated.resources.storage_edit_smb_guest
 import musicapp.feature.sources.generated.resources.storage_edit_smb_port
 import musicapp.feature.sources.generated.resources.storage_edit_smb_port_invalid
-import musicapp.feature.sources.generated.resources.storage_edit_smb_root
 import musicapp.feature.sources.generated.resources.storage_edit_smb_server
-import musicapp.feature.sources.generated.resources.storage_edit_smb_share
-import musicapp.feature.sources.generated.resources.storage_edit_smb_share_required
 import musicapp.feature.sources.generated.resources.storage_edit_smb_signing
 import musicapp.feature.sources.generated.resources.storage_remove_desc_count
 import musicapp.feature.sources.generated.resources.storage_remove_desc_downloads
@@ -357,21 +354,6 @@ private fun SmbConfig(
         } else {
             null
         },
-    )
-    FormText(
-        label = stringResource(Res.string.storage_edit_smb_share),
-        value = state.share,
-        onChange = { onAction(SourceEditorAction.SmbShareChanged(it)) },
-        error = if (validation.smbShareEmpty) {
-            Res.string.storage_edit_smb_share_required
-        } else {
-            null
-        },
-    )
-    FormText(
-        label = stringResource(Res.string.storage_edit_smb_root),
-        value = state.rootPath,
-        onChange = { onAction(SourceEditorAction.SmbRootPathChanged(it)) },
     )
     if (!state.isGuest) {
         FormText(

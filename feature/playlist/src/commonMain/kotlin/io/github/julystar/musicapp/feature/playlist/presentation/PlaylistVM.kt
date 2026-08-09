@@ -34,7 +34,7 @@ class PlaylistVM constructor(
     private val _removeModalOpen = MutableStateFlow(false)
     private val _playlistSummary = MutableStateFlow<PlaylistSummary?>(null)
     private val _playlistTracks = MutableStateFlow(persistentListOf<DomainPlaylistTrack>())
-    private val _state = MutableStateFlow(PlaylistState())
+    private val _state = MutableStateFlow(PlaylistState(playlistId = _id))
     private val _events = Channel<PlaylistEvent>(Channel.BUFFERED)
 
     val removeModalOpen = _removeModalOpen.asStateFlow()

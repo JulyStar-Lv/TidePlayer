@@ -1030,6 +1030,9 @@ class RoomLibraryIntegrationTest {
         assertEquals(listOf("Primary", "Guest"), metadataDao.artistNamesForTrack(1))
         assertEquals(listOf("Album Artist"), metadataDao.artistNamesForAlbum(album.id))
         assertEquals(listOf("Jazz"), metadataDao.genreNamesForTrack(1))
+        val libraryAlbum = metadataDao.observeAlbumsWithTracks().first().single()
+        assertEquals(album.id, libraryAlbum.album.id)
+        assertEquals("Album Artist", libraryAlbum.artistName)
     }
 
     @Test

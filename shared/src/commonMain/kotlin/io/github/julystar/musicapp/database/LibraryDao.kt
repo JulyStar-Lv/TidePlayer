@@ -584,6 +584,11 @@ data class AlbumSearchRow(
     val trackCount: Long,
 )
 
+data class LibraryAlbumRow(
+    @Embedded val album: AlbumEntity,
+    val artistName: String?,
+)
+
 data class ArtistSearchRow(
     @Embedded val artist: ArtistEntity,
     val trackCount: Long,
@@ -702,7 +707,31 @@ interface PlaylistDao {
 interface MetadataDao {
     @Query(
         """
-        SELECT DISTINCT a.*
+        SELECT DISTINCT a.*,
+               COALESCE(
+                   (
+                       SELECT GROUP_CONCAT(ar.name, ', ')
+                       FROM album_artist aa
+                       JOIN artist ar ON ar.id = aa.artistId
+                       WHERE aa.albumId = a.id
+                   ),
+                   (
+                       SELECT COALESCE(
+                           NULLIF(TRIM(t2.albumArtist), ''),
+                           NULLIF(TRIM(t2.artist), ''),
+                           NULLIF(TRIM(t2.composer), '')
+                       )
+                       FROM track t2
+                       WHERE t2.albumId = a.id
+                         AND COALESCE(
+                             NULLIF(TRIM(t2.albumArtist), ''),
+                             NULLIF(TRIM(t2.artist), ''),
+                             NULLIF(TRIM(t2.composer), '')
+                         ) IS NOT NULL
+                       ORDER BY t2.discNumber, t2.trackNumber, t2.id
+                       LIMIT 1
+                   )
+               ) AS artistName
         FROM album a
         JOIN track t ON t.albumId = a.id
         WHERE EXISTS (
@@ -713,7 +742,7 @@ interface MetadataDao {
         ORDER BY a.name COLLATE NOCASE
         """
     )
-    fun observeAlbumsWithTracks(): Flow<List<AlbumEntity>>
+    fun observeAlbumsWithTracks(): Flow<List<LibraryAlbumRow>>
 
     @Query(
         """

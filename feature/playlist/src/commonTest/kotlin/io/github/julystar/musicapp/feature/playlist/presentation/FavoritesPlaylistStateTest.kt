@@ -4,6 +4,7 @@ import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_I
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class FavoritesPlaylistStateTest {
 
@@ -26,6 +27,7 @@ class FavoritesPlaylistStateTest {
 
         assertEquals(LIBRARY_PLAYBACK_PLAYLIST_ID, state.playlistId)
         assertEquals("My Favorites", state.title)
+        assertTrue(state.isFavorites)
         assertEquals(90_000L, state.durationMs)
         assertEquals(listOf(7L, 9L), state.tracks.map { track -> track.id })
         assertEquals(listOf(0L, 1L), state.tracks.map { track -> track.sortOrder })

@@ -59,6 +59,7 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import kotlinx.coroutines.launch
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_download
@@ -431,6 +432,7 @@ private fun ArtistAlbumCard(
     ) {
         Box(
             modifier = Modifier
+                .albumArtworkSharedElement(album.id)
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(18.dp))

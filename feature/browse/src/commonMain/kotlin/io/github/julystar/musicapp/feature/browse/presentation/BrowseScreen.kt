@@ -35,6 +35,7 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import musicapp.feature.browse.generated.resources.Res
 import musicapp.feature.browse.generated.resources.browse_album_meta
 import musicapp.feature.browse.generated.resources.browse_albums
@@ -208,6 +209,7 @@ private fun BrowseAlbumCard(album: BrowseAlbumItem, onClick: () -> Unit) {
                 artwork = album.artwork,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
+                    .albumArtworkSharedElement(album.id)
                     .fillMaxWidth()
                     .height(136.dp)
                     .clip(RoundedCornerShape(shapes.md)),

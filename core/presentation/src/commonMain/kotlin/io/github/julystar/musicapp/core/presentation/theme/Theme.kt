@@ -11,13 +11,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
 import io.github.julystar.musicapp.core.presentation.platform.SystemBarsEffect
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemeController
@@ -70,10 +73,11 @@ fun AppTheme(
         SystemBarsEffect(isDarkTheme = effectiveDarkTheme || forceDarkSystemBars)
     }
 
-    MiuixTheme(
-        controller = controller,
-        textStyles = textStyles,
-    ) {
+    val colors = controller.currentColors().withResolvedPrimary(
+        themeSeedState = themeSeedState,
+        darkTheme = effectiveDarkTheme,
+    )
+    MiuixTheme(colors = colors, textStyles = textStyles) {
         CompositionLocalProvider(
             LocalDesignSpacing provides DesignSpacing(),
             LocalDesignShapes provides DesignShapes(),
@@ -96,7 +100,6 @@ fun ThemeSeedPreviewTheme(
     darkTheme: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val previewSeedArgb = seedColor.toArgb().toUInt().toLong()
     val controller = remember(seedColor, darkTheme) {
         ThemeController(
             colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
@@ -106,21 +109,68 @@ fun ThemeSeedPreviewTheme(
             isDark = darkTheme,
         )
     }
-    val previewSeedState = remember(previewSeedArgb) {
-        ThemeSeedState.Default.copy(
-            artworkThemeEnabled = false,
-            manualSeedArgb = previewSeedArgb,
-            effectiveSeedArgb = previewSeedArgb,
-            artworkStatus = ArtworkThemeSeedStatus.Disabled,
-            source = ThemeSeedSource.Manual,
+    val colors = controller.currentColors().withManualPrimary(seedColor, darkTheme)
+    MiuixTheme(colors = colors, textStyles = designTextStyles()) {
+        content()
+    }
+}
+
+private fun Colors.withResolvedPrimary(
+    themeSeedState: ThemeSeedState,
+    darkTheme: Boolean,
+): Colors {
+    return when (themeSeedState.source) {
+        ThemeSeedSource.Artwork,
+        ThemeSeedSource.PreviousArtwork,
+        -> this
+
+        ThemeSeedSource.Manual -> withManualPrimary(
+            seedColor = Color(themeSeedState.effectiveSeedArgb.toInt()),
+            darkTheme = darkTheme,
         )
     }
-    MiuixTheme(controller = controller, textStyles = designTextStyles()) {
-        CompositionLocalProvider(
-            LocalThemeSeedState provides previewSeedState,
-            content = content,
-        )
+}
+
+private fun Colors.withManualPrimary(seedColor: Color, darkTheme: Boolean): Colors {
+    val isDefaultBrand = seedColor.toArgb().toUInt().toLong() == DEFAULT_MANUAL_THEME_SEED_ARGB
+    val primaryColor = if (isDefaultBrand) {
+        if (darkTheme) DesignPalette.BrandButtonDark else DesignPalette.BrandButtonLight
+    } else {
+        seedColor
     }
+    val secondaryText = if (darkTheme) {
+        DesignPalette.SecondaryTextDark
+    } else {
+        DesignPalette.SecondaryTextLight
+    }
+    val tertiaryText = if (darkTheme) {
+        DesignPalette.TertiaryTextDark
+    } else {
+        DesignPalette.TertiaryTextLight
+    }
+    return copy(
+        primary = primaryColor,
+        onPrimary = if (isDefaultBrand) {
+            DesignPalette.BrandButtonForeground
+        } else {
+            primaryColor.highContrastContentColor()
+        },
+        onBackgroundVariant = primaryColor,
+        onSurfaceSecondary = if (isDefaultBrand) secondaryText else onSurfaceSecondary,
+        onSurfaceVariantSummary = if (isDefaultBrand) secondaryText else onSurfaceVariantSummary,
+        onSurfaceVariantActions = if (isDefaultBrand) tertiaryText else onSurfaceVariantActions,
+        onSurfaceContainerVariant = if (isDefaultBrand) secondaryText else onSurfaceContainerVariant,
+        onSurfaceContainerHigh = if (isDefaultBrand) secondaryText else onSurfaceContainerHigh,
+        onSecondaryContainerVariant = if (isDefaultBrand) secondaryText else onSecondaryContainerVariant,
+    )
+}
+
+private fun Color.highContrastContentColor(): Color {
+    val backgroundLuminance = luminance().toDouble()
+    val darkInk = Color(0xFF0D0B18)
+    val darkContrast = (backgroundLuminance + 0.05) / (darkInk.luminance().toDouble() + 0.05)
+    val lightContrast = 1.05 / (backgroundLuminance + 0.05)
+    return if (darkContrast >= lightContrast) darkInk else Color.White
 }
 
 object DesignTokens {

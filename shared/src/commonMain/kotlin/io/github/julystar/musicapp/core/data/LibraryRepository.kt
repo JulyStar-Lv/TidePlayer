@@ -53,8 +53,15 @@ class LibraryRepositoryImpl(
             }
         }
         scope.launch {
-            metadataDao.observeAlbumsWithTracks().collect { entities ->
-                _albums.value = entities.map { LibraryAlbumItem(it.id, it.name, it.year) }
+            metadataDao.observeAlbumsWithTracks().collect { rows ->
+                _albums.value = rows.map { row ->
+                    LibraryAlbumItem(
+                        id = row.album.id,
+                        name = row.album.name,
+                        year = row.album.year,
+                        artist = row.artistName,
+                    )
+                }
             }
         }
         scope.launch {

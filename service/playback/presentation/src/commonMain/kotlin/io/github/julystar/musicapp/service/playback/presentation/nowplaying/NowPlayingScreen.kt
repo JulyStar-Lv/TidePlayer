@@ -615,7 +615,6 @@ private val CompactArtworkTransitionSize = 44.dp
 private fun TrackInformation(
     track: NowPlayingTrackItem?,
     lyricDisplaySettings: LyricDisplaySettings,
-    playerInteractionSettings: PlayerInteractionSettings,
     modifier: Modifier = Modifier,
     lightTheme: Boolean = false,
     compact: Boolean = false,
@@ -625,8 +624,6 @@ private fun TrackInformation(
     val artistText = track?.artist?.takeIf { it.isNotBlank() }
         ?: stringResource(Res.string.player_unknown_artist)
     val artistFontFamily = lyricDisplaySettings.pageFontFamilyFor(artistText)
-    val annotation = track?.annotation
-        ?.takeIf { playerInteractionSettings.showSongAnnotation && it.isNotBlank() }
     val textColor = if (lightTheme) Color.White else MiuixTheme.colorScheme.onSurface
     val mutedColor = if (lightTheme) Color.White.copy(alpha = 0.55f) else MiuixTheme.colorScheme.onSurfaceVariantSummary
 
@@ -669,18 +666,6 @@ private fun TrackInformation(
                 .fillMaxWidth()
                 .padding(top = 3.dp),
         )
-        annotation?.takeUnless { compact }?.let { text ->
-            Text(
-                text = text,
-                color = mutedColor,
-                style = MiuixTheme.textStyles.footnote1,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp),
-            )
-        }
     }
 }
 
@@ -882,7 +867,6 @@ private fun DesktopNowPlayingLayout(
             TrackRow(
                 state = state,
                 lyricDisplaySettings = lyricDisplaySettings,
-                playerInteractionSettings = playerInteractionSettings,
                 liked = liked,
                 onLikedChange = onLikedChange,
                 onAction = onAction,
@@ -1103,7 +1087,6 @@ private fun CompactArtworkArea(
 private fun TrackRow(
     state: NowPlayingState,
     lyricDisplaySettings: LyricDisplaySettings,
-    playerInteractionSettings: PlayerInteractionSettings,
     liked: Boolean,
     onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
@@ -1119,7 +1102,6 @@ private fun TrackRow(
         TrackInformation(
             track = track,
             lyricDisplaySettings = lyricDisplaySettings,
-            playerInteractionSettings = playerInteractionSettings,
             modifier = Modifier.weight(1f),
             lightTheme = true,
             compact = compact,
@@ -1314,7 +1296,6 @@ private fun CompactClassicNowPlayingLayout(
             TrackRow(
                 state = state,
                 lyricDisplaySettings = lyricDisplaySettings,
-                playerInteractionSettings = playerInteractionSettings,
                 liked = liked,
                 onLikedChange = onLikedChange,
                 onAction = onAction,
@@ -1426,7 +1407,6 @@ private fun CompactLandscapeNowPlayingLayout(
                 TrackRow(
                     state = state,
                     lyricDisplaySettings = lyricDisplaySettings,
-                    playerInteractionSettings = playerInteractionSettings,
                     liked = liked,
                     onLikedChange = onLikedChange,
                     onAction = onAction,

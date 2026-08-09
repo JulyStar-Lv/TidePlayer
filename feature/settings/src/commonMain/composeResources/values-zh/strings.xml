@@ -401,14 +401,11 @@
     <string name="settings_webdav_root">根目录</string>
     <string name="settings_smb_add_title">添加 SMB 共享</string>
     <string name="settings_smb_edit_title">编辑 SMB 共享</string>
-    <string name="settings_smb_dialog_summary">连接 Windows、NAS 或 Samba 音乐共享。</string>
     <string name="settings_smb_name">名称（可选）</string>
     <string name="settings_smb_host">服务器或 IP 地址</string>
     <string name="settings_smb_port">端口</string>
-    <string name="settings_smb_share">共享名称</string>
     <string name="settings_smb_root">共享内目录（可选）</string>
     <string name="settings_smb_guest">访客访问</string>
-    <string name="settings_smb_guest_summary">无需用户名和密码即可连接</string>
     <string name="settings_smb_username">用户名</string>
     <string name="settings_smb_password_new">密码</string>
     <string name="settings_smb_password_edit">密码（留空表示不修改）</string>
@@ -471,7 +468,7 @@
     <string name="settings_feedback_password_required">请输入密码，或清空用户名以匿名访问</string>
     <string name="settings_feedback_smb_host_required">请输入服务器或 IP 地址</string>
     <string name="settings_feedback_smb_port_invalid">请输入有效的 SMB 端口</string>
-    <string name="settings_feedback_smb_share_required">请输入 SMB 共享名称</string>
+    <string name="settings_feedback_smb_path_required">请先为此 SMB 音源配置音乐路径</string>
     <string name="settings_feedback_smb_username_required">请输入用户名，或启用访客访问</string>
     <string name="settings_feedback_smb_password_required">请输入密码，或启用访客访问</string>
     <string name="settings_feedback_scan_complete">扫描完成：%1$s，已扫描 %2$s，新增 %3$s，修改 %4$s，删除 %5$s，跳过 %6$s，元数据请求 %7$s，读取 %8$s，耗时 %9$s 毫秒</string>

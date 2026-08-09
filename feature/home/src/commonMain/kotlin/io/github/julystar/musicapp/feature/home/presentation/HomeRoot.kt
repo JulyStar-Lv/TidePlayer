@@ -57,7 +57,7 @@ fun HomeRoot(
         onAction = { action ->
             when (action) {
                 HomeAction.PlayDailyPicks -> {
-                    val dailyPicks = state.dailyPickTracks.shuffled()
+                    val dailyPicks = state.dailyPickTracks
                     if (dailyPicks.isNotEmpty()) {
                         coroutineScope.launch {
                             playbackController.play(

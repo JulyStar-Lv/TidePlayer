@@ -37,6 +37,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
 import musicapp.feature.playlist.generated.resources.Res
 import musicapp.feature.playlist.generated.resources.cover_default_image
 import musicapp.feature.playlist.generated.resources.icon_adjust
@@ -220,6 +221,7 @@ private fun ReorderableCollectionItemScope.PlaylistItem(
         ) {
             Box(
                 modifier = Modifier
+                    .playlistArtworkSharedElement(playlist.id)
                     .clip(RoundedCornerShape(shapes.md))
                     .background(MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     .size(136.dp),

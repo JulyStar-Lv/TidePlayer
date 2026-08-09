@@ -390,7 +390,7 @@ class StorageRepositoryImpl(
                 enabled = previous?.enabled ?: true,
                 createdAt = previous?.createdAt ?: now,
                 updatedAt = now,
-                rootPath = previous?.rootPath ?: "/",
+                rootPath = configuredSmbPath(configuration.share, configuration.rootPath),
                 providerConfig = SMB_JSON.encodeToString(
                     SmbProviderConfiguration(
                         port = configuration.port,
@@ -526,11 +526,32 @@ class StorageRepositoryImpl(
 
     override suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String) {
         val id = accountId.toStorageIdOrNull() ?: return
-        sourceAccountDao.setRootPath(
-            id = id.value,
-            rootPath = rootPath.normalizedRootPath(),
-            updatedAt = currentTimeMillis(),
-        )
+        val account = sourceAccountDao.get(id.value) ?: return
+        if (account.providerType == ProviderTypes.Smb) {
+            val path = rootPath.normalizedRootPath()
+            val segments = path.split('/').filter(String::isNotBlank)
+            require(segments.isNotEmpty()) { "Select an SMB share or one of its folders" }
+            val configuration = account.smbProviderConfiguration()
+                ?: SmbProviderConfiguration(share = "")
+            val updatedConfiguration = configuration.copy(
+                share = segments.first(),
+                rootPath = segments.drop(1).joinToString("/"),
+            )
+            sourceAccountDao.upsert(
+                account.copy(
+                    rootPath = path,
+                    providerConfig = SMB_JSON.encodeToString(updatedConfiguration),
+                    updatedAt = currentTimeMillis(),
+                )
+            )
+            ctReleaseStorageBackend(id)
+        } else {
+            sourceAccountDao.setRootPath(
+                id = id.value,
+                rootPath = rootPath.normalizedRootPath(),
+                updatedAt = currentTimeMillis(),
+            )
+        }
     }
 
     fun findStorageAccount(id: Long): StorageAccountInfo? {
@@ -690,6 +711,13 @@ private data class SmbProviderConfiguration(
             requireEncryption = requireEncryption,
         )
     }
+}
+
+private fun configuredSmbPath(share: String, rootPath: String): String? {
+    val sharePath = share.trim().trim('/')
+    if (sharePath.isEmpty()) return null
+    val nestedPath = rootPath.trim().trim('/')
+    return if (nestedPath.isEmpty()) "/$sharePath" else "/$sharePath/$nestedPath"
 }
 
 private fun SourceAccountEntity.smbProviderConfiguration(): SmbProviderConfiguration? {

@@ -102,6 +102,7 @@ internal fun List<LibraryTrackItem>.toFavoritesPlaylistState(title: String): Pla
     return PlaylistState(
         playlistId = LIBRARY_PLAYBACK_PLAYLIST_ID,
         title = title,
+        isFavorites = true,
         durationMs = sumOf { track -> track.durationMs ?: 0L },
         tracks = mapIndexed { index, track ->
             PlaylistTrackItem(

@@ -89,7 +89,11 @@ class LegacyPlaybackController(
                 ) {
                     null
                 } else {
-                    music.meta.id.value to playlist.abstr.meta.id.value
+                    PlaybackSessionIdentity(
+                        trackId = music.meta.id.value,
+                        playlistId = playlist.abstr.meta.id.value,
+                        queueTrackIds = playlist.musics.map { item -> item.meta.id.value },
+                    )
                 }
             }
                 .distinctUntilChanged()
@@ -418,7 +422,12 @@ class LegacyPlaybackController(
         saved: PersistedPlaybackSession,
     ): PersistedPlaybackSession? {
         val music = roomLibraryStore.getMusic(MusicId(saved.trackId)) ?: return null
-        val playlist = roomLibraryStore.getPlaylist(PlaylistId(saved.playlistId)) ?: return null
+        val storedPlaylist = roomLibraryStore.getPlaylist(PlaylistId(saved.playlistId)) ?: return null
+        val playlist = if (saved.queueTrackIds != null) {
+            storedPlaylist.forPlaybackTrackIds(saved.queueTrackIds) ?: return null
+        } else {
+            storedPlaylist
+        }
         if (playlist.musics.none { it.meta.id.value == saved.trackId }) return null
 
         val restored = saved.copy(
@@ -473,10 +482,12 @@ class LegacyPlaybackController(
 }
 
 internal fun Playlist.forPlaybackItems(items: List<PlayableItem>): Playlist? {
-    val musicsById = musics.associateBy { it.meta.id.value }
-    val queue = items.mapNotNull { item ->
-        item.libraryTrackId?.let(musicsById::get)
-    }
+    return forPlaybackTrackIds(items.mapNotNull(PlayableItem::libraryTrackId))
+}
+
+internal fun Playlist.forPlaybackTrackIds(trackIds: List<Long>): Playlist? {
+    val musicsById = musics.associateBy { music -> music.meta.id.value }
+    val queue = trackIds.mapNotNull(musicsById::get)
     if (queue.isEmpty()) return null
     return copy(
         abstr = abstr.copy(
@@ -486,6 +497,12 @@ internal fun Playlist.forPlaybackItems(items: List<PlayableItem>): Playlist? {
         musics = queue,
     )
 }
+
+private data class PlaybackSessionIdentity(
+    val trackId: Long,
+    val playlistId: Long,
+    val queueTrackIds: List<Long>,
+)
 
 internal fun playbackModeForQueue(current: PlayMode, queueSize: Int): PlayMode {
     return if (current == PlayMode.SINGLE && queueSize > 1) PlayMode.LIST else current

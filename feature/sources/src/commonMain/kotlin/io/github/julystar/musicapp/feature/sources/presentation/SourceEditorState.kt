@@ -22,7 +22,6 @@ data class SourceEditorValidation(
     val aliasEmpty: Boolean = false,
     val usernameEmpty: Boolean = false,
     val passwordEmpty: Boolean = false,
-    val smbShareEmpty: Boolean = false,
     val smbPortInvalid: Boolean = false,
 )
 
@@ -81,8 +80,6 @@ sealed interface SourceEditorAction {
     data class SmbAliasChanged(val value: String) : SourceEditorAction
     data class SmbHostChanged(val value: String) : SourceEditorAction
     data class SmbPortChanged(val value: String) : SourceEditorAction
-    data class SmbShareChanged(val value: String) : SourceEditorAction
-    data class SmbRootPathChanged(val value: String) : SourceEditorAction
     data class SmbDomainChanged(val value: String) : SourceEditorAction
     data class SmbUsernameChanged(val value: String) : SourceEditorAction
     data class SmbPasswordChanged(val value: String) : SourceEditorAction

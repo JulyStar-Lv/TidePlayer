@@ -9,6 +9,7 @@ import uniffi.app_backend.StorageId
 import uniffi.app_backend.WebDavSyncPageResult
 import uniffi.app_backend.WebDavSyncRequest
 import uniffi.app_backend.ctListStorageEntryChildren
+import uniffi.app_backend.ctListSmbServerEntryChildren
 import uniffi.app_backend.ctGetOnedriveDeltaPage
 import uniffi.app_backend.ctScanStorageMusicFolder
 import uniffi.app_backend.ctStartStorageMusicScan
@@ -28,6 +29,24 @@ class RemoteScannerRepository(
             ?: return ListStorageEntryChildrenResp.Unknown
         return bridge.runRaw {
             ctListStorageEntryChildren(
+                it,
+                storage,
+                StorageEntryLoc(
+                    storageId = storageId,
+                    path = path,
+                ),
+            )
+        }
+    }
+
+    suspend fun listSmbServerDirectory(
+        storageId: StorageId,
+        path: String,
+    ): ListStorageEntryChildrenResp {
+        val storage = storageRepository.storageForRust(storageId)
+            ?: return ListStorageEntryChildrenResp.Unknown
+        return bridge.runRaw {
+            ctListSmbServerEntryChildren(
                 it,
                 storage,
                 StorageEntryLoc(

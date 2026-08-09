@@ -9,6 +9,8 @@ Editable prototype: `Design/src/app/App.tsx` and `Design/src/app/ThemeColorDesig
 TidePlayer uses a seed color to generate a complete light or dark Miuix color
 scheme. A seed is never copied directly into every background or semantic role.
 Error, warning, success, and diagnostic roles retain their meanings.
+The cross-platform primary role follows the resolution rules below. The default
+manual Brand Pink maps to the Apple Music red defined below.
 
 The user-visible setting model has exactly two controls:
 
@@ -70,15 +72,30 @@ alone.
 | Green | `#3DCA8A` |
 | Yellow | `#FFD93D` |
 
-### Brand button roles
+### Cross-platform Apple Music roles
 
-These semantic button colors apply while Brand Pink is the effective theme
-seed. Artwork and custom seeds continue to use their generated Miuix roles.
+The primary role and semantic button colors resolve consistently on mobile and
+desktop. Available artwork colors take priority while Artwork color is on. With
+Artwork color off, the current manual theme color supplies the primary role;
+the default Brand Pink maps to Apple Music red, while custom colors remain
+the selected colors.
 
 | Role | Light | Dark |
 | --- | --- | --- |
 | Primary button | `#FA233B` with white content | `#FA2E48` with white content |
 | Secondary button | `#ECECEC` with `#242424` content | `#404141` with `#E2E2E2` content |
+| Secondary text | `#6E6E73` | `#98989D` |
+| Tertiary/action text | `#8E8E93` | `#8E8E93` |
+
+The resolved primary role also colors selected navigation, switches, sliders,
+custom primary actions, and primary-emphasis text consistently across
+platforms. Miuix's `onBackgroundVariant` primary-emphasis alias must resolve to
+the same final primary color rather than retaining a generated pre-override
+tone.
+
+Default-brand secondary metadata remains neutral instead of inheriting a
+red-tinted generated tone. Artwork and custom themes retain their generated
+secondary roles.
 
 NeriPlayer blue is not the TidePlayer default.
 

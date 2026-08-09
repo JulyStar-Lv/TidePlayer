@@ -126,10 +126,7 @@ impl BuildSmbArg {
         let mut path_segments = normalized_path
             .split('/')
             .filter(|segment| !segment.is_empty());
-        let share = path_segments
-            .next()
-            .ok_or_else(|| StorageBackendError::InvalidPath("SMB share is required".to_string()))?
-            .to_string();
+        let share = path_segments.next().unwrap_or_default().to_string();
         let root_path = path_segments.collect::<Vec<_>>().join("/");
 
         let mut domain = None;
@@ -177,7 +174,11 @@ impl BuildSmbArg {
 
     pub fn validated(mut self) -> StorageBackendResult<Self> {
         self.host = validate_component("host", &self.host)?;
-        self.share = validate_path_component("share", &self.share)?;
+        self.share = if self.share.trim().is_empty() {
+            String::new()
+        } else {
+            validate_path_component("share", &self.share)?
+        };
         self.root_path = normalize_relative_path(&self.root_path)?;
         self.domain = self
             .domain
@@ -457,6 +458,11 @@ impl SessionPool {
 impl SmbBackend {
     pub fn new(arg: BuildSmbArg) -> StorageBackendResult<Self> {
         let arg = BuildSmbArg::validated(arg)?;
+        if arg.share.is_empty() {
+            return Err(StorageBackendError::InvalidPath(
+                "SMB share is required for file access".to_string(),
+            ));
+        }
         Ok(Self {
             inner: Arc::new(SmbBackendInner {
                 sessions: SessionPool::new(arg.clone()),
@@ -696,6 +702,52 @@ impl SmbBackend {
     }
 }
 
+pub fn list_smb_server_path(
+    mut arg: BuildSmbArg,
+    path: String,
+) -> BoxFuture<'static, StorageBackendResult<Vec<Entry>>> {
+    Box::pin(run_on_tokio_runtime(async move {
+        arg = BuildSmbArg::validated(arg)?;
+        arg.share.clear();
+        arg.root_path.clear();
+        let relative_path = normalize_relative_path(&path)?;
+
+        if relative_path.is_empty() {
+            let mut client = connect_client(&arg).await?;
+            let mut shares = client.list_shares().await.map_err(map_smb_error)?;
+            shares.sort_by(|left, right| left.name.cmp(&right.name));
+            let parent_remote_id = remote_id("", "", "/");
+            return Ok(shares
+                .into_iter()
+                .map(|share| Entry {
+                    path: public_path(&share.name),
+                    remote_id: Some(remote_id(&share.name, "", "/")),
+                    parent_remote_id: Some(parent_remote_id.clone()),
+                    name: share.name,
+                    size: None,
+                    is_dir: true,
+                    mime_type: None,
+                    etag: None,
+                    ctag: None,
+                    created_at: None,
+                    modified_at: None,
+                })
+                .collect());
+        }
+
+        let mut segments = relative_path.split('/');
+        let share = segments.next().unwrap_or_default().to_string();
+        let directory = segments.collect::<Vec<_>>().join("/");
+        arg.share = share.clone();
+        let backend = SmbBackend::new(arg)?;
+        let mut entries = backend.list_impl(public_path(&directory)).await?;
+        entries.iter_mut().for_each(|entry| {
+            entry.path = public_path(&join_relative(&share, entry.path.trim_start_matches('/')));
+        });
+        Ok(entries)
+    }))
+}
+
 fn validate_range(total_size: u64, range: ByteRange) -> StorageBackendResult<()> {
     if range.start >= total_size || range.end_inclusive >= total_size {
         return Err(StorageBackendError::InvalidRange {
@@ -759,6 +811,16 @@ where
 }
 
 async fn connect_session(arg: &BuildSmbArg) -> StorageBackendResult<ConnectedSession> {
+    let mut client = connect_client(arg).await?;
+    let tree = client
+        .connect_share(&arg.share)
+        .await
+        .map_err(map_smb_error)?;
+
+    Ok(ConnectedSession { client, tree })
+}
+
+async fn connect_client(arg: &BuildSmbArg) -> StorageBackendResult<SmbClient> {
     let config = ClientConfig {
         addr: arg.server_address(),
         timeout: arg.connect_timeout,
@@ -798,12 +860,7 @@ async fn connect_session(arg: &BuildSmbArg) -> StorageBackendResult<ConnectedSes
         }
     }
 
-    let tree = client
-        .connect_share(&arg.share)
-        .await
-        .map_err(map_smb_error)?;
-
-    Ok(ConnectedSession { client, tree })
+    Ok(client)
 }
 
 fn map_smb_error(error: smb2::Error) -> StorageBackendError {
@@ -1033,6 +1090,15 @@ mod tests {
         assert_eq!(arg.host, "nas.local");
         assert_eq!(arg.port, 445);
         assert_eq!(arg.share, "Music");
+        assert_eq!(arg.root_path, "");
+    }
+
+    #[test]
+    fn parses_server_root_without_a_share() {
+        let arg = parse("smb://nas.local").unwrap();
+        assert_eq!(arg.host, "nas.local");
+        assert_eq!(arg.port, 445);
+        assert_eq!(arg.share, "");
         assert_eq!(arg.root_path, "");
     }
 

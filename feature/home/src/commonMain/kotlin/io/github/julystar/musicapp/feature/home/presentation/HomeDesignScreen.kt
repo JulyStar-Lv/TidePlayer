@@ -66,6 +66,8 @@ import io.github.julystar.musicapp.core.presentation.components.designLiquidGlas
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
+import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import org.jetbrains.compose.resources.DrawableResource
@@ -725,7 +727,7 @@ private fun HomeSection(
                 Icon(
                     painter = painterResource(Res.drawable.icon_section_chevron),
                     contentDescription = null,
-                    tint = MiuixTheme.colorScheme.onBackgroundVariant,
+                    tint = MiuixTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
                 )
             }
@@ -774,6 +776,7 @@ private fun PlaylistCard(
         val artworkShape = RoundedCornerShape(14.dp)
         Box(
             modifier = Modifier
+                .playlistArtworkSharedElement(playlist.id)
                 .size(width)
                 .shadow(DesignTokens.elevation.card, artworkShape, clip = false)
                 .clip(artworkShape)
@@ -877,7 +880,7 @@ private fun RecentlyPlayedPager(
                             if (track.subtitle.isNotBlank()) {
                                 Text(
                                     text = track.subtitle,
-                                    color = MiuixTheme.colorScheme.onBackgroundVariant,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                     style = MiuixTheme.textStyles.footnote1,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -961,7 +964,7 @@ private fun NewSongRow(
                 if (track.subtitle.isNotBlank()) {
                     Text(
                         text = track.subtitle,
-                        color = MiuixTheme.colorScheme.onBackgroundVariant,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         style = MiuixTheme.textStyles.footnote1,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -994,6 +997,7 @@ private fun AlbumRow(
                 val shape = RoundedCornerShape(14.dp)
                 Box(
                     modifier = Modifier
+                        .albumArtworkSharedElement(album.id)
                         .size(cardWidth)
                         .shadow(DesignTokens.elevation.card, shape, clip = false)
                         .clip(shape)
@@ -1023,7 +1027,7 @@ private fun AlbumRow(
                 if (album.subtitle.isNotBlank()) {
                     Text(
                         text = album.subtitle,
-                        color = MiuixTheme.colorScheme.onBackgroundVariant,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         style = MiuixTheme.textStyles.footnote1,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1209,7 +1213,7 @@ private fun StatItem(label: String, value: String) {
         )
         Text(
             text = label,
-            color = MiuixTheme.colorScheme.onBackgroundVariant,
+            color = MiuixTheme.colorScheme.primary,
             style = MiuixTheme.textStyles.footnote1,
         )
     }

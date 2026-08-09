@@ -13,6 +13,7 @@ data class PlaylistState(
     val playlistId: Long = 0,
     val title: String = "",
     val cover: Artwork? = null,
+    val isFavorites: Boolean = false,
     val durationMs: Long = 0,
     val durationLabel: String = formatDuration(null as Duration?),
     val isRemoveDialogOpen: Boolean = false,

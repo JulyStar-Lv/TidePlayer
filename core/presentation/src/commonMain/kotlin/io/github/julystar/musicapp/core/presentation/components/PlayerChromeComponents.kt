@@ -410,7 +410,7 @@ fun DesignBottomNavigationBar(
                 val tint = if (isSelected) {
                     MiuixTheme.colorScheme.primary
                 } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantActions
+                    MiuixTheme.colorScheme.onSurface
                 }
 
                 Column(

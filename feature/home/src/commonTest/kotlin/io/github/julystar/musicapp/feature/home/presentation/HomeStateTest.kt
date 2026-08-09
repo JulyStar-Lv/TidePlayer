@@ -126,9 +126,12 @@ class HomeStateTest {
             id = 7L,
             name = "Real album",
             year = 2026,
+            artist = "Album artist",
         ).toHomeAlbum()
 
         assertEquals(7L, item.id)
+        assertEquals("Real album", item.title)
+        assertEquals("Album artist", item.subtitle)
         assertEquals(Artwork.LibraryAlbum(albumId = 7L), item.artwork)
     }
 

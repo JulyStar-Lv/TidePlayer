@@ -55,6 +55,7 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import kotlinx.coroutines.launch
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_download
@@ -283,7 +284,7 @@ private fun AlbumHero(
     compact: Boolean,
     titleAlpha: Float,
 ) {
-    val artworkSize = if (compact) 112.dp else 220.dp
+    val artworkSize = if (compact) 144.dp else 260.dp
     val artworkRadius = if (compact) 18.dp else 24.dp
     val titleSize = if (compact) 24.sp else 36.sp
     val titleLineHeight = if (compact) 29.sp else 42.sp
@@ -303,6 +304,7 @@ private fun AlbumHero(
     ) {
         Box(
             modifier = Modifier
+                .albumArtworkSharedElement(state.albumId)
                 .size(artworkSize)
                 .clip(RoundedCornerShape(artworkRadius))
                 .background(MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),

@@ -4,6 +4,7 @@ data class LibraryAlbumItem(
     val id: Long,
     val name: String,
     val year: Int?,
+    val artist: String? = null,
 )
 
 data class LibraryArtistItem(

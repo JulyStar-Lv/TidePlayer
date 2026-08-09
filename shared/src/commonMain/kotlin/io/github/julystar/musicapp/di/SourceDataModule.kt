@@ -13,6 +13,7 @@ import io.github.julystar.musicapp.source.api.LegacyStorageConnectionTester
 import io.github.julystar.musicapp.source.api.LegacyStorageDirectoryLister
 import io.github.julystar.musicapp.source.api.LegacyStoragePlaybackResolver
 import io.github.julystar.musicapp.source.api.LegacyStorageSearchProvider
+import io.github.julystar.musicapp.source.api.LegacySmbServerDirectoryLister
 import io.github.julystar.musicapp.source.api.SourceListFailureReason
 import io.github.julystar.musicapp.source.api.SourceListResult
 import io.github.julystar.musicapp.source.local.LocalMusicSource
@@ -90,6 +91,18 @@ val sourceDataModule = module {
                 .toSourceListResult(accountId)
         }
     }
+    single<LegacySmbServerDirectoryLister> {
+        val remoteScannerRepository = get<RemoteScannerRepository>()
+        LegacySmbServerDirectoryLister { accountId, directoryId ->
+            val storageId = accountId.toLegacyStorageIdOrNull()
+                ?: return@LegacySmbServerDirectoryLister SourceListResult.Failure(
+                    SourceListFailureReason.UnsupportedAccount
+                )
+            remoteScannerRepository
+                .listSmbServerDirectory(storageId, directoryId ?: "/")
+                .toSourceListResult(accountId)
+        }
+    }
     single<LegacyStorageSearchProvider> {
         val storageRepository = get<StorageRepositoryImpl>()
         RoomLegacyStorageSearchProvider(
@@ -122,7 +135,7 @@ val sourceDataModule = module {
     single { LocalMusicSource(get(), get(), get(named("liveSearch"))) }
     single { WebDavMusicSource(get(), get(), get(), get(named("liveSearch"))) }
     single { OneDriveMusicSource(get(), get(), get(), get(named("liveSearch"))) }
-    single { SmbMusicSource(get(), get(), get(), get(named("liveSearch"))) }
+    single { SmbMusicSource(get(), get(), get(), get(named("liveSearch")), get()) }
     single<RemoteServerGateway> { RemoteServerGatewayImpl(get(), get()) }
     single(named("navidromeSource")) {
         ServerMusicSource(RemoteServerKind.Navidrome, get())
