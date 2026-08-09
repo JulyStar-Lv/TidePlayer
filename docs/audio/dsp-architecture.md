@@ -1,6 +1,6 @@
 # Shared Rust DSP architecture
 
-MelodyTrove uses one platform-independent Rust signal-processing core on Android, iOS, and Desktop. Platform code only delivers decoded PCM, publishes immutable configuration snapshots, and manages playback lifecycle.
+TidePlayer uses one platform-independent Rust signal-processing core on Android, iOS, and Desktop. Platform code only delivers decoded PCM, publishes immutable configuration snapshots, and manages playback lifecycle.
 
 ```text
 Compose settings UI
