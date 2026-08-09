@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::error::{BError, BResult};
 
-const CLIENT_NAME: &str = "MelodyTrove";
+const CLIENT_NAME: &str = "TidePlayer";
 const SUBSONIC_VERSION: &str = "1.16.1";
 
 #[uniffi::export]
@@ -197,6 +197,6 @@ fn http_client() -> BResult<Client> {
 }
 
 fn emby_authorization_header() -> String {
-    "MediaBrowser Client=\"MelodyTrove\", Device=\"MelodyTrove\", DeviceId=\"musicapp\", Version=\"1.0\""
+    "MediaBrowser Client=\"TidePlayer\", Device=\"TidePlayer\", DeviceId=\"musicapp\", Version=\"1.0\""
         .to_string()
 }

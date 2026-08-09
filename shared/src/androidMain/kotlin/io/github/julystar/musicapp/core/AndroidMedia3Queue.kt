@@ -9,7 +9,8 @@ import androidx.media3.common.util.UnstableApi
 import uniffi.app_backend.MusicAbstract
 import uniffi.app_backend.Playlist
 
-internal const val ANDROID_MEDIA_QUEUE_SCHEME = "melodytrove"
+internal const val ANDROID_MEDIA_QUEUE_SCHEME = "musicapp"
+private val LEGACY_ANDROID_MEDIA_QUEUE_SCHEMES = setOf("melodytrove", "tidetunes")
 internal const val ANDROID_MEDIA_QUEUE_AUTHORITY = "track"
 internal const val ANDROID_MEDIA_QUEUE_MAX_ITEMS = 101
 
@@ -23,10 +24,10 @@ internal const val MEDIA_EXTRA_PLAYLIST_ID =
 /**
  * A bounded projection of the application queue that is safe to send through Media3/Binder.
  *
- * MelodyTrove can hold very large local or remote libraries. Publishing every item at once would
- * risk Binder transaction limits and would encourage eager remote-resource resolution. The window
- * keeps the current item and nearby tracks in the native Media3 timeline while the full queue
- * remains available through [Playlist] for rebuilding when playback reaches an edge.
+ * The application can hold very large local or remote libraries. Publishing every item at once
+ * would risk Binder transaction limits and would encourage eager remote-resource resolution. The
+ * window keeps the current item and nearby tracks in the native Media3 timeline while the full
+ * queue remains available through [Playlist] for rebuilding when playback reaches an edge.
  */
 internal data class AndroidMediaQueueWindow(
     val mediaItems: List<MediaItem>,
@@ -111,9 +112,15 @@ internal fun androidQueueTrackUri(trackId: Long, playlistId: Long? = null): Uri 
         .build()
 }
 
-/** Supports both the new queue URI and the legacy melodytrove://data?music=<id> form. */
+/** Supports current brand-neutral queue URIs and legacy MelodyTrove/TideTunes queue URIs. */
 internal fun Uri.androidPlaybackTrackIdOrNull(): Long? {
-    if (!scheme.equals(ANDROID_MEDIA_QUEUE_SCHEME, ignoreCase = true)) return null
+    val normalizedScheme = scheme?.lowercase() ?: return null
+    if (
+        normalizedScheme != ANDROID_MEDIA_QUEUE_SCHEME &&
+        normalizedScheme !in LEGACY_ANDROID_MEDIA_QUEUE_SCHEMES
+    ) {
+        return null
+    }
     return when (authority?.lowercase()) {
         ANDROID_MEDIA_QUEUE_AUTHORITY -> pathSegments.singleOrNull()?.toLongOrNull()
         "data" -> getQueryParameter("music")?.toLongOrNull()

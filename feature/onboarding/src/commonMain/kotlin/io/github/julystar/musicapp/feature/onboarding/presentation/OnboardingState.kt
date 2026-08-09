@@ -9,7 +9,7 @@ data class OnboardingState(
 )
 
 enum class OnboardingPage(val index: Int, val title: String, val description: String) {
-    Welcome(0, "Welcome to MelodyTrove", "Your personal music library, synced across all your devices."),
+    Welcome(0, "Welcome to TidePlayer", "Your personal music library, synced across all your devices."),
     AddSources(1, "Add Music Sources", "Connect your WebDAV server, OneDrive, or local folders to start building your library."),
     Ready(2, "You're All Set", "Your music is ready. Start exploring your library or add more sources anytime from Settings."),
 }

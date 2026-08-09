@@ -10,8 +10,8 @@ import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 
 internal object DesktopDataMigration {
-    private const val COMPLETE_MARKER = ".legacy-data-migration-v1-complete"
-    private const val IN_PROGRESS_MARKER = ".legacy-data-migration-v1-in-progress"
+    private const val COMPLETE_MARKER = ".legacy-data-migration-v2-complete"
+    private const val IN_PROGRESS_MARKER = ".legacy-data-migration-v2-in-progress"
     private val sqliteHeader = "SQLite format 3\u0000".encodeToByteArray()
 
     fun defaultDataDirectory(): Path {
@@ -36,12 +36,22 @@ internal object DesktopDataMigration {
         return base.resolve(AppIdentifiers.BRAND_NAME)
     }
 
-    fun legacyDataDirectory(): Path =
-        Path.of(System.getProperty("user.home")).resolve(LegacyPaths.DESKTOP_DATA_DIRECTORY)
+    fun previousBrandDataDirectory(): Path =
+        defaultDataDirectory().parent.resolve(LegacyPaths.PREVIOUS_DESKTOP_DATA_DIRECTORY)
+
+    fun originalLegacyDataDirectory(): Path =
+        Path.of(System.getProperty("user.home")).resolve(LegacyPaths.ORIGINAL_DESKTOP_DATA_DIRECTORY)
+
+    fun legacyDataDirectories(): List<Path> = listOf(
+        previousBrandDataDirectory(),
+        originalLegacyDataDirectory(),
+    ).distinct()
+
+    fun legacyDataDirectory(): Path = originalLegacyDataDirectory()
 
     fun ensureMigrated(
         newDirectory: Path = defaultDataDirectory(),
-        legacyDirectory: Path = legacyDataDirectory(),
+        legacyDirectories: List<Path> = legacyDataDirectories(),
     ): Path {
         Files.createDirectories(newDirectory)
         val completeMarker = newDirectory.resolve(COMPLETE_MARKER)
@@ -53,12 +63,36 @@ internal object DesktopDataMigration {
             return newDirectory
         }
 
-        if (!legacyDirectory.isDirectory()) {
+        val candidates = legacyDirectories
+            .filter { it != newDirectory && it.isDirectory() }
+        if (candidates.isEmpty()) {
             writeMarker(completeMarker, "no-legacy-data")
             return newDirectory
         }
 
         writeMarker(inProgressMarker, "migration-in-progress")
+        candidates.forEach { legacyDirectory ->
+            migrateLegacyDirectory(legacyDirectory, newDirectory)
+        }
+
+        validateDatabase(newDirectory.resolve(AppIdentifiers.DATABASE_FILE))
+        writeMarker(completeMarker, "migration-complete")
+        Files.deleteIfExists(inProgressMarker)
+        return newDirectory
+    }
+
+    fun ensureMigrated(newDirectory: Path, legacyDirectory: Path): Path =
+        ensureMigrated(newDirectory, listOf(legacyDirectory))
+
+    private fun migrateLegacyDirectory(legacyDirectory: Path, newDirectory: Path) {
+        // MelodyTrove already used the brand-neutral persistence names. The older
+        // TideTunes layout used product-branded filenames, so accept both forms.
+        LegacyPaths.PREVIOUS_BRAND_FILE_MAPPINGS.forEach { (sourceName, targetName) ->
+            migratePath(
+                source = legacyDirectory.resolve(sourceName),
+                target = newDirectory.resolve(targetName),
+            )
+        }
         LegacyPaths.FILE_MAPPINGS.forEach { (sourceName, targetName) ->
             migratePath(
                 source = legacyDirectory.resolve(sourceName),
@@ -71,16 +105,12 @@ internal object DesktopDataMigration {
                 target = newDirectory.resolve(directoryName),
             )
         }
-
-        validateDatabase(newDirectory.resolve(AppIdentifiers.DATABASE_FILE))
-        writeMarker(completeMarker, "migration-complete")
-        Files.deleteIfExists(inProgressMarker)
-        return newDirectory
     }
 
     private fun isInitialized(directory: Path): Boolean =
-        LegacyPaths.FILE_MAPPINGS.any { (_, targetName) -> directory.resolve(targetName).exists() } ||
-            LegacyPaths.DATA_DIRECTORIES.any { directory.resolve(it).exists() }
+        LegacyPaths.PREVIOUS_BRAND_FILE_MAPPINGS.any { (_, targetName) ->
+            directory.resolve(targetName).exists()
+        } || LegacyPaths.DATA_DIRECTORIES.any { directory.resolve(it).exists() }
 
     private fun migratePath(source: Path, target: Path) {
         if (!source.exists() || target.exists()) return

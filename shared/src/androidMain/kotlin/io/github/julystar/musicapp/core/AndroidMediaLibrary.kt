@@ -8,8 +8,8 @@ import androidx.media3.common.util.UnstableApi
 import uniffi.app_backend.MusicAbstract
 import uniffi.app_backend.Playlist
 
-internal const val ANDROID_LIBRARY_ROOT_ID = "melodytrove_root"
-internal const val ANDROID_LIBRARY_CURRENT_QUEUE_ID = "melodytrove_current_queue"
+internal const val ANDROID_LIBRARY_ROOT_ID = "musicapp_root"
+internal const val ANDROID_LIBRARY_CURRENT_QUEUE_ID = "musicapp_current_queue"
 
 @OptIn(UnstableApi::class)
 internal fun androidLibraryRoot(appName: String): MediaItem {

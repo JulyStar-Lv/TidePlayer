@@ -17,10 +17,12 @@ const legacyAllowed = [
   /^androidApp\/src\/main\/AndroidManifest\.xml$/,
   /^iosApp\/Info\.plist$/,
   /^scripts\/audit-branding\.js$/,
-  /^docs\/branding\/legacy-identifiers\.md$/,
+  /^docs\/branding\/(?:legacy-identifiers|rename-audit|external-migration-checklist)\.md$/,
   /^shared\/src\/commonMain\/kotlin\/io\/github\/julystar\/musicapp\/migration\/Legacy[^/]+\.kt$/,
+  /^shared\/src\/desktopMain\/kotlin\/io\/github\/julystar\/musicapp\/migration\/DesktopDataMigration\.kt$/,
+  /^shared\/src\/desktopTest\/kotlin\/io\/github\/julystar\/musicapp\/migration\/DesktopDataMigrationTest\.kt$/,
 ];
-const legacyPatterns = [
+const originalLegacyPatterns = [
   /TideTunes/,
   /tidetunes/,
   /TIDETUNES_/,
@@ -29,7 +31,7 @@ const legacyPatterns = [
   /tidetunes[_-]backend/,
 ];
 const brandedInternalType =
-  /\bMelodyTrove(?:Application|Database|Theme|View|Screen|State|Repository|Service|Plugin|Convention|Module|Extension|Handler)\b/;
+  /\b(?:TidePlayer|MelodyTrove)(?:Application|Database|Theme|View|Screen|State|Repository|Service|Plugin|Convention|Module|Extension|Handler)\b/;
 const errors = [];
 
 function relative(file) {
@@ -75,13 +77,13 @@ function requireContent(file, pattern, description) {
 for (const absolute of walk(root)) {
   const file = relative(absolute);
   if (/tidetunes/i.test(file)) {
-    errors.push(`${file}: legacy brand remains in a file or directory name`);
+    errors.push(`${file}: original legacy brand remains in a file or directory name`);
   }
 
   const content = readText(absolute);
   if (content === null) continue;
   if (!isLegacyAllowed(file)) {
-    for (const pattern of legacyPatterns) {
+    for (const pattern of originalLegacyPatterns) {
       if (pattern.test(content)) {
         errors.push(`${file}: legacy identifier ${pattern} is not allow-listed`);
         break;
@@ -99,9 +101,14 @@ requireContent(
   "fixed Android namespace and application ID",
 );
 requireContent(
+  "androidApp/src/main/res/values/strings.xml",
+  /<string name="app_name">TidePlayer<\/string>/,
+  "TidePlayer Android app label",
+);
+requireContent(
   "androidApp/src/main/AndroidManifest.xml",
-  /android:name="\.AppApplication"[\s\S]*@style\/Theme\.App[\s\S]*android:scheme="melodytrove"[\s\S]*android:scheme="tidetunes"/,
-  "generic application/theme names and transition deep links",
+  /android:name="\.AppApplication"[\s\S]*@style\/Theme\.App[\s\S]*android:scheme="tideplayer"[\s\S]*android:scheme="melodytrove"[\s\S]*android:scheme="tidetunes"/,
+  "generic Android application/theme names and current plus legacy deep links",
 );
 requireContent(
   "shared/build.gradle.kts",
@@ -109,9 +116,19 @@ requireContent(
   "SharedKit framework identity",
 );
 requireContent(
+  "iosApp/Info.plist",
+  /<key>CFBundleDisplayName<\/key>\s*<string>TidePlayer<\/string>[\s\S]*<string>tideplayer<\/string>[\s\S]*<string>melodytrove<\/string>[\s\S]*<string>tidetunes<\/string>/,
+  "TidePlayer iOS display name and current plus legacy URL schemes",
+);
+requireContent(
   "iosApp/App.xcodeproj/project.pbxproj",
-  /productName = MelodyTrove;[\s\S]*PRODUCT_BUNDLE_IDENTIFIER = io\.github\.julystar\.musicapp;/,
-  "App target product and fixed bundle ID",
+  /productName = TidePlayer;[\s\S]*PRODUCT_BUNDLE_IDENTIFIER = io\.github\.julystar\.musicapp;[\s\S]*PRODUCT_NAME = TidePlayer;/,
+  "TidePlayer App product and fixed bundle ID",
+);
+requireContent(
+  "desktopApp/build.gradle.kts",
+  /packageName\s*=\s*"TidePlayer"/,
+  "TidePlayer Desktop package name",
 );
 requireContent(
   "rust-libs/app-backend/Cargo.toml",
@@ -125,8 +142,13 @@ requireContent(
 );
 requireContent(
   "shared/src/commonMain/kotlin/io/github/julystar/musicapp/migration/AppIdentifiers.kt",
-  /BRAND_NAME = "MelodyTrove"[\s\S]*PACKAGE_ID = "io\.github\.julystar\.musicapp"[\s\S]*DATABASE_FILE = "library\.db"[\s\S]*PREFERENCES_FILE = "settings\.preferences_pb"/,
-  "canonical application identifiers",
+  /BRAND_NAME = "TidePlayer"[\s\S]*BRAND_SLUG = "tideplayer"[\s\S]*PACKAGE_ID = "io\.github\.julystar\.musicapp"[\s\S]*DATABASE_FILE = "library\.db"[\s\S]*PREFERENCES_FILE = "settings\.preferences_pb"/,
+  "canonical TidePlayer and stable technical identifiers",
+);
+requireContent(
+  "scripts/build-apk.ts",
+  /`tideplayer-\$\{target\}-\$\{version\.name\}\.apk`/,
+  "TidePlayer Android release artifact name",
 );
 
 const schemaDirectory = path.join(
@@ -143,4 +165,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Branding audit passed: MelodyTrove product names and generic technical identifiers are consistent.");
+console.log("Branding audit passed: TidePlayer product names and generic technical identifiers are consistent.");

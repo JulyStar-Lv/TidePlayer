@@ -15,6 +15,44 @@ import kotlin.test.assertTrue
 
 class DesktopDataMigrationTest {
     @Test
+    fun migratesPreviousBrandDirectoryBeforeOriginalLegacyDirectory() {
+        val root = Files.createTempDirectory("musicapp-brand-migration-")
+        try {
+            val previous = root.resolve("MelodyTrove").createDirectories()
+            val original = root.resolve(".tidetunes").createDirectories()
+            val destination = root.resolve("TidePlayer")
+            val previousDatabase = "SQLite format 3\u0000previous".encodeToByteArray()
+            val originalDatabase = "SQLite format 3\u0000original".encodeToByteArray()
+
+            previous.resolve(AppIdentifiers.DATABASE_FILE).writeBytes(previousDatabase)
+            previous.resolve(AppIdentifiers.PREFERENCES_FILE).writeText("previous-preferences")
+            original.resolve(LegacyPaths.DATABASE_FILE).writeBytes(originalDatabase)
+
+            assertEquals(
+                destination,
+                DesktopDataMigration.ensureMigrated(
+                    destination,
+                    listOf(previous, original),
+                ),
+            )
+            assertContentEquals(
+                previousDatabase,
+                destination.resolve(AppIdentifiers.DATABASE_FILE).readBytes(),
+            )
+            assertEquals(
+                "previous-preferences",
+                destination.resolve(AppIdentifiers.PREFERENCES_FILE).readText(),
+            )
+            assertTrue(
+                original.resolve(LegacyPaths.DATABASE_FILE).exists(),
+                "Older legacy data must not overwrite the immediately previous brand data",
+            )
+        } finally {
+            root.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun migratesLegacyFilesAndDirectoriesIdempotently() {
         val root = Files.createTempDirectory("musicapp-data-migration-")
         try {

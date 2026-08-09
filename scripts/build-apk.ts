@@ -60,6 +60,6 @@ cpSync(srcDir, dstDir, { recursive: true });
 for (const target of TARGETS) {
   renameSync(
     path.join(dstDir, `androidApp-${target}-release.apk`),
-    path.join(dstDir, `melodytrove-${target}-${version.name}.apk`),
+    path.join(dstDir, `tideplayer-${target}-${version.name}.apk`),
   );
 }

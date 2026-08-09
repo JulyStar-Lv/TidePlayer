@@ -1,11 +1,10 @@
-# MelodyTrove naming policy
+# TidePlayer naming policy
 
-Date: 2026-07-28
+Date: 2026-08-08
 
-MelodyTrove（旋律珍藏）is the product brand. Use it only for text and artifacts
-that a user or operator sees: application labels, package products, release
-artifacts, diagnostics, backup exports, documentation, and protocol user
-agents.
+TidePlayer is the product brand. Use it only for text and artifacts that a user
+or operator sees: application labels, package products, release artifacts,
+diagnostics, backup exports, documentation, and protocol user agents.
 
 The repository uses stable, brand-neutral technical identifiers:
 
@@ -21,15 +20,17 @@ The repository uses stable, brand-neutral technical identifiers:
 | UniFFI package | `uniffi.app_backend` |
 | Database class/file | `AppDatabase` / `library.db` |
 | Preferences file | `settings.preferences_pb` |
-| Desktop data directory | platform data root plus `MelodyTrove` |
-| Primary deep-link scheme | `melodytrove` |
+| Desktop data directory | platform data root plus `TidePlayer` |
+| Primary deep-link scheme | `tideplayer` |
 
 Internal types should describe responsibility rather than brand. Prefer names
 such as `AppTheme`, `AppApplication`, `AppLogger`, `PlatformBackHandler`, and
 `LyricsView`. Do not introduce product-branded service, repository, state,
-screen, plugin, database, theme, or build-logic type names.
+screen, plugin, database, theme, playback, or build-logic type names.
 
-Old identifiers may appear only in the centralized `migration/Legacy*.kt`
-catalog, compatibility registrations, and the legacy inventory. Every
-exception must name the migration or compatibility reason. Run
-`node scripts/audit-branding.js` before merging.
+`MelodyTrove` and the older `TideTunes` identifiers are legacy compatibility
+identifiers. They may appear only in centralized `migration/Legacy*.kt`
+catalogs, compatibility registrations, migration tests, historical migration
+documentation, and explicitly audited compatibility code. New data must never
+be written with either legacy brand. Run `node scripts/audit-branding.js`
+before merging.

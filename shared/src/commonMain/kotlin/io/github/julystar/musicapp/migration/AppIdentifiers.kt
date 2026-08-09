@@ -1,9 +1,8 @@
 package io.github.julystar.musicapp.migration
 
 internal object AppIdentifiers {
-    const val BRAND_NAME = "MelodyTrove"
-    const val CHINESE_NAME = "旋律珍藏"
-    const val BRAND_SLUG = "melodytrove"
+    const val BRAND_NAME = "TidePlayer"
+    const val BRAND_SLUG = "tideplayer"
     const val PACKAGE_ID = "io.github.julystar.musicapp"
     const val DEEP_LINK_SCHEME = BRAND_SLUG
     const val CREDENTIAL_SERVICE = "$PACKAGE_ID.credentials"

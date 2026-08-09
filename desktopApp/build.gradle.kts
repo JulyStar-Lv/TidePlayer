@@ -34,7 +34,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Msi, TargetFormat.Dmg)
             modules("jdk.unsupported")
-            packageName = "MelodyTrove"
+            packageName = "TidePlayer"
             packageVersion = appPackageVersion
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/icon.png"))

@@ -19,7 +19,7 @@ use super::{
     startup_journal::StartupJournal,
 };
 
-const APP_NAME: &str = "MelodyTrove";
+const APP_NAME: &str = "TidePlayer";
 const PACKAGE_ID: &str = "io.github.julystar.musicapp";
 
 pub(crate) fn export_bundle(
@@ -250,7 +250,7 @@ fn write_text(
 
 fn privacy_report(incidents: &[super::model::DiagnosticIncident]) -> String {
     format!(
-        "MelodyTrove diagnostics privacy report\n\
+        "TidePlayer diagnostics privacy report\n\
          redactionRulesVersion={}\n\
          replacedFieldTypes=credentials,authorization,cookies,tokens,secrets,url-query,user-paths\n\
          containsSystemAnrTrace={}\n\

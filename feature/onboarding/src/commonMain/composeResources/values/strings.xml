@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="onboarding_app_name">MelodyTrove</string>
+    <string name="onboarding_app_name">TidePlayer</string>
     <string name="onboarding_tagline">One Library. Every Source.</string>
     <string name="onboarding_principle_simple">Simple</string>
     <string name="onboarding_principle_calm">Calm</string>
@@ -11,6 +11,6 @@
     <string name="onboarding_principle_native">Native</string>
     <string name="onboarding_principle_cross_platform">Cross Platform</string>
     <string name="onboarding_principle_plugin_driven">Plugin Driven</string>
-    <string name="onboarding_enter">Enter MelodyTrove</string>
+    <string name="onboarding_enter">Enter TidePlayer</string>
     <string name="onboarding_footer">Your private music library</string>
 </resources>

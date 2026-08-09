@@ -105,7 +105,9 @@ class JsonSettingsBackupService(
             val name = path.name
             name.endsWith(".json") && (
                 name.startsWith("${AppIdentifiers.BRAND_NAME}-settings-") ||
-                    name.startsWith("${LegacyIds.BRAND_NAME}-settings-") ||
+                    LegacyIds.BRAND_NAMES.any { legacyBrand ->
+                        name.startsWith("$legacyBrand-settings-")
+                    } ||
                     name.startsWith("settings-")
                 )
         }

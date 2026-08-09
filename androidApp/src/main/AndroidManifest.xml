@@ -66,6 +66,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
+                    android:scheme="tideplayer"
+                    android:host="oauth2redirect" />
+                <data
                     android:scheme="melodytrove"
                     android:host="oauth2redirect" />
                 <data

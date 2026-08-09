@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>MelodyTrove</string>
+	<string>TidePlayer</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,6 +27,7 @@
 			<string>io.github.julystar.musicapp.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
+				<string>tideplayer</string>
 				<string>melodytrove</string>
 				<string>tidetunes</string>
 			</array>

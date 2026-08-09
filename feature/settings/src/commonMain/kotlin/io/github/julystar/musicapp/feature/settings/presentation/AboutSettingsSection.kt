@@ -19,7 +19,7 @@ fun AboutSettingsSection(
         SettingsSection(title = stringResource(Res.string.settings_about_app)) {
             SettingsInfoRow(
                 title = stringResource(Res.string.settings_about_name),
-                value = "MelodyTrove（旋律珍藏）",
+                value = "TidePlayer",
             )
             SettingsInfoRow(
                 title = stringResource(Res.string.settings_about_version),
@@ -63,7 +63,7 @@ fun LicensesSettingsScreen(onBack: (() -> Unit)?) {
     SettingsPageLayout(title = stringResource(Res.string.settings_licenses_title), onBack = onBack) {
         SettingsSection(title = stringResource(Res.string.settings_licenses_title)) {
             SettingsInfoRow(
-                title = "MelodyTrove（旋律珍藏）",
+                title = "TidePlayer",
                 value = stringResource(Res.string.settings_licenses_summary),
             )
         }

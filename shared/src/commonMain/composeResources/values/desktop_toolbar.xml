@@ -2,7 +2,7 @@
 <resources>
     <string name="desktop_back">Back</string>
     <string name="desktop_forward">Forward</string>
-    <string name="desktop_search">Search MelodyTrove…</string>
+    <string name="desktop_search">Search TidePlayer…</string>
     <string name="desktop_lyrics">Lyrics</string>
     <string name="desktop_theme">Theme</string>
     <string name="desktop_notifications">Notifications</string>

@@ -18,7 +18,7 @@ data class PluginRuntimeDescriptor(
 )
 
 data class PluginRuntimeSettings(
-    val appName: String = "MelodyTrove",
+    val appName: String = "TidePlayer",
     val packageName: String = "io.github.julystar.musicapp",
     val appVersionName: String,
     val appVersionCode: Long = 0,

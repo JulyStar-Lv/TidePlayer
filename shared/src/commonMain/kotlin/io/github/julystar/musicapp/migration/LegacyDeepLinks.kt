@@ -1,7 +1,10 @@
 package io.github.julystar.musicapp.migration
 
 internal object LegacyDeepLinks {
-    const val SCHEME = "tidetunes"
+    const val PREVIOUS_SCHEME = "melodytrove"
+    const val ORIGINAL_SCHEME = "tidetunes"
     const val OAUTH_HOST = "oauth2redirect"
-    const val OAUTH_REDIRECT_URI = "$SCHEME://$OAUTH_HOST/"
+
+    val SCHEMES = listOf(PREVIOUS_SCHEME, ORIGINAL_SCHEME)
+    val OAUTH_REDIRECT_URIS = SCHEMES.map { scheme -> "$scheme://$OAUTH_HOST/" }
 }

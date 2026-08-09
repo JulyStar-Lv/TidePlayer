@@ -50,9 +50,9 @@ project.root_object.attributes["LastSwiftUpdateCheck"] = "2640"
 project.root_object.attributes["LastUpgradeCheck"] = "2640"
 
 target = project.new_target(:application, "App", :ios, "16.0")
-target.product_name = "MelodyTrove"
-target.product_reference.name = "MelodyTrove.app"
-target.product_reference.path = "MelodyTrove.app"
+target.product_name = "TidePlayer"
+target.product_reference.name = "TidePlayer.app"
+target.product_reference.path = "TidePlayer.app"
 
 app_group = project.main_group.new_group("App")
 swift_file = app_group.new_file("AppMain.swift")
@@ -95,7 +95,7 @@ target.build_configurations.each do |configuration|
     "CoreMedia",
   ]
   settings["PRODUCT_BUNDLE_IDENTIFIER"] = "io.github.julystar.musicapp"
-  settings["PRODUCT_NAME"] = "MelodyTrove"
+  settings["PRODUCT_NAME"] = "TidePlayer"
   settings["SUPPORTED_PLATFORMS"] = "iphoneos iphonesimulator"
   settings["SWIFT_VERSION"] = "6.0"
   settings["TARGETED_DEVICE_FAMILY"] = "1,2"

@@ -98,7 +98,7 @@ fun main() {
                 runCatching { RustDiagnosticsRepository.shutdown() }
                 exitApplication()
             },
-            title = "MelodyTrove",
+            title = "TidePlayer",
             state = windowState,
             icon = painterResource("icon.png"),
             init = ::configureWindowChrome,

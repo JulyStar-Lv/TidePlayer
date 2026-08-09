@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DCD8D9F829B8EAE84D701208"
-               BuildableName = "MelodyTrove.app"
+               BuildableName = "TidePlayer.app"
                BlueprintName = "App"
                ReferencedContainer = "container:App.xcodeproj">
             </BuildableReference>
@@ -31,7 +31,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DCD8D9F829B8EAE84D701208"
-            BuildableName = "MelodyTrove.app"
+            BuildableName = "TidePlayer.app"
             BlueprintName = "App"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>
@@ -54,7 +54,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DCD8D9F829B8EAE84D701208"
-            BuildableName = "MelodyTrove.app"
+            BuildableName = "TidePlayer.app"
             BlueprintName = "App"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>
@@ -71,7 +71,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DCD8D9F829B8EAE84D701208"
-            BuildableName = "MelodyTrove.app"
+            BuildableName = "TidePlayer.app"
             BlueprintName = "App"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>

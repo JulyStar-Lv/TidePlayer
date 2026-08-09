@@ -1,6 +1,6 @@
-# MelodyTrove rename audit
+# TidePlayer rename audit
 
-Date: 2026-07-28
+Date: 2026-08-08
 
 ## Scope
 
@@ -12,33 +12,42 @@ UniFFI bindings, scripts, workflows, the design prototype, and documentation.
 
 | Area | Result |
 | --- | --- |
-| Product name | `MelodyTrove` / `旋律珍藏` |
-| Repository slug | `MelodyTrove` |
+| Product name | `TidePlayer` |
+| Repository slug | `MelodyTrove` for this migration PR; rename separately after CI is green |
 | Kotlin/Java package | `io.github.julystar.musicapp` |
-| Android | `AppApplication`, `Theme.App`, new application ID and both transition URL schemes |
-| iOS | `App.xcodeproj`, `App` target/scheme, `AppMain`, `SharedKit`, `MelodyTrove.app` |
-| Desktop | standard platform data root under `MelodyTrove` with idempotent legacy migration |
+| Android | `AppApplication`, `Theme.App`, stable application ID, `tideplayer` primary URL scheme plus both legacy schemes |
+| iOS | `App.xcodeproj`, `App` target/scheme, `AppMain`, `SharedKit`, `TidePlayer.app` |
+| Desktop | standard platform data root under `TidePlayer` with idempotent legacy migration |
 | Persistence | `AppDatabase`, Room schema version 19, `library.db`, `settings.preferences_pb` |
 | Rust/UniFFI | `app-backend`, `app_backend`, `uniffi.app_backend` |
 | Internal UI/build names | brand-neutral names such as `AppTheme`, `Design*`, and `*ConventionPlugin` |
 
 The Room version remains 19 because the rename does not change the relational
-schema. Existing schema JSON files were moved to the new generated database
-identity without modifying their identity hashes.
+schema. Existing schema JSON files remain under the stable database identity and
+their identity hashes are not modified.
 
 ## Compatibility
 
-Legacy paths, filenames, service IDs, preference keys, URL schemes, and
-developer environment variables are cataloged in
-[`legacy-identifiers.md`](legacy-identifiers.md). Desktop migration uses
-restart-safe markers, atomic moves where supported, verified copy fallback, and
-SQLite header validation. Mobile filename and credential fallbacks are
-implemented, subject to the OS sandbox limitation documented in
-[`external-migration-checklist.md`](external-migration-checklist.md).
+The compatibility chain is `TideTunes -> MelodyTrove -> TidePlayer`.
+
+Desktop startup now targets the standard platform data directory named
+`TidePlayer`. If it is not initialized, migration checks the former standard
+`MelodyTrove` directory first and the original `~/.tidetunes` directory second.
+The previous MelodyTrove layout already uses `library.db` and
+`settings.preferences_pb`; the original TideTunes layout continues to map its
+product-branded filenames to those stable names. The migration keeps restart-safe
+markers, atomic moves where supported, verified copy fallback, and SQLite header
+validation.
+
+Android and iOS keep the stable application/bundle ID
+`io.github.julystar.musicapp`. Their primary OAuth/deep-link scheme is
+`tideplayer`; `melodytrove` and `tidetunes` remain registered for compatibility.
+Settings backup discovery accepts all three product-name generations, while new
+backups are written with the TidePlayer name.
 
 ## Automated checks
 
-The merge gate is:
+The merge gate remains:
 
 ```bash
 node scripts/audit-release.js
@@ -59,10 +68,7 @@ xcodebuild -project iosApp/App.xcodeproj -scheme App \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
 ```
 
-macOS package versions must start with a positive integer. The application
-version line now begins at `1.0.0`; development packages use the compatible
-numeric form `1.0.<build-number>` while the in-app version retains its
-development suffix and commit SHA.
-
-The final pull request records the exact command outcomes and any external
-operator actions that remain.
+The repository slug is intentionally not renamed in the same code migration.
+Rename `JulyStar-Lv/MelodyTrove` to `JulyStar-Lv/TidePlayer` only after this
+branch builds cleanly, then update repository links, badges, Release references,
+and external integrations in a separate operator step.

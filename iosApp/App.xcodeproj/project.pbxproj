@@ -17,7 +17,7 @@
 		043ECD1E526256B9C5F1C86F /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		712142BF81D7B6F111698BE7 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		76C11CD3ED1E5907F51F2525 /* AppMain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
-		7DEFE6DE66572B0FE3B2781F /* MelodyTrove.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = MelodyTrove.app; path = MelodyTrove.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7DEFE6DE66572B0FE3B2781F /* TidePlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = TidePlayer.app; path = TidePlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B63257C864A4CD0354037581 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		CA1A135A77F066C1EC1A5309 /* App.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		D51A14C94BBA4F3785A61721 /* TideDspAudioTap.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = TideDspAudioTap.m; sourceTree = "<group>"; };
@@ -52,7 +52,7 @@
 		46142FD2D308FA8FBCC2E17A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7DEFE6DE66572B0FE3B2781F /* MelodyTrove.app */,
+				7DEFE6DE66572B0FE3B2781F /* TidePlayer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -99,8 +99,8 @@
 			dependencies = (
 			);
 			name = App;
-			productName = MelodyTrove;
-			productReference = 7DEFE6DE66572B0FE3B2781F /* MelodyTrove.app */;
+			productName = TidePlayer;
+			productReference = 7DEFE6DE66572B0FE3B2781F /* TidePlayer.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -326,7 +326,7 @@
 					CoreMedia,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.julystar.musicapp;
-				PRODUCT_NAME = MelodyTrove;
+				PRODUCT_NAME = TidePlayer;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 6.0;
@@ -370,7 +370,7 @@
 					CoreMedia,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.julystar.musicapp;
-				PRODUCT_NAME = MelodyTrove;
+				PRODUCT_NAME = TidePlayer;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 6.0;
