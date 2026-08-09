@@ -1,6 +1,6 @@
 # Diagnostics and recovery architecture
 
-MelodyTrove keeps diagnostics local and starts a minimal Rust runtime before Koin, Room, the
+TidePlayer keeps diagnostics local and starts a minimal Rust runtime before Koin, Room, the
 application backend, playback, plugins, sources, or background work. This makes logs, incidents,
 startup state, safe mode, and diagnostic export available even when normal startup cannot finish.
 
@@ -180,4 +180,4 @@ retention, cleanup, and export interaction model. No Halcyon source was copied.
 
 [NeriPlayer](https://github.com/cwuom/NeriPlayer) informed the product-level separation of crash
 artifacts, pending recovery, pre-backend safe-mode planning, and Android historical ANR handling.
-NeriPlayer is GPLv3; MelodyTrove did not copy its Kotlin, C++, or other implementation code.
+NeriPlayer is GPLv3; TidePlayer did not copy its Kotlin, C++, or other implementation code.
