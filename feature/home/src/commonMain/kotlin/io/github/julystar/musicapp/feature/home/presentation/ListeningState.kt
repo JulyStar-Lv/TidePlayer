@@ -38,6 +38,7 @@ data class ListeningState(
     val monthUniqueTrackCount: Int = 0,
     val monthListenedMs: Long = 0L,
     val activeDays: Int = 0,
+    val elapsedDaysInMonth: Int = 0,
     val longestStreakDays: Int = 0,
     val averagePerActiveDayMs: Long = 0L,
     val peakTimePeriod: ListeningTimePeriod? = null,
@@ -83,6 +84,7 @@ data class ListeningRankedTrack(
     val mediaId: MediaId?,
     val title: String,
     val artist: String?,
+    val album: String?,
     val playCount: Int,
     val listenedMs: Long,
 )
@@ -130,6 +132,7 @@ internal fun buildListeningState(
         monthUniqueTrackCount = monthlyHistory.distinctBy(ListeningHistoryEntry::trackId).size,
         monthListenedMs = monthlyHistory.sumOf(ListeningHistoryEntry::listenedMs),
         activeDays = activeMonthDates.size,
+        elapsedDaysInMonth = today.day,
         longestStreakDays = longestStreak(activeMonthDates),
         averagePerActiveDayMs = monthlyHistory
             .sumOf(ListeningHistoryEntry::listenedMs)
@@ -263,6 +266,7 @@ private fun ListeningTrackStatistics.toRankedTrack(mediaId: MediaId?) =
         mediaId = mediaId,
         title = title,
         artist = artist,
+        album = album,
         playCount = playCount,
         listenedMs = listenedMs,
     )

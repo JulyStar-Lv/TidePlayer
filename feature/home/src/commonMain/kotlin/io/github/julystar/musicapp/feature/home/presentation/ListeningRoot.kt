@@ -36,6 +36,7 @@ fun ListeningRoot(
                                     mediaId = history.mediaId,
                                     title = history.title,
                                     artist = history.artist,
+                                    album = null,
                                     playCount = 1,
                                     listenedMs = history.listenedMs,
                                 )

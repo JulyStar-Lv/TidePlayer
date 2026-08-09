@@ -62,7 +62,6 @@ import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_heart
 import musicapp.core.presentation.generated.resources.icon_heart_filled
 import musicapp.core.presentation.generated.resources.icon_locate_fixed
-import musicapp.core.presentation.generated.resources.icon_more_horizontal
 import musicapp.core.presentation.generated.resources.icon_play
 import musicapp.core.presentation.generated.resources.icon_vertialcal_more
 import musicapp.feature.album.generated.resources.Res
@@ -77,7 +76,6 @@ import musicapp.feature.album.generated.resources.album_duration_minutes
 import musicapp.feature.album.generated.resources.album_duration_minutes_seconds
 import musicapp.feature.album.generated.resources.album_duration_seconds
 import musicapp.feature.album.generated.resources.album_locate_current
-import musicapp.feature.album.generated.resources.album_more_actions
 import musicapp.feature.album.generated.resources.album_no_tracks
 import musicapp.feature.album.generated.resources.album_play
 import musicapp.feature.album.generated.resources.album_play_all
@@ -221,12 +219,6 @@ fun AlbumScreen(
                 onNavigateBack = { onAction(AlbumAction.NavigateBack) },
                 backContentDescription = stringResource(Res.string.album_back),
                 centerTitle = true,
-                actions = {
-                    AlbumTopBarActions(
-                        canPlay = state.tracks.isNotEmpty(),
-                        onPlayAll = { onAction(AlbumAction.PlayAll) },
-                    )
-                },
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -234,43 +226,6 @@ fun AlbumScreen(
 }
 
 private const val AlbumTrackListStartIndex = 2
-
-@Composable
-private fun AlbumTopBarActions(
-    canPlay: Boolean,
-    onPlayAll: () -> Unit,
-) {
-    var moreMenuExpanded by remember { mutableStateOf(false) }
-
-    Box {
-        DesignIconButton(
-            size = DesignIconButtonSize.Touch,
-            variant = DesignIconButtonVariant.Default,
-            painter = painterResource(CoreRes.drawable.icon_more_horizontal),
-            contentDescription = stringResource(Res.string.album_more_actions),
-            enabled = canPlay,
-            onClick = { moreMenuExpanded = true },
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 14.dp, y = 36.dp),
-        ) {
-            DesignContextMenu(
-                expanded = moreMenuExpanded,
-                onDismissRequest = { moreMenuExpanded = false },
-                compact = true,
-                items = listOf(
-                    DesignContextMenuItem(
-                        label = Res.string.album_play_all,
-                        icon = CoreRes.drawable.icon_play,
-                        onClick = onPlayAll,
-                    ),
-                ),
-            )
-        }
-    }
-}
 
 @Composable
 private fun AlbumHero(

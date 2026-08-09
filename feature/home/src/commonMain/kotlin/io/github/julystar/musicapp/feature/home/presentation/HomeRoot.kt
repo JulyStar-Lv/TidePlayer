@@ -89,6 +89,21 @@ fun HomeRoot(
                         }
                     }
                 }
+                is HomeAction.PlayListeningTrack -> {
+                    val ranking = when (action.ranking) {
+                        HomeListeningRanking.Duration -> state.listeningPreview?.durationRanking
+                        HomeListeningRanking.PlayCount -> state.listeningPreview?.playCountRanking
+                    }.orEmpty()
+                    val startIndex = ranking.indexOfFirst { it.track.id == action.trackId }
+                    if (startIndex >= 0) {
+                        coroutineScope.launch {
+                            playbackController.play(
+                                items = ranking.map { it.track.toPlayableItem() },
+                                startIndex = startIndex,
+                            )
+                        }
+                    }
+                }
                 else -> activeViewModel.onAction(action)
             }
         },

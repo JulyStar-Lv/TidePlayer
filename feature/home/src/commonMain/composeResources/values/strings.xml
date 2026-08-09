@@ -26,6 +26,7 @@
     <string name="home_now_playing">Now Playing: %1$s</string>
     <string name="home_no_track">No track</string>
     <string name="home_top_tracks">Top tracks by time</string>
+    <string name="home_top_tracks_by_plays">Top tracks by plays</string>
     <string name="home_this_month">This month</string>
     <string name="home_music_all_sources">Music across all sources</string>
     <string name="home_favorite">Favorite</string>
@@ -37,15 +38,13 @@
     <string name="home_empty_title">Your library is empty</string>
     <string name="home_empty_message">Add a music source or import a folder to see it here.</string>
     <string name="home_add_source">Add music source</string>
-    <string name="home_listening_tracks_played">Tracks played</string>
-    <string name="home_listening_today">Today</string>
-    <string name="home_listening_total_time">Total time</string>
     <string name="listening_title">Your Listening</string>
-    <string name="listening_subtitle">Your listening history and library insights.</string>
     <string name="listening_overview">Overview</string>
     <string name="listening_calendar">Calendar</string>
     <string name="listening_rankings">Rankings</string>
-    <string name="listening_month_report">Monthly report</string>
+    <string name="listening_month_headline">Your month in music</string>
+    <string name="listening_month_summary">You listened on %1$d days, with %2$s leading the way.</string>
+    <string name="listening_day_count">%1$d days</string>
     <string name="listening_play_count">Plays</string>
     <string name="listening_plays">%1$d plays</string>
     <string name="listening_unique_tracks">Unique tracks</string>
@@ -55,6 +54,8 @@
     <string name="listening_streak">Longest streak</string>
     <string name="listening_average_day">Average per active day</string>
     <string name="listening_peak_time">Peak listening time</string>
+    <string name="listening_monthly_activity">Monthly activity</string>
+    <string name="listening_active_days_ratio">%1$d / %2$d days</string>
     <string name="listening_late_night">Late night</string>
     <string name="listening_morning">Morning</string>
     <string name="listening_afternoon">Afternoon</string>
@@ -66,10 +67,19 @@
     <string name="listening_formats">Library formats</string>
     <string name="listening_quality">Audio quality</string>
     <string name="listening_calendar_caption">The last 12 weeks</string>
+    <string name="listening_activity">Listening activity</string>
+    <string name="listening_activity_caption">Daily time across the past 4 weeks</string>
+    <string name="listening_four_weeks_ago">4 weeks ago</string>
+    <string name="listening_today">Today</string>
     <string name="listening_history">Listening history</string>
     <string name="listening_history_empty">Play a track for at least 20 seconds to start your history.</string>
-    <string name="listening_time_ranking">Top tracks by listening time</string>
-    <string name="listening_play_count_ranking">Top tracks by play count</string>
+    <string name="listening_top_tracks">Top tracks</string>
+    <string name="listening_all_time">All-time listening statistics</string>
+    <string name="listening_rank_by_time">Time</string>
+    <string name="listening_rank_by_plays">Plays</string>
+    <string name="listening_heatmap_selected">%1$s · %2$s · %3$d plays</string>
+    <string name="listening_heatmap_less">Less</string>
+    <string name="listening_heatmap_more">More</string>
     <string name="listening_remove">Remove</string>
     <string name="listening_no_data">No listening data yet</string>
 </resources>

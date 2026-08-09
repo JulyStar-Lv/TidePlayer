@@ -15,6 +15,8 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.feature.home.domain.HistoryPlayItem
 import io.github.julystar.musicapp.feature.home.domain.HomeHistoryRepository
 import io.github.julystar.musicapp.feature.home.domain.HomeStatisticsRepository
+import io.github.julystar.musicapp.feature.home.domain.ListeningHistoryEntry
+import io.github.julystar.musicapp.feature.home.domain.ListeningStatisticsSnapshot
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -53,13 +55,13 @@ class HomeViewModel(
         combine(
             historyRepository.recentPlays,
             statisticsRepository.statistics,
-        ) { history, stats ->
-            Pair(history, stats)
+            statisticsRepository.listeningStatistics,
+        ) { history, stats, listeningStatistics ->
+            HomeActivityContent(history, stats, listeningStatistics)
         },
         libraryRepository.initialLoadComplete,
-    ) { libraryData, pair, initialLoadComplete ->
+    ) { libraryData, activity, initialLoadComplete ->
         val (tracks, albums, artists, playlists, favoriteTrackIds) = libraryData
-        val (historyTracks, stats) = pair
         HomeState(
             isLoading = !initialLoadComplete,
             featuredAlbums = albums.map { it.toHomeAlbum() }.toPersistentList(),
@@ -69,10 +71,15 @@ class HomeViewModel(
             dailyPickTracks = selectDailyPickTracks(tracks, currentLocalDate())
                 .map { it.toHomeTrack(it.id in favoriteTrackIds) }
                 .toPersistentList(),
-            recentTracks = historyTracks
+            recentTracks = activity.recentPlays
                 .map { it.toHomeRecentTrack(it.trackId in favoriteTrackIds) }
                 .toPersistentList(),
-            statistics = stats,
+            statistics = activity.statistics,
+            listeningPreview = buildHomeListeningPreview(
+                snapshot = activity.listeningStatistics,
+                libraryTracks = tracks,
+                favoriteTrackIds = favoriteTrackIds,
+            ),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -85,6 +92,7 @@ class HomeViewModel(
         val event = when (action) {
             is HomeAction.PlayTrack -> return
             is HomeAction.PlayLibraryTrack -> return
+            is HomeAction.PlayListeningTrack -> return
             HomeAction.PlayDailyPicks -> return
             is HomeAction.NavigateToAlbum -> HomeEvent.NavigateToAlbum(action.albumId)
             is HomeAction.NavigateToPlaylist -> HomeEvent.NavigateToPlaylist(action.playlistId)
@@ -98,6 +106,12 @@ class HomeViewModel(
         _events.trySend(event)
     }
 }
+
+private data class HomeActivityContent(
+    val recentPlays: List<HistoryPlayItem>,
+    val statistics: io.github.julystar.musicapp.feature.home.domain.HomeStatistics,
+    val listeningStatistics: ListeningStatisticsSnapshot,
+)
 
 private data class HomeLibraryContent(
     val tracks: List<LibraryTrackItem>,
@@ -140,6 +154,63 @@ internal fun LibraryTrackItem.toHomeTrack(liked: Boolean): HomeRecentTrack = Hom
     artwork = Artwork.LibraryTrack(id, allowPluginLookup = true),
     artworkIndex = indexFor(id),
     color = homeGradient(id).first(),
+    liked = liked,
+)
+
+internal fun buildHomeListeningPreview(
+    snapshot: ListeningStatisticsSnapshot,
+    libraryTracks: List<LibraryTrackItem>,
+    favoriteTrackIds: Set<Long>,
+    nowEpochMs: Long = Clock.System.now().toEpochMilliseconds(),
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): HomeListeningPreview? {
+    val currentMonth = kotlin.time.Instant.fromEpochMilliseconds(nowEpochMs)
+        .toLocalDateTime(timeZone)
+    val libraryById = libraryTracks.associateBy(LibraryTrackItem::id)
+    val monthlyRankings = snapshot.history
+        .filter { entry ->
+            val playedAt = kotlin.time.Instant.fromEpochMilliseconds(entry.playedAtEpochMs)
+                .toLocalDateTime(timeZone)
+            playedAt.year == currentMonth.year && playedAt.month == currentMonth.month
+        }
+        .groupBy(ListeningHistoryEntry::trackId)
+        .map { (trackId, entries) ->
+            val libraryTrack = libraryById[trackId]
+            val latestEntry = entries.maxBy(ListeningHistoryEntry::playedAtEpochMs)
+            HomeListeningRankedTrack(
+                track = libraryTrack?.toHomeTrack(trackId in favoriteTrackIds)
+                    ?: latestEntry.toHomeListeningTrack(trackId in favoriteTrackIds),
+                playCount = entries.size,
+                listenedMs = entries.sumOf(ListeningHistoryEntry::listenedMs),
+            )
+        }
+
+    if (monthlyRankings.isEmpty()) return null
+    return HomeListeningPreview(
+        durationRanking = monthlyRankings
+            .filter { it.listenedMs > 0L }
+            .sortedByDescending(HomeListeningRankedTrack::listenedMs)
+            .take(3)
+            .toPersistentList(),
+        playCountRanking = monthlyRankings
+            .sortedWith(
+                compareByDescending<HomeListeningRankedTrack>(HomeListeningRankedTrack::playCount)
+                    .thenByDescending(HomeListeningRankedTrack::listenedMs),
+            )
+            .take(3)
+            .toPersistentList(),
+    )
+}
+
+private fun ListeningHistoryEntry.toHomeListeningTrack(liked: Boolean): HomeRecentTrack = HomeRecentTrack(
+    id = trackId,
+    mediaId = null,
+    durationMs = durationMs,
+    title = title,
+    subtitle = artist.orEmpty(),
+    artwork = Artwork.LibraryTrack(trackId, allowPluginLookup = true),
+    artworkIndex = indexFor(trackId),
+    color = homeGradient(trackId).first(),
     liked = liked,
 )
 

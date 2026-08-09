@@ -242,6 +242,16 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
+    fun currentTrackArtworkAllowsAutomaticPluginLookupWhenCoverIsMissing() {
+        val artwork = music(id = 7, title = "Moon").toCurrentPlaybackArtwork()
+
+        assertEquals(
+            Artwork.LibraryTrack(trackId = 7, allowPluginLookup = true),
+            artwork,
+        )
+    }
+
+    @Test
     fun fallsBackToLibraryTrackArtworkWhenQueueMusicCoverIsMissing() {
         val artwork = musicAbstract(id = 2, title = "Two").toPlaybackArtwork()
 

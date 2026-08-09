@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.navigation
 
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
+import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,6 +15,38 @@ class RootNavHostTest {
         assertEquals(
             listOf(HomeTab.HOME, HomeTab.SEARCH, HomeTab.LIBRARY, HomeTab.SETTINGS),
             HomeTab.entries.toList(),
+        )
+    }
+
+    @Test
+    fun `detail artwork shared elements are disabled while root tabs crossfade`() {
+        assertTrue(
+            shouldEnableDetailArtworkSharedElements(
+                currentTab = HomeTab.LIBRARY,
+                targetTab = HomeTab.LIBRARY,
+                transitionRunning = false,
+            ),
+        )
+        assertFalse(
+            shouldEnableDetailArtworkSharedElements(
+                currentTab = HomeTab.HOME,
+                targetTab = HomeTab.LIBRARY,
+                transitionRunning = false,
+            ),
+        )
+        assertFalse(
+            shouldEnableDetailArtworkSharedElements(
+                currentTab = HomeTab.HOME,
+                targetTab = HomeTab.LIBRARY,
+                transitionRunning = true,
+            ),
+        )
+        assertFalse(
+            shouldEnableDetailArtworkSharedElements(
+                currentTab = HomeTab.LIBRARY,
+                targetTab = HomeTab.LIBRARY,
+                transitionRunning = true,
+            ),
         )
     }
 
@@ -82,6 +115,7 @@ class RootNavHostTest {
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Album/{id}",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Playlist/{id}",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Favorites",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Listening",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.PluginSettings",
         ).forEach { route ->
             assertTrue(shouldCaptureSecondaryStickyHeader(route), route)
@@ -89,6 +123,36 @@ class RootNavHostTest {
         assertFalse(
             shouldCaptureSecondaryStickyHeader(
                 "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Artist/{id}",
+            ),
+        )
+    }
+
+    @Test
+    fun `secondary sticky header is hoisted only in compact windows`() {
+        assertTrue(
+            shouldHoistSecondaryStickyHeader(
+                captureStickyHeader = true,
+                windowSizeClass = WindowSizeClass.Compact,
+            ),
+        )
+        listOf(
+            WindowSizeClass.Medium,
+            WindowSizeClass.Expanded,
+            WindowSizeClass.Large,
+            WindowSizeClass.XL,
+        ).forEach { windowSizeClass ->
+            assertFalse(
+                shouldHoistSecondaryStickyHeader(
+                    captureStickyHeader = true,
+                    windowSizeClass = windowSizeClass,
+                ),
+                windowSizeClass.name,
+            )
+        }
+        assertFalse(
+            shouldHoistSecondaryStickyHeader(
+                captureStickyHeader = false,
+                windowSizeClass = WindowSizeClass.Compact,
             ),
         )
     }

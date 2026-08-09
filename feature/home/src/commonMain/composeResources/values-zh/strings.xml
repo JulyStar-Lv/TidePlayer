@@ -26,6 +26,7 @@
     <string name="home_now_playing">正在播放：%1$s</string>
     <string name="home_no_track">暂无曲目</string>
     <string name="home_top_tracks">按时长排行的曲目</string>
+    <string name="home_top_tracks_by_plays">按次数排行的曲目</string>
     <string name="home_this_month">本月</string>
     <string name="home_music_all_sources">所有音源中的音乐</string>
     <string name="home_favorite">收藏</string>
@@ -37,15 +38,13 @@
     <string name="home_empty_title">音乐库为空</string>
     <string name="home_empty_message">添加音源或导入文件夹后，内容会显示在这里。</string>
     <string name="home_add_source">添加音乐源</string>
-    <string name="home_listening_tracks_played">听过的歌曲</string>
-    <string name="home_listening_today">今天</string>
-    <string name="home_listening_total_time">总时长</string>
     <string name="listening_title">你的聆听</string>
-    <string name="listening_subtitle">查看听歌历史与音乐库分析。</string>
     <string name="listening_overview">概览</string>
     <string name="listening_calendar">日历</string>
     <string name="listening_rankings">排行</string>
-    <string name="listening_month_report">本月报告</string>
+    <string name="listening_month_headline">你的本月音乐时光</string>
+    <string name="listening_month_summary">本月活跃 %1$d 天，最常在%2$s听歌。</string>
+    <string name="listening_day_count">%1$d 天</string>
     <string name="listening_play_count">播放次数</string>
     <string name="listening_plays">播放 %1$d 次</string>
     <string name="listening_unique_tracks">不同歌曲</string>
@@ -55,6 +54,8 @@
     <string name="listening_streak">最长连续天数</string>
     <string name="listening_average_day">活跃日平均时长</string>
     <string name="listening_peak_time">最常听歌时段</string>
+    <string name="listening_monthly_activity">本月活跃度</string>
+    <string name="listening_active_days_ratio">%1$d / %2$d 天</string>
     <string name="listening_late_night">深夜</string>
     <string name="listening_morning">上午</string>
     <string name="listening_afternoon">下午</string>
@@ -66,10 +67,19 @@
     <string name="listening_formats">音乐库格式</string>
     <string name="listening_quality">音质分布</string>
     <string name="listening_calendar_caption">最近 12 周</string>
+    <string name="listening_activity">聆听活跃度</string>
+    <string name="listening_activity_caption">最近 4 周的每日听歌时长</string>
+    <string name="listening_four_weeks_ago">4 周前</string>
+    <string name="listening_today">今天</string>
     <string name="listening_history">听歌历史</string>
     <string name="listening_history_empty">歌曲实际播放满 20 秒后会出现在这里。</string>
-    <string name="listening_time_ranking">听歌时长排行</string>
-    <string name="listening_play_count_ranking">播放次数排行</string>
+    <string name="listening_top_tracks">热门歌曲</string>
+    <string name="listening_all_time">全部听歌统计</string>
+    <string name="listening_rank_by_time">时长</string>
+    <string name="listening_rank_by_plays">次数</string>
+    <string name="listening_heatmap_selected">%1$s · %2$s · 播放 %3$d 次</string>
+    <string name="listening_heatmap_less">少</string>
+    <string name="listening_heatmap_more">多</string>
     <string name="listening_remove">移除</string>
     <string name="listening_no_data">暂无听歌数据</string>
 </resources>

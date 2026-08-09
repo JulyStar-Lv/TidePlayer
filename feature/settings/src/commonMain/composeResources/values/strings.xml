@@ -160,6 +160,27 @@
     <string name="diagnostics_copy_path">Copy export path</string>
     <string name="diagnostics_confirm_delete">Confirm diagnostic cleanup</string>
     <string name="diagnostics_confirm_delete_message">This action removes local diagnostic data. Current logs and recovery-critical incidents remain protected unless you explicitly confirm an unresolved incident.</string>
+    <string name="diagnostics_ready">Ready</string>
+    <string name="diagnostics_refreshing">Refreshing</string>
+    <string name="diagnostics_attention">Needs attention</string>
+    <string name="diagnostics_tools">Data &amp; recovery</string>
+    <string name="diagnostics_all">All</string>
+    <string name="diagnostics_current">Current</string>
+    <string name="diagnostics_selected">Selected</string>
+    <string name="diagnostics_log_empty">No logs match the current filters</string>
+    <string name="diagnostics_incident_empty">No incidents match the current filters</string>
+    <string name="diagnostics_log_hint">Select a log to view its complete details and copy it.</string>
+    <string name="diagnostics_log_details">Log details</string>
+    <string name="diagnostics_stable">Stable</string>
+    <string name="diagnostics_interrupted">Interrupted</string>
+    <string name="diagnostics_warning">Warning</string>
+    <string name="diagnostics_recovery_required">Recovery required</string>
+    <string name="diagnostics_timestamp">Time</string>
+    <string name="diagnostics_target">Target</string>
+    <string name="diagnostics_message">Message</string>
+    <string name="diagnostics_detail">Detail</string>
+    <string name="diagnostics_correlation_id">Correlation ID</string>
+    <string name="diagnostics_fields">Fields</string>
 
     <string name="settings_audio_focus_section">Audio focus</string>
     <string name="settings_audio_focus_pause">Pause other audio</string>

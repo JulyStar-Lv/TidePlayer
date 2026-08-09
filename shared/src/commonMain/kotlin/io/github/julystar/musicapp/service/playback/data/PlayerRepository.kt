@@ -386,10 +386,7 @@ class PlayerRepository(
         val artist = roomLibraryStore.getTrackPrimaryArtist(trackId)
         val annotation = roomLibraryStore.getTrackAnnotation(trackId)
         val lyrics = roomLibraryStore.getPlaybackLyrics(trackId)
-        val artwork = music.cover?.toArtwork()
-            ?: Artwork.LibraryTrack(trackId).takeIf {
-                roomLibraryStore.hasCachedArtwork(trackId)
-            }
+        val artwork = music.toCurrentPlaybackArtwork()
         if (_music.value?.meta?.id == music.meta.id) {
             _currentTrackInfo.value = music.toCurrentTrackInfo(
                 storageLookup = storageLookup,
@@ -437,6 +434,11 @@ private suspend fun Music.toCurrentTrackInfo(
 
 internal fun Music.toPlaybackArtwork(): Artwork {
     return cover?.toArtwork() ?: Artwork.LibraryTrack(meta.id.value)
+}
+
+internal fun Music.toCurrentPlaybackArtwork(): Artwork {
+    return cover?.toArtwork()
+        ?: Artwork.LibraryTrack(meta.id.value, allowPluginLookup = true)
 }
 
 internal fun MusicAbstract.toPlaybackArtwork(): Artwork {

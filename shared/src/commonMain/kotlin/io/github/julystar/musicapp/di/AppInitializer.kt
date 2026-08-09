@@ -81,14 +81,21 @@ object AppInitializer {
 
             RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PluginsLoading)
             try {
-                if ("third_party_plugins" !in disabledComponents) {
-                    koin.get<PluginMetaSourceRegistry>()
-                }
+                initializePluginSources(koin, disabledComponents)
             } catch (error: Throwable) {
                 recordStartupFailure(DiagnosticIncidentType.PluginBootFailure, error)
                 throw error
             }
             RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PluginsReady)
+        }
+    }
+
+    internal suspend fun initializePluginSources(
+        koin: Koin,
+        disabledComponents: Set<String>,
+    ) {
+        if ("third_party_plugins" !in disabledComponents) {
+            koin.get<PluginMetaSourceRegistry>().refresh()
         }
     }
 

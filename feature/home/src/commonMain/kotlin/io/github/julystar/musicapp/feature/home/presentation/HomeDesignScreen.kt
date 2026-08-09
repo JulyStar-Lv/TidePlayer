@@ -100,9 +100,6 @@ import musicapp.feature.home.generated.resources.home_pinned_playlists
 import musicapp.feature.home.generated.resources.home_play
 import musicapp.feature.home.generated.resources.home_empty_message
 import musicapp.feature.home.generated.resources.home_empty_title
-import musicapp.feature.home.generated.resources.home_listening_today
-import musicapp.feature.home.generated.resources.home_listening_total_time
-import musicapp.feature.home.generated.resources.home_listening_tracks_played
 import musicapp.feature.home.generated.resources.home_no_track
 import musicapp.feature.home.generated.resources.home_now_playing_label
 import musicapp.feature.home.generated.resources.home_add_source
@@ -110,9 +107,12 @@ import musicapp.feature.home.generated.resources.home_recommended_artists
 import musicapp.feature.home.generated.resources.home_recently_played
 import musicapp.feature.home.generated.resources.home_subtitle
 import musicapp.feature.home.generated.resources.home_suggested_albums
+import musicapp.feature.home.generated.resources.home_this_month
+import musicapp.feature.home.generated.resources.home_top_tracks
+import musicapp.feature.home.generated.resources.home_top_tracks_by_plays
 import musicapp.feature.home.generated.resources.home_title
 import musicapp.feature.home.generated.resources.home_your_listening
-import musicapp.feature.home.generated.resources.listening_title
+import musicapp.feature.home.generated.resources.listening_plays
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -228,14 +228,25 @@ fun HomeDesignScreen(
                             }
                         }
                     }
-                    state.statistics?.let { statistics ->
+                    state.listeningPreview?.let { preview ->
                         item {
                             HomeSection(
                                 title = stringResource(Res.string.home_your_listening),
                                 icon = Res.drawable.icon_activity,
                                 onClick = { onAction(HomeAction.NavigateToListening) },
                             ) {
-                                HomeStatisticsCard(statistics = statistics)
+                                HomeListeningPreview(
+                                    compact = compact,
+                                    preview = preview,
+                                    onPlay = { track, ranking ->
+                                        onAction(
+                                            HomeAction.PlayListeningTrack(
+                                                trackId = track.track.id,
+                                                ranking = ranking,
+                                            ),
+                                        )
+                                    },
+                                )
                             }
                         }
                     }
@@ -397,7 +408,10 @@ private fun DailyPicksHero(
             Text(
                 text = stringResource(Res.string.home_daily_picks),
                 color = foreground,
-                style = MiuixTheme.textStyles.title3,
+                style = MiuixTheme.textStyles.title3.copy(
+                    fontSize = 20.sp,
+                    lineHeight = 26.sp,
+                ),
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
             )
@@ -410,8 +424,11 @@ private fun DailyPicksHero(
             Text(
                 text = nowPlayingTitle,
                 color = muted,
-                style = MiuixTheme.textStyles.body1,
-                fontWeight = FontWeight.Medium,
+                style = MiuixTheme.textStyles.body1.copy(
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
+                ),
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -434,49 +451,49 @@ private fun DailyPicksBackground(dark: Boolean) {
     val blobOneX by transition.animateFloat(
         initialValue = -38f,
         targetValue = 46f,
-        animationSpec = dailyPicksAnimation(durationMillis = 14_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 12_000),
         label = "daily-picks-blob-one-x",
     )
     val blobOneY by transition.animateFloat(
         initialValue = -92f,
         targetValue = -42f,
-        animationSpec = dailyPicksAnimation(durationMillis = 14_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 12_000),
         label = "daily-picks-blob-one-y",
     )
     val blobTwoX by transition.animateFloat(
         initialValue = 20f,
         targetValue = -42f,
-        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 15_000),
         label = "daily-picks-blob-two-x",
     )
     val blobTwoY by transition.animateFloat(
         initialValue = -82f,
         targetValue = -22f,
-        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 15_000),
         label = "daily-picks-blob-two-y",
     )
     val blobThreeX by transition.animateFloat(
         initialValue = 74f,
         targetValue = -28f,
-        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
         label = "daily-picks-blob-three-x",
     )
     val blobThreeY by transition.animateFloat(
         initialValue = 70f,
         targetValue = 18f,
-        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
         label = "daily-picks-blob-three-y",
     )
     val blobFourX by transition.animateFloat(
         initialValue = -30f,
         targetValue = 64f,
-        animationSpec = dailyPicksAnimation(durationMillis = 23_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
         label = "daily-picks-blob-four-x",
     )
     val blobFourY by transition.animateFloat(
         initialValue = 52f,
         targetValue = -18f,
-        animationSpec = dailyPicksAnimation(durationMillis = 23_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
         label = "daily-picks-blob-four-y",
     )
 
@@ -1150,72 +1167,178 @@ private fun homeCover(index: Int): DrawableResource = when ((index - 1).mod(8)) 
     else -> Res.drawable.home_cover_8
 }
 
-
 @Composable
-private fun HomeStatisticsCard(
-    statistics: io.github.julystar.musicapp.feature.home.domain.HomeStatistics,
+private fun HomeListeningPreview(
+    compact: Boolean,
+    preview: HomeListeningPreview,
+    onPlay: (HomeListeningRankedTrack, HomeListeningRanking) -> Unit,
 ) {
-    val shape = RoundedCornerShape(20.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .padding(20.dp),
-    ) {
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val durationTitle = stringResource(Res.string.home_top_tracks)
+    val playCountTitle = stringResource(Res.string.home_top_tracks_by_plays)
+    val thisMonth = stringResource(Res.string.home_this_month)
+
+    if (compact) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    painter = painterResource(Res.drawable.icon_headphones),
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
-                )
-                Text(
-                    text = stringResource(Res.string.listening_title),
-                    color = MiuixTheme.colorScheme.onBackground,
-                    style = MiuixTheme.textStyles.title3,
-                    fontWeight = FontWeight.Bold,
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(222.dp),
+            ) { page ->
+                val ranking = if (page == 0) {
+                    HomeListeningRanking.Duration
+                } else {
+                    HomeListeningRanking.PlayCount
+                }
+                HomeListeningRankingColumn(
+                    title = if (page == 0) durationTitle else playCountTitle,
+                    subtitle = thisMonth,
+                    tracks = if (page == 0) preview.durationRanking else preview.playCountRanking,
+                    ranking = ranking,
+                    onPlay = onPlay,
                 )
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             ) {
-                StatItem(
-                    label = stringResource(Res.string.home_listening_tracks_played),
-                    value = statistics.totalTracksEverPlayed.toString(),
-                )
-                StatItem(
-                    label = stringResource(Res.string.home_listening_today),
-                    value = statistics.tracksPlayedToday.toString(),
-                )
-                StatItem(
-                    label = stringResource(Res.string.home_listening_total_time),
-                    value = formatListeningDuration(statistics.totalListeningDurationMs),
-                )
+                repeat(2) { index ->
+                    Box(
+                        modifier = Modifier
+                            .size(
+                                width = if (pagerState.currentPage == index) 20.dp else 6.dp,
+                                height = 6.dp,
+                            )
+                            .clip(CircleShape)
+                            .background(
+                                if (pagerState.currentPage == index) MiuixTheme.colorScheme.primary
+                                else MiuixTheme.colorScheme.onSurfaceVariantActions.copy(alpha = 0.3f),
+                            ),
+                    )
+                }
             }
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            HomeListeningRankingColumn(
+                title = durationTitle,
+                subtitle = thisMonth,
+                tracks = preview.durationRanking,
+                ranking = HomeListeningRanking.Duration,
+                onPlay = onPlay,
+                modifier = Modifier.weight(1f),
+            )
+            HomeListeningRankingColumn(
+                title = playCountTitle,
+                subtitle = thisMonth,
+                tracks = preview.playCountRanking,
+                ranking = HomeListeningRanking.PlayCount,
+                onPlay = onPlay,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
-private fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            color = MiuixTheme.colorScheme.onBackground,
-            style = MiuixTheme.textStyles.title2,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = label,
-            color = MiuixTheme.colorScheme.primary,
-            style = MiuixTheme.textStyles.footnote1,
-        )
+private fun HomeListeningRankingColumn(
+    title: String,
+    subtitle: String,
+    tracks: List<HomeListeningRankedTrack>,
+    ranking: HomeListeningRanking,
+    onPlay: (HomeListeningRankedTrack, HomeListeningRanking) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                color = MiuixTheme.colorScheme.onBackground,
+                style = MiuixTheme.textStyles.footnote1,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = subtitle,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.footnote2,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        tracks.forEachIndexed { index, item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onPlay(item, ranking) }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = (index + 1).toString(),
+                    color = if (index < 3) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantActions
+                    },
+                    style = MiuixTheme.textStyles.footnote1,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(18.dp),
+                )
+                ArtworkTile(item.track, 46.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.track.title,
+                        color = MiuixTheme.colorScheme.onBackground,
+                        style = MiuixTheme.textStyles.body1,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (item.track.subtitle.isNotBlank()) {
+                        Text(
+                            text = item.track.subtitle,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.footnote1,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = if (ranking == HomeListeningRanking.Duration) {
+                            formatListeningDuration(item.listenedMs)
+                        } else {
+                            stringResource(Res.string.listening_plays, item.playCount)
+                        },
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MiuixTheme.textStyles.footnote1,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text = if (ranking == HomeListeningRanking.Duration) {
+                            stringResource(Res.string.listening_plays, item.playCount)
+                        } else {
+                            formatListeningDuration(item.listenedMs)
+                        },
+                        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        style = MiuixTheme.textStyles.footnote2,
+                    )
+                }
+            }
+        }
     }
 }
 

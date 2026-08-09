@@ -19,6 +19,7 @@ data class HomeState(
     val dailyPickTracks: ImmutableList<HomeRecentTrack> = persistentListOf(),
     val recentTracks: ImmutableList<HomeRecentTrack> = persistentListOf(),
     val statistics: HomeStatistics? = null,
+    val listeningPreview: HomeListeningPreview? = null,
 )
 
 internal val HomeState.shouldShowEmptyState: Boolean
@@ -72,9 +73,31 @@ data class HomeRecentTrack(
     val liked: Boolean = false,
 )
 
+@Immutable
+data class HomeListeningPreview(
+    val durationRanking: ImmutableList<HomeListeningRankedTrack> = persistentListOf(),
+    val playCountRanking: ImmutableList<HomeListeningRankedTrack> = persistentListOf(),
+)
+
+@Immutable
+data class HomeListeningRankedTrack(
+    val track: HomeRecentTrack,
+    val playCount: Int,
+    val listenedMs: Long,
+)
+
+enum class HomeListeningRanking {
+    Duration,
+    PlayCount,
+}
+
 sealed interface HomeAction {
     data class PlayTrack(val trackId: Long) : HomeAction
     data class PlayLibraryTrack(val trackId: Long) : HomeAction
+    data class PlayListeningTrack(
+        val trackId: Long,
+        val ranking: HomeListeningRanking,
+    ) : HomeAction
     data object PlayDailyPicks : HomeAction
     data class NavigateToAlbum(val albumId: Long) : HomeAction
     data class NavigateToPlaylist(val playlistId: Long) : HomeAction

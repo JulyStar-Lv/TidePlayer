@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -490,18 +491,15 @@ private fun UnifiedLibraryCard(
                     },
                 )
             }
-            Box(
+        }
+        if (active) {
+            DesignLinearProgressIndicator(
+                progress = progress,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp),
-            ) {
-                if (active) {
-                    DesignLinearProgressIndicator(
-                        progress = progress,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+                    .align(Alignment.BottomCenter)
+                    .offset(y = 12.dp),
+            )
         }
     }
 }

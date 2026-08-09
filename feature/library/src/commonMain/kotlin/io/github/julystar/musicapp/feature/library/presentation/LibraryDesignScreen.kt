@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,12 +27,15 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +53,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -132,19 +133,6 @@ fun LibraryDesignScreen(
         val compact = maxWidth < DesignTokens.adaptive.largeMinWidth
         val pagePadding = if (compact) 24.dp else DesignTokens.spacing.pageExpanded
         val isDesktop = maxWidth >= DesignTokens.adaptive.largeMinWidth
-        val mobileListState = rememberLazyListState()
-        val collapseDistance = with(LocalDensity.current) { 88.dp.roundToPx() }
-        val actionBarProgress by remember(mobileListState, collapseDistance) {
-            derivedStateOf {
-                if (mobileListState.firstVisibleItemIndex > 0) {
-                    1f
-                } else {
-                    (mobileListState.firstVisibleItemScrollOffset / collapseDistance.toFloat())
-                        .coerceIn(0f, 1f)
-                }
-            }
-        }
-        val pageTitleAlpha = (1f - actionBarProgress / 0.70f).coerceIn(0f, 1f)
 
         if (isDesktop) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -178,94 +166,104 @@ fun LibraryDesignScreen(
                 }
             }
         } else {
-            LazyColumn(
-                state = mobileListState,
+            val pagerState = rememberPagerState(
+                initialPage = primaryLibraryCategories.indexOf(selectedCategory).coerceAtLeast(0),
+                pageCount = { primaryLibraryCategories.size },
+            )
+            val pagerScope = rememberCoroutineScope()
+            val mobileListStates = listOf(
+                rememberLazyListState(),
+                rememberLazyListState(),
+                rememberLazyListState(),
+                rememberLazyListState(),
+                rememberLazyListState(),
+            )
+            val activePage = pagerState.currentPage.coerceIn(primaryLibraryCategories.indices)
+            val activeCategory = primaryLibraryCategories[activePage]
+
+            LaunchedEffect(pagerState.settledPage) {
+                selectedCategory = primaryLibraryCategories[pagerState.settledPage]
+            }
+
+            fun animateToCategory(category: LibraryDesignCategory) {
+                val page = primaryLibraryCategories.indexOf(category)
+                if (page >= 0) {
+                    pagerScope.launch { pagerState.animateScrollToPage(page) }
+                }
+            }
+
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth)
-                    .pointerInput(selectedCategory) {
-                        val swipeThreshold = 48.dp.toPx()
-                        var horizontalDrag = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { horizontalDrag = 0f },
-                            onDragCancel = { horizontalDrag = 0f },
-                            onDragEnd = {
-                                val currentIndex = primaryLibraryCategories.indexOf(selectedCategory)
-                                val nextIndex = libraryCategoryIndexAfterSwipe(
-                                    currentIndex = currentIndex,
-                                    categoryCount = primaryLibraryCategories.size,
-                                    horizontalDrag = horizontalDrag,
-                                    swipeThreshold = swipeThreshold,
-                                )
-                                if (nextIndex != currentIndex) {
-                                    selectedCategory = primaryLibraryCategories[nextIndex]
-                                }
-                                horizontalDrag = 0f
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                change.consume()
-                                horizontalDrag += dragAmount
-                            },
-                        )
-                    },
-                contentPadding = PaddingValues(
-                    start = pagePadding,
-                    top = 0.dp,
-                    end = pagePadding,
-                    bottom = 28.dp + bottomContentInset,
-                ),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
             ) {
-                item {
-                    LibraryMobileHeader(modifier = Modifier.alpha(pageTitleAlpha))
-                }
-                item {
+                LibraryMobileHeader(modifier = Modifier.padding(horizontal = pagePadding))
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(modifier = Modifier.padding(horizontal = pagePadding)) {
                     LibraryMobileTabs(
-                        selected = selectedCategory,
-                        onSelect = { selectedCategory = it },
+                        selected = activeCategory,
+                        onSelect = ::animateToCategory,
                     )
                 }
-                // Category content
-                LibraryCategoryItems(
-                    state = state,
-                    selectedCategory = selectedCategory,
-                    currentPlayingTrackId = currentPlayingTrackId,
-                    onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
-                    onNavigateToAlbum = onNavigateToAlbum,
-                    onNavigateToArtist = onNavigateToArtist,
-                    onNavigateToPlaylist = onNavigateToPlaylist,
-                    onNavigateToFavorites = onNavigateToFavorites,
-                    onNavigateToPlaylists = onNavigateToPlaylists,
-                    onAction = onAction,
-                    onSelectCategory = { selectedCategory = it },
-                    songQuery = songQuery,
-                    onSongQueryChange = { songQuery = it },
-                    artistQuery = artistQuery,
-                    onArtistQueryChange = { artistQuery = it },
-                    sortBy = sortBy,
-                    onSortByChange = { sortBy = it },
-                    showPlaylistMetadata = false,
-                    artistContentEndPadding = 24.dp,
-                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        key = { primaryLibraryCategories[it] },
+                    ) { page ->
+                        val pageCategory = primaryLibraryCategories[page]
+                        LazyColumn(
+                            state = mobileListStates[page],
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = pagePadding,
+                                top = 0.dp,
+                                end = pagePadding,
+                                bottom = 28.dp + bottomContentInset,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            LibraryCategoryItems(
+                                state = state,
+                                selectedCategory = pageCategory,
+                                currentPlayingTrackId = currentPlayingTrackId,
+                                onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
+                                onNavigateToAlbum = onNavigateToAlbum,
+                                onNavigateToArtist = onNavigateToArtist,
+                                onNavigateToPlaylist = onNavigateToPlaylist,
+                                onNavigateToFavorites = onNavigateToFavorites,
+                                onNavigateToPlaylists = onNavigateToPlaylists,
+                                onAction = onAction,
+                                onSelectCategory = ::animateToCategory,
+                                songQuery = songQuery,
+                                onSongQueryChange = { songQuery = it },
+                                artistQuery = artistQuery,
+                                onArtistQueryChange = { artistQuery = it },
+                                sortBy = sortBy,
+                                onSortByChange = { sortBy = it },
+                                showPlaylistMetadata = false,
+                                artistContentEndPadding = 24.dp,
+                            )
+                        }
+                    }
+                    val artistGroups = remember(state.artists, state.tracks, artistQuery) {
+                        libraryArtistGroups(state.artists, state.tracks, artistQuery)
+                    }
+                    if (activeCategory == LibraryDesignCategory.Artists && state.hasIndexedTracks) {
+                        LibraryArtistIndexOverlay(
+                            groups = artistGroups,
+                            listState = mobileListStates[
+                                primaryLibraryCategories.indexOf(LibraryDesignCategory.Artists)
+                            ],
+                            firstGroupItemIndex = MOBILE_ARTIST_FIRST_GROUP_ITEM_INDEX,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 4.dp),
+                        )
+                    }
+                }
             }
-            val artistGroups = remember(state.artists, state.tracks, artistQuery) {
-                libraryArtistGroups(state.artists, state.tracks, artistQuery)
-            }
-            if (selectedCategory == LibraryDesignCategory.Artists && state.hasIndexedTracks) {
-                LibraryArtistIndexOverlay(
-                    groups = artistGroups,
-                    listState = mobileListState,
-                    firstGroupItemIndex = MOBILE_ARTIST_FIRST_GROUP_ITEM_INDEX,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 4.dp, top = 44.dp),
-                )
-            }
-            DesignStickyGlassActionBar(
-                title = localizedLibraryText("Library"),
-                collapseFraction = actionBarProgress,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
         }
         }
     }
@@ -1969,17 +1967,6 @@ private val primaryLibraryCategories = listOf(
     LibraryDesignCategory.Genres,
 )
 
-internal fun libraryCategoryIndexAfterSwipe(
-    currentIndex: Int,
-    categoryCount: Int,
-    horizontalDrag: Float,
-    swipeThreshold: Float,
-): Int {
-    if (kotlin.math.abs(horizontalDrag) < swipeThreshold) return currentIndex
-    val indexDelta = if (horizontalDrag < 0f) 1 else -1
-    return (currentIndex + indexDelta).coerceIn(0, categoryCount - 1)
-}
-
 private val songLibraryCategories = setOf(
     LibraryDesignCategory.Songs,
     LibraryDesignCategory.Favorites,
@@ -2000,6 +1987,6 @@ private val libraryArtworkColors = listOf(
 )
 
 private val artistIndexLetters = ('A'..'Z').map(Char::toString) + "#"
-private const val MOBILE_ARTIST_FIRST_GROUP_ITEM_INDEX = 4
+private const val MOBILE_ARTIST_FIRST_GROUP_ITEM_INDEX = 2
 private const val COMPACT_ARTIST_FIRST_GROUP_ITEM_INDEX = 2
 private const val DESKTOP_ARTIST_FIRST_GROUP_ITEM_INDEX = 3

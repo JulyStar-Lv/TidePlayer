@@ -4,8 +4,11 @@ import androidx.compose.ui.graphics.Color
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
+import io.github.julystar.musicapp.feature.home.domain.ListeningHistoryEntry
+import io.github.julystar.musicapp.feature.home.domain.ListeningStatisticsSnapshot
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,6 +16,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 class HomeStateTest {
 
@@ -28,6 +32,7 @@ class HomeStateTest {
         assertTrue(state.dailyPickTracks.isEmpty())
         assertTrue(state.recentTracks.isEmpty())
         assertNull(state.statistics)
+        assertNull(state.listeningPreview)
         assertFalse(state.shouldShowEmptyState)
         assertFalse(state.shouldShowEmptyStateOnly)
     }
@@ -173,4 +178,50 @@ class HomeStateTest {
 
         assertEquals(tracks.map(LibraryTrackItem::id).toSet(), selection.map(LibraryTrackItem::id).toSet())
     }
+
+    @Test
+    fun `home listening preview ranks current month by time and play count`() {
+        val firstTrackId = 1L
+        val secondTrackId = 2L
+        val augustPlay = Instant.parse("2026-08-08T12:00:00Z").toEpochMilliseconds()
+        val julyPlay = Instant.parse("2026-07-31T12:00:00Z").toEpochMilliseconds()
+        val preview = buildHomeListeningPreview(
+            snapshot = ListeningStatisticsSnapshot(
+                history = listOf(
+                    listeningHistory(1L, firstTrackId, 60_000L, augustPlay),
+                    listeningHistory(2L, firstTrackId, 60_000L, augustPlay + 1_000L),
+                    listeningHistory(3L, secondTrackId, 300_000L, augustPlay + 2_000L),
+                    listeningHistory(4L, secondTrackId, 900_000L, julyPlay),
+                ),
+            ),
+            libraryTracks = listOf(
+                LibraryTrackItem(firstTrackId, "First", "Artist", 180_000L),
+                LibraryTrackItem(secondTrackId, "Second", "Artist", 180_000L),
+            ),
+            favoriteTrackIds = emptySet(),
+            nowEpochMs = Instant.parse("2026-08-09T12:00:00Z").toEpochMilliseconds(),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertNotNull(preview)
+        assertEquals(listOf(secondTrackId, firstTrackId), preview.durationRanking.map { it.track.id })
+        assertEquals(listOf(firstTrackId, secondTrackId), preview.playCountRanking.map { it.track.id })
+        assertEquals(2, preview.playCountRanking.first().playCount)
+    }
 }
+
+private fun listeningHistory(
+    id: Long,
+    trackId: Long,
+    listenedMs: Long,
+    playedAtEpochMs: Long,
+) = ListeningHistoryEntry(
+    id = id,
+    trackId = trackId,
+    title = "Track $trackId",
+    artist = "Artist",
+    album = "Album",
+    durationMs = 180_000L,
+    listenedMs = listenedMs,
+    playedAtEpochMs = playedAtEpochMs,
+)

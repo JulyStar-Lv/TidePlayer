@@ -26,6 +26,13 @@ import uniffi.app_backend.StorageId
 
 class RemoteLibraryImportCoordinatorTest {
     @Test
+    fun pluginArtworkLookupRunsOnlyWhenEmbeddedArtworkIsExplicitlyMissing() {
+        assertTrue(shouldLookupPluginArtwork(false))
+        assertFalse(shouldLookupPluginArtwork(true))
+        assertFalse(shouldLookupPluginArtwork(null))
+    }
+
+    @Test
     fun activeImportOperationCancelRequestsStopWithoutPauseFlag() = runBlocking {
         val operation = ActiveImportOperation()
 

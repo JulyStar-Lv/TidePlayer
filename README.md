@@ -1,10 +1,6 @@
 # TidePlayer
 
 TidePlayer 是一款使用 Kotlin Multiplatform、Compose Multiplatform、Rust 和 UniFFI 构建的**本地优先、私人音乐收藏播放器**。项目面向 Android、iOS 和 Desktop 提供统一音乐库，并通过清晰的音源边界隔离临时播放资源、账号凭据和 Provider 特有数据。
-
-> [!NOTE]
-> 当前产品名称为 **TidePlayer**。项目曾以 **MelodyTrove** 和更早的 **TideTunes** 名称发布；已有安装、数据目录、备份和 Deep Link 由兼容迁移层继续支持。GitHub 仓库目前仍保留历史仓库地址 `JulyStar-Lv/MelodyTrove`。
-
 > [!IMPORTANT]
 > TidePlayer 仍在积极开发中。发布版本跟随 Git 标签，开发版本会包含提交数和短 SHA；在稳定版本发布前，用户界面、数据库迁移和扩展 API 仍可能继续调整。
 
@@ -55,7 +51,7 @@ TidePlayer 是一款使用 Kotlin Multiplatform、Compose Multiplatform、Rust �
 
 Fast/Standard 会把每个来源文件的封面存在状态和内嵌歌词类型保存到 `track_source_ref`，但不会把图片二进制写入 Room；Fast 也不会保存歌词正文。MP3、M4A/MP4、FLAC、APE/WavPack 以及 WAV/AIFF 内嵌 ID3 等可定位格式会直接跳过图片载荷；Ogg/Opus 的图片通常内联在 Vorbis Comment 数据包中，因此仍可能需要读取包含图片的注释数据包。
 
-当用户把外部逐字歌词或 TTML 排在当前普通歌词之前时，播放器会在开始播放后尽力执行一次 Lyrico 自动查询。扫描阶段不调用插件，音频起播也不会等待歌词查询。
+当用户把外部逐字歌词或 TTML 排在当前普通歌词之前时，播放器会在开始播放后尽力执行一次 Lyrico 自动查询。扫描发现 `hasEmbeddedArtwork=0` 时，会使用已授权批量查询的插件补全并缓存封面；播放当前无封面歌曲时也会使用已授权自动查询的插件。音频起播不会等待插件查询。
 
 ### 播放与下载
 

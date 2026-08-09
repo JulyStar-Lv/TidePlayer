@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.core.data.media
 
 import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.database.ArtworkEntity
 import io.github.julystar.musicapp.database.MetadataDao
 import io.github.julystar.musicapp.database.TrackDao
 import io.github.julystar.musicapp.database.TrackEntity
@@ -19,14 +20,19 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import okio.ByteString.Companion.encodeUtf8
+import okio.ByteString.Companion.toByteString
 
 /** Resolves plugin artwork only after the caller has exhausted persisted file metadata artwork. */
 class PluginArtworkResolver(
@@ -42,39 +48,101 @@ class PluginArtworkResolver(
     private val timeoutMs: Long = DEFAULT_LOOKUP_TIMEOUT_MS,
 ) {
     private val stateMutex = Mutex()
-    private val inFlight = mutableMapOf<String, Deferred<ByteArray?>>()
+    private val inFlight = mutableMapOf<String, Deferred<ResolvedPluginArtwork?>>()
     private val attempted = mutableSetOf<String>()
 
     suspend fun load(artwork: Artwork): ByteArray? {
         val target = resolveTarget(artwork) ?: return null
-        val plugins = automaticArtworkPlugins()
+        val plugins = artworkPlugins(PluginLookupMode.AUTOMATIC)
         if (plugins.isEmpty()) return null
         val key = target.cacheKey(plugins)
+        val requestKey = "${PluginLookupMode.AUTOMATIC}:$key"
         val request = stateMutex.withLock {
-            if (key in attempted) return null
-            inFlight[key]?.let { return@withLock it }
+            if (requestKey in attempted) return null
+            inFlight[requestKey]?.let { return@withLock it }
             scope.async {
                 withTimeoutOrNull(timeoutMs.coerceAtLeast(1)) {
-                    loadOrFetch(target, plugins, key)
+                    val resolved = loadOrFetch(
+                        target = target,
+                        plugins = plugins,
+                        key = key,
+                        mode = PluginLookupMode.AUTOMATIC,
+                        refreshRegistry = true,
+                    )
+                    if (resolved != null) {
+                        try {
+                            persistMetadata(target, resolved)
+                        } catch (cancellation: CancellationException) {
+                            throw cancellation
+                        } catch (_: Exception) {
+                            // A database write failure must not hide a valid in-memory cover.
+                        }
+                    }
+                    resolved
                 }
             }.also { deferred ->
-                inFlight[key] = deferred
+                inFlight[requestKey] = deferred
                 deferred.invokeOnCompletion {
                     scope.launch {
                         stateMutex.withLock {
-                            if (inFlight[key] === deferred) inFlight.remove(key)
-                            attempted += key
+                            if (inFlight[requestKey] === deferred) inFlight.remove(requestKey)
+                            attempted += requestKey
                         }
                     }
                 }
             }
         }
         return try {
-            request.await()
+            request.await()?.bytes
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
             null
+        }
+    }
+
+    /** Resolves scanner-detected missing covers using plugins authorized for batch lookup. */
+    suspend fun cacheMissingForBatch(trackIds: Collection<Long>) {
+        if (trackIds.isEmpty()) return
+        val plugins = artworkPlugins(PluginLookupMode.BATCH)
+        if (plugins.isEmpty()) return
+
+        val targets = mutableListOf<PluginArtworkTarget>()
+        val identities = mutableSetOf<String>()
+        trackIds.distinct().forEach { trackId ->
+            val target = resolveTarget(Artwork.LibraryTrack(trackId)) ?: return@forEach
+            if (target.persistenceIdentity !in identities && !hasPersistedArtwork(target.track)) {
+                identities += target.persistenceIdentity
+                targets += target
+            }
+        }
+        if (targets.isEmpty()) return
+
+        pluginRegistry.refresh()
+        val semaphore = Semaphore(BATCH_LOOKUP_CONCURRENCY)
+        coroutineScope {
+            targets.map { target ->
+                async {
+                    semaphore.withPermit {
+                        if (hasPersistedArtwork(target.track)) return@withPermit
+                        try {
+                            withTimeoutOrNull(timeoutMs.coerceAtLeast(1)) {
+                                loadOrFetch(
+                                    target = target,
+                                    plugins = plugins,
+                                    key = target.cacheKey(plugins),
+                                    mode = PluginLookupMode.BATCH,
+                                    refreshRegistry = false,
+                                )?.also { persistMetadata(target, it) }
+                            }
+                        } catch (cancellation: CancellationException) {
+                            throw cancellation
+                        } catch (_: Exception) {
+                            // Plugin cover lookup is best effort and must not fail the scan.
+                        }
+                    }
+                }
+            }.awaitAll()
         }
     }
 
@@ -105,23 +173,22 @@ class PluginArtworkResolver(
         )
     }
 
-    private suspend fun automaticArtworkPlugins(): List<PluginSummary> =
-        pluginRepository.allSnapshot().filter { plugin ->
-            val capabilities = plugin.capabilities.ifEmpty { listOf("searchSongs") }
-            plugin.enabled &&
-                plugin.allowAutomaticLookup &&
-                capabilities.any { it == "searchSongs" || it == "searchCovers" }
-        }
+    private suspend fun artworkPlugins(mode: PluginLookupMode): List<PluginSummary> =
+        pluginRepository.allSnapshot().artworkPlugins(mode)
 
     private suspend fun loadOrFetch(
         target: PluginArtworkTarget,
         plugins: List<PluginSummary>,
         key: String,
-    ): ByteArray? {
+        mode: PluginLookupMode,
+        refreshRegistry: Boolean,
+    ): ResolvedPluginArtwork? {
         val cachePath = cacheDirectory / "$key.image"
-        readCachedBytes(cachePath)?.takeIf(ByteArray::isSupportedImage)?.let { return it }
+        readCachedBytes(cachePath)
+            ?.takeIf(ByteArray::isSupportedImage)
+            ?.let { return ResolvedPluginArtwork(it, cachePath) }
 
-        pluginRegistry.refresh()
+        if (refreshRegistry) pluginRegistry.refresh()
         val songSourceIds = plugins.sourceIdsFor("searchSongs")
         val coverSourceIds = plugins.sourceIdsFor("searchCovers")
         val songCandidates = if (songSourceIds.isEmpty()) {
@@ -129,7 +196,7 @@ class PluginArtworkResolver(
         } else {
             lookup.searchSongs(
                 query = target.query,
-                mode = PluginLookupMode.AUTOMATIC,
+                mode = mode,
                 sourceIds = songSourceIds,
             ).items
         }
@@ -139,7 +206,7 @@ class PluginArtworkResolver(
         } else {
             lookup.searchCovers(
                 query = target.query,
-                mode = PluginLookupMode.AUTOMATIC,
+                mode = mode,
                 sourceIds = coverSourceIds,
             ).items
         }
@@ -148,8 +215,45 @@ class PluginArtworkResolver(
         val bytes = fetchBytes(url, MAX_ARTWORK_BYTES)
             ?.takeIf(ByteArray::isSupportedImage)
             ?: return null
-        persist(cachePath, bytes)
-        return bytes
+        return ResolvedPluginArtwork(
+            bytes = bytes,
+            cachePath = cachePath.takeIf { persist(cachePath, bytes) },
+        )
+    }
+
+    private suspend fun hasPersistedArtwork(track: TrackEntity): Boolean {
+        val artwork = metadataDao.getArtworkForTrack(track.id)
+            ?: track.albumId?.let { metadataDao.getArtworkForAlbum(it) }
+            ?: return false
+        return listOfNotNull(artwork.localPath, artwork.thumbnailPath).any { path ->
+            fileSystem.metadataOrNull(path.toPath())?.isRegularFile == true
+        }
+    }
+
+    private suspend fun persistMetadata(
+        target: PluginArtworkTarget,
+        resolved: ResolvedPluginArtwork,
+    ) {
+        val cachePath = resolved.cachePath ?: return
+        val contentHash = "plugin:${target.persistenceIdentity}:" +
+            resolved.bytes.toByteString().sha256().hex()
+        val existing = metadataDao.getArtworkByContentHash(contentHash)
+        metadataDao.upsertArtwork(
+            listOf(
+                ArtworkEntity(
+                    id = existing?.id ?: 0,
+                    trackId = target.track.id.takeIf { target.track.albumId == null },
+                    albumId = target.track.albumId,
+                    contentHash = contentHash,
+                    localPath = cachePath.toString(),
+                    thumbnailPath = null,
+                    width = null,
+                    height = null,
+                    mimeType = resolved.bytes.detectImageMimeType(),
+                    pictureType = "CoverFront",
+                ),
+            ),
+        )
     }
 
     private fun readCachedBytes(path: Path): ByteArray? {
@@ -162,21 +266,31 @@ class PluginArtworkResolver(
         }
     }
 
-    private fun persist(path: Path, bytes: ByteArray) {
-        try {
+    private fun persist(path: Path, bytes: ByteArray): Boolean {
+        return try {
             fileSystem.createDirectories(cacheDirectory)
             fileSystem.write(path) { write(bytes) }
+            true
         } catch (_: Exception) {
             // A valid in-memory result is still useful when the cache directory is unavailable.
+            false
         }
     }
 }
+
+private data class ResolvedPluginArtwork(
+    val bytes: ByteArray,
+    val cachePath: Path?,
+)
 
 private data class PluginArtworkTarget(
     val identity: String,
     val track: TrackEntity,
     val query: MetaSongQuery,
 ) {
+    val persistenceIdentity: String
+        get() = track.albumId?.let { "album-$it" } ?: "track-${track.id}"
+
     fun cacheKey(plugins: List<PluginSummary>): String = buildString {
         append(identity)
         append('|')
@@ -195,6 +309,18 @@ private data class PluginArtworkTarget(
         }
     }.encodeUtf8().sha256().hex()
 }
+
+internal fun List<PluginSummary>.artworkPlugins(mode: PluginLookupMode): List<PluginSummary> =
+    filter { plugin ->
+        val capabilities = plugin.capabilities.ifEmpty { listOf("searchSongs") }
+        val allowed = when (mode) {
+            PluginLookupMode.MANUAL -> plugin.allowManualLookup
+            PluginLookupMode.AUTOMATIC -> plugin.allowAutomaticLookup
+            PluginLookupMode.BATCH -> plugin.allowBatchLookup
+        }
+        plugin.enabled && allowed &&
+            capabilities.any { it == "searchSongs" || it == "searchCovers" }
+    }
 
 private fun List<PluginSummary>.sourceIdsFor(capability: String): Set<String> =
     filter { plugin -> capability in plugin.capabilities.ifEmpty { listOf("searchSongs") } }
@@ -270,8 +396,18 @@ private fun ByteArray.isIsoBaseMediaImage(): Boolean =
     size >= 12 && decodeToString(4, 8) == "ftyp" &&
         decodeToString(8, 12) in setOf("avif", "avis", "heic", "heix", "mif1")
 
+private fun ByteArray.detectImageMimeType(): String? = when {
+    isJpeg() -> "image/jpeg"
+    isPng() -> "image/png"
+    isGif() -> "image/gif"
+    isWebP() -> "image/webp"
+    isIsoBaseMediaImage() -> "image/avif"
+    else -> null
+}
+
 private const val CACHE_DIRECTORY_NAME = "artwork-cache/plugin"
 private const val RESULTS_PER_SOURCE = 3
 private const val MAX_DURATION_DIFFERENCE_MS = 10_000L
 private const val MAX_ARTWORK_BYTES = 16L * 1024 * 1024
 private const val DEFAULT_LOOKUP_TIMEOUT_MS = 15_000L
+private const val BATCH_LOOKUP_CONCURRENCY = 4

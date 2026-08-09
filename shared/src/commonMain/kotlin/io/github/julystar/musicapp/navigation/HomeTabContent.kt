@@ -1,6 +1,8 @@
 package io.github.julystar.musicapp.navigation
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -10,6 +12,7 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignStick
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
+import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.feature.home.presentation.HomeRoot
 import io.github.julystar.musicapp.feature.library.presentation.navigation.LibraryTabGraph
 import io.github.julystar.musicapp.feature.search.presentation.navigation.SearchTabGraph
@@ -20,6 +23,7 @@ import io.github.julystar.musicapp.platform.getAppVersion
 import io.github.julystar.musicapp.service.playback.domain.SleepModeLeftTime
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberOpenSleepTimer
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 internal fun HomeTabContent(
     currentTab: HomeTab,
@@ -41,9 +45,19 @@ internal fun HomeTabContent(
 ) {
     val openSleepTimer = rememberOpenSleepTimer()
     val rootNavController = LocalNavController.current
+    val detailArtworkAnimatedVisibilityScope = LocalDetailArtworkAnimatedVisibilityScope.current
+    val tabTransition = updateTransition(targetState = currentTab, label = "homeTab")
 
-    Crossfade(targetState = currentTab) { tab ->
+    tabTransition.Crossfade { tab ->
         CompositionLocalProvider(
+            LocalDetailArtworkAnimatedVisibilityScope provides
+                detailArtworkAnimatedVisibilityScope.takeIf {
+                    shouldEnableDetailArtworkSharedElements(
+                        currentTab = tabTransition.currentState,
+                        targetTab = tabTransition.targetState,
+                        transitionRunning = tabTransition.isRunning,
+                    )
+                },
             LocalDesignStickyHeaderStateSink provides if (
                 stickyHeaderStateSink == null || tab == currentTab
             ) {
@@ -93,6 +107,12 @@ internal fun HomeTabContent(
         }
     }
 }
+
+internal fun shouldEnableDetailArtworkSharedElements(
+    currentTab: HomeTab,
+    targetTab: HomeTab,
+    transitionRunning: Boolean,
+): Boolean = currentTab == targetTab && !transitionRunning
 
 private object IgnoreStickyHeaderState : DesignStickyHeaderStateSink {
     override fun update(owner: Any, state: DesignStickyHeaderState) = Unit

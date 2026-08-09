@@ -1,9 +1,7 @@
 package io.github.julystar.musicapp.navigation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
@@ -119,7 +117,7 @@ internal fun RootNavHost(
                         targetRoute = targetState.destination.route,
                     )
                 ) {
-                    EnterTransition.None
+                    immediateEnterTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(targetState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
                 } else {
@@ -135,7 +133,7 @@ internal fun RootNavHost(
                         targetRoute = targetState.destination.route,
                     )
                 ) {
-                    ExitTransition.None
+                    immediateExitTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(targetState.destination.route)) {
                     immediateExitTransition(playerTransitionDurationMillis)
                 } else {
@@ -151,7 +149,7 @@ internal fun RootNavHost(
                         targetRoute = targetState.destination.route,
                     )
                 ) {
-                    EnterTransition.None
+                    immediateEnterTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(initialState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
                 } else {
@@ -167,7 +165,7 @@ internal fun RootNavHost(
                         targetRoute = targetState.destination.route,
                     )
                 ) {
-                    ExitTransition.None
+                    immediateExitTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(initialState.destination.route)) {
                     immediateExitTransition(playerTransitionDurationMillis)
                 } else {
@@ -385,8 +383,14 @@ internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
     return routeName == "Album" || routeName.endsWith(".Album") ||
         routeName == "Playlist" || routeName.endsWith(".Playlist") ||
         routeName == "Favorites" || routeName.endsWith(".Favorites") ||
+        routeName == "Listening" || routeName.endsWith(".Listening") ||
         routeName == "PluginSettings" || routeName.endsWith(".PluginSettings")
 }
+
+internal fun shouldHoistSecondaryStickyHeader(
+    captureStickyHeader: Boolean,
+    windowSizeClass: WindowSizeClass,
+): Boolean = captureStickyHeader && windowSizeClass == WindowSizeClass.Compact
 
 @Composable
 private fun SecondaryRootNavigationLayout(
@@ -416,10 +420,14 @@ private fun SecondaryRootNavigationLayout(
         val statusBarInset = WindowInsets.statusBars
             .asPaddingValues()
             .calculateTopPadding() + titleBarInset
-        var stickyHeaderState by remember(captureStickyHeader) {
+        val hoistStickyHeader = shouldHoistSecondaryStickyHeader(
+            captureStickyHeader = captureStickyHeader,
+            windowSizeClass = windowSizeClass,
+        )
+        var stickyHeaderState by remember(hoistStickyHeader) {
             mutableStateOf<DesignStickyHeaderState?>(null)
         }
-        val stickyHeaderStateSink = remember(captureStickyHeader) {
+        val stickyHeaderStateSink = remember(hoistStickyHeader) {
             OwnedDesignStickyHeaderStateSink { state -> stickyHeaderState = state }
         }
         val sideNavigationWidth = when (windowSizeClass) {
@@ -457,7 +465,7 @@ private fun SecondaryRootNavigationLayout(
                 Box(modifier = contentModifier) {
                     CompositionLocalProvider(
                         LocalDesignStickyHeaderStateSink provides
-                            stickyHeaderStateSink.takeIf { captureStickyHeader },
+                            stickyHeaderStateSink.takeIf { hoistStickyHeader },
                     ) {
                         content(Modifier.fillMaxSize())
                     }

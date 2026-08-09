@@ -27,6 +27,7 @@ import io.github.julystar.musicapp.database.TrackEntity
 import io.github.julystar.musicapp.database.TrackGenreCrossRef
 import io.github.julystar.musicapp.database.TrackMetadataSources
 import io.github.julystar.musicapp.database.TrackSourceRefEntity
+import io.github.julystar.musicapp.core.data.media.PluginArtworkResolver
 import io.github.julystar.musicapp.platform.currentTimeMillis
 import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import io.github.julystar.musicapp.core.domain.model.MetadataParsingSettings
@@ -110,6 +111,7 @@ class RemoteLibraryImportCoordinator(
     private val remoteScannerRepository: RemoteScannerRepository,
     private val storageRepository: StorageRepositoryImpl,
     private val settingsRepository: SettingsRepository? = null,
+    private val pluginArtworkResolver: PluginArtworkResolver? = null,
 ) {
     private val activeOperationsMutex = Mutex()
     private val activeOperations = mutableMapOf<String, ActiveImportOperation>()
@@ -1061,6 +1063,7 @@ class RemoteLibraryImportCoordinator(
         )
         val batchFailedCount = failureDetails.size
         lateinit var updatedJob: ImportJobEntity
+        var missingPluginArtworkTrackIds = emptyList<Long>()
 
         val databaseWriteStartedAt = currentTimeMillis()
         database.useWriterConnection { connection ->
@@ -1253,6 +1256,9 @@ class RemoteLibraryImportCoordinator(
                     options = metadataOptions,
                     now = now,
                 )
+                missingPluginArtworkTrackIds = trackContexts
+                    .filter { context -> shouldLookupPluginArtwork(context.metadata.hasEmbeddedArtwork) }
+                    .map { context -> context.track.id }
                 updatedJob = currentJob.copy(
                     scannedCount = currentJob.scannedCount,
                     importedCount = currentJob.importedCount + tracks.size,
@@ -1287,6 +1293,19 @@ class RemoteLibraryImportCoordinator(
             databaseWriteElapsedMs = currentJob.databaseWriteElapsedMs
                 .saturatedAdd(databaseWriteElapsedMs),
         )
+        if (plan.unchangedFileIds.isNotEmpty()) {
+            missingPluginArtworkTrackIds += database.trackSourceRefDao()
+                .findBySourceItemIds(plan.unchangedFileIds)
+                .filter { reference -> shouldLookupPluginArtwork(reference.hasEmbeddedArtwork) }
+                .map { reference -> reference.trackId }
+        }
+        try {
+            pluginArtworkResolver?.cacheMissingForBatch(missingPluginArtworkTrackIds.distinct())
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            // Plugin cover lookup is best effort and must not fail a completed import batch.
+        }
 
         return ImportBatchResult(
             job = updatedJob,
@@ -2179,6 +2198,9 @@ internal data class RemoteLibraryImportPlan(
     val metadataSkippedCount: Int,
     val unreadableChangedCount: Int,
 )
+
+internal fun shouldLookupPluginArtwork(hasEmbeddedArtwork: Boolean?): Boolean =
+    hasEmbeddedArtwork == false
 
 internal data class CompleteSnapshotBatchPlan(
     val entriesToImport: List<StorageEntry>,

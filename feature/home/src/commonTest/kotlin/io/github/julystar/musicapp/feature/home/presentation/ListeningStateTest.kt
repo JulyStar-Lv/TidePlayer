@@ -49,9 +49,11 @@ class ListeningStateTest {
         assertEquals(1, state.monthUniqueTrackCount)
         assertEquals(70_000L, state.monthListenedMs)
         assertEquals(2, state.activeDays)
+        assertEquals(27, state.elapsedDaysInMonth)
         assertEquals(2, state.longestStreakDays)
         assertEquals(84, state.calendarDays.size)
         assertEquals("Moon", state.durationRanking.single().title)
+        assertEquals("Night", state.durationRanking.single().album)
         assertEquals(2, state.playCountRanking.single().playCount)
         assertEquals(ListeningTimePeriod.Morning, state.peakTimePeriod)
     }

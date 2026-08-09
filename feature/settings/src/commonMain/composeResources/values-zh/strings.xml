@@ -160,6 +160,27 @@
     <string name="diagnostics_copy_path">复制导出路径</string>
     <string name="diagnostics_confirm_delete">确认清理诊断数据</string>
     <string name="diagnostics_confirm_delete_message">此操作会删除本地诊断数据。当前日志与恢复关键 Incident 会保持受保护；未解决 Incident 只有在明确确认后才会删除。</string>
+    <string name="diagnostics_ready">运行正常</string>
+    <string name="diagnostics_refreshing">正在刷新</string>
+    <string name="diagnostics_attention">需要关注</string>
+    <string name="diagnostics_tools">数据与恢复</string>
+    <string name="diagnostics_all">全部</string>
+    <string name="diagnostics_current">当前</string>
+    <string name="diagnostics_selected">已选择</string>
+    <string name="diagnostics_log_empty">当前筛选条件下没有日志</string>
+    <string name="diagnostics_incident_empty">当前筛选条件下没有故障记录</string>
+    <string name="diagnostics_log_hint">点击日志可查看完整详情并复制。</string>
+    <string name="diagnostics_log_details">日志详情</string>
+    <string name="diagnostics_stable">稳定</string>
+    <string name="diagnostics_interrupted">启动中断</string>
+    <string name="diagnostics_warning">警告</string>
+    <string name="diagnostics_recovery_required">需要恢复</string>
+    <string name="diagnostics_timestamp">时间</string>
+    <string name="diagnostics_target">目标</string>
+    <string name="diagnostics_message">消息</string>
+    <string name="diagnostics_detail">详情</string>
+    <string name="diagnostics_correlation_id">关联 ID</string>
+    <string name="diagnostics_fields">附加字段</string>
 
     <string name="settings_audio_focus_section">音频焦点</string>
     <string name="settings_audio_focus_pause">暂停其他播放</string>

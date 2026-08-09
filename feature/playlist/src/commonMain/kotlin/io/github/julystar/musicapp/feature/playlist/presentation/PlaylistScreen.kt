@@ -68,17 +68,13 @@ import musicapp.core.presentation.generated.resources.icon_drag
 import musicapp.core.presentation.generated.resources.icon_heart
 import musicapp.core.presentation.generated.resources.icon_heart_filled
 import musicapp.core.presentation.generated.resources.icon_locate_fixed
-import musicapp.core.presentation.generated.resources.icon_more_horizontal
 import musicapp.core.presentation.generated.resources.icon_ok
 import musicapp.core.presentation.generated.resources.icon_pencil
 import musicapp.core.presentation.generated.resources.icon_play
-import musicapp.core.presentation.generated.resources.icon_setting
 import musicapp.core.presentation.generated.resources.icon_vertialcal_more
 import musicapp.feature.playlist.generated.resources.Res
 import musicapp.feature.playlist.generated.resources.playlist_add_favorite
 import musicapp.feature.playlist.generated.resources.playlist_back
-import musicapp.feature.playlist.generated.resources.playlist_context_menu_edit
-import musicapp.feature.playlist.generated.resources.playlist_context_menu_import
 import musicapp.feature.playlist.generated.resources.playlist_context_menu_remove
 import musicapp.feature.playlist.generated.resources.playlist_default_title
 import musicapp.feature.playlist.generated.resources.playlist_deselect_all
@@ -141,16 +137,6 @@ fun PlaylistScreen(
     val currentTrackIndex = state.tracks.indexOfFirst { track -> track.id == currentPlayingTrackId }
     val allSelected = state.tracks.isNotEmpty() && state.tracks.all { track -> track.id in selectedTrackIds }
     val title = state.title.ifBlank { stringResource(Res.string.playlist_default_title) }
-    val topBarActions: (@Composable () -> Unit)? = if (editable) {
-        {
-            PlaylistTopBarActions(
-                title = title,
-                onAction = onAction,
-            )
-        }
-    } else {
-        null
-    }
     val reorderableLazyListState = rememberReorderableLazyListState(lazyListState = listState) { from, to ->
         val fromIndex = from.index - TrackListStartIndex
         val toIndex = to.index - TrackListStartIndex
@@ -275,60 +261,12 @@ fun PlaylistScreen(
                 onNavigateBack = { onAction(PlaylistAction.NavigateBack) },
                 backContentDescription = stringResource(Res.string.playlist_back),
                 centerTitle = true,
-                actions = topBarActions,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
     }
     if (editable) {
         RemovePlaylistDialog(state = state, onAction = onAction)
-    }
-}
-
-@Composable
-private fun PlaylistTopBarActions(
-    title: String,
-    onAction: (PlaylistAction) -> Unit,
-) {
-    var moreMenuExpanded by remember { mutableStateOf(false) }
-
-    Box {
-        DesignIconButton(
-            size = DesignIconButtonSize.Touch,
-            variant = DesignIconButtonVariant.Default,
-            painter = painterResource(CoreRes.drawable.icon_more_horizontal),
-            contentDescription = stringResource(Res.string.playlist_track_more_actions, title),
-            onClick = { moreMenuExpanded = true },
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 14.dp, y = 36.dp),
-        ) {
-            DesignContextMenu(
-                expanded = moreMenuExpanded,
-                onDismissRequest = { moreMenuExpanded = false },
-                compact = true,
-                items = listOf(
-                    DesignContextMenuItem(
-                        label = Res.string.playlist_context_menu_import,
-                        icon = CoreRes.drawable.icon_download,
-                        onClick = { onAction(PlaylistAction.ImportTracks) },
-                    ),
-                    DesignContextMenuItem(
-                        label = Res.string.playlist_context_menu_edit,
-                        icon = CoreRes.drawable.icon_setting,
-                        onClick = { onAction(PlaylistAction.EditPlaylist) },
-                    ),
-                    DesignContextMenuItem(
-                        label = Res.string.playlist_context_menu_remove,
-                        icon = CoreRes.drawable.icon_deleteseep,
-                        isError = true,
-                        onClick = { onAction(PlaylistAction.OpenRemoveDialog) },
-                    ),
-                ),
-            )
-        }
     }
 }
 

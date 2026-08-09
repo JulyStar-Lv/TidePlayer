@@ -37,6 +37,7 @@ kotlin {
             implementation(libs.androidx.navigation.compose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.collections.immutable)
+            implementation(libs.kotlinx.datetime)
             implementation(libs.filekit.dialogs.compose)
         }
         commonTest.dependencies {

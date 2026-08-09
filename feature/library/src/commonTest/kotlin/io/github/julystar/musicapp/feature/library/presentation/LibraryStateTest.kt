@@ -103,17 +103,4 @@ class LibraryStateTest {
         assertEquals("hello", event.message)
     }
 
-    @Test
-    fun `category swipe moves in gesture direction and stops at edges`() {
-        assertEquals(2, libraryCategoryIndexAfterSwipe(1, 5, -80f, 48f))
-        assertEquals(0, libraryCategoryIndexAfterSwipe(1, 5, 80f, 48f))
-        assertEquals(0, libraryCategoryIndexAfterSwipe(0, 5, 80f, 48f))
-        assertEquals(4, libraryCategoryIndexAfterSwipe(4, 5, -80f, 48f))
-    }
-
-    @Test
-    fun `category swipe ignores movement below threshold`() {
-        assertEquals(2, libraryCategoryIndexAfterSwipe(2, 5, -47f, 48f))
-        assertEquals(2, libraryCategoryIndexAfterSwipe(2, 5, 47f, 48f))
-    }
 }
