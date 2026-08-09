@@ -646,14 +646,7 @@ private fun MetadataCandidateRow(
     }
 }
 
-internal fun metadataSourceDisplayName(sourceId: String): String = when (sourceId) {
-    "com.qqmusic.source" -> "QQ音乐"
-    "com.kugou.source" -> "酷狗音乐"
-    "com.applemusic.source" -> "Apple Music"
-    "com.sodamusic.source" -> "汽水音乐"
-    "com.neteasecloudmusic.source" -> "网易云音乐"
-    else -> sourceId
-}
+internal fun metadataSourceDisplayName(sourceId: String): String = sourceId
 
 private fun formatMetadataDuration(durationMs: Long): String {
     val totalSeconds = durationMs.coerceAtLeast(0) / 1_000
