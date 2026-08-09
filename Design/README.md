@@ -1,11 +1,14 @@
+# Design System for TidePlayer
 
-  # Design System for MelodyTrove
+This directory contains the editable design-system code bundle used by TidePlayer.
 
-  This is a code bundle for Design System for MelodyTrove. The original project is available at https://www.figma.com/design/X30WgdPxOW9skIgTUCgk4b/Design-System-for-MelodyTrove.
+The original Figma project URL still contains the former MelodyTrove project name:
+https://www.figma.com/design/X30WgdPxOW9skIgTUCgk4b/Design-System-for-MelodyTrove
 
-  ## Running the code
+The current product name in design copy, specifications, exports, and new documentation is **TidePlayer**.
 
-  Run `npm i` to install the dependencies.
+## Running the code
 
-  Run `npm run dev` to start the development server.
-  
+Run `npm i` to install the dependencies.
+
+Run `npm run dev` to start the development server.
