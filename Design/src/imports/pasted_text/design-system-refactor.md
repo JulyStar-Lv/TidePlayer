@@ -1,7 +1,7 @@
-Refactor and visually optimize the existing MelodyTrove Design System / app prototype in this Figma Make project so it matches the CURRENT production Compose Multiplatform repository. Do not create a separate concept and do not only explain. Edit the existing project files, keep all current routes working, and finish with a compiling preview.
+Refactor and visually optimize the existing TidePlayer Design System / app prototype in this Figma Make project so it matches the CURRENT production Compose Multiplatform repository. Do not create a separate concept and do not only explain. Edit the existing project files, keep all current routes working, and finish with a compiling preview.
 
 Product direction
-- Keep the existing MelodyTrove identity and the HyperOS / compose-miuix feel: calm, layered, rounded, music-first, dark-mode-first. Avoid generic dashboard styling and avoid direct iOS imitation.
+- Keep the existing TidePlayer identity and the HyperOS / compose-miuix feel: calm, layered, rounded, music-first, dark-mode-first. Avoid generic dashboard styling and avoid direct iOS imitation.
 - Preserve the four root tabs only: Home, Search, Library, Settings. Now Playing must open only from the persistent mini player; never add a Playing tab.
 - Reduce decorative noise: use gradients only for hero/artwork/selected brand moments, use semantic surfaces for normal cards, and strengthen hierarchy through spacing and typography rather than excessive glow.
 

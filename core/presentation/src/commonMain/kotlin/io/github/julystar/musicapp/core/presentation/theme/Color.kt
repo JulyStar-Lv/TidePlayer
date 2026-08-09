@@ -11,7 +11,7 @@ import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * Shared brand tokens from Design/docs/MelodyTrove-PDS-v3.md and the Figma Make design system.
+ * Shared brand tokens from Design/docs/TidePlayer-PDS-v3.md and the Figma Make design system.
  * Keep these public so feature modules can use the same MelodyTrove visual language without
  * duplicating hex values.
  */

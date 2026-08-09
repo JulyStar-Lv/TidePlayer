@@ -8,7 +8,7 @@ source is updated.
 
 ## Pages and frames
 
-- Rename visible project/page titles to **MelodyTrove**.
+- Rename visible project/page titles to **TidePlayer**.
 - Appearance / Compact / Light — Artwork color On.
 - Appearance / Compact / Dark — Artwork color Off.
 - Appearance / Medium / Light.

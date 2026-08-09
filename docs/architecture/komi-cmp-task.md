@@ -1,4 +1,4 @@
-# MelodyTrove — Komi Store Architecture Refactor Task Tracking
+# TidePlayer — Komi Store Architecture Refactor Task Tracking
 
 ## Goal
 
@@ -153,7 +153,7 @@ Full goal document: `docs/architecture/komi-cmp-goal.md`
 
 ## Presentation Zero Material UI Migration
 
-- [x] Active Presentation Kotlin source uses Miuix, MelodyTrove App components, and Compose runtime/UI/foundation/animation/resources instead of Compose Material or Material3.
+- [x] Active Presentation Kotlin source uses Miuix, TidePlayer App components, and Compose runtime/UI/foundation/animation/resources instead of Compose Material or Material3.
 - [x] `AppTheme`, core App components, app shell, navigation bars, sidebar, MiniPlayer, Now Playing, and toast/snackbar UI migrated off Material APIs.
 - [x] Direct Compose Material3 version-catalog aliases removed from `gradle/libs.versions.toml`.
 - [x] Required import scan and extended Kotlin Material API scan report zero matches.

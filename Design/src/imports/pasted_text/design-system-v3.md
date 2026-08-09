@@ -2,13 +2,13 @@
 
 你的目标实际上不是生成几张页面，而是建立一个可以长期维护、支持 Compose Multiplatform + compose-miuix-ui + Android/iOS/Desktop 的**设计规范**。它应该达到 Apple Human Interface Guidelines、Material Design、HyperOS Design Language 那种级别。
 
-结合你之前所有要求（Apple Music、MIUI/HyperOS、compose-miuix-ui、多 Source、多平台），我建议 **MelodyTrove Design System v3** 的定位如下：
+结合你之前所有要求（Apple Music、MIUI/HyperOS、compose-miuix-ui、多 Source、多平台），我建议 **TidePlayer Design System v3** 的定位如下：
 
 > **Apple Music Information Architecture × HyperOS Design Language × Compose Multiplatform Responsive Design System**
 
 ---
 
-# MelodyTrove Design System v3
+# TidePlayer Design System v3
 
 建议整个 Figma 文件采用下面结构（这一版以后基本不会再变）。
 
@@ -512,7 +512,7 @@ Adaptive Width
 下面这份 Prompt 建议作为 **Figma Make 的 System Prompt**，后续所有页面都基于它生成。
 
 ```text
-Create a production-ready cross-platform Design System for a music application called "MelodyTrove".
+Create a production-ready cross-platform Design System for a music application called "TidePlayer".
 
 Design language:
 - Xiaomi HyperOS / MIUI (compose-miuix-ui)
@@ -529,7 +529,7 @@ BRAND
 ==================================================
 
 Product Name:
-MelodyTrove
+TidePlayer
 
 Tagline:
 One Library. Every Source.
@@ -991,4 +991,4 @@ Map every component to compose-miuix-ui concepts wherever possible.
 * **提供完整的开发规范**（Architecture、组件目录、命名规则、Preview 规范、Adaptive API 使用方式）。
 * **规划插件化 Source UI**（WebDAV、Plex、Emby 等统一接入规范），与 `SourceAdapter` 架构保持一致。
 
-这样，MelodyTrove 的设计系统就不仅是一套视觉稿，而是可以长期演进、支持跨平台开发和开源协作的完整产品设计规范。
+这样，TidePlayer 的设计系统就不仅是一套视觉稿，而是可以长期演进、支持跨平台开发和开源协作的完整产品设计规范。

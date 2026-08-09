@@ -1,4 +1,4 @@
-Create a production-ready cross-platform Design System for a music application called "MelodyTrove".
+Create a production-ready cross-platform Design System for a music application called "TidePlayer".
 
 Design language:
 - Xiaomi HyperOS / MIUI (compose-miuix-ui)
@@ -15,7 +15,7 @@ BRAND
 ==================================================
 
 Product Name:
-MelodyTrove
+TidePlayer
 
 Tagline:
 One Library. Every Source.

@@ -3,7 +3,7 @@
 ## Artwork and manual theme colors — 2026-07-28
 
 - Source: repository-maintained Figma Make export plus
-  `Design/docs/MelodyTrove-PDS-v3.md`.
+  `Design/docs/TidePlayer-PDS-v3.md`.
 - Maintained source: `Design/src/app/ThemeColorDesign.tsx`, integrated into
   Appearance and Design System → Theme Colors.
 - Prototype build: passed with Vite 6.3.5.
@@ -67,7 +67,7 @@ Final theme-color result: design source, Desktop runtime, and iOS runtime passed
 Android runtime evidence remains explicitly unverified because device-side USB
 installation was rejected.
 
-- Source: Figma Make, `Design System for MelodyTrove`, Version 31.
+- Source: Figma Make, `Design System for TidePlayer`, Version 31.
 - Mobile: Home layout, Daily Picks, Recently Played, Continue Playing, mini player, and bottom navigation visually checked against the source design; mini player and bottom navigation verified in both light and dark themes.
 - Desktop: sidebar, responsive content layout, and bottom player visually checked at 1440 × 900; the removed App Cover page and removed top toolbar do not reappear.
 - Interaction: Home, Settings, and Appearance & Home navigation verified in the browser.
@@ -257,7 +257,7 @@ Final result: passed
 
 ## Now Playing mobile queue transition refinement — 2026-07-20
 
-- Source visual truth: the current MelodyTrove mobile full-player and queue states, with the queue treated as a secondary surface above the player.
+- Source visual truth: the current TidePlayer mobile full-player and queue states, with the queue treated as a secondary surface above the player.
 - Implementation screenshot: unavailable; this task does not expose a controllable in-app browser capture surface.
 - Viewport: portrait `390 × 844`.
 - State: full player switching between player, lyrics, and queue views.
@@ -285,7 +285,7 @@ Final result: blocked
 
 ## Now Playing desktop refinement — 2026-07-20
 
-- Source visual truth: the existing MelodyTrove full-player desktop implementation and current product design system.
+- Source visual truth: the existing TidePlayer full-player desktop implementation and current product design system.
 - Implementation screenshot: unavailable; this task does not expose a controllable in-app browser capture surface.
 - Viewports: primary `1440 × 900`; compact desktop `860 × 520`; ultrawide width capped by a `1600px` content stage.
 - State: full player, lyrics tab, Midnight Cascade, playing.
