@@ -5,7 +5,7 @@
 TidePlayer is a local-first private music collection player built with Kotlin Multiplatform, Compose Multiplatform, Rust, and UniFFI. It provides one shared music library across Android, iOS, and Desktop while keeping transient playback resources, credentials, and provider-specific details behind explicit source boundaries.
 
 > [!NOTE]
-> The current product name is **TidePlayer**. The project was previously published as **MelodyTrove** and, earlier, **TideTunes**. Existing installs, data directories, settings backups, and deep links remain supported by compatibility migration code. The GitHub repository still uses the historical slug `JulyStar-Lv/MelodyTrove` for now.
+> The current product name is **TidePlayer**. The project was previously published as **MelodyTrove** and, earlier, **TideTunes**. Existing installs, data directories, settings backups, and deep links remain supported by compatibility migration code.
 
 > [!IMPORTANT]
 > TidePlayer is under active development. Release versions follow Git tags, while development builds include the commit count and short SHA. User-facing behavior, database migrations, and extension APIs may continue to evolve before the stable release.
@@ -130,8 +130,6 @@ Detailed documents:
 
 ## Repository structure
 
-The GitHub repository currently still uses the historical `MelodyTrove` slug; the logical product tree below uses the current product name.
-
 ```text
 TidePlayer/
 ├── androidApp/                  Android application entry point
@@ -194,11 +192,9 @@ sudo apt-get install --yes libasound2-dev pkg-config
 
 ## Build from source
 
-The repository currently uses the historical GitHub address:
-
 ```bash
-git clone https://github.com/JulyStar-Lv/MelodyTrove.git
-cd MelodyTrove
+git clone https://github.com/JulyStar-Lv/TidePlayer.git
+cd TidePlayer
 ```
 
 Android:

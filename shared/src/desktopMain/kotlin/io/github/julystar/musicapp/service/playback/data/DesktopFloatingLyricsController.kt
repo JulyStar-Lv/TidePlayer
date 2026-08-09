@@ -67,7 +67,7 @@ class DesktopFloatingLyricsController(
 
     private fun showWindow() = SwingUtilities.invokeLater {
         if (window != null) return@invokeLater
-        val lyricLabel = JLabel("TidePlayer", SwingConstants.CENTER).apply {
+        val lyricLabel = JLabel("Tide Player", SwingConstants.CENTER).apply {
             foreground = Color.WHITE
             background = Color(20, 20, 24, 210)
             isOpaque = true
@@ -93,7 +93,7 @@ class DesktopFloatingLyricsController(
     }
 
     private fun updateText(text: String) = SwingUtilities.invokeLater {
-        val displayText = text.ifBlank { "TidePlayer" }
+        val displayText = text.ifBlank { "Tide Player" }
         label?.text = displayText
         label?.font = floatingFont(displayText)
         window?.pack()

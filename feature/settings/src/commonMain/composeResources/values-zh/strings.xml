@@ -47,7 +47,7 @@
     <string name="settings_storage_title">存储与数据</string>
     <string name="settings_storage_summary">已占用 %1$s</string>
     <string name="settings_about_title">关于</string>
-    <string name="settings_about_summary">MelodyTrove %1$s</string>
+    <string name="settings_about_summary">Tide Player %1$s</string>
 
     <string name="settings_theme_section">主题</string>
     <string name="settings_theme_system">跟随系统</string>
@@ -119,7 +119,7 @@
     <string name="settings_network_cache_card_summary">流媒体策略、缓存上限、超时与重试</string>
     <string name="settings_storage_card_summary">已使用 %1$s · 清理、备份与诊断</string>
     <string name="settings_app_info_section">应用与信息</string>
-    <string name="settings_about_card_summary">MelodyTrove %1$s · 构建、链接、隐私与许可证</string>
+    <string name="settings_about_card_summary">Tide Player %1$s · 构建、链接、隐私与许可证</string>
     <string name="settings_search_empty">没有与“%1$s”匹配的设置</string>
     <string name="diagnostics_title">日志与诊断</string>
     <string name="diagnostics_card_summary">日志会话、Incident、启动恢复、隐私与导出</string>
@@ -186,7 +186,7 @@
     <string name="settings_audio_focus_pause">暂停其他播放</string>
     <string name="settings_audio_focus_pause_summary">其他应用请求音频焦点时暂停</string>
     <string name="settings_audio_focus_duck">降低音量</string>
-    <string name="settings_audio_focus_duck_summary">暂时降低 MelodyTrove 音量</string>
+    <string name="settings_audio_focus_duck_summary">暂时降低 Tide Player 音量</string>
     <string name="settings_audio_focus_mix">混合播放</string>
     <string name="settings_audio_focus_mix_summary">允许与其他应用同时播放</string>
     <string name="settings_playback_behavior_section">播放行为</string>
@@ -380,10 +380,10 @@
     <string name="settings_about_repository">项目主页</string>
     <string name="settings_about_issues">问题反馈</string>
     <string name="settings_about_privacy">隐私说明</string>
-    <string name="settings_about_privacy_summary">MelodyTrove 本地优先，诊断导出不会包含凭据或 Token。</string>
+    <string name="settings_about_privacy_summary">Tide Player 本地优先，诊断导出不会包含凭据或 Token。</string>
     <string name="settings_unavailable">暂不可用</string>
     <string name="settings_licenses_title">开源许可</string>
-    <string name="settings_licenses_summary">MelodyTrove 使用 Kotlin、Compose Multiplatform、Miuix、Room、DataStore、Media3、Okio、Koin、Rust 等开源项目，并遵循各自许可。</string>
+    <string name="settings_licenses_summary">Tide Player 使用 Kotlin、Compose Multiplatform、Miuix、Room、DataStore、Media3、Okio、Koin、Rust 等开源项目，并遵循各自许可。</string>
 
     <string name="settings_confirm_clear_audio_title">确认清理音频缓存？</string>
     <string name="settings_confirm_clear_audio_message">将清理音频播放缓存，下载文件会保留。</string>

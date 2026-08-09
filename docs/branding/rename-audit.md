@@ -13,7 +13,7 @@ UniFFI bindings, scripts, workflows, the design prototype, and documentation.
 | Area | Result |
 | --- | --- |
 | Product name | `TidePlayer` |
-| Repository slug | `MelodyTrove` for this migration PR; rename separately after CI is green |
+| Repository slug | `TidePlayer` |
 | Kotlin/Java package | `io.github.julystar.musicapp` |
 | Android | `AppApplication`, `Theme.App`, stable application ID, `tideplayer` primary URL scheme plus both legacy schemes |
 | iOS | `App.xcodeproj`, `App` target/scheme, `AppMain`, `SharedKit`, `TidePlayer.app` |
@@ -68,7 +68,6 @@ xcodebuild -project iosApp/App.xcodeproj -scheme App \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
 ```
 
-The repository slug is intentionally not renamed in the same code migration.
-Rename `JulyStar-Lv/MelodyTrove` to `JulyStar-Lv/TidePlayer` only after this
-branch builds cleanly, then update repository links, badges, Release references,
-and external integrations in a separate operator step.
+The repository slug is now `JulyStar-Lv/TidePlayer`. GitHub keeps redirects from
+the historical repository URL; repository links and external integrations should
+use the current slug directly.

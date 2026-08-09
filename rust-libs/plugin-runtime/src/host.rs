@@ -90,7 +90,7 @@ impl Default for HostApiOptions {
         Self {
             plugin_id: "plugin".into(),
             plugin_name: "Plugin".into(),
-            app_name: "MelodyTrove".into(),
+            app_name: "Tide Player".into(),
             package_name: "io.github.julystar.musicapp".into(),
             app_version_name: "0.0.0".into(),
             app_version_code: 0,

@@ -80,6 +80,5 @@
     <string name="listening_heatmap_selected">%1$s · %2$s · %3$d plays</string>
     <string name="listening_heatmap_less">Less</string>
     <string name="listening_heatmap_more">More</string>
-    <string name="listening_remove">Remove</string>
     <string name="listening_no_data">No listening data yet</string>
 </resources>

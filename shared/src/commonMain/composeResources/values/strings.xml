@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="music_count_unit">Musics</string>
-    <string name="app_name">MelodyTrove</string>
+    <string name="app_name">Tide Player</string>
     <string name="nav_home">Home</string>
     <string name="nav_search">Search</string>
     <string name="nav_library">Library</string>
@@ -112,7 +112,7 @@
     <string name="debug_trigger_kt_async_exception">Trigger Kotlin Async Exception</string>
     <string name="log_title">Log</string>
     <string name="debug_trigger_rs_panic">Trigger Rust panic!</string>
-    <string name="diagnostics_safe_mode_title">MelodyTrove Safe Mode</string>
+    <string name="diagnostics_safe_mode_title">Tide Player Safe Mode</string>
     <string name="diagnostics_safe_mode_reason">Why safe mode started</string>
     <string name="diagnostics_safe_mode_disabled">Temporarily disabled components</string>
     <string name="diagnostics_safe_mode_privacy">Diagnostics stay on this device and are never uploaded automatically.</string>

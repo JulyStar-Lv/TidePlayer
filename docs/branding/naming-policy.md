@@ -2,9 +2,10 @@
 
 Date: 2026-08-08
 
-TidePlayer is the product brand. Use it only for text and artifacts that a user
-or operator sees: application labels, package products, release artifacts,
-diagnostics, backup exports, documentation, and protocol user agents.
+TidePlayer is the product and repository brand. The user-visible application
+name is `Tide Player` in both English and Chinese. Keep the compact `TidePlayer`
+form for package products, release artifacts, data paths, backup exports,
+documentation, and protocol user agents.
 
 The repository uses stable, brand-neutral technical identifiers:
 

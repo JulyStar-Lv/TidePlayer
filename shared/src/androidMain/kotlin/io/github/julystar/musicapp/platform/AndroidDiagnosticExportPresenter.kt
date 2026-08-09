@@ -18,7 +18,7 @@ private object AndroidDiagnosticExportPresenter : DiagnosticExportPresenter {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         appContext.startActivity(
-            Intent.createChooser(intent, "Share MelodyTrove diagnostics")
+            Intent.createChooser(intent, "Share Tide Player diagnostics")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }
@@ -36,7 +36,7 @@ private object AndroidDiagnosticExportPresenter : DiagnosticExportPresenter {
     override suspend fun copyPath(path: String): Result<Unit> = runCatching {
         val clipboard = appContext.getSystemService(ClipboardManager::class.java)
             ?: error("Clipboard is unavailable")
-        clipboard.setPrimaryClip(ClipData.newPlainText("MelodyTrove diagnostics", path))
+        clipboard.setPrimaryClip(ClipData.newPlainText("Tide Player diagnostics", path))
     }
 
     private fun exportUri(path: String) = File(path).let { export ->

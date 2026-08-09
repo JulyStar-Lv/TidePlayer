@@ -106,7 +106,7 @@ class FileDiagnosticsService(
 }
 
 private fun DiagnosticsReport.toText(): String = buildString {
-    appendLine("MelodyTrove diagnostics")
+    appendLine("Tide Player diagnostics")
     appendLine("generatedAtEpochMs=$generatedAtEpochMs")
     appendLine("appVersion=$appVersion")
     appendLine("buildInfo=${buildInfo.redactSensitiveData()}")

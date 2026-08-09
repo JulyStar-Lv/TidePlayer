@@ -102,8 +102,8 @@ requireContent(
 );
 requireContent(
   "androidApp/src/main/res/values/strings.xml",
-  /<string name="app_name">TidePlayer<\/string>/,
-  "TidePlayer Android app label",
+  /<string name="app_name">Tide Player<\/string>/,
+  "Tide Player Android app label",
 );
 requireContent(
   "androidApp/src/main/AndroidManifest.xml",
@@ -117,8 +117,8 @@ requireContent(
 );
 requireContent(
   "iosApp/Info.plist",
-  /<key>CFBundleDisplayName<\/key>\s*<string>TidePlayer<\/string>[\s\S]*<string>tideplayer<\/string>[\s\S]*<string>melodytrove<\/string>[\s\S]*<string>tidetunes<\/string>/,
-  "TidePlayer iOS display name and current plus legacy URL schemes",
+  /<key>CFBundleDisplayName<\/key>\s*<string>Tide Player<\/string>[\s\S]*<string>tideplayer<\/string>[\s\S]*<string>melodytrove<\/string>[\s\S]*<string>tidetunes<\/string>/,
+  "Tide Player iOS display name and current plus legacy URL schemes",
 );
 requireContent(
   "iosApp/App.xcodeproj/project.pbxproj",

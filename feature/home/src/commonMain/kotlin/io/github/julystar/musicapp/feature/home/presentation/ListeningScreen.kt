@@ -7,14 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,26 +33,37 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
+import io.github.julystar.musicapp.core.presentation.components.DesignIconBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
 import io.github.julystar.musicapp.core.presentation.components.DesignTabs
 import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.feature.home.domain.ListeningDistributionBucket
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_album
+import musicapp.core.presentation.generated.resources.icon_mode_repeat
+import musicapp.core.presentation.generated.resources.icon_music_note
+import musicapp.core.presentation.generated.resources.icon_settings_activity
+import musicapp.core.presentation.generated.resources.icon_settings_circle_play
+import musicapp.core.presentation.generated.resources.icon_settings_mic
+import musicapp.core.presentation.generated.resources.icon_settings_sliders
+import musicapp.core.presentation.generated.resources.icon_timelapse
 import musicapp.feature.home.generated.resources.Res
 import musicapp.feature.home.generated.resources.listening_active_days
 import musicapp.feature.home.generated.resources.listening_active_days_ratio
@@ -70,10 +82,8 @@ import musicapp.feature.home.generated.resources.listening_formats
 import musicapp.feature.home.generated.resources.listening_four_weeks_ago
 import musicapp.feature.home.generated.resources.listening_history
 import musicapp.feature.home.generated.resources.listening_history_empty
-import musicapp.feature.home.generated.resources.listening_habits
 import musicapp.feature.home.generated.resources.listening_heatmap_less
 import musicapp.feature.home.generated.resources.listening_heatmap_more
-import musicapp.feature.home.generated.resources.listening_heatmap_selected
 import musicapp.feature.home.generated.resources.listening_late_night
 import musicapp.feature.home.generated.resources.listening_morning
 import musicapp.feature.home.generated.resources.listening_afternoon
@@ -90,7 +100,6 @@ import musicapp.feature.home.generated.resources.listening_quality
 import musicapp.feature.home.generated.resources.listening_rankings
 import musicapp.feature.home.generated.resources.listening_rank_by_plays
 import musicapp.feature.home.generated.resources.listening_rank_by_time
-import musicapp.feature.home.generated.resources.listening_remove
 import musicapp.feature.home.generated.resources.listening_streak
 import musicapp.feature.home.generated.resources.listening_time
 import musicapp.feature.home.generated.resources.listening_title
@@ -128,7 +137,9 @@ fun ListeningScreen(
                 end = pagePadding,
                 bottom = bottomInset + 28.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(
+                if (state.selectedTab == ListeningTab.Calendar) 10.dp else 20.dp,
+            ),
         ) {
             item {
                 DesignTabs(
@@ -141,7 +152,7 @@ fun ListeningScreen(
                     onSelectedIndexChange = { index ->
                         onAction(ListeningAction.SelectTab(ListeningTab.entries[index]))
                     },
-                    variant = DesignTabsVariant.Segmented,
+                    variant = DesignTabsVariant.Pill,
                 )
             }
             if (state.isLoading) {
@@ -177,7 +188,6 @@ private fun LazyListScope.overviewItems(state: ListeningState) {
     item {
         MonthlyListeningReport(state)
     }
-    item { SectionTitle(stringResource(Res.string.listening_habits)) }
     item {
         ListeningHabitGrid(state)
     }
@@ -194,13 +204,7 @@ private fun LazyListScope.calendarItems(
     onAction: (ListeningAction) -> Unit,
 ) {
     item {
-        SectionTitle(
-            title = stringResource(Res.string.listening_calendar),
-            subtitle = stringResource(Res.string.listening_calendar_caption),
-        )
-    }
-    item {
-        ListeningHeatmap(days = state.calendarDays)
+        ListeningCalendarSection(days = state.calendarDays)
     }
     item { SectionTitle(stringResource(Res.string.listening_history)) }
     if (state.recentHistory.isEmpty()) {
@@ -215,7 +219,6 @@ private fun LazyListScope.calendarItems(
             HistoryRow(
                 item = item,
                 onPlay = { onAction(ListeningAction.PlayTrack(item.trackId)) },
-                onRemove = { onAction(ListeningAction.RemoveHistoryEntry(item.id)) },
             )
         }
     }
@@ -235,39 +238,52 @@ private fun MonthlyListeningReport(state: ListeningState) {
     val peakLabel = state.peakTimePeriod?.localizedLabel()
         ?: stringResource(Res.string.listening_no_data)
     DesignCardSurface(
-        modifier = Modifier.border(
-            width = 1.dp,
-            color = MiuixTheme.colorScheme.primary.copy(alpha = 0.20f),
-            shape = RoundedCornerShape(24.dp),
-        ),
-        contentPadding = PaddingValues(20.dp),
+        contentPadding = PaddingValues(22.dp),
+        backgroundColor = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.30f),
+        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.22f),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = state.monthLabel,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = stringResource(Res.string.listening_month_headline),
-                    style = MiuixTheme.textStyles.title1,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = if (state.monthPlayCount == 0) {
-                        stringResource(Res.string.listening_no_data)
-                    } else {
-                        stringResource(
-                            Res.string.listening_month_summary,
-                            state.activeDays,
-                            peakLabel,
-                        )
-                    },
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = state.monthLabel,
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = stringResource(Res.string.listening_month_headline),
+                        style = MiuixTheme.textStyles.title1,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = if (state.monthPlayCount == 0) {
+                            stringResource(Res.string.listening_no_data)
+                        } else {
+                            stringResource(
+                                Res.string.listening_month_summary,
+                                state.activeDays,
+                                peakLabel,
+                            )
+                        },
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+                DesignIconBadge(
+                    icon = painterResource(CoreRes.drawable.icon_settings_activity),
+                    accentColor = MiuixTheme.colorScheme.primary,
                 )
             }
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -370,40 +386,68 @@ private fun MonthlyMetric(
 @Composable
 private fun ListeningHabitGrid(state: ListeningState) {
     val metrics = listOf(
-        stringResource(Res.string.listening_peak_time) to
-            (state.peakTimePeriod?.localizedLabel() ?: stringResource(Res.string.listening_no_data)),
-        stringResource(Res.string.listening_streak) to
+        Triple(
+            stringResource(Res.string.listening_peak_time),
+            state.peakTimePeriod?.localizedLabel() ?: stringResource(Res.string.listening_no_data),
+            CoreRes.drawable.icon_timelapse,
+        ),
+        Triple(
+            stringResource(Res.string.listening_streak),
             stringResource(Res.string.listening_day_count, state.longestStreakDays),
-        stringResource(Res.string.listening_average_day) to
+            CoreRes.drawable.icon_mode_repeat,
+        ),
+        Triple(
+            stringResource(Res.string.listening_average_day),
             formatListeningDuration(state.averagePerActiveDayMs),
-        stringResource(Res.string.listening_monthly_activity) to
+            CoreRes.drawable.icon_settings_circle_play,
+        ),
+        Triple(
+            stringResource(Res.string.listening_monthly_activity),
             stringResource(
                 Res.string.listening_active_days_ratio,
                 state.activeDays,
                 state.elapsedDaysInMonth,
             ),
+            CoreRes.drawable.icon_settings_activity,
+        ),
     )
-    DesignCardSurface {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            if (maxWidth >= 720.dp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    metrics.forEach { (label, value) ->
-                        HabitMetric(label, value, Modifier.weight(1f))
-                    }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        if (maxWidth >= 720.dp) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                metrics.forEach { (label, value, icon) ->
+                    HabitMetric(
+                        label = label,
+                        value = value,
+                        icon = icon,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                    )
                 }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    metrics.chunked(2).forEach { rowMetrics ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            rowMetrics.forEach { (label, value) ->
-                                HabitMetric(label, value, Modifier.weight(1f))
-                            }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                metrics.chunked(2).forEach { rowMetrics ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        rowMetrics.forEach { (label, value, icon) ->
+                            HabitMetric(
+                                label = label,
+                                value = value,
+                                icon = icon,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                            )
                         }
                     }
                 }
@@ -417,11 +461,23 @@ private fun OverviewInsightGrid(state: ListeningState) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         if (maxWidth >= 720.dp) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                MonthlyFavoritesCard(state, Modifier.weight(1f))
-                ListeningActivityCard(state.calendarDays.takeLast(28), Modifier.weight(1f))
+                MonthlyFavoritesCard(
+                    state = state,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                ListeningActivityCard(
+                    days = state.calendarDays.takeLast(28),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -434,25 +490,29 @@ private fun OverviewInsightGrid(state: ListeningState) {
 
 @Composable
 private fun MonthlyFavoritesCard(state: ListeningState, modifier: Modifier = Modifier) {
-    DesignCardSurface(modifier = modifier) {
+    DesignCardSurface(
+        modifier = modifier,
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(
-                text = stringResource(Res.string.listening_favorites),
-                style = MiuixTheme.textStyles.title3,
-                color = MiuixTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
+            ListeningCardHeader(
+                title = stringResource(Res.string.listening_favorites),
+                icon = CoreRes.drawable.icon_music_note,
             )
             InsightRow(
-                stringResource(Res.string.listening_favorite_track),
-                state.favoriteTrack,
+                label = stringResource(Res.string.listening_favorite_track),
+                insight = state.favoriteTrack,
+                icon = CoreRes.drawable.icon_music_note,
             )
             InsightRow(
-                stringResource(Res.string.listening_favorite_artist),
-                state.favoriteArtist,
+                label = stringResource(Res.string.listening_favorite_artist),
+                insight = state.favoriteArtist,
+                icon = CoreRes.drawable.icon_settings_mic,
             )
             InsightRow(
-                stringResource(Res.string.listening_favorite_album),
-                state.favoriteAlbum,
+                label = stringResource(Res.string.listening_favorite_album),
+                insight = state.favoriteAlbum,
+                icon = CoreRes.drawable.icon_album,
             )
         }
     }
@@ -462,21 +522,16 @@ private fun MonthlyFavoritesCard(state: ListeningState, modifier: Modifier = Mod
 private fun ListeningActivityCard(days: List<ListeningDay>, modifier: Modifier = Modifier) {
     val visibleDays = days.takeLast(28)
     val maxListenedMs = visibleDays.maxOfOrNull(ListeningDay::listenedMs)?.coerceAtLeast(1L) ?: 1L
-    DesignCardSurface(modifier = modifier) {
+    DesignCardSurface(
+        modifier = modifier,
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = stringResource(Res.string.listening_activity),
-                    style = MiuixTheme.textStyles.title3,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = stringResource(Res.string.listening_activity_caption),
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
+            ListeningCardHeader(
+                title = stringResource(Res.string.listening_activity),
+                subtitle = stringResource(Res.string.listening_activity_caption),
+                icon = CoreRes.drawable.icon_settings_activity,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 visibleDays.chunked(7).forEach { week ->
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -510,9 +565,13 @@ private fun ListeningActivityCard(days: List<ListeningDay>, modifier: Modifier =
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
                 Text(
-                    text = stringResource(Res.string.listening_today),
+                    text = listOfNotNull(
+                        stringResource(Res.string.listening_today),
+                        visibleDays.lastOrNull()?.let { formatListeningDuration(it.listenedMs) },
+                    ).joinToString(" · "),
                     style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    color = MiuixTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
@@ -524,18 +583,26 @@ private fun LibraryAnalysisGrid(state: ListeningState) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         if (maxWidth >= 720.dp) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 DistributionCard(
                     title = stringResource(Res.string.listening_formats),
                     buckets = state.formatDistribution,
-                    modifier = Modifier.weight(1f),
+                    icon = CoreRes.drawable.icon_music_note,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                 )
                 DistributionCard(
                     title = stringResource(Res.string.listening_quality),
                     buckets = state.qualityDistribution,
-                    modifier = Modifier.weight(1f),
+                    icon = CoreRes.drawable.icon_settings_sliders,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                 )
             }
         } else {
@@ -543,10 +610,12 @@ private fun LibraryAnalysisGrid(state: ListeningState) {
                 DistributionCard(
                     title = stringResource(Res.string.listening_formats),
                     buckets = state.formatDistribution,
+                    icon = CoreRes.drawable.icon_music_note,
                 )
                 DistributionCard(
                     title = stringResource(Res.string.listening_quality),
                     buckets = state.qualityDistribution,
+                    icon = CoreRes.drawable.icon_settings_sliders,
                 )
             }
         }
@@ -554,29 +623,42 @@ private fun LibraryAnalysisGrid(state: ListeningState) {
 }
 
 @Composable
-private fun HabitMetric(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.10f))
-            .padding(horizontal = 12.dp, vertical = 11.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+private fun HabitMetric(
+    label: String,
+    value: String,
+    icon: DrawableResource,
+    modifier: Modifier = Modifier,
+) {
+    DesignCardSurface(
+        modifier = modifier,
+        contentPadding = PaddingValues(16.dp),
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
     ) {
-        Text(
-            text = value,
-            style = MiuixTheme.textStyles.title3,
-            color = MiuixTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.footnote1,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            DesignIconBadge(
+                modifier = Modifier.size(36.dp),
+                icon = painterResource(icon),
+                accentColor = MiuixTheme.colorScheme.primary,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = value,
+                    style = MiuixTheme.textStyles.title2,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = label,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -602,30 +684,57 @@ private fun ListeningRankingCard(
         }
     }?.coerceAtLeast(1L) ?: 1L
 
-    DesignCardSurface(contentPadding = PaddingValues(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = stringResource(Res.string.listening_top_tracks),
-                    style = MiuixTheme.textStyles.title2,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = stringResource(Res.string.listening_all_time),
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
+    DesignCardSurface(
+        contentPadding = PaddingValues(20.dp),
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val tabs: @Composable (Modifier) -> Unit = { modifier ->
+                    DesignTabs(
+                        items = listOf(
+                            DesignTabItem(stringResource(Res.string.listening_rank_by_time)),
+                            DesignTabItem(stringResource(Res.string.listening_rank_by_plays)),
+                        ),
+                        selectedIndex = metric.ordinal,
+                        onSelectedIndexChange = { index ->
+                            metric = ListeningRankingMetric.entries[index]
+                        },
+                        variant = DesignTabsVariant.Segmented,
+                        modifier = modifier,
+                    )
+                }
+                val heading: @Composable () -> Unit = {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = stringResource(Res.string.listening_top_tracks),
+                            style = MiuixTheme.textStyles.title2,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = stringResource(Res.string.listening_all_time),
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                }
+                if (maxWidth >= 620.dp) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        heading()
+                        tabs(Modifier.width(280.dp))
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        heading()
+                        tabs(Modifier.fillMaxWidth())
+                    }
+                }
             }
-            DesignTabs(
-                items = listOf(
-                    DesignTabItem(stringResource(Res.string.listening_rank_by_time)),
-                    DesignTabItem(stringResource(Res.string.listening_rank_by_plays)),
-                ),
-                selectedIndex = metric.ordinal,
-                onSelectedIndexChange = { index -> metric = ListeningRankingMetric.entries[index] },
-                variant = DesignTabsVariant.Segmented,
-            )
             if (tracks.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.listening_no_data),
@@ -648,6 +757,9 @@ private fun ListeningRankingCard(
                         },
                         onPlay = { onAction(ListeningAction.PlayTrack(track.trackId)) },
                     )
+                    if (index != tracks.lastIndex) {
+                        ListeningDivider(modifier = Modifier.padding(start = 96.dp))
+                    }
                 }
             }
         }
@@ -656,16 +768,15 @@ private fun ListeningRankingCard(
 
 @Composable
 private fun SectionTitle(title: String, subtitle: String? = null) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Text(
             text = title,
-            style = MiuixTheme.textStyles.title3,
+            style = MiuixTheme.textStyles.title2,
             fontWeight = FontWeight.Bold,
             color = MiuixTheme.colorScheme.onBackground,
         )
@@ -680,17 +791,57 @@ private fun SectionTitle(title: String, subtitle: String? = null) {
 }
 
 @Composable
-private fun InsightRow(label: String, insight: ListeningInsight?) {
+private fun ListeningCardHeader(
+    title: String,
+    icon: DrawableResource,
+    subtitle: String? = null,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(9.dp)
-                .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.primary),
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MiuixTheme.textStyles.title3,
+                color = MiuixTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+            )
+            subtitle?.let {
+                Text(
+                    text = it,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+        DesignIconBadge(
+            modifier = Modifier.size(36.dp),
+            icon = painterResource(icon),
+            accentColor = MiuixTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
+private fun InsightRow(
+    label: String,
+    insight: ListeningInsight?,
+    icon: DrawableResource,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DesignIconBadge(
+            modifier = Modifier.size(34.dp),
+            icon = painterResource(icon),
+            accentColor = MiuixTheme.colorScheme.primary,
         )
         Column(Modifier.weight(1f)) {
             Text(
@@ -712,6 +863,11 @@ private fun InsightRow(label: String, insight: ListeningInsight?) {
                 text = stringResource(Res.string.listening_plays, it.playCount),
                 style = MiuixTheme.textStyles.footnote1,
                 color = MiuixTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.10f))
+                    .padding(horizontal = 9.dp, vertical = 5.dp),
             )
         }
     }
@@ -721,17 +877,16 @@ private fun InsightRow(label: String, insight: ListeningInsight?) {
 private fun DistributionCard(
     title: String,
     buckets: List<ListeningDistributionBucket>,
+    icon: DrawableResource,
     modifier: Modifier = Modifier,
 ) {
     val total = buckets.sumOf(ListeningDistributionBucket::trackCount).coerceAtLeast(1)
-    DesignCardSurface(modifier = modifier) {
+    DesignCardSurface(
+        modifier = modifier,
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                text = title,
-                style = MiuixTheme.textStyles.title3,
-                fontWeight = FontWeight.Bold,
-                color = MiuixTheme.colorScheme.onSurface,
-            )
+            ListeningCardHeader(title = title, icon = icon)
             if (buckets.isEmpty()) {
                 Text(
                     stringResource(Res.string.listening_no_data),
@@ -762,7 +917,14 @@ private fun DistributionCard(
                                     .fillMaxWidth(bucket.trackCount.toFloat() / total)
                                     .height(6.dp)
                                     .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.primary),
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(
+                                                MiuixTheme.colorScheme.primary,
+                                                MiuixTheme.colorScheme.secondary,
+                                            ),
+                                        ),
+                                    ),
                             )
                         }
                     }
@@ -773,92 +935,229 @@ private fun DistributionCard(
 }
 
 @Composable
-private fun ListeningHeatmap(days: List<ListeningDay>) {
-    val maxListenedMs = days.maxOfOrNull(ListeningDay::listenedMs)?.coerceAtLeast(1L) ?: 1L
+private fun ListeningCalendarSection(days: List<ListeningDay>) {
     var selectedDate by remember(days) { mutableStateOf(days.lastOrNull()?.date) }
     val selectedDay = days.firstOrNull { it.date == selectedDate }
-    DesignCardSurface {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            selectedDay?.let { day ->
-                Text(
-                    text = stringResource(
-                        Res.string.listening_heatmap_selected,
-                        day.date.toString(),
-                        formatListeningDuration(day.listenedMs),
-                        day.playCount,
-                    ),
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        if (maxWidth >= 840.dp) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                CalendarHeatmapCard(
+                    days = days,
+                    selectedDate = selectedDate,
+                    onSelectedDateChange = { selectedDate = it },
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SelectedListeningDayCard(
+                    day = selectedDay,
+                    modifier = Modifier
+                        .width(300.dp)
+                        .fillMaxHeight(),
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                days.chunked(7).forEach { week ->
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        week.forEach { day ->
-                            val intensity = day.listenedMs.toFloat() / maxListenedMs
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(
-                                        if (day.listenedMs == 0L) {
-                                            MiuixTheme.colorScheme.surfaceContainerHigh
-                                        } else {
-                                            MiuixTheme.colorScheme.primary.copy(
-                                                alpha = 0.20f + intensity * 0.80f,
-                                            )
-                                        },
-                                    )
-                                    .then(
-                                        if (day.date == selectedDate) {
-                                            Modifier.border(
-                                                width = 2.dp,
-                                                color = MiuixTheme.colorScheme.primary,
-                                                shape = RoundedCornerShape(5.dp),
-                                            )
-                                        } else {
-                                            Modifier
-                                        },
-                                    )
-                                    .clickable { selectedDate = day.date },
-                            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                CalendarHeatmapCard(
+                    days = days,
+                    selectedDate = selectedDate,
+                    onSelectedDateChange = { selectedDate = it },
+                )
+                SelectedListeningDayCard(day = selectedDay)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarHeatmapCard(
+    days: List<ListeningDay>,
+    selectedDate: kotlinx.datetime.LocalDate?,
+    onSelectedDateChange: (kotlinx.datetime.LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val maxListenedMs = days.maxOfOrNull(ListeningDay::listenedMs)?.coerceAtLeast(1L) ?: 1L
+    DesignCardSurface(
+        modifier = modifier,
+        contentPadding = PaddingValues(20.dp),
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            ListeningCardHeader(
+                title = stringResource(Res.string.listening_calendar),
+                subtitle = stringResource(Res.string.listening_calendar_caption),
+                icon = CoreRes.drawable.icon_settings_activity,
+            )
+            if (days.isEmpty()) {
+                Text(
+                    text = stringResource(Res.string.listening_no_data),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(vertical = 20.dp),
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    days.chunked(7).forEach { week ->
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            week.forEach { day ->
+                                val intensity = day.listenedMs.toFloat() / maxListenedMs
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(
+                                            if (day.listenedMs == 0L) {
+                                                MiuixTheme.colorScheme.surfaceContainerHigh
+                                            } else {
+                                                MiuixTheme.colorScheme.primary.copy(
+                                                    alpha = 0.18f + intensity * 0.70f,
+                                                )
+                                            },
+                                        )
+                                        .then(
+                                            if (day.date == selectedDate) {
+                                                Modifier.border(
+                                                    width = 2.dp,
+                                                    color = MiuixTheme.colorScheme.primary,
+                                                    shape = RoundedCornerShape(5.dp),
+                                                )
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
+                                        .clickable { onSelectedDateChange(day.date) },
+                                )
+                            }
                         }
                     }
                 }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(Res.string.listening_heatmap_less),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-                Spacer(Modifier.width(6.dp))
-                listOf(0.16f, 0.36f, 0.58f, 0.82f).forEach { level ->
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MiuixTheme.colorScheme.primary.copy(alpha = level)),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = days.first().date.toString(),
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
-                    Spacer(Modifier.width(4.dp))
+                    ListeningHeatmapLegend()
+                    Text(
+                        text = stringResource(Res.string.listening_today),
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListeningHeatmapLegend() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = stringResource(Res.string.listening_heatmap_less),
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+        Spacer(Modifier.width(5.dp))
+        listOf(0.16f, 0.36f, 0.58f, 0.82f).forEach { level ->
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MiuixTheme.colorScheme.primary.copy(alpha = level)),
+            )
+            Spacer(Modifier.width(3.dp))
+        }
+        Text(
+            text = stringResource(Res.string.listening_heatmap_more),
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+    }
+}
+
+@Composable
+private fun SelectedListeningDayCard(
+    day: ListeningDay?,
+    modifier: Modifier = Modifier,
+) {
+    DesignCardSurface(
+        modifier = modifier,
+        contentPadding = PaddingValues(20.dp),
+        backgroundColor = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.26f),
+        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.18f),
+    ) {
+        if (day == null) {
+            Text(
+                text = stringResource(Res.string.listening_no_data),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = stringResource(Res.string.listening_heatmap_more),
-                    style = MiuixTheme.textStyles.footnote2,
+                    text = day.date.toString(),
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = formatListeningDuration(day.listenedMs),
+                    style = MiuixTheme.textStyles.title1,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Text(
+                    text = stringResource(Res.string.listening_time),
+                    style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
+                ListeningDivider(modifier = Modifier.padding(vertical = 14.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DesignIconBadge(
+                        modifier = Modifier.size(36.dp),
+                        icon = painterResource(CoreRes.drawable.icon_settings_circle_play),
+                        accentColor = MiuixTheme.colorScheme.primary,
+                    )
+                    Column {
+                        Text(
+                            text = day.playCount.toString(),
+                            style = MiuixTheme.textStyles.title3,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = stringResource(Res.string.listening_play_count),
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                }
+                if (day.listenedMs == 0L) {
+                    Text(
+                        text = stringResource(Res.string.listening_no_data),
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
             }
         }
     }
@@ -868,11 +1167,10 @@ private fun ListeningHeatmap(days: List<ListeningDay>) {
 private fun HistoryRow(
     item: ListeningHistoryItem,
     onPlay: () -> Unit,
-    onRemove: () -> Unit,
 ) {
     DesignCardSurface(
-        modifier = Modifier.heightIn(min = 64.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f),
         onClick = onPlay,
     ) {
         Row(
@@ -883,8 +1181,8 @@ private fun HistoryRow(
             ArtworkImage(
                 artwork = Artwork.LibraryTrack(item.trackId, allowPluginLookup = true),
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(13.dp)),
             )
             Column(Modifier.weight(1f)) {
                 Text(
@@ -904,18 +1202,27 @@ private fun HistoryRow(
                 )
             }
             Text(
-                formatListeningDuration(item.listenedMs),
+                text = formatListeningDuration(item.listenedMs),
                 style = MiuixTheme.textStyles.footnote1,
                 color = MiuixTheme.colorScheme.primary,
-            )
-            DesignTextButton(
-                text = stringResource(Res.string.listening_remove),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Small,
-                onClick = onRemove,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.10f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
     }
+}
+
+@Composable
+private fun ListeningDivider(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.48f)),
+    )
 }
 
 @Composable
@@ -930,21 +1237,42 @@ private fun RankingRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (rank <= 3) {
+                    MiuixTheme.colorScheme.primary.copy(alpha = 0.035f)
+                } else {
+                    Color.Transparent
+                },
+            )
             .clickable(onClick = onPlay)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = rank.toString(),
-            modifier = Modifier.width(26.dp),
-            color = if (rank <= 3) {
-                MiuixTheme.colorScheme.primary
-            } else {
-                MiuixTheme.colorScheme.onSurfaceVariantSummary
-            },
-            fontWeight = FontWeight.Bold,
-        )
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(
+                    if (rank <= 3) {
+                        MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    } else {
+                        MiuixTheme.colorScheme.surfaceContainerHigh
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = rank.toString(),
+                color = if (rank <= 3) {
+                    MiuixTheme.colorScheme.primary
+                } else {
+                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                },
+                style = MiuixTheme.textStyles.footnote1,
+                fontWeight = FontWeight.Bold,
+            )
+        }
         ArtworkImage(
             artwork = Artwork.LibraryTrack(track.trackId, allowPluginLookup = true),
             modifier = Modifier
@@ -997,7 +1325,14 @@ private fun RankingRow(
                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                         .height(4.dp)
                         .clip(CircleShape)
-                        .background(MiuixTheme.colorScheme.primary),
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    MiuixTheme.colorScheme.primary,
+                                    MiuixTheme.colorScheme.secondary,
+                                ),
+                            ),
+                        ),
                 )
             }
         }

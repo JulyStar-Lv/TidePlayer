@@ -422,7 +422,7 @@ private fun recoveryOptionRows(): List<SafeModeAction.Option> = listOf(
 private fun DiagnosticsBootstrapState.safeModeSummary(
     incident: io.github.julystar.musicapp.core.domain.model.DiagnosticIncident?,
 ): String = buildString {
-    appendLine("TidePlayer safe mode")
+    appendLine("Tide Player safe mode")
     appendLine("reason=${startupPlan.reason.orEmpty()}")
     appendLine("incidentType=${incident?.type ?: "UNKNOWN"}")
     appendLine("incidentId=${incident?.id.orEmpty()}")

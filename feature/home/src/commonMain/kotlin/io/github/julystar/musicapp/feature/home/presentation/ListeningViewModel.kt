@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 class ListeningViewModel(
     private val statisticsRepository: HomeStatisticsRepository,
@@ -37,9 +36,6 @@ class ListeningViewModel(
     fun onAction(action: ListeningAction) {
         when (action) {
             is ListeningAction.SelectTab -> selectedTab.value = action.tab
-            is ListeningAction.RemoveHistoryEntry -> viewModelScope.launch {
-                statisticsRepository.removeHistoryEntry(action.id)
-            }
             ListeningAction.NavigateBack,
             is ListeningAction.PlayTrack -> Unit
         }

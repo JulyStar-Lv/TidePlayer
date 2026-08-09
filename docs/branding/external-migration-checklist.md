@@ -6,9 +6,8 @@ Repository code has completed the in-app product rename to `TidePlayer`, but it
 cannot complete the following operator-owned changes. Complete the applicable
 items before publishing a release under the TidePlayer brand.
 
-- Rename the GitHub repository from the current historical slug
-  `JulyStar-Lv/MelodyTrove` to `JulyStar-Lv/TidePlayer` when ready, and verify
-  GitHub's redirect from the former repository URL.
+- Verify GitHub's redirect from the historical `JulyStar-Lv/MelodyTrove` URL to
+  the current `JulyStar-Lv/TidePlayer` repository.
 - Verify GitHub branch protection, Actions secrets, repository topics, repository
   description, badges, Release links, and external automation after the repository
   rename.
@@ -68,5 +67,6 @@ and OAuth configuration should use TidePlayer identifiers only.
 - Inspect a settings backup and diagnostics ZIP for `application`, `packageId`, and
   format/schema version fields; new artifacts must identify the application as
   `TidePlayer`.
-- Confirm Android, iOS, and Desktop visible labels, installers, About pages, Safe
-  Mode text, diagnostics, and release artifacts consistently display `TidePlayer`.
+- Confirm Android, iOS, and Desktop visible labels, About pages, and Safe Mode
+  text display `Tide Player`; installers, diagnostics, and release artifacts keep
+  the compact `TidePlayer` product name.

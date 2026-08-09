@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="music_count_unit">首歌曲</string>
-    <string name="app_name">旋律珍藏</string>
+    <string name="app_name">Tide Player</string>
     <string name="dashboard_sleep_mode">睡眠定时</string>
     <string name="dashboard_imports">导入</string>
     <string name="dashboard_import_pause">暂停</string>

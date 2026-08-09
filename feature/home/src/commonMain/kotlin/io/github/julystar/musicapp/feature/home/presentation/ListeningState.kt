@@ -93,7 +93,6 @@ sealed interface ListeningAction {
     data object NavigateBack : ListeningAction
     data class SelectTab(val tab: ListeningTab) : ListeningAction
     data class PlayTrack(val trackId: Long) : ListeningAction
-    data class RemoveHistoryEntry(val id: Long) : ListeningAction
 }
 
 internal fun buildListeningState(

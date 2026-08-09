@@ -135,8 +135,6 @@ flowchart TD
 
 ## 仓库结构
 
-> 仓库当前仍使用历史 GitHub slug `MelodyTrove`；下方目录名按当前产品名称展示。
-
 ```text
 TidePlayer/
 ├── androidApp/                  Android 应用入口
@@ -233,11 +231,9 @@ sudo apt-get install --yes libasound2-dev pkg-config
 
 ## 从源码构建
 
-仓库目前仍使用历史 GitHub 地址：
-
 ```bash
-git clone https://github.com/JulyStar-Lv/MelodyTrove.git
-cd MelodyTrove
+git clone https://github.com/JulyStar-Lv/TidePlayer.git
+cd TidePlayer
 ```
 
 开发构建版本格式为 `appVersionBase-dev.<提交数>+<短 SHA>`。`vX.Y.Z` 或 `pre-vX.Y.Z-beta.N` 标签会成为发布版本。外部构建可显式设置 `APP_VERSION_NAME` 和 `APP_VERSION_CODE`；运行 `./gradlew printAppVersion` 可以查看最终解析结果。

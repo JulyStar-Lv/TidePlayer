@@ -6,7 +6,7 @@ import kotlin.native.Platform
 internal actual fun platformDebugFaultInjectionSupported(): Boolean = Platform.isDebugBinary
 
 internal actual fun triggerPlatformKotlinCrash() {
-    error("MelodyTrove debug Kotlin/Native uncaught exception fault injection")
+    error("Tide Player debug Kotlin/Native uncaught exception fault injection")
 }
 
 internal actual fun triggerPlatformAnr() {

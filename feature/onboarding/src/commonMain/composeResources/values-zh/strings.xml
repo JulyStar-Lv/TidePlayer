@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="onboarding_app_name">TidePlayer</string>
+    <string name="onboarding_app_name">Tide Player</string>
     <string name="onboarding_tagline">一个音乐库，所有音源。</string>
     <string name="onboarding_principle_simple">简洁</string>
     <string name="onboarding_principle_calm">宁静</string>
@@ -11,6 +11,6 @@
     <string name="onboarding_principle_native">原生体验</string>
     <string name="onboarding_principle_cross_platform">跨平台</string>
     <string name="onboarding_principle_plugin_driven">插件驱动</string>
-    <string name="onboarding_enter">进入 TidePlayer</string>
+    <string name="onboarding_enter">进入 Tide Player</string>
     <string name="onboarding_footer">你的私人音乐收藏库</string>
 </resources>

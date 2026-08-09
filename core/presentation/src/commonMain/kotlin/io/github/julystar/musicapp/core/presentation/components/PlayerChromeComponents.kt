@@ -137,7 +137,7 @@ fun DesignMiniPlayerBar(
                 ) {
                     Text(
                         modifier = Modifier.fillMaxWidth(),
-                        text = title.ifBlank { "MelodyTrove" },
+                        text = title.ifBlank { "Tide Player" },
                         style = MiuixTheme.textStyles.body1,
                         fontWeight = FontWeight.SemiBold,
                         color = MiuixTheme.colorScheme.onSurface,
@@ -239,7 +239,7 @@ fun DesignExpandedMiniPlayerBar(
                     ) {
                         Text(
                             modifier = Modifier.fillMaxWidth(),
-                            text = title.ifBlank { "MelodyTrove" },
+                            text = title.ifBlank { "Tide Player" },
                             style = MiuixTheme.textStyles.body1,
                             fontWeight = FontWeight.SemiBold,
                             color = MiuixTheme.colorScheme.onSurface,

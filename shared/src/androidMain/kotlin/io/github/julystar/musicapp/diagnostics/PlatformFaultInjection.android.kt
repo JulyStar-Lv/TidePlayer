@@ -8,7 +8,7 @@ internal actual fun platformDebugFaultInjectionSupported(): Boolean =
 
 internal actual fun triggerPlatformKotlinCrash() {
     Thread {
-        error("MelodyTrove debug Kotlin uncaught exception fault injection")
+        error("Tide Player debug Kotlin uncaught exception fault injection")
     }.apply { name = "diagnostics-kotlin-crash" }.start()
 }
 

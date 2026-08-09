@@ -190,10 +190,10 @@ final result: passed
 ### Source, implementation, and comparison evidence
 
 - Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-80ef069c-6ef3-4e8c-ac87-18ecb40245f2.png`.
-- Collapsed implementation capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/source-picker/add-source-brand-icons-mobile-collapsed.png`.
-- Media-server expanded capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/source-picker/add-source-brand-icons-media-expanded.png`.
-- Cloud-drive expanded capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/source-picker/add-source-brand-icons-cloud-expanded.png`.
-- Focused source/implementation comparison: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/source-picker/add-source-design-qa-comparison.png`.
+- Collapsed implementation capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/source-picker/add-source-brand-icons-mobile-collapsed.png`.
+- Media-server expanded capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/source-picker/add-source-brand-icons-media-expanded.png`.
+- Cloud-drive expanded capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/source-picker/add-source-brand-icons-cloud-expanded.png`.
+- Focused source/implementation comparison: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/source-picker/add-source-design-qa-comparison.png`.
 - Source pixels: `710 × 870`; normalized to `390 × 478` for comparison.
 - Implementation viewport and density: `390 × 844` CSS px at device scale factor `1`; the collapsed dialog region is `390 × 464` and is top-aligned in the comparison with 14 px of bottom padding.
 - State: dark-theme mobile Library & sources screen with the Add source bottom sheet open; collapsed, Cloud drives expanded, and Media servers expanded states were checked.
@@ -244,10 +244,10 @@ final result: passed
 - Original Unified library card: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-c1a43bb2-2e67-47a1-abf0-fd11460d1328.png` (`724 × 412`).
 - Original Add source and completed-scan cards: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-6147ec59-f372-41c2-9940-4b8370724922.png` (`708 × 426`).
 - Shared settings-icon style reference: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-7e37681a-0e91-42ef-8bf9-fea43c623f13.png`.
-- Unified library implementation capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/implementation-source-unified-icon-dark.png`.
-- Add source and completed-scan implementation capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/implementation-source-status-icons-dark.png`.
-- Scanning-state implementation capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/implementation-source-scanning-icon-dark.png`.
-- Focused before/after comparison, originals on the left and implementation on the right: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/source-detail-icons-before-after.png`.
+- Unified library implementation capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/implementation-source-unified-icon-dark.png`.
+- Add source and completed-scan implementation capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/implementation-source-status-icons-dark.png`.
+- Scanning-state implementation capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/implementation-source-scanning-icon-dark.png`.
+- Focused before/after comparison, originals on the left and implementation on the right: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/source-detail-icons-before-after.png`.
 - Browser viewport: `1280 × 720` CSS px at device scale factor `1`.
 - State: dark-theme Library & sources detail view, completed scan and active scan states.
 
@@ -293,10 +293,10 @@ final result: passed
 ### Source, implementation, and comparison evidence
 
 - Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-7e37681a-0e91-42ef-8bf9-fea43c623f13.png`.
-- Full implementation capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/implementation-settings-light.png`.
-- Lower settings-entry capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/implementation-settings-lower-light.jpg`.
-- Source-detail navigation capture: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/implementation-source-detail-light.jpg`.
-- Same-scale focused comparison, reference on the left and implementation on the right: `/Users/shine/CommonWork/MobileWork/TideTunes/Design/exports/settings-icons/settings-icons-normalized-comparison.png`.
+- Full implementation capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/implementation-settings-light.png`.
+- Lower settings-entry capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/implementation-settings-lower-light.jpg`.
+- Source-detail navigation capture: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/implementation-source-detail-light.jpg`.
+- Same-scale focused comparison, reference on the left and implementation on the right: `/Users/shine/CommonWork/MobileWork/TidePlayer/Design/exports/settings-icons/settings-icons-normalized-comparison.png`.
 - Browser viewport: `1280 × 720` CSS px at device scale factor `1`.
 - Source pixels: `112 × 518`; normalized to `56 × 259` so its `80 × 80` physical-pixel badges compare at the implementation's `40 × 40` CSS size.
 - Implementation pixels: `1280 × 720`; focused badges measured `40 × 40` CSS px.
