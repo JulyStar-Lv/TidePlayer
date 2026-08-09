@@ -102,6 +102,7 @@ fun DesignGlassScene(
 fun DesignGlassOverlayScene(
     modifier: Modifier = Modifier,
     contentBottomInset: Dp = 0.dp,
+    captureBackdrop: Boolean = true,
     backdropContent: @Composable BoxScope.() -> Unit,
     overlayContent: @Composable BoxScope.() -> Unit,
 ) {
@@ -113,11 +114,15 @@ fun DesignGlassOverlayScene(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .layerBackdrop(backdrop),
+                        .then(
+                            if (captureBackdrop) Modifier.layerBackdrop(backdrop) else Modifier,
+                        ),
                     content = backdropContent,
                 )
             }
-            CompositionLocalProvider(LocalDesignBackdrop provides backdrop) {
+            CompositionLocalProvider(
+                LocalDesignBackdrop provides backdrop.takeIf { captureBackdrop },
+            ) {
                 overlayContent()
             }
         }

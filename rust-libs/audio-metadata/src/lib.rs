@@ -6,6 +6,7 @@ use std::{
 };
 
 use bytes::Bytes;
+use encoding_rs::GB18030;
 use lofty::{
     config::ParseOptions,
     file::{AudioFile, FileType, TaggedFileExt},
@@ -473,7 +474,7 @@ fn normalize_metadata(
     let has_embedded_artwork = tag.is_some_and(|tag| !tag.pictures().is_empty());
     let (codec, container, lossless) = audio_format(file_type);
 
-    Ok(NormalizedMetadata {
+    let mut metadata = NormalizedMetadata {
         title: tag.and_then(|tag| tag.title().map(|value| value.into_owned())),
         artist,
         artists,
@@ -531,7 +532,85 @@ fn normalize_metadata(
         codec: Some(codec.to_string()),
         container: Some(container.to_string()),
         lossless,
-    })
+    };
+    repair_legacy_cjk_metadata(&mut metadata);
+    Ok(metadata)
+}
+
+fn repair_legacy_cjk_metadata(metadata: &mut NormalizedMetadata) {
+    repair_optional_legacy_cjk(&mut metadata.title);
+    repair_optional_legacy_cjk(&mut metadata.artist);
+    metadata.artists.iter_mut().for_each(repair_legacy_cjk);
+    repair_optional_legacy_cjk(&mut metadata.album_artist);
+    repair_optional_legacy_cjk(&mut metadata.album);
+    repair_optional_legacy_cjk(&mut metadata.composer);
+    repair_optional_legacy_cjk(&mut metadata.lyricist);
+    repair_optional_legacy_cjk(&mut metadata.conductor);
+    repair_optional_legacy_cjk(&mut metadata.genre);
+    repair_optional_legacy_cjk(&mut metadata.grouping);
+    repair_optional_legacy_cjk(&mut metadata.comment);
+    repair_optional_legacy_cjk(&mut metadata.copyright);
+    repair_optional_legacy_cjk(&mut metadata.publisher);
+    repair_optional_legacy_cjk(&mut metadata.original_release_date);
+    repair_optional_legacy_cjk(&mut metadata.musical_key);
+    if let Some(lyrics) = metadata.lyrics.as_mut() {
+        repair_legacy_cjk(&mut lyrics.content);
+        repair_optional_legacy_cjk(&mut lyrics.description);
+    }
+    for entry in &mut metadata.raw_metadata {
+        repair_legacy_cjk(&mut entry.value);
+        repair_optional_legacy_cjk(&mut entry.description);
+    }
+}
+
+fn repair_optional_legacy_cjk(value: &mut Option<String>) {
+    if let Some(value) = value.as_mut() {
+        repair_legacy_cjk(value);
+    }
+}
+
+fn repair_legacy_cjk(value: &mut String) {
+    // Some older Chinese taggers put GBK/GB18030 bytes in ID3 fields declared as Latin-1.
+    // Retry only when the Latin-1 result is predominantly non-ASCII and decodes to CJK text.
+    let mut bytes = Vec::with_capacity(value.len());
+    let mut non_ascii = 0;
+    let mut significant = 0;
+    for character in value.chars() {
+        let codepoint = character as u32;
+        let Ok(byte) = u8::try_from(codepoint) else {
+            return;
+        };
+        bytes.push(byte);
+        if !character.is_whitespace() && !character.is_ascii_punctuation() {
+            significant += 1;
+        }
+        if !character.is_ascii() {
+            non_ascii += 1;
+        }
+    }
+
+    if non_ascii < 2 || non_ascii * 5 < significant * 2 {
+        return;
+    }
+    let Some(decoded) = GB18030.decode_without_bom_handling_and_without_replacement(&bytes) else {
+        return;
+    };
+    if decoded
+        .chars()
+        .filter(|character| is_cjk(*character))
+        .count()
+        < 2
+    {
+        return;
+    }
+    *value = decoded.into_owned();
+}
+
+fn is_cjk(character: char) -> bool {
+    matches!(
+        character as u32,
+        0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF | 0x20000..=0x323AF
+    )
 }
 
 fn extract_artwork(tag: &Tag) -> Option<EmbeddedArtwork> {
@@ -1286,6 +1365,37 @@ mod tests {
     }
 
     #[test]
+    fn repairs_gb18030_text_mislabeled_as_id3_latin1() {
+        let mp3 = minimal_mp3_with_text_frames(&[
+            (b"TIT2", &[0xD6, 0xD0, 0xCE, 0xC4, 0xB8, 0xE8, 0xC7, 0xFA]),
+            (b"TPE1", &[0xD6, 0xDC, 0xBD, 0xDC, 0xC2, 0xD7]),
+            (b"TALB", &[0xD2, 0xB6, 0xBB, 0xDD, 0xC3, 0xC0]),
+        ]);
+        let metadata = read_metadata(
+            Arc::new(MemorySource(Bytes::from(mp3))),
+            ReaderLimits {
+                block_size: 256,
+                max_requests: 16,
+                max_read_bytes: 4 * 1024,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(metadata.title.as_deref(), Some("中文歌曲"));
+        assert_eq!(metadata.artist.as_deref(), Some("周杰伦"));
+        assert_eq!(metadata.album.as_deref(), Some("叶惠美"));
+    }
+
+    #[test]
+    fn legacy_cjk_repair_preserves_valid_unicode_and_western_text() {
+        for original in ["中文歌曲", "Björk – Jóga", "Mötley Crüe", "Beyoncé"] {
+            let mut value = original.to_string();
+            repair_legacy_cjk(&mut value);
+            assert_eq!(value, original);
+        }
+    }
+
+    #[test]
     fn rejects_oversized_text_metadata() {
         let mut tag = Tag::new(TagType::VorbisComments);
         tag.insert_text(ItemKey::Comment, "x".repeat(MAX_TEXT_TAG_VALUE_BYTES + 1));
@@ -1334,6 +1444,29 @@ mod tests {
         tag.extend_from_slice(&(picture.len() as u32).to_be_bytes());
         tag.extend_from_slice(&[0, 0]);
         tag.extend_from_slice(&picture);
+
+        let mut mp3 = Vec::with_capacity(tag.len() + 10 + 834);
+        mp3.extend_from_slice(b"ID3");
+        mp3.extend_from_slice(&[3, 0, 0]);
+        mp3.extend_from_slice(&synchsafe_u32(tag.len() as u32));
+        mp3.extend_from_slice(&tag);
+
+        let mut frame = vec![0; 417];
+        frame[..4].copy_from_slice(&[0xFF, 0xFB, 0x90, 0x64]);
+        mp3.extend_from_slice(&frame);
+        mp3.extend_from_slice(&frame);
+        mp3
+    }
+
+    fn minimal_mp3_with_text_frames(frames: &[(&[u8; 4], &[u8])]) -> Vec<u8> {
+        let mut tag = Vec::new();
+        for (id, value) in frames {
+            tag.extend_from_slice(*id);
+            tag.extend_from_slice(&((value.len() + 1) as u32).to_be_bytes());
+            tag.extend_from_slice(&[0, 0]);
+            tag.push(0);
+            tag.extend_from_slice(value);
+        }
 
         let mut mp3 = Vec::with_capacity(tag.len() + 10 + 834);
         mp3.extend_from_slice(b"ID3");

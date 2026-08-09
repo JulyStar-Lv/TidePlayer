@@ -10,6 +10,7 @@ missing_const_for_thread_local = "allow"
 
 [dependencies]
 bytes = "1.5.0"
+encoding_rs = "0.8.35"
 lofty = "0.24.0"
 thiserror = { workspace = true }
 storage-backend = { path = "../storage-backend" }

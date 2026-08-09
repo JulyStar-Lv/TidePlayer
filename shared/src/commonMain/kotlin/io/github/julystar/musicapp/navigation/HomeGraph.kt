@@ -26,6 +26,7 @@ fun NavGraphBuilder.homeGraph(
                 currentTab = currentTab,
                 onTabSelected = onTabSelected,
                 onOpenQueue = onOpenQueue,
+                hostedByRootNavigationLayout = true,
             )
         }
     }

@@ -111,9 +111,14 @@ internal class OwnedDesignStickyHeaderStateSink(
     private val registrations = mutableListOf<Registration>()
 
     override fun update(owner: Any, state: DesignStickyHeaderState) {
-        registrations.indexOfFirst { registration -> registration.owner === owner }
-            .takeIf { index -> index >= 0 }
-            ?.let(registrations::removeAt)
+        val existingIndex = registrations.indexOfFirst { registration -> registration.owner === owner }
+        if (existingIndex >= 0) {
+            registrations[existingIndex] = Registration(owner, state)
+            if (existingIndex == registrations.lastIndex) {
+                onStateChange(state)
+            }
+            return
+        }
         registrations += Registration(owner, state)
         onStateChange(state)
     }

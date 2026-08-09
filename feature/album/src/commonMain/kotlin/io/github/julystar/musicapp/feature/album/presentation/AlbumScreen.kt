@@ -76,7 +76,6 @@ import musicapp.feature.album.generated.resources.album_duration_hours_minutes
 import musicapp.feature.album.generated.resources.album_duration_minutes
 import musicapp.feature.album.generated.resources.album_duration_minutes_seconds
 import musicapp.feature.album.generated.resources.album_duration_seconds
-import musicapp.feature.album.generated.resources.album_loading
 import musicapp.feature.album.generated.resources.album_locate_current
 import musicapp.feature.album.generated.resources.album_more_actions
 import musicapp.feature.album.generated.resources.album_no_tracks
@@ -137,16 +136,6 @@ fun AlbumScreen(
                 .fillMaxHeight(),
         ) {
             when {
-                state.isLoading -> DesignStatusCard(
-                    title = stringResource(Res.string.album_loading),
-                    message = state.title.ifBlank { defaultTitle },
-                    loading = true,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = DesignTokens.adaptive.compactHeaderHeight)
-                        .padding(horizontal = horizontalPadding, vertical = spacing.md),
-                )
-
                 state.error != null -> DesignStatusCard(
                     title = stringResource(Res.string.album_unavailable),
                     message = state.error,
@@ -173,53 +162,58 @@ fun AlbumScreen(
                             state = state,
                             compact = compact,
                             titleAlpha = pageTitleAlpha,
+                            showDetails = !state.isLoading,
                         )
                     }
-                    stickyHeader(key = "album-actions") {
-                        AlbumActionBar(
-                            canPlay = state.tracks.isNotEmpty(),
-                            canLocate = currentTrackIndex >= 0,
-                            onPlayAll = { onAction(AlbumAction.PlayAll) },
-                            onLocateCurrent = {
-                                if (currentTrackIndex >= 0) {
-                                    coroutineScope.launch {
-                                        listState.animateScrollToItem(currentTrackIndex + AlbumTrackListStartIndex)
+                    if (!state.isLoading) {
+                        stickyHeader(key = "album-actions") {
+                            AlbumActionBar(
+                                canPlay = state.tracks.isNotEmpty(),
+                                canLocate = currentTrackIndex >= 0,
+                                onPlayAll = { onAction(AlbumAction.PlayAll) },
+                                onLocateCurrent = {
+                                    if (currentTrackIndex >= 0) {
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem(
+                                                currentTrackIndex + AlbumTrackListStartIndex,
+                                            )
+                                        }
                                     }
                                 }
-                            },
-                        )
-                    }
-                    if (state.tracks.isEmpty()) {
-                        item(key = "album-empty") {
-                            DesignStatusCard(
-                                title = stringResource(Res.string.album_no_tracks),
-                                message = state.title.ifBlank { defaultTitle },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 260.dp)
-                                    .padding(top = spacing.sm),
                             )
                         }
-                    } else {
-                        itemsIndexed(
-                            items = state.tracks,
-                            key = { index, track -> "album-track-${track.id}-$index" },
-                        ) { index, track ->
-                            AlbumTrackRow(
-                                track = track,
-                                trackNumber = index + 1,
-                                favorite = track.id in favoriteTrackIds,
-                                onPlay = { onAction(AlbumAction.PlayTrack(track.id)) },
-                                onToggleFavorite = { onToggleFavorite(track.id) },
-                                onDownload = { onAction(AlbumAction.DownloadTrack(track)) },
-                            )
+                        if (state.tracks.isEmpty()) {
+                            item(key = "album-empty") {
+                                DesignStatusCard(
+                                    title = stringResource(Res.string.album_no_tracks),
+                                    message = state.title.ifBlank { defaultTitle },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 260.dp)
+                                        .padding(top = spacing.sm),
+                                )
+                            }
+                        } else {
+                            itemsIndexed(
+                                items = state.tracks,
+                                key = { index, track -> "album-track-${track.id}-$index" },
+                            ) { index, track ->
+                                AlbumTrackRow(
+                                    track = track,
+                                    trackNumber = index + 1,
+                                    favorite = track.id in favoriteTrackIds,
+                                    onPlay = { onAction(AlbumAction.PlayTrack(track.id)) },
+                                    onToggleFavorite = { onToggleFavorite(track.id) },
+                                    onDownload = { onAction(AlbumAction.DownloadTrack(track)) },
+                                )
+                            }
                         }
                     }
                 }
             }
             DesignStickyGlassActionBar(
                 title = state.title.ifBlank { defaultTitle },
-                collapseFraction = if (state.isLoading || state.error != null) {
+                collapseFraction = if (state.error != null) {
                     1f
                 } else {
                     actionBarProgress
@@ -283,8 +277,9 @@ private fun AlbumHero(
     state: AlbumState,
     compact: Boolean,
     titleAlpha: Float,
+    showDetails: Boolean,
 ) {
-    val artworkSize = if (compact) 144.dp else 260.dp
+    val artworkSize = if (compact) 168.dp else 280.dp
     val artworkRadius = if (compact) 18.dp else 24.dp
     val titleSize = if (compact) 24.sp else 36.sp
     val titleLineHeight = if (compact) 29.sp else 42.sp
@@ -317,41 +312,43 @@ private fun AlbumHero(
                 .padding(bottom = if (compact) 0.dp else 4.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 8.dp),
         ) {
-            Text(
-                text = state.title,
-                style = MiuixTheme.textStyles.title2.copy(
-                    fontSize = titleSize,
-                    lineHeight = titleLineHeight,
-                ),
-                color = MiuixTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.alpha(titleAlpha),
-            )
-            if (metadata.isNotBlank()) {
+            if (showDetails) {
                 Text(
-                    text = metadata,
-                    style = MiuixTheme.textStyles.footnote1.copy(
-                        fontSize = if (compact) 12.sp else 14.sp,
-                        lineHeight = if (compact) 16.sp else 20.sp,
+                    text = state.title,
+                    style = MiuixTheme.textStyles.title2.copy(
+                        fontSize = titleSize,
+                        lineHeight = titleLineHeight,
                     ),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alpha(titleAlpha),
+                )
+                if (metadata.isNotBlank()) {
+                    Text(
+                        text = metadata,
+                        style = MiuixTheme.textStyles.footnote1.copy(
+                            fontSize = if (compact) 12.sp else 14.sp,
+                            lineHeight = if (compact) 16.sp else 20.sp,
+                        ),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = stringResource(
+                        Res.string.album_detail_summary,
+                        state.tracks.size,
+                        albumDurationLabel(totalDurationMs),
+                    ),
+                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                text = stringResource(
-                    Res.string.album_detail_summary,
-                    state.tracks.size,
-                    albumDurationLabel(totalDurationMs),
-                ),
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }

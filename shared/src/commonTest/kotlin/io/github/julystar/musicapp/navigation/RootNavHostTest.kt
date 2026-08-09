@@ -78,6 +78,7 @@ class RootNavHostTest {
     @Test
     fun `detail routes reuse the secondary liquid glass header`() {
         listOf(
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Home",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Album/{id}",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Playlist/{id}",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Favorites",
@@ -112,6 +113,9 @@ class RootNavHostTest {
         sink.update(outgoingOwner, outgoingState)
         sink.update(incomingOwner, incomingState)
         sink.update(outgoingOwner, outgoingState)
+
+        assertEquals(incomingState, currentState)
+
         sink.clear(outgoingOwner)
 
         assertEquals(incomingState, currentState)

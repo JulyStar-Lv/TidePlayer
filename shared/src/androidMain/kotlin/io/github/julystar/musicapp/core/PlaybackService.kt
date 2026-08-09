@@ -598,6 +598,38 @@ class PlaybackService : MediaLibraryService() {
                 }
         if (alreadyMatches) return
 
+        val currentIndex = player.currentMediaItemIndex
+        if (
+            currentIndex != C.INDEX_UNSET &&
+            player.currentMediaItem?.mediaId == window.mediaItems[window.currentIndex].mediaId &&
+            player.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+        ) {
+            val oldItemCount = player.mediaItemCount
+            if (currentIndex + 1 < oldItemCount) {
+                player.removeMediaItems(currentIndex + 1, oldItemCount)
+            }
+            if (currentIndex > 0) {
+                player.removeMediaItems(0, currentIndex)
+            }
+            if (window.currentIndex > 0) {
+                player.addMediaItems(
+                    0,
+                    window.mediaItems.subList(0, window.currentIndex),
+                )
+            }
+            if (window.currentIndex < window.mediaItems.lastIndex) {
+                player.addMediaItems(
+                    window.mediaItems.subList(window.currentIndex + 1, window.mediaItems.size)
+                )
+            }
+            AppLogger.info(
+                DiagnosticLogCategory.Playback,
+                "PlaybackService",
+                "Synchronized Media3 queue without replacing current item size=${window.mediaItems.size}",
+            )
+            return
+        }
+
         val positionMs = player.currentPosition.coerceAtLeast(0L)
         val shouldPlay = player.playWhenReady
         player.setMediaItems(window.mediaItems, window.currentIndex, positionMs)
@@ -719,6 +751,12 @@ class PlaybackService : MediaLibraryService() {
                 .setDisplayName(getString(R.string.notification_next))
                 .build(),
             CommandButton.Builder(playbackModeButton.first)
+                .apply {
+                    // Media3's repeat-off drawable is translucent and looks disabled on MIUI.
+                    if (playbackModeButton.first == CommandButton.ICON_REPEAT_OFF) {
+                        setCustomIconResId(R.drawable.icon_mode_list)
+                    }
+                }
                 .setSessionCommand(cyclePlaybackModeCommand)
                 .setDisplayName(getString(playbackModeButton.second))
                 .build(),

@@ -1,7 +1,8 @@
 package io.github.julystar.musicapp.navigation
 
-import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.keyframes
@@ -14,11 +15,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -33,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -78,10 +80,13 @@ import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowP
 import io.github.julystar.musicapp.service.playback.presentation.navigation.playerGraph
 import io.github.julystar.musicapp.service.playback.presentation.shell.PlaybackMiniPlayerHost
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberHasPlaybackItem
+import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkSharedTransitionScope
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
 import io.github.julystar.musicapp.widgets.appbar.NavigationRailBar
 import io.github.julystar.musicapp.widgets.appbar.SidebarBar
+import io.github.julystar.musicapp.widgets.appbar.getNavigationRailWidth
+import io.github.julystar.musicapp.widgets.appbar.getSidebarWidth
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -97,12 +102,11 @@ internal fun RootNavHost(
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
-    val showSecondaryMiniPlayer = shouldShowPersistentMiniPlayer(currentRoute)
+    val showRootNavigationChrome = !isImmersivePlayerRoute(currentRoute)
     val onRootTabSelected: (HomeTab) -> Unit = { selectedRootTabName = it.name }
     val playerTransitionDurationMillis = DesignTokens.motion.playerExpandMillis
 
-    // Home and secondary routes use different shells. Keep the same NavHost instance while it
-    // moves between them so the start destination cannot flash during the shell transition.
+    // Keep the NavHost identity stable while persistent chrome animates independently.
     val movableNavigationContent = remember(navController, playerTransitionDurationMillis) {
         movableContentOf<RootNavigationContentArgs> { args ->
         NavHost(
@@ -305,24 +309,22 @@ internal fun RootNavHost(
             LocalPlayerArtworkSharedTransitionScope provides sharedTransitionScope,
             LocalDetailArtworkSharedTransitionScope provides sharedTransitionScope,
         ) {
-            if (showSecondaryMiniPlayer) {
-                SecondaryRootNavigationLayout(
-                    currentTab = selectedRootTab,
-                    onTabSelected = { tab ->
-                        onRootTabSelected(tab)
-                        if (!navController.popBackStack<MusicGraph.Home>(inclusive = false)) {
-                            navController.navigate(MusicGraph.Home)
-                        }
-                    },
-                    scaffoldPadding = scaffoldPadding,
-                    onOpenNowPlaying = { navController.navigate(MusicGraph.NowPlaying) },
-                    onOpenQueue = { showQueue = true },
-                    captureStickyHeader = shouldCaptureSecondaryStickyHeader(currentRoute),
-                    content = navigationContent,
-                )
-            } else {
-                navigationContent(Modifier.fillMaxSize())
-            }
+            SecondaryRootNavigationLayout(
+                currentTab = selectedRootTab,
+                onTabSelected = { tab ->
+                    onRootTabSelected(tab)
+                    if (!navController.popBackStack<MusicGraph.Home>(inclusive = false)) {
+                        navController.navigate(MusicGraph.Home)
+                    }
+                },
+                scaffoldPadding = scaffoldPadding,
+                onOpenNowPlaying = { navController.navigate(MusicGraph.NowPlaying) },
+                onOpenQueue = { showQueue = true },
+                captureStickyHeader = shouldCaptureSecondaryStickyHeader(currentRoute),
+                showChrome = showRootNavigationChrome,
+                transitionDurationMillis = playerTransitionDurationMillis,
+                content = navigationContent,
+            )
             ManualMetadataSearchDialog(
                 track = metadataTrack,
                 onDismiss = { metadataTrack = null },
@@ -378,6 +380,7 @@ private fun isArtworkDetailTransition(initialRoute: String?, targetRoute: String
     isArtworkDetailRoute(initialRoute) || isArtworkDetailRoute(targetRoute)
 
 internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
+    if (isRouteHome(route)) return true
     val routeName = route?.substringBefore('/') ?: return false
     return routeName == "Album" || routeName.endsWith(".Album") ||
         routeName == "Playlist" || routeName.endsWith(".Playlist") ||
@@ -393,6 +396,8 @@ private fun SecondaryRootNavigationLayout(
     onOpenNowPlaying: () -> Unit,
     onOpenQueue: () -> Unit,
     captureStickyHeader: Boolean,
+    showChrome: Boolean,
+    transitionDurationMillis: Int,
     content: @Composable (Modifier) -> Unit,
 ) {
     val titleBarInset = LocalDesktopTitleBarInset.current
@@ -417,109 +422,147 @@ private fun SecondaryRootNavigationLayout(
         val stickyHeaderStateSink = remember(captureStickyHeader) {
             OwnedDesignStickyHeaderStateSink { state -> stickyHeaderState = state }
         }
-        when (windowSizeClass) {
-                WindowSizeClass.Compact -> {
-                    DesignGlassOverlayScene(
-                        modifier = Modifier.fillMaxSize(),
-                        contentBottomInset = getBottomBarSpace(hasPlaybackItem, scaffoldPadding),
-                        backdropContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MiuixTheme.colorScheme.background)
-                                    .statusBarsPadding()
-                                    .padding(top = titleBarInset),
-                            ) {
-                                if (captureStickyHeader) {
-                                    CompositionLocalProvider(
-                                        LocalDesignStickyHeaderStateSink provides
-                                            stickyHeaderStateSink,
-                                    ) {
-                                        content(Modifier.fillMaxSize())
+        val sideNavigationWidth = when (windowSizeClass) {
+            WindowSizeClass.Compact -> 0.dp
+            WindowSizeClass.Medium -> getNavigationRailWidth(windowSizeClass)
+            WindowSizeClass.Expanded,
+            WindowSizeClass.Large,
+            WindowSizeClass.XL -> getSidebarWidth(windowSizeClass)
+        }
+        val contentModifier = if (showChrome) {
+            Modifier
+                .fillMaxSize()
+                .background(MiuixTheme.colorScheme.background)
+                .statusBarsPadding()
+                .padding(
+                    start = sideNavigationWidth,
+                    top = titleBarInset,
+                )
+        } else {
+            Modifier.fillMaxSize()
+        }
+
+        DesignGlassOverlayScene(
+            modifier = Modifier.fillMaxSize(),
+            captureBackdrop = showChrome,
+            contentBottomInset = when {
+                !showChrome -> 0.dp
+                windowSizeClass == WindowSizeClass.Compact ->
+                    getBottomBarSpace(hasPlaybackItem, scaffoldPadding)
+                hasPlaybackItem ->
+                    DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs
+                else -> 0.dp
+            },
+            backdropContent = {
+                Box(modifier = contentModifier) {
+                    CompositionLocalProvider(
+                        LocalDesignStickyHeaderStateSink provides
+                            stickyHeaderStateSink.takeIf { captureStickyHeader },
+                    ) {
+                        content(Modifier.fillMaxSize())
+                    }
+                }
+            },
+            overlayContent = {
+                AnimatedVisibility(
+                    visible = showChrome,
+                    modifier = Modifier.fillMaxSize(),
+                    enter = immediateEnterTransition(transitionDurationMillis),
+                    exit = immediateExitTransition(transitionDurationMillis),
+                ) {
+                    val chromeVisibilityScope = this
+                    CompositionLocalProvider(
+                        LocalPlayerArtworkAnimatedVisibilityScope provides chromeVisibilityScope,
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            when (windowSizeClass) {
+                                WindowSizeClass.Compact -> {
+                                    stickyHeaderState?.let { state ->
+                                        DesignStickyGlassActionBar(
+                                            title = state.title,
+                                            subtitle = state.subtitle,
+                                            collapseFraction = state.collapseFraction,
+                                            statusBarInset = statusBarInset,
+                                            onNavigateBack = state.onNavigateBack,
+                                            backContentDescription = state.backContentDescription,
+                                            actions = state.actions,
+                                            centerTitle = true,
+                                            compactTitle = state.compactTitle,
+                                            modifier = Modifier.align(Alignment.TopCenter),
+                                        )
                                     }
-                                } else {
-                                    content(Modifier.fillMaxSize())
+                                    BottomBar(
+                                        currentTab = currentTab,
+                                        onTabSelected = onTabSelected,
+                                        miniPlayerContent = miniPlayerContent,
+                                        showMiniPlayer = hasPlaybackItem,
+                                        showChrome = true,
+                                        scaffoldPadding = scaffoldPadding,
+                                    )
+                                }
+
+                                WindowSizeClass.Medium -> {
+                                    NavigationRailBar(
+                                        currentTab = currentTab,
+                                        onTabSelected = onTabSelected,
+                                        modifier = Modifier
+                                            .align(Alignment.CenterStart)
+                                            .fillMaxHeight()
+                                            .statusBarsPadding(),
+                                        windowSizeClass = windowSizeClass,
+                                    )
+                                    if (hasPlaybackItem) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    start = sideNavigationWidth + 12.dp,
+                                                    top = 8.dp,
+                                                    end = 12.dp,
+                                                    bottom = 8.dp,
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            miniPlayerContent()
+                                        }
+                                    }
+                                }
+
+                                WindowSizeClass.Expanded,
+                                WindowSizeClass.Large,
+                                WindowSizeClass.XL -> {
+                                    SidebarBar(
+                                        currentTab = currentTab,
+                                        onTabSelected = onTabSelected,
+                                        modifier = Modifier
+                                            .align(Alignment.CenterStart)
+                                            .fillMaxHeight()
+                                            .statusBarsPadding(),
+                                        windowSizeClass = windowSizeClass,
+                                    )
+                                    if (hasPlaybackItem) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    start = sideNavigationWidth + 12.dp,
+                                                    top = 8.dp,
+                                                    end = 12.dp,
+                                                    bottom = 8.dp,
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            miniPlayerContent()
+                                        }
+                                    }
                                 }
                             }
-                        },
-                        overlayContent = {
-                            stickyHeaderState?.let { state ->
-                                DesignStickyGlassActionBar(
-                                    title = state.title,
-                                    subtitle = state.subtitle,
-                                    collapseFraction = state.collapseFraction,
-                                    statusBarInset = statusBarInset,
-                                    onNavigateBack = state.onNavigateBack,
-                                    backContentDescription = state.backContentDescription,
-                                    actions = state.actions,
-                                    centerTitle = true,
-                                    compactTitle = state.compactTitle,
-                                    modifier = Modifier.align(Alignment.TopCenter),
-                                )
-                            }
-                            BottomBar(
-                                currentTab = currentTab,
-                                onTabSelected = onTabSelected,
-                                miniPlayerContent = miniPlayerContent,
-                                showMiniPlayer = hasPlaybackItem,
-                                showChrome = true,
-                                scaffoldPadding = scaffoldPadding,
-                            )
-                        },
-                    )
-                }
-
-                WindowSizeClass.Medium -> {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .statusBarsPadding(),
-                    ) {
-                        NavigationRailBar(
-                            currentTab = currentTab,
-                            onTabSelected = onTabSelected,
-                            modifier = Modifier.fillMaxHeight(),
-                            windowSizeClass = windowSizeClass,
-                        )
-                        RootContentPane(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .padding(top = titleBarInset),
-                            showMiniPlayer = hasPlaybackItem,
-                            miniPlayerContent = miniPlayerContent,
-                        ) {
-                            content(Modifier.fillMaxSize())
                         }
                     }
                 }
-
-                WindowSizeClass.Expanded,
-                WindowSizeClass.Large,
-                WindowSizeClass.XL -> {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .statusBarsPadding(),
-                    ) {
-                        SidebarBar(
-                            currentTab = currentTab,
-                            onTabSelected = onTabSelected,
-                            modifier = Modifier.fillMaxHeight(),
-                            windowSizeClass = windowSizeClass,
-                        )
-                        RootContentPane(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .padding(top = titleBarInset),
-                            showMiniPlayer = hasPlaybackItem,
-                            miniPlayerContent = miniPlayerContent,
-                        ) {
-                            content(Modifier.fillMaxSize())
-                        }
-                    }
-                }
-        }
+            },
+        )
     }
 }

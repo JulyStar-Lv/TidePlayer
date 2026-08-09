@@ -35,6 +35,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignGlassOverl
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderStateSink
+import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
@@ -52,6 +53,7 @@ fun HomePage(
     currentTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
     onOpenQueue: () -> Unit,
+    hostedByRootNavigationLayout: Boolean = false,
 ) {
     val titleBarInset = LocalDesktopTitleBarInset.current
     val globalNavController = LocalNavController.current
@@ -101,6 +103,31 @@ fun HomePage(
             settingsNavController.navigateToSourceSettings()
             navigateToSourceSettings = false
         }
+    }
+
+    if (hostedByRootNavigationLayout) {
+        HomeTabContent(
+            currentTab = currentTab,
+            libraryNavController = libraryNavController,
+            searchNavController = searchNavController,
+            settingsNavController = settingsNavController,
+            scaffoldPadding = scaffoldPadding,
+            onNavigateToDownloads = onNavigateToDownloads,
+            onNavigateToLibrary = { onTabSelected(HomeTab.LIBRARY) },
+            onNavigateToSourceSettings = {
+                navigateToSourceSettings = true
+                onTabSelected(HomeTab.SETTINGS)
+            },
+            onNavigateToSearch = { onTabSelected(HomeTab.SEARCH) },
+            onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
+            onNavigateToAlbum = onNavigateToAlbum,
+            onNavigateToArtist = onNavigateToArtist,
+            onNavigateToPlaylist = onNavigateToPlaylist,
+            onNavigateToFavorites = onNavigateToFavorites,
+            onNavigateToPlaylists = onNavigateToPlaylists,
+            stickyHeaderStateSink = LocalDesignStickyHeaderStateSink.current,
+        )
+        return
     }
 
     BoxWithConstraints(

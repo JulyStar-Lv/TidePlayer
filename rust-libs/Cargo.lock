@@ -306,6 +306,7 @@ version = "0.1.0"
 dependencies = [
  "async-runtime",
  "bytes",
+ "encoding_rs",
  "lofty",
  "serde",
  "serde_json",

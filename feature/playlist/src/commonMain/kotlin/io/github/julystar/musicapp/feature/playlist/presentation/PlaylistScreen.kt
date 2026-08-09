@@ -338,7 +338,7 @@ private fun PlaylistHero(
     compact: Boolean,
     titleAlpha: Float,
 ) {
-    val artworkSize = if (compact) 144.dp else 260.dp
+    val artworkSize = if (compact) 168.dp else 280.dp
     val artworkRadius = if (compact) 18.dp else 24.dp
     val titleSize = if (compact) 24.sp else 36.sp
     val titleLineHeight = if (compact) 29.sp else 42.sp

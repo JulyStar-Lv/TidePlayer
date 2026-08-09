@@ -23,7 +23,12 @@ class AlbumViewModel(
 ) : ViewModel() {
 
     private val albumId: Long = savedStateHandle["id"]!!
-    private val _state = MutableStateFlow(AlbumState(albumId = albumId))
+    private val _state = MutableStateFlow(
+        AlbumState(
+            albumId = albumId,
+            artwork = Artwork.LibraryAlbum(albumId),
+        ),
+    )
     private val _events = Channel<AlbumEvent>(Channel.BUFFERED)
     val state = _state.asStateFlow()
     val events = _events.receiveAsFlow()
