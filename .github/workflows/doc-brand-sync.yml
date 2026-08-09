@@ -1,4 +1,4 @@
-name: TidePlayer documentation brand sync
+name: TidePlayer documentation legacy-name audit
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
       - docs/tideplayer-readme-zh
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  sync-doc-brand:
+  audit-doc-brand:
     runs-on: ubuntu-latest
     steps:
       - name: Check out branch
@@ -18,87 +18,28 @@ jobs:
           ref: docs/tideplayer-readme-zh
           fetch-depth: 0
 
-      - name: Synchronize current documentation branding
+      - name: Report remaining legacy names
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          root = Path('.')
-          skip_exact = {
-              Path('README.md'),
-              Path('Design/README.md'),
-              Path('Design/docs/MelodyTrove-PDS-v3.md'),
-              Path('docs/plugin-runtime.md'),
-              Path('docs/architecture/migration-baseline.md'),
-          }
-          skip_prefixes = (
-              'docs/branding/',
-              'Design/.workbuddy/',
-          )
-          historical_markers = (
-              'legacy', 'historical', 'history', 'former', 'previous', 'compatib',
-              'TideTunes', 'tidetunes', 'melodytrove://', 'MelodyTrove-settings',
-              'platform data root plus `MelodyTrove`',
-          )
-          protected = {
-              'https://github.com/JulyStar-Lv/MelodyTrove': '__REPO_URL__',
-              'JulyStar-Lv/MelodyTrove': '__REPO_SLUG__',
-              'Design-System-for-MelodyTrove': '__FIGMA_PROJECT_SLUG__',
-          }
+          roots = [Path('README.md'), Path('docs'), Path('Design'), Path('core'), Path('rust-libs')]
+          matches = []
+          for root in roots:
+              paths = [root] if root.is_file() else root.rglob('*.md')
+              for path in paths:
+                  if not path.is_file() or path.suffix.lower() != '.md':
+                      continue
+                  try:
+                      lines = path.read_text(encoding='utf-8').splitlines()
+                  except UnicodeDecodeError:
+                      continue
+                  for number, line in enumerate(lines, 1):
+                      if 'MelodyTrove' in line or '旋律珍藏' in line:
+                          matches.append((path.as_posix(), number, line.strip()))
 
-          changed = []
-          for path in root.rglob('*.md'):
-              rel = path.relative_to(root)
-              rel_posix = rel.as_posix()
-              if rel in skip_exact or any(rel_posix.startswith(prefix) for prefix in skip_prefixes):
-                  continue
-              text = path.read_text(encoding='utf-8')
-              original = text
-              text = text.replace('Design/docs/MelodyTrove-PDS-v3.md', 'Design/docs/TidePlayer-PDS-v3.md')
-              lines = []
-              for line in text.splitlines(keepends=True):
-                  if 'MelodyTrove' in line and not any(marker.lower() in line.lower() for marker in historical_markers):
-                      for value, marker in protected.items():
-                          line = line.replace(value, marker)
-                      line = line.replace('MelodyTrove', 'TidePlayer')
-                      for value, marker in protected.items():
-                          line = line.replace(marker, value)
-                  if '旋律珍藏' in line:
-                      line = line.replace('旋律珍藏', 'TidePlayer')
-                  lines.append(line)
-              text = ''.join(lines)
-              if text != original:
-                  path.write_text(text, encoding='utf-8')
-                  changed.append(rel_posix)
-
-          # Update non-Markdown references to the renamed PDS path without changing product URLs.
-          for path in root.rglob('*'):
-              if not path.is_file() or path.suffix.lower() not in {'.kt', '.kts', '.ts', '.tsx', '.js', '.py', '.rb'}:
-                  continue
-              try:
-                  text = path.read_text(encoding='utf-8')
-              except UnicodeDecodeError:
-                  continue
-              updated = text.replace('Design/docs/MelodyTrove-PDS-v3.md', 'Design/docs/TidePlayer-PDS-v3.md')
-              if updated != text:
-                  path.write_text(updated, encoding='utf-8')
-                  changed.append(path.relative_to(root).as_posix())
-
-          print('Updated files:')
-          for item in sorted(set(changed)):
-              print(f'- {item}')
+          print(f'Remaining legacy-name lines: {len(matches)}')
+          for path, number, line in matches:
+              print(f'{path}:{number}: {line}')
           PY
-
-      - name: Commit synchronized documentation
-        shell: bash
-        run: |
-          if git diff --quiet; then
-            echo "No additional documentation changes required."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- '*.md' '*.kt' '*.kts' '*.ts' '*.tsx' '*.js' '*.py' '*.rb'
-          git commit -m "docs: synchronize TidePlayer branding across documentation"
-          git push origin HEAD:docs/tideplayer-readme-zh
