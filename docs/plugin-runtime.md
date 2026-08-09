@@ -1,6 +1,6 @@
-# MelodyTrove Plugin Runtime
+# TidePlayer Plugin Runtime
 
-MelodyTrove implements JavaScript metadata plugins as Lyrico Plugin API v1–v3 compatible
+TidePlayer implements JavaScript metadata plugins as Lyrico Plugin API v1–v3 compatible
 `MetaSource` instances. Plugins are imported from local ZIP files and are never treated as
 general playback `MusicSource` implementations.
 
@@ -119,7 +119,7 @@ The bootstrap exposes `Platform.app`, `Platform.runtime`, `Platform.cache`, `Pla
 `Platform.log`, including the Lyrico global app/runtime shortcuts. Cache paths are isolated by a
 hash of the plugin ID.
 
-HTTP adds a MelodyTrove User-Agent, supports text/binary bodies and responses, and applies request
+HTTP adds a TidePlayer User-Agent, supports text/binary bodies and responses, and applies request
 and response limits. HTTPS hostnames use the platform resolver and network stack so TUN/VPN
 synthetic DNS works without assuming a particular address range; TLS authenticates the requested
 hostname. Plaintext HTTP hostnames are resolved, private-address checked, and pinned. Literal
@@ -139,7 +139,7 @@ See [testing/test-report.md](testing/test-report.md) for the commands and curren
 
 ## Known limitations
 
-- MelodyTrove does not ship or download third-party plugin ZIPs; real plugins remain user supplied.
+- TidePlayer does not ship or download third-party plugin ZIPs; real plugins remain user supplied.
 - `include(path)` is a compatibility no-op after all configured include-directory JavaScript has
   been bundled in deterministic order. Plugins cannot read arbitrary files at runtime.
 - The Gradle build configures `iosSimulatorArm64`, not an x86_64 simulator target. Generic Xcode
