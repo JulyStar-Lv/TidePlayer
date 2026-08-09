@@ -12,7 +12,8 @@
 - Android 简体中文：`res/values-zh-rCN/strings.xml`
 - 两种语言必须具有相同的 `string` / `plurals` 名称、资源类型和格式占位符。
 - Kotlin 运行时代码不得直接写界面文案；应使用模块自己的 `Res.string.*` 与 `stringResource(...)`。
-- 品牌名、协议名和音频术语可保持原文，例如 MelodyTrove、WebDAV、SMB、OAuth、DSP、ReplayGain。
+- 当前产品品牌名 `TidePlayer`、协议名和音频术语可保持原文，例如 TidePlayer、WebDAV、SMB、OAuth、DSP、ReplayGain。
+- `MelodyTrove` 和 `TideTunes` 只应出现在历史兼容、迁移说明或明确需要识别旧数据的文本中，不应作为当前 HMI 品牌名。
 
 ## 本次发现与修复
 
