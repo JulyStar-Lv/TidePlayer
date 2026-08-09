@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -95,6 +96,7 @@ fun ThemeSeedPreviewTheme(
     darkTheme: Boolean,
     content: @Composable () -> Unit,
 ) {
+    val previewSeedArgb = seedColor.toArgb().toUInt().toLong()
     val controller = remember(seedColor, darkTheme) {
         ThemeController(
             colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
@@ -104,7 +106,21 @@ fun ThemeSeedPreviewTheme(
             isDark = darkTheme,
         )
     }
-    MiuixTheme(controller = controller, textStyles = designTextStyles(), content = content)
+    val previewSeedState = remember(previewSeedArgb) {
+        ThemeSeedState.Default.copy(
+            artworkThemeEnabled = false,
+            manualSeedArgb = previewSeedArgb,
+            effectiveSeedArgb = previewSeedArgb,
+            artworkStatus = ArtworkThemeSeedStatus.Disabled,
+            source = ThemeSeedSource.Manual,
+        )
+    }
+    MiuixTheme(controller = controller, textStyles = designTextStyles()) {
+        CompositionLocalProvider(
+            LocalThemeSeedState provides previewSeedState,
+            content = content,
+        )
+    }
 }
 
 object DesignTokens {

@@ -2,9 +2,20 @@ package io.github.julystar.musicapp.service.playback.data
 
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.service.playback.domain.PlaybackPosition
+import io.github.julystar.musicapp.service.playback.domain.PlaybackQueue
 import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
+import io.github.julystar.musicapp.singleton.PlaybackItemMetadata
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import uniffi.app_backend.Music
@@ -170,6 +181,34 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun replacementQueuePublishesBeforeStaleMetadataLookupCompletes() = runTest {
+        val oldQueue = playbackQueue(size = 75, firstTrackId = 1L)
+        val replacementQueue = playbackQueue(size = 50, firstTrackId = 101L)
+        val source = MutableStateFlow(oldQueue)
+        val firstLookupStarted = CompletableDeferred<Unit>()
+        val neverCompletes = CompletableDeferred<Unit>()
+        val emissions = mutableListOf<PlaybackQueue>()
+        val collector = launch(start = CoroutineStart.UNDISPATCHED) {
+            source.withPlaybackItemMetadata { trackId ->
+                if (trackId == 1L) {
+                    firstLookupStarted.complete(Unit)
+                    neverCompletes.await()
+                }
+                PlaybackItemMetadata(artist = "Artist $trackId", album = null)
+            }.collect(emissions::add)
+        }
+
+        firstLookupStarted.await()
+        source.value = replacementQueue
+        runCurrent()
+
+        assertEquals(50, emissions.last().items.size)
+        assertEquals("Artist 101", emissions.last().items.first().artist)
+        collector.cancelAndJoin()
+    }
+
+    @Test
     fun multiTrackQueuePromotesDefaultSingleModeToList() {
         assertEquals(PlayMode.LIST, playbackModeForQueue(PlayMode.SINGLE, queueSize = 2))
         assertEquals(PlayMode.SINGLE, playbackModeForQueue(PlayMode.SINGLE, queueSize = 1))
@@ -248,4 +287,16 @@ class LegacyPlaybackControllerTest {
             musics = musics,
         )
     }
+
+    private fun playbackQueue(size: Int, firstTrackId: Long): PlaybackQueue = PlaybackQueue(
+        items = List(size) { index ->
+            val trackId = firstTrackId + index
+            PlayableItem(
+                title = "Track $trackId",
+                libraryTrackId = trackId,
+                libraryPlaylistId = -1L,
+            )
+        },
+        currentIndex = 0,
+    )
 }

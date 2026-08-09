@@ -19,6 +19,17 @@ import kotlin.time.Duration.Companion.seconds
 
 class NowPlayingStateTest {
     @Test
+    fun initialNowPlayingStateKeepsCurrentArtwork() {
+        val artwork = Artwork.LibraryTrack(trackId = 7)
+        val info = currentTrackInfo(artwork = artwork)
+
+        val state = info.toInitialNowPlayingState(externalEditorSupported = true)
+
+        assertEquals(artwork, state.currentTrack?.artwork)
+        assertTrue(state.externalEditorSupported)
+    }
+
+    @Test
     fun mapsCurrentTrackInfoToNowPlayingTrackItem() {
         val info = CurrentTrackInfo(
             id = 7,
@@ -146,5 +157,16 @@ class NowPlayingStateTest {
     ) = PlayableItem(
         title = title,
         libraryTrackId = id,
+    )
+
+    private fun currentTrackInfo(artwork: Artwork) = CurrentTrackInfo(
+        id = 7,
+        title = "Now Playing",
+        durationMs = 123_000,
+        artwork = artwork,
+        lyrics = Lyrics(loadState = LyricsLoadState.Missing),
+        sourceStorageId = 5,
+        sourcePath = "/Music/Now.flac",
+        coverArtwork = artwork,
     )
 }

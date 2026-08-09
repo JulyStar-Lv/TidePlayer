@@ -22,9 +22,9 @@ import io.github.julystar.musicapp.service.playback.domain.PlayerState
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingAction
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingEvent
-import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingState
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingSourceItem
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toInitialNowPlayingState
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toNowPlayingControlsState
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toNowPlayingQueueState
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toNowPlayingTrackItem
@@ -49,13 +49,16 @@ class PlayerVM constructor(
     private val playbackSourceRepository: PlaybackSourceRepository,
 ) : ViewModel() {
     private val whileSubscribed = SharingStarted.WhileSubscribed(5_000)
+    // A destination-scoped VM must expose the current cover before its first transition frame.
+    private var currentTrackInfo: CurrentTrackInfo? = nowPlayingRepository.currentTrackInfo.value
     private val _nowPlayingState = MutableStateFlow(
-        NowPlayingState(externalEditorSupported = externalEditorLauncher.isSupported)
+        currentTrackInfo.toInitialNowPlayingState(
+            externalEditorSupported = externalEditorLauncher.isSupported,
+        ),
     )
     private val _nowPlayingEvents = Channel<NowPlayingEvent>(Channel.BUFFERED)
     private val _playbackAdvancedSettings = MutableStateFlow(PlaybackAdvancedSettings.Default)
     private var playerInteractionSettings = PlayerInteractionSettings.Default
-    private var currentTrackInfo: CurrentTrackInfo? = null
 
     val playbackState = playbackController.state
     val playbackPosition = playbackController.position

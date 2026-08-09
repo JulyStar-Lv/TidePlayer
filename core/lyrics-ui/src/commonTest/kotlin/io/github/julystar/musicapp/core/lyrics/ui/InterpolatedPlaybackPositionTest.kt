@@ -58,4 +58,28 @@ class InterpolatedPlaybackPositionTest {
     fun keepsAnimationForNormalAdjacentLineChanges() {
         assertEquals(false, shouldSnapLyricsScroll(previousIndex = 8, currentIndex = 9))
     }
+
+    @Test
+    fun lightsPlaceholderDotsSequentiallyAcrossTimeline() {
+        assertEquals(listOf(0f, 0f, 0f), placeholderProgress(positionMs = 1_000))
+        assertEquals(listOf(1f, 0f, 0f), placeholderProgress(positionMs = 2_000))
+        assertEquals(listOf(1f, 0.5f, 0f), placeholderProgress(positionMs = 2_500))
+        assertEquals(listOf(1f, 1f, 1f), placeholderProgress(positionMs = 4_000))
+    }
+
+    @Test
+    fun clampsPlaceholderDotProgressOutsideTimeline() {
+        assertEquals(listOf(0f, 0f, 0f), placeholderProgress(positionMs = 0))
+        assertEquals(listOf(1f, 1f, 1f), placeholderProgress(positionMs = 5_000))
+    }
+
+    private fun placeholderProgress(positionMs: Int): List<Float> =
+        List(3) { dotIndex ->
+            lyricPlaceholderDotProgress(
+                positionMs = positionMs,
+                startMs = 1_000,
+                endMs = 4_000,
+                dotIndex = dotIndex,
+            )
+        }
 }

@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.theme.designOnPrimaryButtonColor
+import io.github.julystar.musicapp.core.presentation.theme.designPrimaryButtonColor
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -299,7 +301,7 @@ private fun designIconButtonBackground(
         }
     } else {
         colors?.buttonBg ?: when (variant) {
-            DesignIconButtonVariant.Primary -> MiuixTheme.colorScheme.primary
+            DesignIconButtonVariant.Primary -> designPrimaryButtonColor()
             DesignIconButtonVariant.Surface -> MiuixTheme.colorScheme.surfaceContainerHigh
             DesignIconButtonVariant.Default -> Color.Transparent
             DesignIconButtonVariant.Error -> Color.Transparent
@@ -323,8 +325,8 @@ private fun designIconButtonIconTint(
         }
     } else {
         colors?.iconTint ?: when (variant) {
-            DesignIconButtonVariant.Primary -> Color.White
-            DesignIconButtonVariant.Surface -> MiuixTheme.colorScheme.primary
+            DesignIconButtonVariant.Primary -> designOnPrimaryButtonColor()
+            DesignIconButtonVariant.Surface -> designPrimaryButtonColor()
             DesignIconButtonVariant.Default -> MiuixTheme.colorScheme.onSurface
             DesignIconButtonVariant.Error -> MiuixTheme.colorScheme.error
             DesignIconButtonVariant.ErrorFilled -> MiuixTheme.colorScheme.surface

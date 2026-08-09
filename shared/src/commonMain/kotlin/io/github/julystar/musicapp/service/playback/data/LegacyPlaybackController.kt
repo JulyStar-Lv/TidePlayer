@@ -17,12 +17,15 @@ import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_I
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.service.playback.data.PlayerController as LegacyPlayerController
 import io.github.julystar.musicapp.service.playback.data.PlayerRepository
+import io.github.julystar.musicapp.singleton.PlaybackItemMetadata
 import io.github.julystar.musicapp.singleton.RoomLibraryStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import uniffi.app_backend.Music
@@ -160,18 +164,8 @@ class LegacyPlaybackController(
             playlist = playlist,
             currentMusic = music,
         )
-    }.map { queue ->
-        queue.copy(
-            items = queue.items.map { item ->
-                val trackId = item.libraryTrackId ?: return@map item
-                val metadata = roomLibraryStore.getPlaybackItemMetadata(trackId)
-                item.copy(
-                    artist = metadata.artist,
-                    album = metadata.album,
-                )
-            },
-        )
-    }.stateIn(scope, SharingStarted.Eagerly, PlaybackQueue.Empty)
+    }.withPlaybackItemMetadata(roomLibraryStore::getPlaybackItemMetadata)
+        .stateIn(scope, SharingStarted.Eagerly, PlaybackQueue.Empty)
 
     override suspend fun play(
         items: List<PlayableItem>,
@@ -572,6 +566,24 @@ internal fun legacyPlaybackQueue(
         items = items,
         currentIndex = currentIndex,
     )
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun Flow<PlaybackQueue>.withPlaybackItemMetadata(
+    metadataForTrack: suspend (Long) -> PlaybackItemMetadata,
+): Flow<PlaybackQueue> = transformLatest { queue ->
+    emit(queue)
+    val enrichedItems = queue.items.map { item ->
+        val trackId = item.libraryTrackId ?: return@map item
+        val metadata = metadataForTrack(trackId)
+        item.copy(
+            artist = metadata.artist,
+            album = metadata.album,
+        )
+    }
+    if (enrichedItems != queue.items) {
+        emit(queue.copy(items = enrichedItems))
+    }
 }
 
 private fun PlayMode.toRepeatMode(): RepeatMode {

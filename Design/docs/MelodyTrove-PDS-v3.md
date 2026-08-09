@@ -70,6 +70,16 @@ alone.
 | Green | `#3DCA8A` |
 | Yellow | `#FFD93D` |
 
+### Brand button roles
+
+These semantic button colors apply while Brand Pink is the effective theme
+seed. Artwork and custom seeds continue to use their generated Miuix roles.
+
+| Role | Light | Dark |
+| --- | --- | --- |
+| Primary button | `#FA233B` with white content | `#FA2E48` with white content |
+| Secondary button | `#ECECEC` with `#242424` content | `#404141` with `#E2E2E2` content |
+
 NeriPlayer blue is not the MelodyTrove default.
 
 ## Theme color component tokens

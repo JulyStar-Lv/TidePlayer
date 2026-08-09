@@ -37,6 +37,34 @@ import uniffi.app_backend.StorageEntryLoc
 
 class RemoteMetadataRefreshControllerTest {
     @Test
+    fun trackBackfillReadsPreferredLocalSource() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.Default)
+            .build()
+        try {
+            seedTrack(database, ProviderTypes.Local)
+            val reader = FakeRemoteMetadataReader()
+            val controller = RemoteMetadataRefreshController(database, reader)
+
+            val result = controller.refresh(
+                MetadataRefreshRequest(
+                    scope = MetadataRefreshScope.Track(1),
+                    target = MetadataRefreshTarget.Artwork,
+                )
+            )
+
+            assertEquals(1, result.refreshedCount)
+            assertEquals(MetadataScanOptions(true, false, false), reader.options.single())
+            assertEquals("art-hash", database.metadataDao().getArtworkForAlbum(7)?.contentHash)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
     fun missingBackfillReadsUnchangedFilesWithMinimumOptions() = runBlocking {
         val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
             AppDatabaseConstructor.initialize()
@@ -45,7 +73,7 @@ class RemoteMetadataRefreshControllerTest {
             .setQueryCoroutineContext(Dispatchers.Default)
             .build()
         try {
-            seedWebDavTrack(database)
+            seedTrack(database, ProviderTypes.WebDav)
             assertEquals(
                 1L,
                 database.trackSourceRefDao().metadataResetCandidateForTrack(1)?.sourceItemId,
@@ -140,13 +168,17 @@ class RemoteMetadataRefreshControllerTest {
         }
     }
 
-    private suspend fun seedWebDavTrack(database: AppDatabase) {
+    private suspend fun seedTrack(database: AppDatabase, providerType: String) {
         database.sourceAccountDao().upsert(
             SourceAccountEntity(
                 id = 1,
-                providerType = ProviderTypes.WebDav,
-                displayName = "WebDAV",
-                endpoint = "https://example.invalid/dav",
+                providerType = providerType,
+                displayName = providerType,
+                endpoint = if (providerType == ProviderTypes.WebDav) {
+                    "https://example.invalid/dav"
+                } else {
+                    null
+                },
                 externalAccountId = null,
                 credentialRef = "credential",
                 priority = 0,

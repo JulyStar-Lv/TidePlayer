@@ -6,6 +6,13 @@ import io.github.julystar.musicapp.service.playback.domain.PlaybackQueue
 import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import io.github.julystar.musicapp.service.playback.domain.PlayerState
 
+internal fun CurrentTrackInfo?.toInitialNowPlayingState(
+    externalEditorSupported: Boolean,
+): NowPlayingState = NowPlayingState(
+    currentTrack = this?.toNowPlayingTrackItem(),
+    externalEditorSupported = externalEditorSupported,
+)
+
 public fun CurrentTrackInfo.toNowPlayingTrackItem(): NowPlayingTrackItem {
     return NowPlayingTrackItem(
         id = id,

@@ -1,10 +1,14 @@
 package io.github.julystar.musicapp.core.presentation.theme
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import top.yukonga.miuix.kmp.theme.Colors
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * Shared brand tokens from Design/docs/MelodyTrove-PDS-v3.md and the Figma Make design system.
@@ -14,6 +18,13 @@ import top.yukonga.miuix.kmp.theme.Colors
 object DesignPalette {
     val BrandPink = Color(0xFFFF5B8A)
     val DefaultManualThemeSeed = BrandPink
+    val BrandButtonLight = Color(0xFFFA233B)
+    val BrandButtonDark = Color(0xFFFA2E48)
+    val BrandButtonForeground = Color.White
+    val SecondaryButtonLight = Color(0xFFECECEC)
+    val SecondaryButtonDark = Color(0xFF404141)
+    val OnSecondaryButtonLight = Color(0xFF242424)
+    val OnSecondaryButtonDark = Color(0xFFE2E2E2)
     val Secondary = Color(0xFF7A6CFF)
     val SupportBlue = Color(0xFF3D9AFF)
     val SupportOrange = Color(0xFFFF8A3D)
@@ -69,9 +80,58 @@ object DesignGradients {
     val Brand = PinkPurple
 }
 
+@Composable
+internal fun designPrimaryButtonColor(): Color {
+    if (!usesBrandButtonPalette()) return MiuixTheme.colorScheme.primary
+    return if (usesDarkButtonPalette()) {
+        DesignPalette.BrandButtonDark
+    } else {
+        DesignPalette.BrandButtonLight
+    }
+}
+
+@Composable
+internal fun designOnPrimaryButtonColor(): Color {
+    return if (usesBrandButtonPalette()) {
+        DesignPalette.BrandButtonForeground
+    } else {
+        MiuixTheme.colorScheme.onPrimary
+    }
+}
+
+@Composable
+internal fun designSecondaryButtonColor(): Color {
+    if (!usesBrandButtonPalette()) return MiuixTheme.colorScheme.secondaryVariant
+    return if (usesDarkButtonPalette()) {
+        DesignPalette.SecondaryButtonDark
+    } else {
+        DesignPalette.SecondaryButtonLight
+    }
+}
+
+@Composable
+internal fun designOnSecondaryButtonColor(): Color {
+    if (!usesBrandButtonPalette()) return MiuixTheme.colorScheme.onSecondaryVariant
+    return if (usesDarkButtonPalette()) {
+        DesignPalette.OnSecondaryButtonDark
+    } else {
+        DesignPalette.OnSecondaryButtonLight
+    }
+}
+
+@Composable
+private fun usesBrandButtonPalette(): Boolean {
+    return LocalThemeSeedState.current.effectiveSeedArgb == DEFAULT_MANUAL_THEME_SEED_ARGB
+}
+
+@Composable
+private fun usesDarkButtonPalette(): Boolean {
+    return MiuixTheme.colorScheme.background.luminance() < 0.5f
+}
+
 internal val DesignLightColors = Colors(
-    primary = DesignPalette.DefaultManualThemeSeed,
-    onPrimary = Color.White,
+    primary = DesignPalette.BrandButtonLight,
+    onPrimary = DesignPalette.BrandButtonForeground,
     primaryVariant = DesignPalette.Secondary,
     onPrimaryVariant = Color.White,
     error = Color(0xFFEF4444),
@@ -126,8 +186,8 @@ internal val DesignLightColors = Colors(
 )
 
 internal val DesignDarkColors = Colors(
-    primary = DesignPalette.DefaultManualThemeSeed,
-    onPrimary = Color.White,
+    primary = DesignPalette.BrandButtonDark,
+    onPrimary = DesignPalette.BrandButtonForeground,
     primaryVariant = DesignPalette.Secondary,
     onPrimaryVariant = Color.White,
     error = Color(0xFFEF4444),

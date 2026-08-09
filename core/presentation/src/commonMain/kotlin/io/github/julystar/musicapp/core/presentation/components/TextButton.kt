@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.theme.designOnPrimaryButtonColor
+import io.github.julystar.musicapp.core.presentation.theme.designPrimaryButtonColor
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextButtonColors
@@ -90,15 +92,15 @@ private fun designTextButtonColors(variant: DesignTextButtonVariant): TextButton
         )
         DesignTextButtonVariant.Primary -> ButtonDefaults.textButtonColors(
             color = Color.Transparent,
-            textColor = MiuixTheme.colorScheme.primary,
+            textColor = designPrimaryButtonColor(),
         )
         DesignTextButtonVariant.PrimaryFilled -> ButtonDefaults.textButtonColors(
-            color = MiuixTheme.colorScheme.primary,
-            textColor = MiuixTheme.colorScheme.onPrimary,
+            color = designPrimaryButtonColor(),
+            textColor = designOnPrimaryButtonColor(),
         )
         DesignTextButtonVariant.Tonal -> ButtonDefaults.textButtonColors(
             color = MiuixTheme.colorScheme.tertiaryContainer,
-            textColor = MiuixTheme.colorScheme.primary,
+            textColor = designPrimaryButtonColor(),
         )
         DesignTextButtonVariant.Error -> ButtonDefaults.textButtonColors(
             color = Color.Transparent,

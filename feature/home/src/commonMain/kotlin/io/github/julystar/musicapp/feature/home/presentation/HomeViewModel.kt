@@ -23,6 +23,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.random.Random
+import kotlin.time.Clock
+
+private const val DAILY_PICK_TRACK_COUNT = 50
 
 class HomeViewModel(
     libraryRepository: LibraryRepository,
@@ -59,7 +66,9 @@ class HomeViewModel(
             recentlyAddedAlbums = albums.map { it.toHomeAlbum() }.toPersistentList(),
             artists = artists.map { it.toHomeArtist() }.toPersistentList(),
             pinnedPlaylists = playlists.map { it.toHomePlaylist() }.toPersistentList(),
-            dailyPickTracks = tracks.map { it.toHomeTrack(it.id in favoriteTrackIds) }.toPersistentList(),
+            dailyPickTracks = selectDailyPickTracks(tracks, currentLocalDate())
+                .map { it.toHomeTrack(it.id in favoriteTrackIds) }
+                .toPersistentList(),
             recentTracks = historyTracks
                 .map { it.toHomeRecentTrack(it.trackId in favoriteTrackIds) }
                 .toPersistentList(),
@@ -97,6 +106,18 @@ private data class HomeLibraryContent(
     val playlists: List<PlaylistSummary>,
     val favoriteTrackIds: Set<Long>,
 )
+
+internal fun selectDailyPickTracks(
+    tracks: List<LibraryTrackItem>,
+    date: LocalDate,
+): List<LibraryTrackItem> = tracks
+    .sortedBy(LibraryTrackItem::id)
+    .shuffled(Random(date.toString().hashCode()))
+    .take(DAILY_PICK_TRACK_COUNT)
+
+private fun currentLocalDate(): LocalDate = Clock.System.now()
+    .toLocalDateTime(TimeZone.currentSystemDefault())
+    .date
 
 internal fun HistoryPlayItem.toHomeRecentTrack(liked: Boolean): HomeRecentTrack = HomeRecentTrack(
     id = trackId,

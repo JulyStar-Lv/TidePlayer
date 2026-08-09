@@ -22,10 +22,12 @@
   --popover-foreground: #0D0B18;
 
   /* Interactive */
-  --primary: #FF5B8A;
+  --primary: #FA233B;
   --primary-foreground: #FFFFFF;
   --secondary: #7A6CFF;
   --secondary-foreground: #FFFFFF;
+  --button-secondary: #ECECEC;
+  --button-secondary-foreground: #242424;
 
   /* Surfaces */
   --muted: #EAE7F5;
@@ -140,10 +142,12 @@
   --popover: #1E1A30;
   --popover-foreground: #F0EDF8;
 
-  --primary: #FF5B8A;
+  --primary: #FA2E48;
   --primary-foreground: #FFFFFF;
   --secondary: #7A6CFF;
   --secondary-foreground: #FFFFFF;
+  --button-secondary: #404141;
+  --button-secondary-foreground: #E2E2E2;
 
   --muted: #1E1A30;
   --muted-foreground: #9B97B0;

@@ -201,7 +201,7 @@ fun HomeDesignScreen(
                     item {
                         DailyPicksHero(
                             compact = compact,
-                            track = state.dailyPickTracks.firstOrNull(),
+                            tracks = state.dailyPickTracks.take(3),
                             nowPlayingTitle = dailyPicksTrackTitle,
                             onPlay = state.dailyPickTracks.takeIf { it.isNotEmpty() }?.let {
                                 { onAction(HomeAction.PlayDailyPicks) }
@@ -352,7 +352,7 @@ private fun HomeMobileHeader(modifier: Modifier = Modifier) {
 @Composable
 private fun DailyPicksHero(
     compact: Boolean,
-    track: HomeRecentTrack?,
+    tracks: List<HomeRecentTrack>,
     nowPlayingTitle: String,
     onPlay: (() -> Unit)?,
 ) {
@@ -360,7 +360,6 @@ private fun DailyPicksHero(
     val shape = RoundedCornerShape(if (compact) 22.dp else 30.dp)
     val foreground = if (dark) Color.White else Color(0xFF15151A)
     val muted = foreground.copy(alpha = if (dark) 0.74f else 0.62f)
-    val artworkIndex = track?.artworkIndex ?: 1
     val backgroundBackdrop = rememberLayerBackdrop()
     Box(
         modifier = Modifier
@@ -418,8 +417,7 @@ private fun DailyPicksHero(
             DailyPicksPlayButton(onClick = onPlay)
         }
         DailyPicksArtwork(
-            artwork = track?.artwork,
-            artworkIndex = artworkIndex,
+            tracks = tracks,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = if (compact) 14.dp else 32.dp)
@@ -434,49 +432,49 @@ private fun DailyPicksBackground(dark: Boolean) {
     val blobOneX by transition.animateFloat(
         initialValue = -38f,
         targetValue = 46f,
-        animationSpec = dailyPicksAnimation(durationMillis = 18_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 14_000),
         label = "daily-picks-blob-one-x",
     )
     val blobOneY by transition.animateFloat(
         initialValue = -92f,
         targetValue = -42f,
-        animationSpec = dailyPicksAnimation(durationMillis = 18_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 14_000),
         label = "daily-picks-blob-one-y",
     )
     val blobTwoX by transition.animateFloat(
         initialValue = 20f,
         targetValue = -42f,
-        animationSpec = dailyPicksAnimation(durationMillis = 22_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
         label = "daily-picks-blob-two-x",
     )
     val blobTwoY by transition.animateFloat(
         initialValue = -82f,
         targetValue = -22f,
-        animationSpec = dailyPicksAnimation(durationMillis = 22_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
         label = "daily-picks-blob-two-y",
     )
     val blobThreeX by transition.animateFloat(
         initialValue = 74f,
         targetValue = -28f,
-        animationSpec = dailyPicksAnimation(durationMillis = 26_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
         label = "daily-picks-blob-three-x",
     )
     val blobThreeY by transition.animateFloat(
         initialValue = 70f,
         targetValue = 18f,
-        animationSpec = dailyPicksAnimation(durationMillis = 26_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
         label = "daily-picks-blob-three-y",
     )
     val blobFourX by transition.animateFloat(
         initialValue = -30f,
         targetValue = 64f,
-        animationSpec = dailyPicksAnimation(durationMillis = 30_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 23_000),
         label = "daily-picks-blob-four-x",
     )
     val blobFourY by transition.animateFloat(
         initialValue = 52f,
         targetValue = -18f,
-        animationSpec = dailyPicksAnimation(durationMillis = 30_000),
+        animationSpec = dailyPicksAnimation(durationMillis = 23_000),
         label = "daily-picks-blob-four-y",
     )
 
@@ -547,42 +545,47 @@ private fun dailyPicksAnimation(durationMillis: Int) = infiniteRepeatable<Float>
 
 @Composable
 private fun DailyPicksArtwork(
-    artwork: Artwork?,
-    artworkIndex: Int,
+    tracks: List<HomeRecentTrack>,
     modifier: Modifier,
 ) {
     Box(
         modifier = modifier,
     ) {
-        DailyPicksCover(
-            artwork = artwork,
-            demoIndex = artworkIndex + 3,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(72.dp)
-                .graphicsLayer(rotationZ = -6f),
-            shape = CircleShape,
-        )
-        DailyPicksCover(
-            artwork = artwork,
-            demoIndex = artworkIndex + 5,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 20.dp)
-                .size(65.dp)
-                .graphicsLayer(rotationZ = 8f),
-            shape = RoundedCornerShape(32.dp, 20.dp, 28.dp, 24.dp),
-        )
-        DailyPicksCover(
-            artwork = artwork,
-            demoIndex = artworkIndex + 7,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(top = 22.dp)
-                .size(60.dp)
-                .graphicsLayer(rotationZ = 14f),
-            shape = RoundedCornerShape(50),
-        )
+        tracks.getOrNull(0)?.let { track ->
+            DailyPicksCover(
+                artwork = track.artwork,
+                demoIndex = track.artworkIndex + 3,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(72.dp)
+                    .graphicsLayer(rotationZ = -6f),
+                shape = CircleShape,
+            )
+        }
+        tracks.getOrNull(1)?.let { track ->
+            DailyPicksCover(
+                artwork = track.artwork,
+                demoIndex = track.artworkIndex + 5,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp)
+                    .size(65.dp)
+                    .graphicsLayer(rotationZ = 8f),
+                shape = RoundedCornerShape(32.dp, 20.dp, 28.dp, 24.dp),
+            )
+        }
+        tracks.getOrNull(2)?.let { track ->
+            DailyPicksCover(
+                artwork = track.artwork,
+                demoIndex = track.artworkIndex + 7,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(top = 22.dp)
+                    .size(60.dp)
+                    .graphicsLayer(rotationZ = 14f),
+                shape = RoundedCornerShape(50),
+            )
+        }
     }
 }
 

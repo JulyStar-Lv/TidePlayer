@@ -287,7 +287,7 @@ function Btn({ children, variant="filled", size="md", className="", onClick, ico
     outlined:"border border-border text-foreground hover:bg-muted active:scale-95",
     ghost:"text-foreground hover:bg-muted active:scale-95",
     tonal:"bg-muted text-foreground hover:bg-muted/80 active:scale-95",
-    secondary:"bg-secondary text-secondary-foreground hover:opacity-90 active:scale-95",
+    secondary:"bg-[var(--button-secondary)] text-[var(--button-secondary-foreground)] hover:opacity-90 active:scale-95",
   };
   return (
     <button type="button" onPointerDown={preventMouseFocus} onClick={onClick} className={cn("inline-flex items-center justify-center font-semibold rounded-full transition-all duration-[180ms] shrink-0 select-none outline-none focus-visible:ring-2 focus-visible:ring-primary/40",

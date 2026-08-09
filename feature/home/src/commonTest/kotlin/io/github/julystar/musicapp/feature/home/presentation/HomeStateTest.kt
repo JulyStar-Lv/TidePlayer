@@ -5,9 +5,11 @@ import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -128,5 +130,44 @@ class HomeStateTest {
 
         assertEquals(7L, item.id)
         assertEquals(Artwork.LibraryAlbum(albumId = 7L), item.artwork)
+    }
+
+    @Test
+    fun `daily picks select fifty tracks and remain stable for the day`() {
+        val tracks = (1L..75L).map { id ->
+            LibraryTrackItem(
+                id = id,
+                title = "Track $id",
+                artist = null,
+                durationMs = null,
+            )
+        }
+        val date = LocalDate(2026, 8, 9)
+
+        val firstSelection = selectDailyPickTracks(tracks, date).map(LibraryTrackItem::id)
+        val repeatedSelection = selectDailyPickTracks(tracks.reversed(), date).map(LibraryTrackItem::id)
+        val nextDaySelection = selectDailyPickTracks(tracks, LocalDate(2026, 8, 10))
+            .map(LibraryTrackItem::id)
+
+        assertEquals(50, firstSelection.size)
+        assertEquals(50, firstSelection.distinct().size)
+        assertEquals(firstSelection, repeatedSelection)
+        assertNotEquals(firstSelection, nextDaySelection)
+    }
+
+    @Test
+    fun `daily picks keep every track when the library has fewer than fifty`() {
+        val tracks = (1L..12L).map { id ->
+            LibraryTrackItem(
+                id = id,
+                title = "Track $id",
+                artist = null,
+                durationMs = null,
+            )
+        }
+
+        val selection = selectDailyPickTracks(tracks, LocalDate(2026, 8, 9))
+
+        assertEquals(tracks.map(LibraryTrackItem::id).toSet(), selection.map(LibraryTrackItem::id).toSet())
     }
 }

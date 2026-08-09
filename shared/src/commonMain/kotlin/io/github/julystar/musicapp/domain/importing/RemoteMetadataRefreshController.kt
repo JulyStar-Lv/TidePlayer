@@ -59,8 +59,9 @@ class RemoteMetadataRefreshController(
 
     private suspend fun candidates(request: MetadataRefreshRequest): List<MetadataRefreshCandidate> {
         return when (val scope = request.scope) {
-            is MetadataRefreshScope.Track -> database.trackSourceRefDao()
-                .webDavMetadataCandidatesForTrack(scope.trackId)
+            is MetadataRefreshScope.Track -> listOfNotNull(
+                database.trackSourceRefDao().metadataResetCandidateForTrack(scope.trackId)
+            )
             is MetadataRefreshScope.Album -> database.trackSourceRefDao()
                 .webDavMetadataCandidatesForAlbum(scope.albumId)
             MetadataRefreshScope.MissingWebDavTracks -> database.trackSourceRefDao()

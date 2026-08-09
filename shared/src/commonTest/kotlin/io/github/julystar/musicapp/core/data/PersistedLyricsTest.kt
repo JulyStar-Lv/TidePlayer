@@ -178,6 +178,58 @@ class PersistedLyricsTest {
     }
 
     @Test
+    fun preservesLeadingHeaderTagsForDisplayFiltering() {
+        val lyrics = LyricsEntity(
+            trackId = 1,
+            format = "LRC",
+            language = null,
+            synchronized = true,
+            content = "[ar:Artist]\n[provider:Example]\n[00:01.00]First",
+            sourcePath = null,
+            updatedAt = 2,
+        ).toPlaybackLyrics()
+
+        assertEquals(listOf("[ar:Artist]", "[provider:Example]", "First"), lyrics.lines.map { it.text })
+        assertEquals(listOf(0L, 0L, 1_000L), lyrics.lines.map { it.duration.inWholeMilliseconds })
+    }
+
+    @Test
+    fun parsesWordTimedCreditLinesWithSlashTranslations() {
+        val lyrics = LyricsEntity(
+            trackId = 1,
+            format = "LRC",
+            language = null,
+            synchronized = true,
+            content = """
+                [00:00.00]<00:00.000>My<00:00.441> story<00:01.000>
+                [00:00.00]//
+                [00:06.21]<00:06.210>Lyrics<00:07.097> by：孙燕姿<00:12.419>
+                [00:06.21]//
+                [00:12.42]<00:12.420>Composed<00:13.307> by：李伟菘<00:18.629>
+                [00:12.42]//
+                [00:18.64]<00:18.640>孙燕姿：<00:30.062>
+                [00:18.64]//
+                [00:30.06]<00:30.062>Is your smile genuine<00:32.012>
+                [00:30.06]你的笑是发自真心么
+            """.trimIndent(),
+            sourcePath = "external:plugin",
+            updatedAt = 2,
+            sourceKind = "ExternalWordTimed",
+        ).toPlaybackLyrics()
+
+        assertEquals(
+            listOf(
+                "My story\n//",
+                "Lyrics by：孙燕姿\n//",
+                "Composed by：李伟菘\n//",
+                "孙燕姿：\n//",
+                "Is your smile genuine\n你的笑是发自真心么",
+            ),
+            lyrics.lines.map { it.text },
+        )
+    }
+
+    @Test
     fun fallsBackForLegacySingleDigitMinuteTags() {
         val lyrics = LyricsEntity(
             trackId = 1,

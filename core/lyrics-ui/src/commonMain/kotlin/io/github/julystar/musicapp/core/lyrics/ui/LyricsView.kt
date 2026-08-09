@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +62,10 @@ import kotlin.math.roundToLong
 private const val PlaybackResyncThresholdMs = 220.0
 private const val PlaybackJitterToleranceMs = 24.0
 private const val PlaybackCorrectionFraction = 0.25
+private const val LyricHeaderPlaceholder = "•••"
+private const val PlaceholderDotCount = 3
+private const val PlaceholderDotSizeEm = 0.62f
+private const val PlaceholderDotSpacingEm = 0.48f
 
 /**
  * A desktop-friendly lyrics surface adapted from accompanist-lyrics-ui.
@@ -310,6 +318,18 @@ private fun KaraokeText(
     textAlign: TextAlign,
     wordLiftEnabled: Boolean,
 ) {
+    if (line is SyncedLine && line.content == LyricHeaderPlaceholder) {
+        TimelinePlaceholder(
+            line = line,
+            positionMs = renderPositionProvider?.invoke() ?: line.start,
+            activeColor = activeColor,
+            inactiveColor = inactiveColor,
+            textStyle = textStyle,
+            textAlign = textAlign,
+        )
+        return
+    }
+
     if (line !is KaraokeLine) {
         BasicText(
             text = (line as? SyncedLine)?.content.orEmpty(),
@@ -378,6 +398,68 @@ private fun KaraokeText(
         showPhonetic = false,
         spec = renderSpec,
     )
+}
+
+@Composable
+private fun TimelinePlaceholder(
+    line: ISyncedLine,
+    positionMs: Int,
+    activeColor: Color,
+    inactiveColor: Color,
+    textStyle: TextStyle,
+    textAlign: TextAlign,
+) {
+    val density = LocalDensity.current
+    val fontSize = with(density) { textStyle.fontSize.toDp() }
+    val lineHeight = with(density) { textStyle.lineHeight.toDp() }
+    val dotSize = fontSize * PlaceholderDotSizeEm
+    val dotSpacing = fontSize * PlaceholderDotSpacingEm
+    val horizontalAlignment = when (textAlign) {
+        TextAlign.Center -> Alignment.CenterHorizontally
+        TextAlign.End, TextAlign.Right -> Alignment.End
+        else -> Alignment.Start
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(lineHeight),
+        horizontalArrangement = Arrangement.spacedBy(
+            space = dotSpacing,
+            alignment = horizontalAlignment,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(PlaceholderDotCount) { index ->
+            val progress = lyricPlaceholderDotProgress(
+                positionMs = positionMs,
+                startMs = line.start,
+                endMs = line.end,
+                dotIndex = index,
+            )
+            Box(
+                modifier = Modifier
+                    .size(dotSize)
+                    .background(
+                        color = lerp(inactiveColor, activeColor, progress),
+                        shape = CircleShape,
+                    ),
+            )
+        }
+    }
+}
+
+internal fun lyricPlaceholderDotProgress(
+    positionMs: Int,
+    startMs: Int,
+    endMs: Int,
+    dotIndex: Int,
+): Float {
+    require(dotIndex in 0 until PlaceholderDotCount)
+    if (endMs <= startMs) return if (positionMs >= endMs) 1f else 0f
+
+    val timelineProgress = (positionMs - startMs).toFloat() / (endMs - startMs)
+    return (timelineProgress * PlaceholderDotCount - dotIndex).coerceIn(0f, 1f)
 }
 
 private fun ISyncedLine.translationOrNull(): String? = when (this) {

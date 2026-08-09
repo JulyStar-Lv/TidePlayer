@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Plus, Trash2, X } from "lucide-react";
 
 const PRESET_COLORS = [
@@ -25,7 +25,21 @@ function contrastColor(hex: string) {
   const g = parseInt(normalized.slice(3, 5), 16) / 255;
   const b = parseInt(normalized.slice(5, 7), 16) / 255;
   const channel = (value: number) => value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b) > 0.42 ? "#0D0B18" : "#FFFFFF";
+  const luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  const darkInkLuminance = 0.004;
+  const darkInkContrast = (luminance + 0.05) / (darkInkLuminance + 0.05);
+  const whiteContrast = 1.05 / (luminance + 0.05);
+  return darkInkContrast >= whiteContrast ? "#0D0B18" : "#FFFFFF";
+}
+
+function primaryButtonColors(seed: string, dark: boolean) {
+  // Match the sampled Apple Music primary action colors for the Brand Pink theme.
+  if (normalizeHex(seed) === "#FF5B8A") {
+    return dark
+      ? { background: "#FA2E48", foreground: "#FFFFFF" }
+      : { background: "#FA233B", foreground: "#FFFFFF" };
+  }
+  return { background: seed, foreground: contrastColor(seed) };
 }
 
 function hsvToHex(hue: number, saturation: number, value: number) {
@@ -179,6 +193,7 @@ function ThemePreview({ color, dark = false }: { color: string; dark?: boolean }
   const muted = dark ? "#9B97B0" : "#6B6880";
   const background = dark ? "#0C0A14" : "#F4F2FA";
   const card = dark ? "#161224" : "#FFFFFF";
+  const primaryButton = primaryButtonColors(color, dark);
   return (
     <div className="rounded-[22px] border border-border p-3" style={{ color: foreground, background }}>
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -192,7 +207,7 @@ function ThemePreview({ color, dark = false }: { color: string; dark?: boolean }
           <div className="h-full w-2/3 rounded-full" style={{ background: color }}/>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="h-8 rounded-full px-3 text-[11px] font-bold" style={{ background: color, color: contrastColor(color) }}>Primary</button>
+          <button type="button" className="h-8 rounded-full px-3 text-[11px] font-bold" style={{ background: primaryButton.background, color: primaryButton.foreground }}>Primary</button>
           <button type="button" className="h-8 rounded-full border px-3 text-[11px] font-bold" style={{ borderColor: `${color}88`, color }}>Secondary</button>
         </div>
       </div>
@@ -223,6 +238,14 @@ export function ThemeColorPickerDialog({
   const normalized = normalizeHex(hexInput);
   const duplicate = customColors.some(value => value === draftColor) || PRESET_COLORS.some(item => item.value === draftColor);
   const atLimit = customColors.length >= CUSTOM_COLOR_LIMIT;
+  const lightPrimaryButton = primaryButtonColors(draftColor, false);
+  const darkPrimaryButton = primaryButtonColors(draftColor, true);
+  const primaryButtonStyle = {
+    "--seed-button-light": lightPrimaryButton.background,
+    "--seed-button-light-foreground": lightPrimaryButton.foreground,
+    "--seed-button-dark": darkPrimaryButton.background,
+    "--seed-button-dark-foreground": darkPrimaryButton.foreground,
+  } as CSSProperties;
 
   const updateDraft = (color: string) => {
     setDraftColor(color);
@@ -306,8 +329,8 @@ export function ThemeColorPickerDialog({
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="min-h-12 rounded-full bg-muted px-5 text-[13px] font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Cancel</button>
-          <button type="button" disabled={!normalized} onClick={() => { onApply(draftColor); setApplied(true); }} className="min-h-12 rounded-full px-5 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-40" style={{ backgroundColor: draftColor, color: contrastColor(draftColor) }}>
+          <button type="button" onClick={onClose} className="min-h-12 rounded-full bg-[var(--button-secondary)] px-5 text-[13px] font-semibold text-[var(--button-secondary-foreground)] outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Cancel</button>
+          <button type="button" disabled={!normalized} onClick={() => { onApply(draftColor); setApplied(true); }} className="min-h-12 rounded-full bg-[var(--seed-button-light)] px-5 text-[13px] font-bold text-[var(--seed-button-light-foreground)] outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-40 dark:bg-[var(--seed-button-dark)] dark:text-[var(--seed-button-dark-foreground)]" style={primaryButtonStyle}>
             {applied ? "Color applied" : "Apply color"}
           </button>
         </div>

@@ -8,6 +8,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.theme.designOnPrimaryButtonColor
+import io.github.julystar.musicapp.core.presentation.theme.designOnSecondaryButtonColor
+import io.github.julystar.musicapp.core.presentation.theme.designPrimaryButtonColor
+import io.github.julystar.musicapp.core.presentation.theme.designSecondaryButtonColor
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonColors
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -78,12 +82,12 @@ fun DesignButton(
 private fun designButtonColors(variant: DesignButtonVariant): ButtonColors {
     return when (variant) {
         DesignButtonVariant.Primary -> ButtonDefaults.buttonColorsPrimary(
-            color = MiuixTheme.colorScheme.primary,
-            contentColor = MiuixTheme.colorScheme.onPrimary,
+            color = designPrimaryButtonColor(),
+            contentColor = designOnPrimaryButtonColor(),
         )
         DesignButtonVariant.Secondary -> ButtonDefaults.buttonColors(
-            color = MiuixTheme.colorScheme.secondaryVariant,
-            contentColor = MiuixTheme.colorScheme.onSecondaryVariant,
+            color = designSecondaryButtonColor(),
+            contentColor = designOnSecondaryButtonColor(),
         )
         DesignButtonVariant.Tertiary -> ButtonDefaults.buttonColors(
             color = MiuixTheme.colorScheme.tertiaryContainer,

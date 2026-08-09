@@ -3,6 +3,7 @@ package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 import io.github.julystar.musicapp.core.domain.model.LyricLine
 import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
 import io.github.julystar.musicapp.core.domain.model.LyricWord
+import io.github.julystar.musicapp.core.domain.model.LYRIC_HEADER_PLACEHOLDER
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import kotlinx.collections.immutable.persistentListOf
@@ -25,7 +26,7 @@ class NowPlayingLyricsAdapterTest {
             LyricDisplaySettings.Default.copy(lineBlacklist = listOf("Instrumental")),
         )
 
-        assertEquals(listOf("Keep me"), visible.map(LyricLine::text))
+        assertEquals(listOf(LYRIC_HEADER_PLACEHOLDER, "Keep me"), visible.map(LyricLine::text))
     }
 
     @Test
@@ -34,8 +35,31 @@ class NowPlayingLyricsAdapterTest {
 
         val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
 
-        assertEquals(listOf("First", "Second"), visible.map(LyricLine::text))
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "First", "Second"),
+            visible.map(LyricLine::text),
+        )
     }
+
+    @Test
+    fun collapsesVisibleTitleAndCreditBlockIntoPlaceholder() {
+        val lines = listOf(
+            LyricLine(0.milliseconds, "My story, your song - 孙燕姿\n//"),
+            LyricLine(6_210.milliseconds, "Lyrics by：孙燕姿\n//"),
+            LyricLine(12_420.milliseconds, "Composed by：李伟菘\n//"),
+            LyricLine(18_640.milliseconds, "孙燕姿：\n//"),
+            LyricLine(30_060.milliseconds, "Is your smile genuine\n你的笑是发自真心么"),
+        )
+
+        val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "Is your smile genuine\n你的笑是发自真心么"),
+            visible.map(LyricLine::text),
+        )
+        assertEquals(0, visible.first().duration.inWholeMilliseconds)
+    }
+
     @Test
     fun convertsTimestampLinesIntoContinuousTimeline() {
         val lyrics = listOf(

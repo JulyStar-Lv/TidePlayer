@@ -28,7 +28,7 @@ thread_local! {
 const MAX_TEXT_TAG_ENTRIES: usize = 2_048;
 const MAX_TEXT_TAG_VALUE_BYTES: usize = 256 * 1024;
 const MAX_TEXT_TAG_TOTAL_BYTES: usize = 1024 * 1024;
-const MAX_ARTWORK_BYTES: usize = 2 * 1024 * 1024;
+const MAX_ARTWORK_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ReaderLimits {
@@ -1211,6 +1211,32 @@ mod tests {
         assert_eq!(artwork.width, Some(320));
         assert_eq!(artwork.height, Some(240));
         assert_eq!(artwork.data, minimal_png(320, 240));
+    }
+
+    #[test]
+    fn extracts_embedded_artwork_above_legacy_two_megabyte_limit() {
+        let artwork_bytes = vec![1; 2 * 1024 * 1024 + 1];
+        let mut tag = Tag::new(TagType::VorbisComments);
+        tag.push_picture(
+            Picture::unchecked(artwork_bytes.clone())
+                .pic_type(PictureType::CoverFront)
+                .mime_type(MimeType::Jpeg)
+                .build(),
+        );
+
+        let metadata = normalize_metadata(
+            Some(&tag),
+            &FileProperties::default(),
+            FileType::Flac,
+            MetadataReadOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            metadata.artwork.as_ref().map(|artwork| artwork.data.len()),
+            Some(artwork_bytes.len())
+        );
+        assert!(metadata.has_embedded_artwork);
     }
 
     #[test]

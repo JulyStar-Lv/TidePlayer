@@ -2,7 +2,7 @@ package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 
 import io.github.julystar.musicapp.core.domain.model.LyricLine
 import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
-import io.github.julystar.musicapp.core.domain.model.isLyricLineVisible
+import io.github.julystar.musicapp.core.domain.model.filterLyricLinesForDisplay
 import com.mocharealm.accompanist.lyrics.core.model.ISyncedLine
 import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeAlignment
@@ -53,7 +53,7 @@ internal fun List<LyricLine>.filterVisibleLyrics(settings: LyricDisplaySettings)
         } else {
             listOf(line)
         }
-    }.filter { line -> settings.isLyricLineVisible(line.text.lyricTextParts().primary) }
+    }.filterLyricLinesForDisplay(settings)
 }
 
 private fun LyricLine.toSyncedLine(startMs: Int, endMs: Int): ISyncedLine {

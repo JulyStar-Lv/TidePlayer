@@ -7,6 +7,7 @@ import io.github.julystar.musicapp.core.domain.model.LyricSourceMode
 import io.github.julystar.musicapp.core.domain.model.LyricWord
 import io.github.julystar.musicapp.core.domain.model.Lyrics
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
+import io.github.julystar.musicapp.core.domain.model.isLyricHeaderTag
 import io.github.julystar.musicapp.database.LyricsEntity
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
@@ -44,8 +45,11 @@ internal fun LyricsEntity.toPlaybackLyrics(): Lyrics {
             content.lineSequence().mapNotNull(::parseBasicLrcLine).toList()
         }
 
+    val headerLines = content.leadingLyricHeaderTags().map { header ->
+        LyricLine(0.milliseconds, header)
+    }
     return Lyrics(
-        lines = parsedLines.toPersistentList(),
+        lines = (headerLines + parsedLines).toPersistentList(),
         loadState = LyricsLoadState.Loaded,
     )
 }
@@ -127,6 +131,14 @@ private fun String.hasWordTiming(): Boolean =
             line is KaraokeLine && line.syllables.isNotEmpty()
         }
     }.getOrDefault(false)
+
+private fun String.leadingLyricHeaderTags(): List<String> =
+    lineSequence()
+        .map { line -> line.trim().removePrefix("\uFEFF").trimStart() }
+        .dropWhile(String::isBlank)
+        .takeWhile { line -> line.isBlank() || isLyricHeaderTag(line) }
+        .filter(::isLyricHeaderTag)
+        .toList()
 
 private fun parseBasicLrcLine(rawLine: String): LyricLine? {
     val line = rawLine.trim()

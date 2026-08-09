@@ -17,7 +17,7 @@ class LyricFilteringTest {
         """.trimIndent()
 
         assertEquals(
-            listOf("[bg:Backing vocal]", "Keep me"),
+            listOf(LYRIC_HEADER_PLACEHOLDER, "[bg:Backing vocal]", "Keep me"),
             LyricDisplaySettings.Default.filterLyricTextBlock(content),
         )
     }
@@ -43,6 +43,33 @@ class LyricFilteringTest {
 
         val filtered = lyrics.filteredForDisplay(LyricDisplaySettings.Default)
 
-        assertEquals("First\nSecond", filtered.lines.single().text)
+        assertEquals("$LYRIC_HEADER_PLACEHOLDER\nFirst\nSecond", filtered.lines.single().text)
+    }
+
+    @Test
+    fun doesNotCreatePlaceholderWhenHeadersAreTheOnlyContent() {
+        assertEquals(
+            emptyList(),
+            LyricDisplaySettings.Default.filterLyricTextBlock("[ar:Artist]\n[ti:Song]"),
+        )
+    }
+
+    @Test
+    fun collapsesTimedVisibleCreditBlockIntoPlaceholder() {
+        val content = """
+            [00:00.00]<00:00.000>My<00:00.441> story, your song - 孙燕姿
+            [00:01.00]//
+            [00:02.00]<00:02.000>Lyrics<00:02.500> by：孙燕姿
+            [00:03.00]//
+            [00:04.00]<00:04.000>Composed<00:04.500> by：李伟菘
+            [00:05.00]孙燕姿：
+            [00:06.00]//
+            [00:10.00]When I was a little girl
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "[00:10.00]When I was a little girl"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
     }
 }
