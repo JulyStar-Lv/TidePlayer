@@ -311,8 +311,13 @@ internal fun RootNavHost(
                 currentTab = selectedRootTab,
                 onTabSelected = { tab ->
                     onRootTabSelected(tab)
-                    if (!navController.popBackStack<MusicGraph.Home>(inclusive = false)) {
-                        navController.navigate(MusicGraph.Home)
+                    if (
+                        shouldReturnToHome(navController.currentDestination?.route) &&
+                        !navController.popBackStack<MusicGraph.Home>(inclusive = false)
+                    ) {
+                        navController.navigate(MusicGraph.Home) {
+                            launchSingleTop = true
+                        }
                     }
                 },
                 scaffoldPadding = scaffoldPadding,
@@ -363,6 +368,9 @@ private fun immediateExitTransition(durationMillis: Int) = fadeOut(
 
 internal fun shouldShowPersistentMiniPlayer(route: String?): Boolean =
     !isRouteHome(route) && !isImmersivePlayerRoute(route)
+
+internal fun shouldReturnToHome(route: String?): Boolean =
+    route != null && !isRouteHome(route)
 
 internal fun isImmersivePlayerRoute(route: String?): Boolean =
     isRouteNowPlaying(route) || isRouteLyrics(route)

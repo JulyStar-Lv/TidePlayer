@@ -19,6 +19,21 @@ class RootNavHostTest {
     }
 
     @Test
+    fun `reselecting home does not request root navigation`() {
+        var returnToHomeRequests = 0
+
+        repeat(5) {
+            if (shouldReturnToHome("Home")) {
+                returnToHomeRequests += 1
+            }
+        }
+
+        assertEquals(0, returnToHomeRequests)
+        assertFalse(shouldReturnToHome(null))
+        assertTrue(shouldReturnToHome("Album/{id}"))
+    }
+
+    @Test
     fun `detail artwork shared elements are disabled while root tabs crossfade`() {
         assertTrue(
             shouldEnableDetailArtworkSharedElements(
