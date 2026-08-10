@@ -32,7 +32,9 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.julystar.musicapp.core.audio.RustDspAudioProcessor
-import io.github.julystar.musicapp.core.audio.TideTunesRenderersFactory
+import io.github.julystar.musicapp.core.audio.AudioDspRuntimeMonitor
+import io.github.julystar.musicapp.core.audio.Media3AudioRenderersFactory
+import io.github.julystar.musicapp.core.audio.toDomainAudioDspRuntimeSnapshot
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
@@ -53,7 +55,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
@@ -128,7 +132,7 @@ class PlaybackService : MediaLibraryService() {
         )
         val player = ExoPlayer.Builder(
             context,
-            TideTunesRenderersFactory(context, dspProcessor),
+            Media3AudioRenderersFactory(context, dspProcessor),
         )
             .setAudioAttributes(
                 mediaAudioAttributes(),
@@ -138,6 +142,14 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(WAKE_MODE_NETWORK)
             .setMediaSourceFactory(ProgressiveMediaSource.Factory(resolvingDataSourceFactory))
             .build()
+        serviceScope.launch {
+            while (isActive) {
+                dspAudioProcessor?.runtimeSnapshot()?.let { snapshot ->
+                    AudioDspRuntimeMonitor.publish(snapshot.toDomainAudioDspRuntimeSnapshot())
+                }
+                delay(150)
+            }
+        }
         val sessionPlayer = MelodyTroveSessionPlayer(
             player = player,
             onNextBoundary = ::playNext,
@@ -499,6 +511,7 @@ class PlaybackService : MediaLibraryService() {
         _mediaSession?.player?.release()
         dspAudioProcessor?.close()
         dspAudioProcessor = null
+        AudioDspRuntimeMonitor.reset()
         lyricOutputController?.destroy()
         lyricOutputController = null
         audioFocusController?.release()
@@ -672,6 +685,16 @@ class PlaybackService : MediaLibraryService() {
             gain.toFloat()
         }
         dspAudioProcessor?.updateSettings(settings.audioEffects, replayGainDb)
+        AppLogger.debug(
+            category = DiagnosticLogCategory.Dsp,
+            target = "PlaybackService",
+            message = "DSP configuration update published",
+            fields = mapOf(
+                "effectsEnabled" to settings.audioEffects.enabled.toString(),
+                "headroomMode" to settings.audioEffects.headroom.mode.name,
+                "truePeak" to settings.audioEffects.profile.limiter.truePeakEnabled.toString(),
+            ),
+        )
     }
 
     private fun playOnComplete() {

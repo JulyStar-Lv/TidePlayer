@@ -1,11 +1,13 @@
 use std::{
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use audio_dsp::{AudioDspConfig, AudioDspProcessor};
 use rodio::{source::SeekError, ChannelCount, SampleRate, Source};
 use triple_buffer::{triple_buffer, Input, Output};
+
+use super::audio_dsp_bridge::{DspRuntimeTelemetry, DspSampleFormat};
 
 const BLOCK_SAMPLE_CAPACITY: usize = 2_048;
 
@@ -29,20 +31,37 @@ pub struct DesktopDspSource<S> {
     samples: [f32; BLOCK_SAMPLE_CAPACITY],
     sample_count: usize,
     read_cursor: usize,
+    telemetry: Arc<DspRuntimeTelemetry>,
 }
 
 impl<S: Source> DesktopDspSource<S> {
+    #[cfg(test)]
     pub fn new(inner: S, config: AudioDspConfig) -> (Self, DesktopDspConfigInput) {
+        Self::new_with_telemetry(inner, config, Arc::new(DspRuntimeTelemetry::default()))
+    }
+
+    pub(crate) fn new_with_telemetry(
+        inner: S,
+        config: AudioDspConfig,
+        telemetry: Arc<DspRuntimeTelemetry>,
+    ) -> (Self, DesktopDspConfigInput) {
         let channels = inner.channels().get() as usize;
         let sample_rate = inner.sample_rate().get();
-        let processor = AudioDspProcessor::new(config)
-            .ok()
-            .and_then(|mut processor| {
-                processor
-                    .configure_format(sample_rate, channels)
-                    .ok()
-                    .map(|()| processor)
-            });
+        let processor =
+            AudioDspProcessor::new(config)
+                .ok()
+                .and_then(|mut processor| {
+                    match processor.configure_format(sample_rate, channels) {
+                        Ok(()) => {
+                            telemetry.configured(&processor);
+                            Some(processor)
+                        }
+                        Err(error) => {
+                            telemetry.configure_error(error);
+                            None
+                        }
+                    }
+                });
         let (input, output) = triple_buffer(&config);
         (
             Self {
@@ -52,6 +71,7 @@ impl<S: Source> DesktopDspSource<S> {
                 samples: [0.0; BLOCK_SAMPLE_CAPACITY],
                 sample_count: 0,
                 read_cursor: 0,
+                telemetry,
             },
             DesktopDspConfigInput {
                 inner: Arc::new(Mutex::new(input)),
@@ -81,7 +101,15 @@ impl<S: Source> DesktopDspSource<S> {
             }
         }
         if let Some(processor) = self.processor.as_mut() {
-            let _ = processor.process_interleaved_f32(&mut self.samples[..count]);
+            let started = Instant::now();
+            let result = processor.process_interleaved_f32(&mut self.samples[..count]);
+            self.telemetry.record_process(
+                processor,
+                DspSampleFormat::Float32,
+                count / channels,
+                started.elapsed().as_nanos().min(u64::MAX as u128) as u64,
+                result,
+            );
         }
         self.sample_count = count;
         self.read_cursor = 0;
@@ -94,6 +122,7 @@ impl<S: Source> DesktopDspSource<S> {
         if let Some(processor) = self.processor.as_mut() {
             processor.reset();
         }
+        self.telemetry.reset();
     }
 }
 

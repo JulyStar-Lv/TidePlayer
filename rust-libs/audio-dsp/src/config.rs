@@ -5,13 +5,37 @@
 // This implementation has been rewritten and modified for MelodyTrove's
 // cross-platform Rust DSP pipeline.
 
-pub const DSP_SCHEMA_VERSION: u32 = 1;
+pub const DSP_SCHEMA_VERSION: u32 = 2;
 pub const MAX_CHANNELS: usize = 2;
 pub const MAX_PARAMETRIC_EQ_BANDS: usize = 40;
 pub const GRAPHIC_EQ_BAND_COUNT: usize = 10;
 pub const GRAPHIC_EQ_FREQUENCIES_HZ: [f32; GRAPHIC_EQ_BAND_COUNT] = [
     31.0, 62.0, 125.0, 250.0, 500.0, 1_000.0, 2_000.0, 4_000.0, 8_000.0, 16_000.0,
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum HeadroomMode {
+    #[default]
+    Off = 0,
+    Automatic = 1,
+    Manual = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HeadroomConfig {
+    pub mode: HeadroomMode,
+    pub manual_db: f32,
+}
+
+impl Default for HeadroomConfig {
+    fn default() -> Self {
+        Self {
+            mode: HeadroomMode::Off,
+            manual_db: 0.0,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
@@ -162,6 +186,7 @@ pub struct LimiterConfig {
     pub release_ms: f32,
     pub true_peak_enabled: bool,
     pub oversampling: u8,
+    pub lookahead_ms: f32,
 }
 
 impl Default for LimiterConfig {
@@ -173,6 +198,7 @@ impl Default for LimiterConfig {
             release_ms: 80.0,
             true_peak_enabled: false,
             oversampling: 1,
+            lookahead_ms: 3.0,
         }
     }
 }
@@ -389,6 +415,7 @@ pub struct AudioDspConfig {
     pub schema_version: u32,
     pub enabled: bool,
     pub input_gain_db: f32,
+    pub headroom: HeadroomConfig,
     pub eq_mode: EqMode,
     pub graphic_equalizer: GraphicEqualizerConfig,
     pub parametric_equalizer: ParametricEqualizerConfig,
@@ -412,6 +439,7 @@ impl Default for AudioDspConfig {
             schema_version: DSP_SCHEMA_VERSION,
             enabled: false,
             input_gain_db: 0.0,
+            headroom: HeadroomConfig::default(),
             eq_mode: EqMode::Graphic,
             graphic_equalizer: GraphicEqualizerConfig::default(),
             parametric_equalizer: ParametricEqualizerConfig::default(),
@@ -435,6 +463,7 @@ impl AudioDspConfig {
     pub fn sanitized(mut self, sample_rate: u32) -> Self {
         self.schema_version = DSP_SCHEMA_VERSION;
         self.input_gain_db = finite_or(self.input_gain_db, 0.0).clamp(-96.0, 24.0);
+        self.headroom.manual_db = finite_or(self.headroom.manual_db, 0.0).clamp(-24.0, 0.0);
 
         self.graphic_equalizer.preamp_db =
             finite_or(self.graphic_equalizer.preamp_db, 0.0).clamp(-24.0, 12.0);
@@ -478,12 +507,12 @@ impl AudioDspConfig {
         self.limiter.ceiling_db = finite_or(self.limiter.ceiling_db, -0.5).clamp(-12.0, 0.0);
         self.limiter.attack_ms = finite_or(self.limiter.attack_ms, 0.25).clamp(0.01, 20.0);
         self.limiter.release_ms = finite_or(self.limiter.release_ms, 80.0).clamp(5.0, 2_000.0);
-        self.limiter.oversampling = self.limiter.oversampling.clamp(1, 8);
         if self.limiter.true_peak_enabled {
-            // Stage one is deliberately sample-peak only.
-            self.limiter.true_peak_enabled = false;
+            self.limiter.oversampling = 4;
+        } else {
             self.limiter.oversampling = 1;
         }
+        self.limiter.lookahead_ms = finite_or(self.limiter.lookahead_ms, 3.0).clamp(1.0, 10.0);
 
         self.loudness.amount = finite_or(self.loudness.amount, 0.0).clamp(0.0, 1.0);
         self.loudness.balance = finite_or(self.loudness.balance, 0.0).clamp(-1.0, 1.0);
@@ -527,6 +556,8 @@ impl AudioDspConfig {
     pub fn has_active_effects(&self) -> bool {
         self.enabled
             && (self.input_gain_db.abs() > 1.0e-4
+                || matches!(self.headroom.mode, HeadroomMode::Manual)
+                    && self.headroom.manual_db.abs() > 1.0e-4
                 || match self.eq_mode {
                     EqMode::Graphic => self.graphic_equalizer.enabled,
                     EqMode::Parametric => self.parametric_equalizer.enabled,

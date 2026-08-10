@@ -38,6 +38,15 @@ actual fun platformSettingsCapabilities() =
         audioEffectsSupported = true,
         audioDsp =
             io.github.julystar.musicapp.core.domain.model.AudioDspCapabilities.SharedCore,
+        audioPipeline = io.github.julystar.musicapp.core.domain.model.AudioPipelineCapabilities(
+            dspInputSampleFormats = setOf(
+                io.github.julystar.musicapp.core.domain.model.AudioSampleFormat.Float32,
+            ),
+            dspOutputSampleFormats = setOf(
+                io.github.julystar.musicapp.core.domain.model.AudioSampleFormat.Float32,
+            ),
+            highResolutionDspOutput = true,
+        ),
         diagnosticsExportSupported = true,
         diagnosticsCenterSupported = true,
         safeModeSupported = true,

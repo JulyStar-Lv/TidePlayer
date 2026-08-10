@@ -9,7 +9,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 
 @OptIn(UnstableApi::class)
-internal class TideTunesRenderersFactory(
+internal class Media3AudioRenderersFactory(
     context: Context,
     private val dspProcessor: RustDspAudioProcessor,
 ) : DefaultRenderersFactory(context) {

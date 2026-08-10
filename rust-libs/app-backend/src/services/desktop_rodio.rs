@@ -20,7 +20,9 @@ use reqwest::{
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source};
 
 use super::{
-    audio_dsp_bridge::DspConfiguration,
+    audio_dsp_bridge::{
+        DspConfiguration, DspRuntimeBypassReason, DspRuntimeTelemetry, NativeDspRuntimeSnapshot,
+    },
     desktop_dsp::{DesktopDspConfigInput, DesktopDspSource},
 };
 use audio_dsp::AudioDspConfig;
@@ -39,6 +41,7 @@ pub enum DesktopRodioLoadResult {
 pub struct DesktopRodioPlayer {
     state: Mutex<DesktopRodioState>,
     completion: Arc<PlaybackCompletionState>,
+    telemetry: Arc<DspRuntimeTelemetry>,
 }
 
 #[derive(Default)]
@@ -60,6 +63,7 @@ struct PlaybackCompletionState {
 struct RodioOutput {
     _sink: MixerDeviceSink,
     player: Arc<Player>,
+    telemetry: Arc<DspRuntimeTelemetry>,
 }
 
 #[uniffi::export]
@@ -73,9 +77,11 @@ impl DesktopRodioPlayer {
         let dsp_config = state.dsp_config;
         let crossfade_duration_ms = state.crossfade_duration_ms;
         let was_loaded = state.loaded;
-        let output = match state.ensure_output() {
+        let output = match state.ensure_output(self.telemetry.clone()) {
             Ok(output) => output,
             Err(message) => {
+                self.telemetry
+                    .mark_bypassed(DspRuntimeBypassReason::OutputRouteUnavailable, 0);
                 tracing::warn!(message, "desktop rodio output unavailable");
                 return DesktopRodioLoadResult::Unsupported;
             }
@@ -86,6 +92,8 @@ impl DesktopRodioPlayer {
             match output.load_resource(&uri, &http_header_fields, dsp_config) {
                 Ok(result) => result,
                 Err(message) => {
+                    self.telemetry
+                        .mark_bypassed(DspRuntimeBypassReason::PlatformProcessingUnavailable, 0);
                     output.player.stop();
                     output.player = old_player;
                     tracing::warn!(message, "desktop rodio failed to decode resource");
@@ -140,6 +148,7 @@ impl DesktopRodioPlayer {
         state.loaded = false;
         state.duration_ms = 0;
         state.dsp_input = None;
+        self.telemetry.reset();
     }
 
     pub fn seek(&self, ms: u64) {
@@ -192,13 +201,19 @@ impl DesktopRodioPlayer {
         state.dsp_config = dsp_config;
         state.crossfade_duration_ms = crossfade_duration_ms.min(30_000);
     }
+
+    pub fn runtime_snapshot(&self) -> NativeDspRuntimeSnapshot {
+        self.telemetry.snapshot()
+    }
 }
 
 impl DesktopRodioPlayer {
     fn new() -> Self {
+        let telemetry = Arc::new(DspRuntimeTelemetry::default());
         Self {
             state: Mutex::new(DesktopRodioState::default()),
             completion: Arc::new(PlaybackCompletionState::default()),
+            telemetry,
         }
     }
 
@@ -229,16 +244,19 @@ fn observe_playback_completion(
 }
 
 impl DesktopRodioState {
-    fn ensure_output(&mut self) -> Result<&mut RodioOutput, String> {
+    fn ensure_output(
+        &mut self,
+        telemetry: Arc<DspRuntimeTelemetry>,
+    ) -> Result<&mut RodioOutput, String> {
         if self.output.is_none() {
-            self.output = Some(RodioOutput::new()?);
+            self.output = Some(RodioOutput::new(telemetry)?);
         }
         Ok(self.output.as_mut().unwrap())
     }
 }
 
 impl RodioOutput {
-    fn new() -> Result<Self, String> {
+    fn new(telemetry: Arc<DspRuntimeTelemetry>) -> Result<Self, String> {
         let mut sink = DeviceSinkBuilder::open_default_sink()
             .map_err(|error| format!("open default audio sink failed: {error}"))?;
         sink.log_on_drop(false);
@@ -246,6 +264,7 @@ impl RodioOutput {
         Ok(Self {
             _sink: sink,
             player,
+            telemetry,
         })
     }
 
@@ -323,7 +342,8 @@ impl RodioOutput {
     where
         S: Source + Send + 'static,
     {
-        let (source, input) = DesktopDspSource::new(source, dsp_config);
+        let (source, input) =
+            DesktopDspSource::new_with_telemetry(source, dsp_config, self.telemetry.clone());
         self.player.append(source);
         input
     }

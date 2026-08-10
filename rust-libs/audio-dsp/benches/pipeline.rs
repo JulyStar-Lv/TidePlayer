@@ -47,6 +47,35 @@ fn benchmark_pipeline(c: &mut Criterion) {
         });
     });
 
+    for sample_rate in [48_000, 96_000] {
+        group.bench_with_input(
+            BenchmarkId::new("true_peak_4x_stereo", sample_rate),
+            &sample_rate,
+            |bench, sample_rate| {
+                let mut processor = AudioDspProcessor::new(AudioDspConfig {
+                    enabled: true,
+                    limiter: LimiterConfig {
+                        enabled: true,
+                        ceiling_db: -1.0,
+                        true_peak_enabled: true,
+                        oversampling: 4,
+                        lookahead_ms: 3.0,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .unwrap();
+                processor.configure_format(*sample_rate, 2).unwrap();
+                let mut samples = vec![0.9; frames * 2];
+                bench.iter(|| {
+                    processor
+                        .process_interleaved_f32(black_box(&mut samples))
+                        .unwrap()
+                });
+            },
+        );
+    }
+
     let mut parametric = ParametricEqualizerConfig {
         enabled: true,
         band_count: MAX_PARAMETRIC_EQ_BANDS,

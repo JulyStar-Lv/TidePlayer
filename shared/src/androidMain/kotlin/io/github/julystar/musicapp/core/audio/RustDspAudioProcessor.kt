@@ -7,7 +7,9 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
 import java.nio.ByteBuffer
+import uniffi.app_backend.DspRuntimeBypassReason
 import uniffi.app_backend.NativeAudioDsp
+import uniffi.app_backend.NativeDspRuntimeSnapshot
 import uniffi.app_backend.ctCreateAudioDspProcessor
 
 /**
@@ -37,6 +39,8 @@ internal class RustDspAudioProcessor(
         RustDspNative.nativeReset(nativeHandle)
     }
 
+    fun runtimeSnapshot(): NativeDspRuntimeSnapshot = nativeDsp.runtimeSnapshot()
+
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val supportedEncoding =
             inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
@@ -46,6 +50,14 @@ internal class RustDspAudioProcessor(
             inputAudioFormat.channelCount !in 1..2 ||
             inputAudioFormat.sampleRate !in 8_000..384_000
         ) {
+            nativeDsp.markBypassed(
+                when {
+                    !supportedEncoding -> DspRuntimeBypassReason.UNSUPPORTED_SAMPLE_FORMAT
+                    inputAudioFormat.channelCount !in 1..2 ->
+                        DspRuntimeBypassReason.UNSUPPORTED_CHANNEL_COUNT
+                    else -> DspRuntimeBypassReason.UNSUPPORTED_SAMPLE_RATE
+                }
+            )
             throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
         }
         return inputAudioFormat
@@ -93,6 +105,7 @@ internal class RustDspAudioProcessor(
     }
 
     override fun close() {
+        nativeDsp.markInactive()
         nativeDsp.close()
     }
 }

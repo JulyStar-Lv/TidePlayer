@@ -6,6 +6,9 @@ import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
 import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
+import io.github.julystar.musicapp.core.domain.model.AudioDspMeterSnapshot
+import io.github.julystar.musicapp.core.domain.model.AudioDspPerformanceSnapshot
+import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeStatus
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
 import io.github.julystar.musicapp.core.domain.model.LibraryRebuildState
 import io.github.julystar.musicapp.core.domain.model.LocalMusicDirectory
@@ -52,6 +55,9 @@ data class SettingsUiState(
     val failureDialogTaskId: String? = null,
     val failureDetails: List<LibrarySyncFailure> = emptyList(),
     val audioDspFrequencyResponse: AudioDspFrequencyResponse = AudioDspFrequencyResponse.Empty,
+    val audioDspRuntimeStatus: AudioDspRuntimeStatus = AudioDspRuntimeStatus(),
+    val audioDspMeter: AudioDspMeterSnapshot = AudioDspMeterSnapshot(),
+    val audioDspPerformance: AudioDspPerformanceSnapshot = AudioDspPerformanceSnapshot(),
 ) {
     val enabledSourceCount: Int
         get() = sourceAccounts.count(SourceAccountSettingsItem::enabled)

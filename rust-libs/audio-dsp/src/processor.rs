@@ -2,8 +2,7 @@
 // https://github.com/QFDY-GZC/RawS-Music
 //
 // Original project license: Apache-2.0.
-// This implementation has been rewritten and modified for MelodyTrove's
-// cross-platform Rust DSP pipeline.
+// This implementation has been rewritten for the shared cross-platform Rust DSP pipeline.
 
 use thiserror::Error;
 
@@ -13,6 +12,7 @@ use crate::{
     config::{db_to_linear, AudioDspConfig, SpatialMode, MAX_CHANNELS},
     dynamic_eq::DynamicEqualizer,
     equalizer::Equalizer,
+    headroom::HeadroomManager,
     limiter::PeakLimiter,
     loudness::LoudnessBalance,
     mono_bass::MonoBass,
@@ -27,6 +27,7 @@ use crate::{
 pub const DSP_PIPELINE_ORDER: &[&str] = &[
     "input_safety",
     "replay_gain_and_preamp",
+    "headroom",
     "equalizer",
     "bass_treble_shelves",
     "equal_loudness_and_balance",
@@ -37,9 +38,34 @@ pub const DSP_PIPELINE_ORDER: &[&str] = &[
     "reverb",
     "exclusive_spatial_stage",
     "speaker_output",
-    "linked_sample_peak_limiter",
+    "linked_sample_or_true_peak_limiter",
     "final_safety_clamp",
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AudioDspMeterSnapshot {
+    pub input_peak: f32,
+    pub output_peak: f32,
+    pub compressor_gain_reduction_db: f32,
+    pub limiter_gain_reduction_db: f32,
+    pub clipped_samples: u64,
+    pub non_finite_recovery_count: u64,
+    pub applied_headroom_db: f32,
+}
+
+impl Default for AudioDspMeterSnapshot {
+    fn default() -> Self {
+        Self {
+            input_peak: 0.0,
+            output_peak: 0.0,
+            compressor_gain_reduction_db: 0.0,
+            limiter_gain_reduction_db: 0.0,
+            clipped_samples: 0,
+            non_finite_recovery_count: 0,
+            applied_headroom_db: 0.0,
+        }
+    }
+}
 
 #[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
 pub enum DspError {
@@ -66,6 +92,7 @@ pub struct AudioDspProcessor {
     active: bool,
     input_gain_current: f32,
     input_gain_target: f32,
+    headroom: HeadroomManager,
     equalizer: Equalizer,
     tone: ToneControl,
     loudness: LoudnessBalance,
@@ -78,6 +105,8 @@ pub struct AudioDspProcessor {
     spatial: SpatialProcessor,
     speaker_output: SpeakerOutput,
     limiter: PeakLimiter,
+    meter: AudioDspMeterSnapshot,
+    meter_release: f32,
 }
 
 impl AudioDspProcessor {
@@ -91,6 +120,7 @@ impl AudioDspProcessor {
             active: false,
             input_gain_current: 1.0,
             input_gain_target: 1.0,
+            headroom: HeadroomManager::default(),
             equalizer: Equalizer::default(),
             tone: ToneControl::default(),
             loudness: LoudnessBalance::default(),
@@ -103,6 +133,8 @@ impl AudioDspProcessor {
             spatial: SpatialProcessor::new(sample_rate),
             speaker_output: SpeakerOutput::default(),
             limiter: PeakLimiter::default(),
+            meter: AudioDspMeterSnapshot::default(),
+            meter_release: 0.9999,
         };
         processor.apply_config(config, false);
         Ok(processor)
@@ -120,6 +152,7 @@ impl AudioDspProcessor {
         self.sample_rate = sample_rate;
         self.channels = channels;
         self.format_configured = true;
+        self.meter_release = (-1.0 / (sample_rate as f32 * 0.3)).exp();
         if format_changed {
             self.reverb.configure_format(sample_rate);
             self.spatial.configure_format(sample_rate);
@@ -189,7 +222,7 @@ impl AudioDspProcessor {
         {
             self.speaker_output.reset();
         }
-        if previous.limiter.enabled != self.config.limiter.enabled {
+        if previous.limiter != self.config.limiter {
             self.limiter.reset();
         }
     }
@@ -209,6 +242,9 @@ impl AudioDspProcessor {
             smooth,
         );
         self.tone.configure(self.sample_rate, config.tone, smooth);
+        let estimated_positive_response_db = self.estimate_eq_tone_boost_db();
+        self.headroom
+            .configure(config.headroom, estimated_positive_response_db, smooth);
         self.loudness
             .configure(self.sample_rate, config.loudness, smooth);
         self.mono_bass.configure(self.sample_rate, config.mono_bass);
@@ -273,12 +309,19 @@ impl AudioDspProcessor {
     }
 
     fn process_frame(&mut self, frame: &mut [f32; MAX_CHANNELS]) {
+        let mut input_peak = 0.0_f32;
         for sample in frame.iter_mut().take(self.channels) {
-            if !sample.is_finite() {
+            if sample.is_finite() {
+                input_peak = input_peak.max(sample.abs());
+            } else {
+                self.meter.non_finite_recovery_count =
+                    self.meter.non_finite_recovery_count.saturating_add(1);
                 *sample = 0.0;
             }
         }
+        self.meter.input_peak = (self.meter.input_peak * self.meter_release).max(input_peak);
         if !self.active {
+            self.update_output_peak(frame);
             return;
         }
 
@@ -286,6 +329,7 @@ impl AudioDspProcessor {
         for sample in frame.iter_mut().take(self.channels) {
             *sample *= self.input_gain_current;
         }
+        self.headroom.process_frame(frame, self.channels);
         self.equalizer.process_frame(frame, self.channels);
         self.tone.process_frame(frame, self.channels);
         self.loudness.process_frame(frame, self.channels);
@@ -304,11 +348,42 @@ impl AudioDspProcessor {
         self.limiter.process_frame(frame, self.channels);
         for sample in frame.iter_mut().take(self.channels) {
             *sample = if sample.is_finite() {
+                if sample.abs() > 1.0 {
+                    self.meter.clipped_samples = self.meter.clipped_samples.saturating_add(1);
+                }
                 sample.clamp(-1.0, 1.0)
             } else {
+                self.meter.non_finite_recovery_count =
+                    self.meter.non_finite_recovery_count.saturating_add(1);
                 0.0
             };
         }
+        self.update_output_peak(frame);
+    }
+
+    fn update_output_peak(&mut self, frame: &[f32; MAX_CHANNELS]) {
+        let peak = frame[..self.channels]
+            .iter()
+            .fold(0.0_f32, |maximum, sample| maximum.max(sample.abs()));
+        self.meter.output_peak = (self.meter.output_peak * self.meter_release).max(peak);
+    }
+
+    fn estimate_eq_tone_boost_db(&self) -> f32 {
+        const RESPONSE_SAMPLES: usize = 256;
+        let minimum_hz = 20.0_f32;
+        let maximum_hz = (self.sample_rate as f32 * 0.45)
+            .min(20_000.0)
+            .max(minimum_hz);
+        let ratio = maximum_hz / minimum_hz;
+        let mut maximum_db = 0.0_f32;
+        for index in 0..RESPONSE_SAMPLES {
+            let position = index as f32 / (RESPONSE_SAMPLES - 1) as f32;
+            let frequency = minimum_hz * ratio.powf(position);
+            let response = self.equalizer.frequency_response_db(frequency)
+                + self.tone.frequency_response_db(frequency);
+            maximum_db = maximum_db.max(response);
+        }
+        maximum_db
     }
 
     pub fn calculate_frequency_response(
@@ -321,6 +396,7 @@ impl AudioDspProcessor {
         }
         for (frequency, response) in frequencies_hz.iter().copied().zip(response_db.iter_mut()) {
             *response = self.config.input_gain_db
+                + self.headroom.applied_db()
                 + self.equalizer.frequency_response_db(frequency)
                 + self.tone.frequency_response_db(frequency);
         }
@@ -330,6 +406,7 @@ impl AudioDspProcessor {
     pub fn reset(&mut self) {
         self.equalizer.reset();
         self.tone.reset();
+        self.headroom.reset();
         self.loudness.reset();
         self.mono_bass.reset();
         self.dynamic_eq.reset();
@@ -341,11 +418,14 @@ impl AudioDspProcessor {
         self.speaker_output.reset();
         self.limiter.reset();
         self.input_gain_current = self.input_gain_target;
+        self.meter = AudioDspMeterSnapshot {
+            applied_headroom_db: self.headroom.applied_db(),
+            ..AudioDspMeterSnapshot::default()
+        };
     }
 
     pub fn latency_frames(&self) -> usize {
-        // The current limiter is sample-peak and has no look-ahead.
-        0
+        self.limiter.latency_frames()
     }
 
     pub fn limiter_gain_reduction_db(&self) -> f32 {
@@ -354,6 +434,15 @@ impl AudioDspProcessor {
 
     pub fn compressor_gain_reduction_db(&self) -> f32 {
         self.compressor.gain_reduction_db()
+    }
+
+    pub fn meter_snapshot(&self) -> AudioDspMeterSnapshot {
+        AudioDspMeterSnapshot {
+            compressor_gain_reduction_db: self.compressor.gain_reduction_db(),
+            limiter_gain_reduction_db: self.limiter.gain_reduction_db(),
+            applied_headroom_db: self.headroom.applied_db(),
+            ..self.meter
+        }
     }
 
     pub fn has_active_effects(&self) -> bool {
@@ -377,7 +466,10 @@ impl AudioDspProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{BiquadFilterType, EqMode, ParametricEqBand, ParametricEqualizerConfig};
+    use crate::config::{
+        BiquadFilterType, EqMode, GraphicEqualizerConfig, HeadroomConfig, HeadroomMode,
+        LimiterConfig, ParametricEqBand, ParametricEqualizerConfig,
+    };
 
     fn configured(config: AudioDspConfig, sample_rate: u32, channels: usize) -> AudioDspProcessor {
         let mut processor = AudioDspProcessor::new(config).unwrap();
@@ -580,11 +672,121 @@ mod tests {
     fn pipeline_order_is_centralized_and_limiter_is_last_effect() {
         assert_eq!(
             DSP_PIPELINE_ORDER[DSP_PIPELINE_ORDER.len() - 2],
-            "linked_sample_peak_limiter"
+            "linked_sample_or_true_peak_limiter"
         );
         assert_eq!(
             DSP_PIPELINE_ORDER[DSP_PIPELINE_ORDER.len() - 1],
             "final_safety_clamp"
         );
+    }
+
+    #[test]
+    fn automatic_headroom_prevents_positive_eq_response_from_hard_clipping() {
+        let mut gains = [0.0; crate::config::GRAPHIC_EQ_BAND_COUNT];
+        gains[5] = 12.0;
+        let config = AudioDspConfig {
+            enabled: true,
+            headroom: HeadroomConfig {
+                mode: HeadroomMode::Automatic,
+                manual_db: 0.0,
+            },
+            graphic_equalizer: GraphicEqualizerConfig {
+                enabled: true,
+                gains_db: gains,
+                ..GraphicEqualizerConfig::default()
+            },
+            limiter: LimiterConfig {
+                enabled: false,
+                ..LimiterConfig::default()
+            },
+            ..AudioDspConfig::default()
+        };
+        let mut processor = configured(config, 48_000, 2);
+        let mut samples = [0.0; 8_192];
+        for frame in 0..samples.len() / 2 {
+            let sample =
+                (2.0 * std::f32::consts::PI * 1_000.0 * frame as f32 / 48_000.0).sin() * 0.75;
+            samples[frame * 2] = sample;
+            samples[frame * 2 + 1] = sample;
+        }
+        processor.process_interleaved_f32(&mut samples).unwrap();
+        assert!(samples.iter().all(|sample| sample.abs() < 1.0));
+        let meter = processor.meter_snapshot();
+        assert_eq!(meter.clipped_samples, 0);
+        assert!(meter.applied_headroom_db < -11.0);
+    }
+
+    #[test]
+    fn clip_meter_counts_samples_before_final_safety_clamp() {
+        let mut processor = configured(
+            AudioDspConfig {
+                enabled: true,
+                input_gain_db: 12.0,
+                limiter: LimiterConfig {
+                    enabled: false,
+                    ..LimiterConfig::default()
+                },
+                ..AudioDspConfig::default()
+            },
+            48_000,
+            2,
+        );
+        let mut samples = [0.5, -0.5];
+        processor.process_interleaved_f32(&mut samples).unwrap();
+        assert_eq!(samples, [1.0, -1.0]);
+        assert_eq!(processor.meter_snapshot().clipped_samples, 2);
+    }
+
+    #[test]
+    fn true_peak_latency_tracks_sample_rate_and_reset_clears_delayed_audio() {
+        let config = AudioDspConfig {
+            enabled: true,
+            limiter: LimiterConfig {
+                enabled: true,
+                true_peak_enabled: true,
+                oversampling: 4,
+                lookahead_ms: 3.0,
+                ..LimiterConfig::default()
+            },
+            ..AudioDspConfig::default()
+        };
+        let mut processor = configured(config, 48_000, 1);
+        assert_eq!(processor.latency_frames(), 144);
+        let mut impulse = [0.0; 200];
+        impulse[0] = 0.5;
+        processor.process_interleaved_f32(&mut impulse).unwrap();
+        assert!(impulse[..144].iter().all(|sample| sample.abs() < 1.0e-9));
+
+        processor.reset();
+        let mut silence = [0.0; 320];
+        processor.process_interleaved_f32(&mut silence).unwrap();
+        assert!(silence.iter().all(|sample| sample.abs() < 1.0e-9));
+
+        processor.configure_format(96_000, 2).unwrap();
+        assert_eq!(processor.latency_frames(), 288);
+    }
+
+    #[test]
+    fn reset_clears_meter_transient_and_counter_state() {
+        let mut processor = configured(
+            AudioDspConfig {
+                enabled: true,
+                input_gain_db: 12.0,
+                limiter: LimiterConfig {
+                    enabled: false,
+                    ..LimiterConfig::default()
+                },
+                ..AudioDspConfig::default()
+            },
+            48_000,
+            1,
+        );
+        processor.process_interleaved_f32(&mut [0.75]).unwrap();
+        assert!(processor.meter_snapshot().clipped_samples > 0);
+        processor.reset();
+        let meter = processor.meter_snapshot();
+        assert_eq!(meter.input_peak, 0.0);
+        assert_eq!(meter.output_peak, 0.0);
+        assert_eq!(meter.clipped_samples, 0);
     }
 }

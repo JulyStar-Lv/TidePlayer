@@ -2,8 +2,7 @@
 // https://github.com/QFDY-GZC/RawS-Music
 //
 // Original project license: Apache-2.0.
-// This implementation has been rewritten and modified for MelodyTrove's
-// cross-platform Rust DSP pipeline.
+// This implementation has been rewritten for the shared cross-platform Rust DSP pipeline.
 
 //! Platform-independent, realtime-safe audio DSP.
 //!
@@ -15,6 +14,7 @@ mod compressor;
 mod config;
 mod dynamic_eq;
 mod equalizer;
+mod headroom;
 mod limiter;
 mod loudness;
 mod mono_bass;
@@ -25,7 +25,8 @@ mod spatial;
 mod speaker;
 mod stereo;
 mod tone;
+mod true_peak;
 
 pub use biquad::{BiquadCoefficients, FrequencyResponse};
 pub use config::*;
-pub use processor::{AudioDspProcessor, DspError, DSP_PIPELINE_ORDER};
+pub use processor::{AudioDspMeterSnapshot, AudioDspProcessor, DspError, DSP_PIPELINE_ORDER};

@@ -76,9 +76,9 @@ kotlin {
             isStatic = true
             binaryOption("bundleId", "io.github.julystar.musicapp.shared")
         }
-        iosTarget.compilations.getByName("main").cinterops.create("tideDspAudioTap") {
+        iosTarget.compilations.getByName("main").cinterops.create("audioProcessingTap") {
             definitionFile.set(
-                layout.projectDirectory.file("src/nativeInterop/cinterop/TideDspAudioTap.def")
+                layout.projectDirectory.file("src/nativeInterop/cinterop/AudioProcessingTap.def")
             )
             includeDirs(layout.projectDirectory.dir("../iosApp"))
         }

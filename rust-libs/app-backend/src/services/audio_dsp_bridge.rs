@@ -1,12 +1,20 @@
-use std::{cell::UnsafeCell, slice, sync::Mutex};
+use std::{
+    cell::UnsafeCell,
+    slice,
+    sync::{
+        atomic::{AtomicI32, AtomicU32, AtomicU64, AtomicU8, Ordering},
+        Arc, Mutex,
+    },
+    time::Instant,
+};
 
 use audio_dsp::{
     AudioDspConfig, AudioDspProcessor, BiquadFilterType, CompressorConfig, CrossfeedConfig,
-    DspError, DynamicEqConfig, EqMode, GraphicEqualizerConfig, LimiterConfig, LoudnessConfig,
-    MonoBassConfig, MoogFilterConfig, MoogFilterMode, ParametricEqBand, ParametricEqualizerConfig,
-    ReverbConfig, ReverbPreset, SpatialAudioConfig, SpatialMode, SpeakerOutputConfig,
-    SpeakerOutputMode, StereoWidthConfig, ToneControlConfig, GRAPHIC_EQ_BAND_COUNT,
-    MAX_PARAMETRIC_EQ_BANDS,
+    DspError, DynamicEqConfig, EqMode, GraphicEqualizerConfig, HeadroomConfig, HeadroomMode,
+    LimiterConfig, LoudnessConfig, MonoBassConfig, MoogFilterConfig, MoogFilterMode,
+    ParametricEqBand, ParametricEqualizerConfig, ReverbConfig, ReverbPreset, SpatialAudioConfig,
+    SpatialMode, SpeakerOutputConfig, SpeakerOutputMode, StereoWidthConfig, ToneControlConfig,
+    GRAPHIC_EQ_BAND_COUNT, MAX_PARAMETRIC_EQ_BANDS,
 };
 use triple_buffer::{triple_buffer, Input, Output};
 
@@ -16,6 +24,19 @@ const I16_SCRATCH_SAMPLES: usize = 2_048;
 pub enum DspEqMode {
     Graphic,
     Parametric,
+}
+
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum DspHeadroomMode {
+    Off,
+    Automatic,
+    Manual,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct DspHeadroom {
+    pub mode: DspHeadroomMode,
+    pub manual_db: f32,
 }
 
 #[derive(Debug, Clone, Copy, uniffi::Enum)]
@@ -166,6 +187,9 @@ pub struct DspLimiter {
     pub ceiling_db: f32,
     pub attack_ms: f32,
     pub release_ms: f32,
+    pub true_peak_enabled: bool,
+    pub oversampling: u8,
+    pub lookahead_ms: f32,
 }
 
 #[derive(Debug, Clone, Copy, uniffi::Enum)]
@@ -188,6 +212,7 @@ pub struct DspReverb {
 pub struct DspConfiguration {
     pub enabled: bool,
     pub input_gain_db: f32,
+    pub headroom: DspHeadroom,
     pub equalizer_mode: DspEqMode,
     pub graphic_equalizer: DspGraphicEqualizer,
     pub parametric_equalizer: DspParametricEqualizer,
@@ -211,6 +236,10 @@ impl Default for DspConfiguration {
         Self {
             enabled: config.enabled,
             input_gain_db: config.input_gain_db,
+            headroom: DspHeadroom {
+                mode: DspHeadroomMode::Off,
+                manual_db: 0.0,
+            },
             equalizer_mode: DspEqMode::Graphic,
             graphic_equalizer: DspGraphicEqualizer {
                 enabled: config.graphic_equalizer.enabled,
@@ -291,6 +320,9 @@ impl Default for DspConfiguration {
                 ceiling_db: config.limiter.ceiling_db,
                 attack_ms: config.limiter.attack_ms,
                 release_ms: config.limiter.release_ms,
+                true_peak_enabled: config.limiter.true_peak_enabled,
+                oversampling: config.limiter.oversampling,
+                lookahead_ms: config.limiter.lookahead_ms,
             },
             reverb: DspReverb {
                 preset: DspReverbPreset::None,
@@ -330,6 +362,10 @@ impl DspConfiguration {
         AudioDspConfig {
             enabled: self.enabled,
             input_gain_db: self.input_gain_db,
+            headroom: HeadroomConfig {
+                mode: self.headroom.mode.into(),
+                manual_db: self.headroom.manual_db,
+            },
             eq_mode: self.equalizer_mode.into(),
             graphic_equalizer: GraphicEqualizerConfig {
                 enabled: self.graphic_equalizer.enabled,
@@ -411,8 +447,9 @@ impl DspConfiguration {
                 ceiling_db: self.limiter.ceiling_db,
                 attack_ms: self.limiter.attack_ms,
                 release_ms: self.limiter.release_ms,
-                true_peak_enabled: false,
-                oversampling: 1,
+                true_peak_enabled: self.limiter.true_peak_enabled,
+                oversampling: self.limiter.oversampling,
+                lookahead_ms: self.limiter.lookahead_ms,
             },
             reverb: ReverbConfig {
                 preset: self.reverb.preset.into(),
@@ -436,6 +473,7 @@ macro_rules! enum_conversion {
 }
 
 enum_conversion!(DspEqMode => EqMode { Graphic, Parametric });
+enum_conversion!(DspHeadroomMode => HeadroomMode { Off, Automatic, Manual });
 enum_conversion!(DspFilterType => BiquadFilterType {
     Peak, LowShelf, HighShelf, LowPass, HighPass, BandPass, Notch
 });
@@ -452,6 +490,334 @@ enum_conversion!(DspReverbPreset => ReverbPreset {
     None, SmallRoom, MediumRoom, LargeRoom, Hall, Plate
 });
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum DspRuntimeState {
+    Inactive,
+    Active,
+    Bypassed,
+    Unavailable,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum DspRuntimeBypassReason {
+    None,
+    EffectsDisabled,
+    UnsupportedSampleFormat,
+    UnsupportedChannelCount,
+    UnsupportedSampleRate,
+    PlatformProcessingUnavailable,
+    ProtectedContent,
+    AudioTapUnavailable,
+    OutputRouteUnavailable,
+    NativeProcessingError,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum DspSampleFormat {
+    Unknown,
+    Pcm16,
+    Float32,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct NativeDspRuntimeSnapshot {
+    pub state: DspRuntimeState,
+    pub sample_rate: u32,
+    pub channel_count: u32,
+    pub sample_format: DspSampleFormat,
+    pub bypass_reason: DspRuntimeBypassReason,
+    pub last_error_code: i32,
+    pub latency_frames: u32,
+    pub input_peak_db: f32,
+    pub output_peak_db: f32,
+    pub compressor_gain_reduction_db: f32,
+    pub limiter_gain_reduction_db: f32,
+    pub clipped_samples: u64,
+    pub non_finite_recovery_count: u64,
+    pub applied_headroom_db: f32,
+    pub process_count: u64,
+    pub average_processing_time_us: f32,
+    pub max_processing_time_us: f32,
+    pub buffer_duration_us: f32,
+    pub deadline_utilization: f32,
+}
+
+#[derive(Debug)]
+pub(crate) struct DspRuntimeTelemetry {
+    state: AtomicU8,
+    sample_rate: AtomicU32,
+    channel_count: AtomicU32,
+    sample_format: AtomicU8,
+    bypass_reason: AtomicU8,
+    last_error_code: AtomicI32,
+    latency_frames: AtomicU32,
+    input_peak_bits: AtomicU32,
+    output_peak_bits: AtomicU32,
+    compressor_reduction_bits: AtomicU32,
+    limiter_reduction_bits: AtomicU32,
+    clipped_samples: AtomicU64,
+    non_finite_recovery_count: AtomicU64,
+    applied_headroom_bits: AtomicU32,
+    process_count: AtomicU64,
+    total_processing_nanoseconds: AtomicU64,
+    max_processing_nanoseconds: AtomicU64,
+    buffer_duration_nanoseconds: AtomicU64,
+}
+
+impl Default for DspRuntimeTelemetry {
+    fn default() -> Self {
+        Self {
+            state: AtomicU8::new(DspRuntimeState::Inactive as u8),
+            sample_rate: AtomicU32::new(0),
+            channel_count: AtomicU32::new(0),
+            sample_format: AtomicU8::new(DspSampleFormat::Unknown as u8),
+            bypass_reason: AtomicU8::new(DspRuntimeBypassReason::None as u8),
+            last_error_code: AtomicI32::new(0),
+            latency_frames: AtomicU32::new(0),
+            input_peak_bits: AtomicU32::new(f32::NEG_INFINITY.to_bits()),
+            output_peak_bits: AtomicU32::new(f32::NEG_INFINITY.to_bits()),
+            compressor_reduction_bits: AtomicU32::new(0.0_f32.to_bits()),
+            limiter_reduction_bits: AtomicU32::new(0.0_f32.to_bits()),
+            clipped_samples: AtomicU64::new(0),
+            non_finite_recovery_count: AtomicU64::new(0),
+            applied_headroom_bits: AtomicU32::new(0.0_f32.to_bits()),
+            process_count: AtomicU64::new(0),
+            total_processing_nanoseconds: AtomicU64::new(0),
+            max_processing_nanoseconds: AtomicU64::new(0),
+            buffer_duration_nanoseconds: AtomicU64::new(0),
+        }
+    }
+}
+
+impl DspRuntimeTelemetry {
+    pub(crate) fn configured(&self, processor: &AudioDspProcessor) {
+        if let Some((sample_rate, channels)) = processor.format() {
+            self.sample_rate.store(sample_rate, Ordering::Relaxed);
+            self.channel_count.store(channels as u32, Ordering::Relaxed);
+            self.latency_frames
+                .store(processor.latency_frames() as u32, Ordering::Relaxed);
+        }
+        self.state
+            .store(DspRuntimeState::Inactive as u8, Ordering::Release);
+        self.bypass_reason
+            .store(DspRuntimeBypassReason::None as u8, Ordering::Relaxed);
+        self.last_error_code.store(0, Ordering::Relaxed);
+    }
+
+    pub(crate) fn configure_error(&self, error: DspError) {
+        let reason = match error {
+            DspError::UnsupportedSampleRate(_) => DspRuntimeBypassReason::UnsupportedSampleRate,
+            DspError::UnsupportedChannelCount(_) => DspRuntimeBypassReason::UnsupportedChannelCount,
+            _ => DspRuntimeBypassReason::NativeProcessingError,
+        };
+        self.mark_bypassed(reason, error_code(error));
+    }
+
+    pub(crate) fn record_process(
+        &self,
+        processor: &AudioDspProcessor,
+        sample_format: DspSampleFormat,
+        frames: usize,
+        elapsed_nanoseconds: u64,
+        result: Result<(), DspError>,
+    ) {
+        self.sample_format
+            .store(sample_format as u8, Ordering::Relaxed);
+        let sample_rate = processor.format().map_or(0, |format| format.0);
+        let buffer_nanoseconds = if sample_rate == 0 {
+            0
+        } else {
+            (frames as u64).saturating_mul(1_000_000_000) / sample_rate as u64
+        };
+        self.buffer_duration_nanoseconds
+            .store(buffer_nanoseconds, Ordering::Relaxed);
+        self.process_count.fetch_add(1, Ordering::Relaxed);
+        self.total_processing_nanoseconds
+            .fetch_add(elapsed_nanoseconds, Ordering::Relaxed);
+        self.max_processing_nanoseconds
+            .fetch_max(elapsed_nanoseconds, Ordering::Relaxed);
+
+        match result {
+            Ok(()) => {
+                let meter = processor.meter_snapshot();
+                self.input_peak_bits
+                    .store(linear_to_db(meter.input_peak).to_bits(), Ordering::Relaxed);
+                self.output_peak_bits
+                    .store(linear_to_db(meter.output_peak).to_bits(), Ordering::Relaxed);
+                self.compressor_reduction_bits.store(
+                    meter.compressor_gain_reduction_db.to_bits(),
+                    Ordering::Relaxed,
+                );
+                self.limiter_reduction_bits
+                    .store(meter.limiter_gain_reduction_db.to_bits(), Ordering::Relaxed);
+                self.clipped_samples
+                    .store(meter.clipped_samples, Ordering::Relaxed);
+                self.non_finite_recovery_count
+                    .store(meter.non_finite_recovery_count, Ordering::Relaxed);
+                self.applied_headroom_bits
+                    .store(meter.applied_headroom_db.to_bits(), Ordering::Relaxed);
+                self.latency_frames
+                    .store(processor.latency_frames() as u32, Ordering::Relaxed);
+                if processor.has_active_effects() {
+                    self.state
+                        .store(DspRuntimeState::Active as u8, Ordering::Release);
+                    self.bypass_reason
+                        .store(DspRuntimeBypassReason::None as u8, Ordering::Relaxed);
+                } else {
+                    self.state
+                        .store(DspRuntimeState::Bypassed as u8, Ordering::Release);
+                    self.bypass_reason.store(
+                        DspRuntimeBypassReason::EffectsDisabled as u8,
+                        Ordering::Relaxed,
+                    );
+                }
+                self.last_error_code.store(0, Ordering::Relaxed);
+            }
+            Err(error) => {
+                self.state
+                    .store(DspRuntimeState::Error as u8, Ordering::Release);
+                self.bypass_reason.store(
+                    DspRuntimeBypassReason::NativeProcessingError as u8,
+                    Ordering::Relaxed,
+                );
+                self.last_error_code
+                    .store(error_code(error), Ordering::Relaxed);
+            }
+        }
+    }
+
+    pub(crate) fn mark_bypassed(&self, reason: DspRuntimeBypassReason, error: i32) {
+        self.bypass_reason.store(reason as u8, Ordering::Relaxed);
+        self.last_error_code.store(error, Ordering::Relaxed);
+        self.state
+            .store(DspRuntimeState::Bypassed as u8, Ordering::Release);
+    }
+
+    pub(crate) fn reset(&self) {
+        self.state
+            .store(DspRuntimeState::Inactive as u8, Ordering::Release);
+        self.bypass_reason
+            .store(DspRuntimeBypassReason::None as u8, Ordering::Relaxed);
+        self.last_error_code.store(0, Ordering::Relaxed);
+        self.input_peak_bits
+            .store(f32::NEG_INFINITY.to_bits(), Ordering::Relaxed);
+        self.output_peak_bits
+            .store(f32::NEG_INFINITY.to_bits(), Ordering::Relaxed);
+        self.compressor_reduction_bits
+            .store(0.0_f32.to_bits(), Ordering::Relaxed);
+        self.limiter_reduction_bits
+            .store(0.0_f32.to_bits(), Ordering::Relaxed);
+        self.clipped_samples.store(0, Ordering::Relaxed);
+        self.non_finite_recovery_count.store(0, Ordering::Relaxed);
+        self.process_count.store(0, Ordering::Relaxed);
+        self.total_processing_nanoseconds
+            .store(0, Ordering::Relaxed);
+        self.max_processing_nanoseconds.store(0, Ordering::Relaxed);
+        self.buffer_duration_nanoseconds.store(0, Ordering::Relaxed);
+    }
+
+    pub(crate) fn snapshot(&self) -> NativeDspRuntimeSnapshot {
+        let process_count = self.process_count.load(Ordering::Relaxed);
+        let total_nanoseconds = self.total_processing_nanoseconds.load(Ordering::Relaxed);
+        let max_nanoseconds = self.max_processing_nanoseconds.load(Ordering::Relaxed);
+        let buffer_nanoseconds = self.buffer_duration_nanoseconds.load(Ordering::Relaxed);
+        let average_nanoseconds = if process_count == 0 {
+            0.0
+        } else {
+            total_nanoseconds as f32 / process_count as f32
+        };
+        NativeDspRuntimeSnapshot {
+            state: runtime_state(self.state.load(Ordering::Acquire)),
+            sample_rate: self.sample_rate.load(Ordering::Relaxed),
+            channel_count: self.channel_count.load(Ordering::Relaxed),
+            sample_format: sample_format(self.sample_format.load(Ordering::Relaxed)),
+            bypass_reason: bypass_reason(self.bypass_reason.load(Ordering::Relaxed)),
+            last_error_code: self.last_error_code.load(Ordering::Relaxed),
+            latency_frames: self.latency_frames.load(Ordering::Relaxed),
+            input_peak_db: f32::from_bits(self.input_peak_bits.load(Ordering::Relaxed)),
+            output_peak_db: f32::from_bits(self.output_peak_bits.load(Ordering::Relaxed)),
+            compressor_gain_reduction_db: f32::from_bits(
+                self.compressor_reduction_bits.load(Ordering::Relaxed),
+            ),
+            limiter_gain_reduction_db: f32::from_bits(
+                self.limiter_reduction_bits.load(Ordering::Relaxed),
+            ),
+            clipped_samples: self.clipped_samples.load(Ordering::Relaxed),
+            non_finite_recovery_count: self.non_finite_recovery_count.load(Ordering::Relaxed),
+            applied_headroom_db: f32::from_bits(self.applied_headroom_bits.load(Ordering::Relaxed)),
+            process_count,
+            average_processing_time_us: average_nanoseconds / 1_000.0,
+            max_processing_time_us: max_nanoseconds as f32 / 1_000.0,
+            buffer_duration_us: buffer_nanoseconds as f32 / 1_000.0,
+            deadline_utilization: if buffer_nanoseconds == 0 {
+                0.0
+            } else {
+                average_nanoseconds / buffer_nanoseconds as f32
+            },
+        }
+    }
+}
+
+fn linear_to_db(value: f32) -> f32 {
+    if value > 0.0 && value.is_finite() {
+        (20.0 * value.log10()).max(-120.0)
+    } else {
+        -120.0
+    }
+}
+
+fn runtime_state(value: u8) -> DspRuntimeState {
+    match value {
+        value if value == DspRuntimeState::Active as u8 => DspRuntimeState::Active,
+        value if value == DspRuntimeState::Bypassed as u8 => DspRuntimeState::Bypassed,
+        value if value == DspRuntimeState::Unavailable as u8 => DspRuntimeState::Unavailable,
+        value if value == DspRuntimeState::Error as u8 => DspRuntimeState::Error,
+        _ => DspRuntimeState::Inactive,
+    }
+}
+
+fn sample_format(value: u8) -> DspSampleFormat {
+    match value {
+        value if value == DspSampleFormat::Pcm16 as u8 => DspSampleFormat::Pcm16,
+        value if value == DspSampleFormat::Float32 as u8 => DspSampleFormat::Float32,
+        _ => DspSampleFormat::Unknown,
+    }
+}
+
+fn bypass_reason(value: u8) -> DspRuntimeBypassReason {
+    match value {
+        value if value == DspRuntimeBypassReason::EffectsDisabled as u8 => {
+            DspRuntimeBypassReason::EffectsDisabled
+        }
+        value if value == DspRuntimeBypassReason::UnsupportedSampleFormat as u8 => {
+            DspRuntimeBypassReason::UnsupportedSampleFormat
+        }
+        value if value == DspRuntimeBypassReason::UnsupportedChannelCount as u8 => {
+            DspRuntimeBypassReason::UnsupportedChannelCount
+        }
+        value if value == DspRuntimeBypassReason::UnsupportedSampleRate as u8 => {
+            DspRuntimeBypassReason::UnsupportedSampleRate
+        }
+        value if value == DspRuntimeBypassReason::PlatformProcessingUnavailable as u8 => {
+            DspRuntimeBypassReason::PlatformProcessingUnavailable
+        }
+        value if value == DspRuntimeBypassReason::ProtectedContent as u8 => {
+            DspRuntimeBypassReason::ProtectedContent
+        }
+        value if value == DspRuntimeBypassReason::AudioTapUnavailable as u8 => {
+            DspRuntimeBypassReason::AudioTapUnavailable
+        }
+        value if value == DspRuntimeBypassReason::OutputRouteUnavailable as u8 => {
+            DspRuntimeBypassReason::OutputRouteUnavailable
+        }
+        value if value == DspRuntimeBypassReason::NativeProcessingError as u8 => {
+            DspRuntimeBypassReason::NativeProcessingError
+        }
+        _ => DspRuntimeBypassReason::None,
+    }
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct NativeDspCapabilities {
     pub max_parametric_bands: u32,
@@ -466,6 +832,7 @@ struct NativeDspAudioState {
     processor: AudioDspProcessor,
     config_output: Output<AudioDspConfig>,
     i16_scratch: [f32; I16_SCRATCH_SAMPLES],
+    telemetry: Arc<DspRuntimeTelemetry>,
 }
 
 impl NativeDspAudioState {
@@ -481,6 +848,7 @@ impl NativeDspAudioState {
 pub struct NativeAudioDsp {
     config_input: Mutex<Input<AudioDspConfig>>,
     audio: UnsafeCell<NativeDspAudioState>,
+    telemetry: Arc<DspRuntimeTelemetry>,
 }
 
 // The control side only touches `config_input`. Platform adapters guarantee
@@ -506,9 +874,21 @@ impl NativeAudioDsp {
             max_parametric_bands: MAX_PARAMETRIC_EQ_BANDS as u32,
             supports_mono: true,
             supports_stereo: true,
-            true_peak_limiter: false,
+            true_peak_limiter: true,
             convolution: false,
         }
+    }
+
+    pub fn runtime_snapshot(&self) -> NativeDspRuntimeSnapshot {
+        self.telemetry.snapshot()
+    }
+
+    pub fn mark_bypassed(&self, reason: DspRuntimeBypassReason) {
+        self.telemetry.mark_bypassed(reason, 0);
+    }
+
+    pub fn mark_inactive(&self) {
+        self.telemetry.reset();
     }
 }
 
@@ -518,13 +898,16 @@ pub fn ct_create_audio_dsp_processor() -> std::sync::Arc<NativeAudioDsp> {
     let (input, output) = triple_buffer(&config);
     let processor =
         AudioDspProcessor::new(config).expect("the built-in DSP configuration must be valid");
+    let telemetry = Arc::new(DspRuntimeTelemetry::default());
     std::sync::Arc::new(NativeAudioDsp {
         config_input: Mutex::new(input),
         audio: UnsafeCell::new(NativeDspAudioState {
             processor,
             config_output: output,
             i16_scratch: [0.0; I16_SCRATCH_SAMPLES],
+            telemetry: telemetry.clone(),
         }),
+        telemetry,
     })
 }
 
@@ -552,7 +935,7 @@ unsafe fn audio_state<'a>(handle: u64) -> Option<&'a mut NativeDspAudioState> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_retain(handle: u64) -> i32 {
+pub unsafe extern "C" fn audio_dsp_retain(handle: u64) -> i32 {
     let owner = handle as usize as *const NativeAudioDsp;
     if owner.is_null() {
         return -1;
@@ -562,7 +945,7 @@ pub unsafe extern "C" fn tide_audio_dsp_retain(handle: u64) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_release(handle: u64) {
+pub unsafe extern "C" fn audio_dsp_release(handle: u64) {
     let owner = handle as usize as *const NativeAudioDsp;
     if !owner.is_null() {
         std::sync::Arc::decrement_strong_count(owner);
@@ -581,7 +964,7 @@ fn error_code(error: DspError) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_configure_format(
+pub unsafe extern "C" fn audio_dsp_configure_format(
     handle: u64,
     sample_rate: u32,
     channels: u32,
@@ -589,22 +972,26 @@ pub unsafe extern "C" fn tide_audio_dsp_configure_format(
     let Some(state) = audio_state(handle) else {
         return -1;
     };
-    state
+    let result = state
         .processor
-        .configure_format(sample_rate, channels as usize)
-        .map(|()| 0)
-        .unwrap_or_else(error_code)
+        .configure_format(sample_rate, channels as usize);
+    match result {
+        Ok(()) => state.telemetry.configured(&state.processor),
+        Err(error) => state.telemetry.configure_error(error),
+    }
+    result.map(|()| 0).unwrap_or_else(error_code)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_reset(handle: u64) {
+pub unsafe extern "C" fn audio_dsp_reset(handle: u64) {
     if let Some(state) = audio_state(handle) {
         state.processor.reset();
+        state.telemetry.reset();
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_f32(
+pub unsafe extern "C" fn audio_dsp_process_interleaved_f32(
     handle: u64,
     samples: *mut f32,
     frames: u32,
@@ -626,15 +1013,22 @@ pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_f32(
         return -1;
     };
     state.apply_pending_config();
-    state
+    let started = Instant::now();
+    let result = state
         .processor
-        .process_interleaved_f32(slice::from_raw_parts_mut(samples, sample_count))
-        .map(|()| 0)
-        .unwrap_or_else(error_code)
+        .process_interleaved_f32(slice::from_raw_parts_mut(samples, sample_count));
+    state.telemetry.record_process(
+        &state.processor,
+        DspSampleFormat::Float32,
+        frames as usize,
+        started.elapsed().as_nanos().min(u64::MAX as u128) as u64,
+        result,
+    );
+    result.map(|()| 0).unwrap_or_else(error_code)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_process_planar_f32(
+pub unsafe extern "C" fn audio_dsp_process_planar_f32(
     handle: u64,
     channel_buffers: *mut *mut f32,
     frames: u32,
@@ -647,18 +1041,15 @@ pub unsafe extern "C" fn tide_audio_dsp_process_planar_f32(
         return -1;
     };
     state.apply_pending_config();
-    match channels {
+    let started = Instant::now();
+    let result = match channels {
         1 => {
             let first = *channel_buffers;
             if first.is_null() {
                 return -1;
             }
             let mut first = slice::from_raw_parts_mut(first, frames as usize);
-            state
-                .processor
-                .process_planar_f32(&mut [&mut first])
-                .map(|()| 0)
-                .unwrap_or_else(error_code)
+            state.processor.process_planar_f32(&mut [&mut first])
         }
         2 => {
             let first = *channel_buffers;
@@ -671,15 +1062,21 @@ pub unsafe extern "C" fn tide_audio_dsp_process_planar_f32(
             state
                 .processor
                 .process_planar_f32(&mut [&mut first, &mut second])
-                .map(|()| 0)
-                .unwrap_or_else(error_code)
         }
-        _ => -3,
-    }
+        _ => Err(DspError::UnsupportedChannelCount(channels as usize)),
+    };
+    state.telemetry.record_process(
+        &state.processor,
+        DspSampleFormat::Float32,
+        frames as usize,
+        started.elapsed().as_nanos().min(u64::MAX as u128) as u64,
+        result,
+    );
+    result.map(|()| 0).unwrap_or_else(error_code)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_i16(
+pub unsafe extern "C" fn audio_dsp_process_interleaved_i16(
     handle: u64,
     samples: *mut i16,
     sample_count: u32,
@@ -699,6 +1096,8 @@ pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_i16(
     state.apply_pending_config();
     let samples = slice::from_raw_parts_mut(samples, sample_count as usize);
     let chunk_capacity = I16_SCRATCH_SAMPLES - I16_SCRATCH_SAMPLES % channels;
+    let started = Instant::now();
+    let mut process_result = Ok(());
     for chunk in samples.chunks_mut(chunk_capacity) {
         let chunk_length = chunk.len();
         for (target, source) in state.i16_scratch[..chunk_length].iter_mut().zip(&*chunk) {
@@ -708,7 +1107,8 @@ pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_i16(
             .processor
             .process_interleaved_f32(&mut state.i16_scratch[..chunk_length])
         {
-            return error_code(error);
+            process_result = Err(error);
+            break;
         }
         for (target, source) in chunk.iter_mut().zip(&state.i16_scratch[..chunk_length]) {
             let scaled = if *source < 0.0 {
@@ -719,14 +1119,96 @@ pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_i16(
             *target = scaled.clamp(i16::MIN as f32, i16::MAX as f32) as i16;
         }
     }
-    0
+    state.telemetry.record_process(
+        &state.processor,
+        DspSampleFormat::Pcm16,
+        sample_count as usize / channels,
+        started.elapsed().as_nanos().min(u64::MAX as u128) as u64,
+        process_result,
+    );
+    process_result.map(|()| 0).unwrap_or_else(error_code)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn audio_dsp_set_runtime_bypass(handle: u64, reason_code: i32) {
+    let owner = (handle as usize as *const NativeAudioDsp).as_ref();
+    let Some(owner) = owner else {
+        return;
+    };
+    let reason = match reason_code {
+        1 => DspRuntimeBypassReason::EffectsDisabled,
+        2 => DspRuntimeBypassReason::UnsupportedSampleFormat,
+        3 => DspRuntimeBypassReason::UnsupportedChannelCount,
+        4 => DspRuntimeBypassReason::UnsupportedSampleRate,
+        5 => DspRuntimeBypassReason::PlatformProcessingUnavailable,
+        6 => DspRuntimeBypassReason::ProtectedContent,
+        7 => DspRuntimeBypassReason::AudioTapUnavailable,
+        8 => DspRuntimeBypassReason::OutputRouteUnavailable,
+        _ => DspRuntimeBypassReason::NativeProcessingError,
+    };
+    owner.telemetry.mark_bypassed(reason, 0);
+}
+
+// Compatibility wrappers for the original internal symbols. Platform code
+// now uses the neutral names, while older binaries remain link-compatible.
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_retain(handle: u64) -> i32 {
+    audio_dsp_retain(handle)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_release(handle: u64) {
+    audio_dsp_release(handle);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_configure_format(
+    handle: u64,
+    sample_rate: u32,
+    channels: u32,
+) -> i32 {
+    audio_dsp_configure_format(handle, sample_rate, channels)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_reset(handle: u64) {
+    audio_dsp_reset(handle);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_f32(
+    handle: u64,
+    samples: *mut f32,
+    frames: u32,
+    channels: u32,
+) -> i32 {
+    audio_dsp_process_interleaved_f32(handle, samples, frames, channels)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_process_planar_f32(
+    handle: u64,
+    channel_buffers: *mut *mut f32,
+    frames: u32,
+    channels: u32,
+) -> i32 {
+    audio_dsp_process_planar_f32(handle, channel_buffers, frames, channels)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tide_audio_dsp_process_interleaved_i16(
+    handle: u64,
+    samples: *mut i16,
+    sample_count: u32,
+) -> i32 {
+    audio_dsp_process_interleaved_i16(handle, samples, sample_count)
 }
 
 #[cfg(target_os = "android")]
 mod android_jni {
     use super::{
-        tide_audio_dsp_configure_format, tide_audio_dsp_process_interleaved_f32,
-        tide_audio_dsp_process_interleaved_i16, tide_audio_dsp_reset,
+        audio_dsp_configure_format, audio_dsp_process_interleaved_f32,
+        audio_dsp_process_interleaved_i16, audio_dsp_reset,
     };
     use jni::{
         objects::{JByteBuffer, JClass},
@@ -745,7 +1227,7 @@ mod android_jni {
         if sample_rate <= 0 || channels <= 0 {
             return -1;
         }
-        tide_audio_dsp_configure_format(handle as u64, sample_rate as u32, channels as u32)
+        audio_dsp_configure_format(handle as u64, sample_rate as u32, channels as u32)
     }
 
     #[no_mangle]
@@ -754,7 +1236,7 @@ mod android_jni {
         _class: JClass,
         handle: jlong,
     ) {
-        tide_audio_dsp_reset(handle as u64);
+        audio_dsp_reset(handle as u64);
     }
 
     #[no_mangle]
@@ -772,7 +1254,7 @@ mod android_jni {
         let Ok(address) = env.get_direct_buffer_address(&buffer) else {
             return -1;
         };
-        tide_audio_dsp_process_interleaved_f32(
+        audio_dsp_process_interleaved_f32(
             handle as u64,
             address.cast(),
             frames as u32,
@@ -794,7 +1276,7 @@ mod android_jni {
         let Ok(address) = env.get_direct_buffer_address(&buffer) else {
             return -1;
         };
-        tide_audio_dsp_process_interleaved_i16(handle as u64, address.cast(), sample_count as u32)
+        audio_dsp_process_interleaved_i16(handle as u64, address.cast(), sample_count as u32)
     }
 }
 
@@ -806,21 +1288,16 @@ mod tests {
     fn c_abi_processes_float_and_i16_without_copying_through_uniffi() {
         let processor = ct_create_audio_dsp_processor();
         let handle = processor.native_handle();
-        assert_eq!(
-            unsafe { tide_audio_dsp_configure_format(handle, 48_000, 2) },
-            0
-        );
+        assert_eq!(unsafe { audio_dsp_configure_format(handle, 48_000, 2) }, 0);
         let mut float_samples = [0.25_f32; 64];
         assert_eq!(
-            unsafe {
-                tide_audio_dsp_process_interleaved_f32(handle, float_samples.as_mut_ptr(), 32, 2)
-            },
+            unsafe { audio_dsp_process_interleaved_f32(handle, float_samples.as_mut_ptr(), 32, 2) },
             0
         );
         let mut integer_samples = [8_192_i16; 64];
         assert_eq!(
             unsafe {
-                tide_audio_dsp_process_interleaved_i16(
+                audio_dsp_process_interleaved_i16(
                     handle,
                     integer_samples.as_mut_ptr(),
                     integer_samples.len() as u32,
@@ -829,20 +1306,56 @@ mod tests {
             0
         );
         assert_eq!(
-            unsafe {
-                tide_audio_dsp_process_interleaved_f32(handle, float_samples.as_mut_ptr(), 32, 1)
-            },
+            unsafe { audio_dsp_process_interleaved_f32(handle, float_samples.as_mut_ptr(), 32, 1) },
             -3
         );
         assert_eq!(
             unsafe {
-                tide_audio_dsp_process_interleaved_i16(
+                audio_dsp_process_interleaved_i16(
                     handle,
                     integer_samples.as_mut_ptr(),
                     (integer_samples.len() - 1) as u32,
                 )
             },
             -5
+        );
+        let mut channel_buffers = [float_samples.as_mut_ptr(); 3];
+        assert_eq!(
+            unsafe { audio_dsp_process_planar_f32(handle, channel_buffers.as_mut_ptr(), 16, 3) },
+            -3
+        );
+
+        let snapshot = processor.runtime_snapshot();
+        assert_eq!(snapshot.state, DspRuntimeState::Error);
+        assert_eq!(
+            snapshot.bypass_reason,
+            DspRuntimeBypassReason::NativeProcessingError
+        );
+        assert!(snapshot.process_count >= 3);
+        assert!(snapshot.buffer_duration_us > 0.0);
+
+        unsafe {
+            audio_dsp_set_runtime_bypass(
+                handle,
+                DspRuntimeBypassReason::UnsupportedSampleFormat as i32,
+            )
+        };
+        let bypassed = processor.runtime_snapshot();
+        assert_eq!(bypassed.state, DspRuntimeState::Bypassed);
+        assert_eq!(
+            bypassed.bypass_reason,
+            DspRuntimeBypassReason::UnsupportedSampleFormat
+        );
+
+        // The legacy wrappers remain ABI-compatible during the neutral-name migration.
+        assert_eq!(
+            unsafe { tide_audio_dsp_configure_format(handle, 48_000, 2) },
+            0
+        );
+        unsafe { audio_dsp_reset(handle) };
+        assert_eq!(
+            processor.runtime_snapshot().state,
+            DspRuntimeState::Inactive
         );
     }
 }

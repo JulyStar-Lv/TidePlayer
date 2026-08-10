@@ -9,6 +9,9 @@ import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.AudioEffectPreset
 import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
+import io.github.julystar.musicapp.core.domain.model.HeadroomMode
+import io.github.julystar.musicapp.core.domain.model.HeadroomSettings
+import io.github.julystar.musicapp.core.domain.model.LimiterSettings
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
 import io.github.julystar.musicapp.core.domain.model.MAX_AUDIO_CACHE_LIMIT_BYTES
 import io.github.julystar.musicapp.core.domain.model.MAX_IMAGE_CACHE_LIMIT_BYTES
@@ -158,8 +161,16 @@ class DataStoreSettingsRepositoryTest {
                 ),
             ),
             moogFilter = MoogFilterSettings(enabled = true, cutoffHz = 7_500),
+            limiter = LimiterSettings(
+                truePeakEnabled = true,
+                oversampling = 4,
+                lookaheadMs = 6,
+            ),
         )
-        val effects = AudioEffectSettings.Default.copy(enabled = true)
+        val effects = AudioEffectSettings.Default.copy(
+            enabled = true,
+            headroom = HeadroomSettings(HeadroomMode.Automatic),
+        )
             .withAudioEffectProfile(profile)
             .copy(
                 userPresets = listOf(
@@ -175,6 +186,10 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(45, restored.profile.parametricEqualizer.bands.single().gainTenthsDb)
         assertTrue(restored.profile.moogFilter.enabled)
         assertEquals(7_500, restored.profile.moogFilter.cutoffHz)
+        assertTrue(restored.profile.limiter.truePeakEnabled)
+        assertEquals(4, restored.profile.limiter.oversampling)
+        assertEquals(6, restored.profile.limiter.lookaheadMs)
+        assertEquals(HeadroomMode.Automatic, restored.headroom.mode)
         assertEquals("Test", restored.userPresets.single().name)
         assertEquals(profile, restored.userPresets.single().profile)
     }

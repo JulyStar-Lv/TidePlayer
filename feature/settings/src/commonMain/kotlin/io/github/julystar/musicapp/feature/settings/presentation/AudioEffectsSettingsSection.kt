@@ -16,10 +16,14 @@ import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.AudioEffectPreset
 import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
+import io.github.julystar.musicapp.core.domain.model.AudioDspBypassReason
+import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeState
+import io.github.julystar.musicapp.core.domain.model.AudioSampleFormat
 import io.github.julystar.musicapp.core.domain.model.CompressorSettings
 import io.github.julystar.musicapp.core.domain.model.DynamicEqSettings
 import io.github.julystar.musicapp.core.domain.model.EqualizerMode
 import io.github.julystar.musicapp.core.domain.model.GraphicEqualizerSettings
+import io.github.julystar.musicapp.core.domain.model.HeadroomMode
 import io.github.julystar.musicapp.core.domain.model.LoudnessSettings
 import io.github.julystar.musicapp.core.domain.model.MAX_EQ_BAND_GAIN_DB
 import io.github.julystar.musicapp.core.domain.model.MIN_EQ_BAND_GAIN_DB
@@ -77,6 +81,59 @@ internal fun AudioEffectsSettingsSection(
                 .joinToString { count ->
                     if (count == 1) monoLabel else stereoLabel
                 },
+        )
+        val outputFormats = state.capabilities.audioPipeline.dspOutputSampleFormats
+            .sortedBy(AudioSampleFormat::ordinal)
+            .map { it.localizedName() }
+            .joinToString()
+        if (outputFormats.isNotEmpty()) {
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_output_pipeline),
+                value = if (state.capabilities.audioPipeline.highResolutionDspOutput) {
+                    outputFormats
+                } else {
+                    stringResource(Res.string.settings_dsp_output_pipeline_fallback, outputFormats)
+                },
+            )
+        }
+    }
+
+    DspRuntimeSection(state)
+
+    SettingsSection(title = stringResource(Res.string.settings_headroom_section)) {
+        val headroom = effects.headroom
+        SettingsSelectRow(
+            label = stringResource(Res.string.settings_headroom_mode),
+            selected = headroom.mode,
+            options = HeadroomMode.entries.toList(),
+            optionLabel = { it.localizedName() },
+            enabled = true,
+            onSelect = { mode ->
+                onAction(
+                    SettingsAction.SetAudioEffectSettings(
+                        effects.copy(headroom = headroom.copy(mode = mode))
+                    )
+                )
+            },
+        )
+        SettingsInfoRow(
+            title = stringResource(Res.string.settings_headroom_automatic_info),
+            value = stringResource(Res.string.settings_headroom_automatic_summary),
+            enabled = headroom.mode == HeadroomMode.Automatic,
+        )
+        SettingsSliderRow(
+            title = stringResource(Res.string.settings_headroom_manual),
+            value = headroom.manualTenthsDb,
+            valueRange = -240..0,
+            valueText = tenthsDb(headroom.manualTenthsDb),
+            enabled = headroom.mode == HeadroomMode.Manual,
+            onValueChange = { value ->
+                onAction(
+                    SettingsAction.SetAudioEffectSettings(
+                        effects.copy(headroom = headroom.copy(manualTenthsDb = value))
+                    )
+                )
+            },
         )
     }
 
@@ -195,6 +252,7 @@ internal fun AudioEffectsSettingsSection(
         loudnessSupported = capabilities.loudness,
         dynamicEqSupported = capabilities.dynamicEq,
         limiterSupported = capabilities.peakLimiter,
+        truePeakSupported = capabilities.truePeakLimiter,
         onUpdate = ::updateProfile,
     )
 
@@ -224,6 +282,92 @@ internal fun AudioEffectsSettingsSection(
         reverbSupported = capabilities.reverb,
         onUpdate = ::updateProfile,
     )
+}
+
+@Composable
+private fun DspRuntimeSection(state: SettingsUiState) {
+    val status = state.audioDspRuntimeStatus
+    val sampleRate = status.sampleRate
+    val channelCount = status.channelCount
+    val sampleFormat = status.sampleFormat
+    SettingsSection(title = stringResource(Res.string.settings_dsp_runtime_section)) {
+        SettingsInfoRow(
+            title = stringResource(Res.string.settings_dsp_runtime_status),
+            value = status.state.localizedName(),
+        )
+        if (sampleRate != null && channelCount != null && sampleFormat != null) {
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_runtime_format),
+                value = stringResource(
+                    Res.string.settings_dsp_runtime_format_value,
+                    sampleRate,
+                    channelCount,
+                    sampleFormat.localizedName(),
+                ),
+            )
+        }
+        status.bypassReason?.let { reason ->
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_bypass_reason),
+                value = reason.localizedName(),
+            )
+        }
+        status.lastErrorCode?.let { errorCode ->
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_error_code),
+                value = errorCode.toString(),
+            )
+        }
+        if (status.latencyFrames > 0) {
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_latency),
+                value = stringResource(
+                    Res.string.settings_dsp_latency_frames,
+                    status.latencyFrames,
+                ),
+            )
+        }
+        if (status.state == AudioDspRuntimeState.Active) {
+            val meter = state.audioDspMeter
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_meter_peaks),
+                value = stringResource(
+                    Res.string.settings_dsp_meter_peaks_value,
+                    meterDb(meter.inputPeakDb),
+                    meterDb(meter.outputPeakDb),
+                ),
+            )
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_meter_reduction),
+                value = stringResource(
+                    Res.string.settings_dsp_meter_reduction_value,
+                    meterDb(meter.compressorGainReductionDb),
+                    meterDb(meter.limiterGainReductionDb),
+                    meterDb(meter.appliedHeadroomDb),
+                ),
+            )
+            SettingsInfoRow(
+                title = stringResource(Res.string.settings_dsp_meter_recovery),
+                value = stringResource(
+                    Res.string.settings_dsp_meter_recovery_value,
+                    meter.clippedSamples,
+                    meter.nonFiniteRecoveryCount,
+                ),
+            )
+            val performance = state.audioDspPerformance
+            if (performance.processCount > 0) {
+                SettingsInfoRow(
+                    title = stringResource(Res.string.settings_dsp_performance),
+                    value = stringResource(
+                        Res.string.settings_dsp_performance_value,
+                        meterNumber(performance.averageProcessingTimeUs),
+                        meterNumber(performance.maxProcessingTimeUs),
+                        meterNumber(performance.deadlineUtilization * 100f),
+                    ),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -533,6 +677,7 @@ private fun DynamicsControls(
     loudnessSupported: Boolean,
     dynamicEqSupported: Boolean,
     limiterSupported: Boolean,
+    truePeakSupported: Boolean,
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
     SettingsSection(title = stringResource(Res.string.settings_dynamics_section)) {
@@ -595,14 +740,47 @@ private fun DynamicsControls(
         if (limiterSupported) {
             val limiter = profile.limiter
             SettingsSwitchRow(
-                title = stringResource(Res.string.settings_peak_limiter),
-                summary = stringResource(Res.string.settings_peak_limiter_summary),
+                title = if (limiter.truePeakEnabled) {
+                    stringResource(Res.string.settings_true_peak_limiter)
+                } else {
+                    stringResource(Res.string.settings_peak_limiter)
+                },
+                summary = if (limiter.truePeakEnabled) {
+                    stringResource(Res.string.settings_true_peak_limiter_summary)
+                } else {
+                    stringResource(Res.string.settings_peak_limiter_summary)
+                },
                 checked = limiter.enabled,
                 enabled = settingsEnabled,
                 onCheckedChange = {
                     onUpdate(profile.copy(limiter = limiter.copy(enabled = it)))
                 },
             )
+            if (truePeakSupported) {
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_true_peak_mode),
+                    summary = stringResource(Res.string.settings_true_peak_mode_summary),
+                    checked = limiter.truePeakEnabled,
+                    enabled = settingsEnabled && limiter.enabled,
+                    onCheckedChange = { enabled ->
+                        onUpdate(
+                            profile.copy(
+                                limiter = limiter.copy(
+                                    truePeakEnabled = enabled,
+                                    oversampling = if (enabled) 4 else 1,
+                                    ceilingTenthsDb = if (
+                                        enabled && limiter.ceilingTenthsDb == -5
+                                    ) {
+                                        -10
+                                    } else {
+                                        limiter.ceilingTenthsDb
+                                    },
+                                )
+                            )
+                        )
+                    },
+                )
+            }
             SettingsSliderRow(
                 title = stringResource(Res.string.settings_limiter_ceiling),
                 value = limiter.ceilingTenthsDb,
@@ -613,16 +791,30 @@ private fun DynamicsControls(
                     onUpdate(profile.copy(limiter = limiter.copy(ceilingTenthsDb = it)))
                 },
             )
-            SettingsSliderRow(
-                title = stringResource(Res.string.settings_limiter_attack),
-                value = limiter.attackHundredthsMs,
-                valueRange = 1..2_000,
-                valueText = hundredthsMs(limiter.attackHundredthsMs),
-                enabled = settingsEnabled && limiter.enabled,
-                onValueChange = {
-                    onUpdate(profile.copy(limiter = limiter.copy(attackHundredthsMs = it)))
-                },
-            )
+            if (!limiter.truePeakEnabled) {
+                SettingsSliderRow(
+                    title = stringResource(Res.string.settings_limiter_attack),
+                    value = limiter.attackHundredthsMs,
+                    valueRange = 1..2_000,
+                    valueText = hundredthsMs(limiter.attackHundredthsMs),
+                    enabled = settingsEnabled && limiter.enabled,
+                    onValueChange = {
+                        onUpdate(profile.copy(limiter = limiter.copy(attackHundredthsMs = it)))
+                    },
+                )
+            }
+            if (truePeakSupported && limiter.truePeakEnabled) {
+                SettingsSliderRow(
+                    title = stringResource(Res.string.settings_limiter_lookahead),
+                    value = limiter.lookaheadMs,
+                    valueRange = 1..10,
+                    valueText = milliseconds(limiter.lookaheadMs),
+                    enabled = settingsEnabled && limiter.enabled,
+                    onValueChange = {
+                        onUpdate(profile.copy(limiter = limiter.copy(lookaheadMs = it)))
+                    },
+                )
+            }
             SettingsSliderRow(
                 title = stringResource(Res.string.settings_limiter_release),
                 value = limiter.releaseMs,
@@ -1177,6 +1369,55 @@ private fun hz(value: Int): String = if (value >= 1_000) {
     "$value Hz"
 }
 private fun degrees(value: Int): String = "$value°"
+
+private fun meterNumber(value: Float): String =
+    (kotlin.math.round(value * 10f) / 10f).toString()
+
+private fun meterDb(value: Float): String = "${meterNumber(value)} dB"
+
+@Composable
+private fun AudioSampleFormat.localizedName(): String = when (this) {
+    AudioSampleFormat.Pcm16 -> stringResource(Res.string.settings_dsp_format_pcm16)
+    AudioSampleFormat.Float32 -> stringResource(Res.string.settings_dsp_format_float32)
+}
+
+@Composable
+private fun AudioDspRuntimeState.localizedName(): String = when (this) {
+    AudioDspRuntimeState.Inactive -> stringResource(Res.string.settings_dsp_status_inactive)
+    AudioDspRuntimeState.Active -> stringResource(Res.string.settings_dsp_status_active)
+    AudioDspRuntimeState.Bypassed -> stringResource(Res.string.settings_dsp_status_bypassed)
+    AudioDspRuntimeState.Unavailable -> stringResource(Res.string.settings_dsp_status_unavailable)
+    AudioDspRuntimeState.Error -> stringResource(Res.string.settings_dsp_status_error)
+}
+
+@Composable
+private fun AudioDspBypassReason.localizedName(): String = when (this) {
+    AudioDspBypassReason.EffectsDisabled ->
+        stringResource(Res.string.settings_dsp_reason_effects_disabled)
+    AudioDspBypassReason.UnsupportedSampleFormat ->
+        stringResource(Res.string.settings_dsp_reason_sample_format)
+    AudioDspBypassReason.UnsupportedChannelCount ->
+        stringResource(Res.string.settings_dsp_reason_channel_count)
+    AudioDspBypassReason.UnsupportedSampleRate ->
+        stringResource(Res.string.settings_dsp_reason_sample_rate)
+    AudioDspBypassReason.PlatformProcessingUnavailable ->
+        stringResource(Res.string.settings_dsp_reason_platform_unavailable)
+    AudioDspBypassReason.ProtectedContent ->
+        stringResource(Res.string.settings_dsp_reason_protected_content)
+    AudioDspBypassReason.AudioTapUnavailable ->
+        stringResource(Res.string.settings_dsp_reason_audio_tap)
+    AudioDspBypassReason.OutputRouteUnavailable ->
+        stringResource(Res.string.settings_dsp_reason_output_route)
+    AudioDspBypassReason.NativeProcessingError ->
+        stringResource(Res.string.settings_dsp_reason_native_error)
+}
+
+@Composable
+private fun HeadroomMode.localizedName(): String = when (this) {
+    HeadroomMode.Off -> stringResource(Res.string.settings_headroom_off)
+    HeadroomMode.Automatic -> stringResource(Res.string.settings_headroom_automatic)
+    HeadroomMode.Manual -> stringResource(Res.string.settings_headroom_manual)
+}
 
 private fun ParametricEqFilterType.titleResource() = when (this) {
     ParametricEqFilterType.Peak -> Res.string.settings_peq_type_peak

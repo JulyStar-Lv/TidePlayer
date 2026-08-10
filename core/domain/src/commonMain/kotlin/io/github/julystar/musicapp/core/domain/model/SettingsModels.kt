@@ -364,6 +364,20 @@ data class LimiterSettings(
     val releaseMs: Int = 80,
     val truePeakEnabled: Boolean = false,
     val oversampling: Int = 1,
+    val lookaheadMs: Int = 3,
+)
+
+@Serializable
+enum class HeadroomMode {
+    Off,
+    Automatic,
+    Manual,
+}
+
+@Serializable
+data class HeadroomSettings(
+    val mode: HeadroomMode = HeadroomMode.Off,
+    val manualTenthsDb: Int = 0,
 )
 
 @Serializable
@@ -419,6 +433,7 @@ data class AudioEffectSettings(
     val reverbPreset: ReverbPreset = ReverbPreset.None,
     val schemaVersion: Int = 0,
     val profile: AudioEffectProfile = AudioEffectProfile.Default,
+    val headroom: HeadroomSettings = HeadroomSettings(),
     val userPresets: List<AudioEffectPreset> = emptyList(),
 ) {
     companion object {
@@ -541,6 +556,7 @@ data class AudioDspCapabilities(
     val speakerOutput: Boolean = false,
     val reverb: Boolean = false,
     val peakLimiter: Boolean = false,
+    val truePeakLimiter: Boolean = false,
     val maxParametricBands: Int = 0,
     val supportedChannelCounts: Set<Int> = emptySet(),
     val resourceDependent: Boolean = false,
@@ -566,11 +582,23 @@ data class AudioDspCapabilities(
             speakerOutput = true,
             reverb = true,
             peakLimiter = true,
+            truePeakLimiter = true,
             maxParametricBands = MAX_PARAMETRIC_EQ_BANDS,
             supportedChannelCounts = setOf(1, 2),
         )
     }
 }
+
+enum class AudioSampleFormat {
+    Pcm16,
+    Float32,
+}
+
+data class AudioPipelineCapabilities(
+    val dspInputSampleFormats: Set<AudioSampleFormat> = emptySet(),
+    val dspOutputSampleFormats: Set<AudioSampleFormat> = emptySet(),
+    val highResolutionDspOutput: Boolean = false,
+)
 
 data class SettingsCapabilities(
     val backgroundScanSupported: Boolean = false,
@@ -588,6 +616,7 @@ data class SettingsCapabilities(
     val replayGainSupported: Boolean = false,
     val audioEffectsSupported: Boolean = false,
     val audioDsp: AudioDspCapabilities = AudioDspCapabilities(),
+    val audioPipeline: AudioPipelineCapabilities = AudioPipelineCapabilities(),
     val lyricFontSelectionSupported: Boolean = true,
     val networkStatusSupported: Boolean = false,
     val audioPreloadSupported: Boolean = false,
@@ -718,7 +747,7 @@ const val MIN_REPLAY_GAIN_PREAMP_TENTHS_DB = -200
 const val MAX_REPLAY_GAIN_PREAMP_TENTHS_DB = 200
 const val DEFAULT_ARTIST_SEPARATORS = ";,/&、，"
 const val DEFAULT_GENRE_SEPARATORS = ";,/、，"
-const val AUDIO_DSP_SCHEMA_VERSION = 1
+const val AUDIO_DSP_SCHEMA_VERSION = 2
 const val EQ_BAND_COUNT = 10
 const val MAX_PARAMETRIC_EQ_BANDS = 40
 const val MIN_EQ_BAND_GAIN_DB = -12
@@ -832,7 +861,7 @@ fun normalizePlaybackAdvancedSettings(value: PlaybackAdvancedSettings): Playback
 }
 
 fun normalizeAudioEffectSettings(value: AudioEffectSettings): AudioEffectSettings {
-    val normalizedProfile = if (value.schemaVersion < AUDIO_DSP_SCHEMA_VERSION) {
+    val normalizedProfile = if (value.schemaVersion < 1) {
         val gains = value.eqBandGainsDb
             .take(EQ_BAND_COUNT)
             .map { it.coerceIn(MIN_EQ_BAND_GAIN_DB, MAX_EQ_BAND_GAIN_DB) }
@@ -878,6 +907,9 @@ fun normalizeAudioEffectSettings(value: AudioEffectSettings): AudioEffectSetting
         reverbPreset = normalizedProfile.reverb.preset,
         schemaVersion = AUDIO_DSP_SCHEMA_VERSION,
         profile = normalizedProfile,
+        headroom = value.headroom.copy(
+            manualTenthsDb = value.headroom.manualTenthsDb.coerceIn(-240, 0),
+        ),
         userPresets = value.userPresets
             .asSequence()
             .filter { it.id.isNotBlank() && it.name.isNotBlank() }
@@ -984,8 +1016,8 @@ fun normalizeAudioEffectProfile(value: AudioEffectProfile): AudioEffectProfile {
             ceilingTenthsDb = value.limiter.ceilingTenthsDb.coerceIn(-120, 0),
             attackHundredthsMs = value.limiter.attackHundredthsMs.coerceIn(1, 2_000),
             releaseMs = value.limiter.releaseMs.coerceIn(5, 2_000),
-            truePeakEnabled = false,
-            oversampling = 1,
+            oversampling = if (value.limiter.truePeakEnabled) 4 else 1,
+            lookaheadMs = value.limiter.lookaheadMs.coerceIn(1, 10),
         ),
         reverb = value.reverb.copy(
             wetPercent = value.reverb.wetPercent.coerceIn(0, 50),

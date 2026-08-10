@@ -5,7 +5,7 @@ use std::{
 
 use audio_dsp::{
     AudioDspConfig, AudioDspProcessor, CompressorConfig, DynamicEqConfig, GraphicEqualizerConfig,
-    LoudnessConfig, MonoBassConfig, MoogFilterConfig, ReverbConfig, ReverbPreset,
+    LimiterConfig, LoudnessConfig, MonoBassConfig, MoogFilterConfig, ReverbConfig, ReverbPreset,
     SpatialAudioConfig, SpatialMode, SpeakerOutputConfig, ToneControlConfig,
 };
 
@@ -86,7 +86,19 @@ fn realtime_interleaved_and_planar_processing_do_not_allocate() {
         ..Default::default()
     };
 
-    for config in [graphic, full_effects] {
+    let true_peak = AudioDspConfig {
+        enabled: true,
+        limiter: LimiterConfig {
+            enabled: true,
+            true_peak_enabled: true,
+            oversampling: 4,
+            lookahead_ms: 3.0,
+            ..LimiterConfig::default()
+        },
+        ..AudioDspConfig::default()
+    };
+
+    for config in [graphic, full_effects, true_peak] {
         let mut processor = AudioDspProcessor::new(config).unwrap();
         processor.configure_format(48_000, 2).unwrap();
         let mut samples = [0.1; 2_048];

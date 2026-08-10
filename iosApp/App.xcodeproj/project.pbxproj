@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		4B7E65A412C12F383676EF9B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B63257C864A4CD0354037581 /* Foundation.framework */; };
 		711971A24B157733B8631409 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 043ECD1E526256B9C5F1C86F /* Assets.xcassets */; };
-		D51A14C94BBA4F3785A61720 /* TideDspAudioTap.m in Sources */ = {isa = PBXBuildFile; fileRef = D51A14C94BBA4F3785A61721 /* TideDspAudioTap.m */; };
+		D51A14C94BBA4F3785A61720 /* AudioProcessingTap.m in Sources */ = {isa = PBXBuildFile; fileRef = D51A14C94BBA4F3785A61721 /* AudioProcessingTap.m */; };
 		DEBE64CE3FE666FFD94767BF /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C11CD3ED1E5907F51F2525 /* AppMain.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,8 +20,8 @@
 		7DEFE6DE66572B0FE3B2781F /* TidePlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = TidePlayer.app; path = TidePlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B63257C864A4CD0354037581 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		CA1A135A77F066C1EC1A5309 /* App.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
-		D51A14C94BBA4F3785A61721 /* TideDspAudioTap.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = TideDspAudioTap.m; sourceTree = "<group>"; };
-		D51A14C94BBA4F3785A61722 /* TideDspAudioTap.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = TideDspAudioTap.h; sourceTree = "<group>"; };
+		D51A14C94BBA4F3785A61721 /* AudioProcessingTap.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = AudioProcessingTap.m; sourceTree = "<group>"; };
+		D51A14C94BBA4F3785A61722 /* AudioProcessingTap.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = AudioProcessingTap.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,8 +40,8 @@
 			isa = PBXGroup;
 			children = (
 				76C11CD3ED1E5907F51F2525 /* AppMain.swift */,
-				D51A14C94BBA4F3785A61721 /* TideDspAudioTap.m */,
-				D51A14C94BBA4F3785A61722 /* TideDspAudioTap.h */,
+				D51A14C94BBA4F3785A61721 /* AudioProcessingTap.m */,
+				D51A14C94BBA4F3785A61722 /* AudioProcessingTap.h */,
 				712142BF81D7B6F111698BE7 /* Info.plist */,
 				CA1A135A77F066C1EC1A5309 /* App.entitlements */,
 				043ECD1E526256B9C5F1C86F /* Assets.xcassets */,
@@ -168,7 +168,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D51A14C94BBA4F3785A61720 /* TideDspAudioTap.m in Sources */,
+				D51A14C94BBA4F3785A61720 /* AudioProcessingTap.m in Sources */,
 				DEBE64CE3FE666FFD94767BF /* AppMain.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

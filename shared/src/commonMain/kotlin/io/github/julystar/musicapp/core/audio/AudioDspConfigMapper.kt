@@ -2,6 +2,7 @@ package io.github.julystar.musicapp.core.audio
 
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
 import io.github.julystar.musicapp.core.domain.model.EqualizerMode
+import io.github.julystar.musicapp.core.domain.model.HeadroomMode
 import io.github.julystar.musicapp.core.domain.model.MoogFilterMode
 import io.github.julystar.musicapp.core.domain.model.ParametricEqFilterType
 import io.github.julystar.musicapp.core.domain.model.ReverbPreset
@@ -16,6 +17,8 @@ import uniffi.app_backend.DspDynamicEqualizer
 import uniffi.app_backend.DspEqMode
 import uniffi.app_backend.DspFilterType
 import uniffi.app_backend.DspGraphicEqualizer
+import uniffi.app_backend.DspHeadroom
+import uniffi.app_backend.DspHeadroomMode
 import uniffi.app_backend.DspLimiter
 import uniffi.app_backend.DspLoudness
 import uniffi.app_backend.DspMonoBass
@@ -45,9 +48,19 @@ fun AudioEffectSettings.toNativeDspConfiguration(
     val profile = settings.profile
     val effectsEnabled = settings.enabled
     val replayGainEnabled = abs(inputGainDb) > 0.0001f
+    val processingEnabled = effectsEnabled || replayGainEnabled ||
+        settings.headroom.mode != HeadroomMode.Off
     return DspConfiguration(
-        enabled = effectsEnabled || replayGainEnabled,
+        enabled = processingEnabled,
         inputGainDb = inputGainDb,
+        headroom = DspHeadroom(
+            mode = when (settings.headroom.mode) {
+                HeadroomMode.Off -> DspHeadroomMode.OFF
+                HeadroomMode.Automatic -> DspHeadroomMode.AUTOMATIC
+                HeadroomMode.Manual -> DspHeadroomMode.MANUAL
+            },
+            manualDb = settings.headroom.manualTenthsDb / 10f,
+        ),
         equalizerMode = when (profile.equalizerMode) {
             EqualizerMode.Graphic -> DspEqMode.GRAPHIC
             EqualizerMode.Parametric -> DspEqMode.PARAMETRIC
@@ -155,10 +168,13 @@ fun AudioEffectSettings.toNativeDspConfiguration(
             strength = profile.speakerOutput.strengthPercent / 100f,
         ),
         limiter = DspLimiter(
-            enabled = profile.limiter.enabled && (effectsEnabled || replayGainEnabled),
+            enabled = profile.limiter.enabled && processingEnabled,
             ceilingDb = profile.limiter.ceilingTenthsDb / 10f,
             attackMs = profile.limiter.attackHundredthsMs / 100f,
             releaseMs = profile.limiter.releaseMs.toFloat(),
+            truePeakEnabled = profile.limiter.truePeakEnabled,
+            oversampling = profile.limiter.oversampling.toUByte(),
+            lookaheadMs = profile.limiter.lookaheadMs.toFloat(),
         ),
         reverb = DspReverb(
             preset = if (!effectsEnabled) {

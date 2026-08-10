@@ -3,6 +3,9 @@ package io.github.julystar.musicapp.feature.settings.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.AppSettings
+import io.github.julystar.musicapp.core.domain.model.AudioDspMeterSnapshot
+import io.github.julystar.musicapp.core.domain.model.AudioDspPerformanceSnapshot
+import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeStatus
 import io.github.julystar.musicapp.core.domain.model.DiagnosticsExportResult
 import io.github.julystar.musicapp.core.domain.model.LocalMusicDirectory
 import io.github.julystar.musicapp.core.domain.model.MAX_AUDIO_CACHE_LIMIT_BYTES
@@ -25,6 +28,7 @@ import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.domain.repository.DiagnosticsService
 import io.github.julystar.musicapp.core.domain.repository.AppDataClearService
 import io.github.julystar.musicapp.core.domain.repository.AudioDspAnalysisRepository
+import io.github.julystar.musicapp.core.domain.repository.AudioDspRuntimeRepository
 import io.github.julystar.musicapp.core.domain.repository.AudioDspFrequencyResponse
 import io.github.julystar.musicapp.core.domain.repository.LibraryMaintenanceService
 import io.github.julystar.musicapp.core.domain.repository.PermissionChecker
@@ -83,6 +87,7 @@ class SettingsVM(
     private val capabilities: SettingsCapabilities,
     private val textProvider: SettingsTextProvider,
     private val backupService: SettingsBackupService? = null,
+    audioDspRuntimeRepository: AudioDspRuntimeRepository? = null,
 ) : ViewModel() {
     private val storageUsage = MutableStateFlow(StorageUsage.Unknown)
     private val storageRefreshing = MutableStateFlow(false)
@@ -100,6 +105,12 @@ class SettingsVM(
     private val failureDialogTaskId = MutableStateFlow<String?>(null)
     private val pendingLocalDirectoryPath = MutableStateFlow<String?>(null)
     private val events = Channel<SettingsEvent>(Channel.BUFFERED)
+    private val audioDspRuntimeStatus =
+        audioDspRuntimeRepository?.status ?: MutableStateFlow(AudioDspRuntimeStatus())
+    private val audioDspMeter =
+        audioDspRuntimeRepository?.meter ?: MutableStateFlow(AudioDspMeterSnapshot())
+    private val audioDspPerformance =
+        audioDspRuntimeRepository?.performance ?: MutableStateFlow(AudioDspPerformanceSnapshot())
 
     private val audioDspFrequencyResponse = settingsRepository.settings
         .map { settings ->
@@ -154,6 +165,9 @@ class SettingsVM(
         failureDialogTaskId,
         failureDetails,
         audioDspFrequencyResponse,
+        audioDspRuntimeStatus,
+        audioDspMeter,
+        audioDspPerformance,
     ) { values ->
         val settings = values[0] as AppSettings
         val localDirectories = values[6] as List<LocalMusicDirectory>
@@ -190,6 +204,9 @@ class SettingsVM(
             failureDialogTaskId = values[18] as String?,
             failureDetails = values[19] as List<LibrarySyncFailure>,
             audioDspFrequencyResponse = values[20] as AudioDspFrequencyResponse,
+            audioDspRuntimeStatus = values[21] as AudioDspRuntimeStatus,
+            audioDspMeter = values[22] as AudioDspMeterSnapshot,
+            audioDspPerformance = values[23] as AudioDspPerformanceSnapshot,
         )
     }.stateIn(
         scope = viewModelScope,

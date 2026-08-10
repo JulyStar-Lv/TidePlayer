@@ -17,6 +17,7 @@ import io.github.julystar.musicapp.core.data.settings.JsonSettingsBackupService
 import io.github.julystar.musicapp.core.data.settings.RustAudioDspAnalysisRepository
 import io.github.julystar.musicapp.core.domain.model.SettingsCapabilities
 import io.github.julystar.musicapp.core.domain.repository.AudioDspAnalysisRepository
+import io.github.julystar.musicapp.core.domain.repository.AudioDspRuntimeRepository
 import io.github.julystar.musicapp.core.domain.repository.DiagnosticsService
 import io.github.julystar.musicapp.core.domain.repository.DiagnosticsRepository
 import io.github.julystar.musicapp.core.domain.repository.AppDataClearService
@@ -50,6 +51,7 @@ import io.github.julystar.musicapp.feature.home.data.RoomHomeStatisticsRepositor
 import io.github.julystar.musicapp.feature.home.domain.HomeHistoryRepository
 import io.github.julystar.musicapp.feature.home.domain.HomeStatisticsRepository
 import io.github.julystar.musicapp.diagnostics.RustDiagnosticsRepository
+import io.github.julystar.musicapp.core.audio.AudioDspRuntimeMonitor
 
 import io.github.julystar.musicapp.source.api.MetaSourceRegistry
 import kotlinx.coroutines.CoroutineScope
@@ -80,6 +82,7 @@ val coreDataModule = module {
     single { AppPreferencesRepository(get()) }
     single<SettingsRepository> { DataStoreSettingsRepository(get()) }
     single<AudioDspAnalysisRepository> { RustAudioDspAnalysisRepository }
+    single<AudioDspRuntimeRepository> { AudioDspRuntimeMonitor }
     single<SettingsBackupService>(createdAtStart = true) {
         JsonSettingsBackupService(get(), getAppDataDirectory(), get(), get())
     }

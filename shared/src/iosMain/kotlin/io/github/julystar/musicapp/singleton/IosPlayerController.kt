@@ -4,6 +4,7 @@ import io.github.julystar.musicapp.core.data.PlaylistRepositoryImpl
 import io.github.julystar.musicapp.core.data.StorageRepositoryImpl
 import io.github.julystar.musicapp.service.playback.data.PlayerController
 import io.github.julystar.musicapp.core.data.ToastRepositoryImpl
+import io.github.julystar.musicapp.core.audio.AudioDspRuntimeMonitor
 
 import io.github.julystar.musicapp.service.playback.data.PlayerRepository
 import io.github.julystar.musicapp.service.playback.domain.SleepModeState
@@ -107,6 +108,12 @@ class IosPlayerController internal constructor(
                 } else {
                     playerRepository.setIsPlaying(false)
                 }
+            }
+        }
+        scope.launch {
+            while (true) {
+                playbackEngine.audioDspRuntimeSnapshot()?.let(AudioDspRuntimeMonitor::publish)
+                delay(150)
             }
         }
         scope.launch {
@@ -256,6 +263,7 @@ class IosPlayerController internal constructor(
         playbackJob = null
         clearPendingSeek()
         playbackEngine.stop()
+        AudioDspRuntimeMonitor.reset()
         releasePlaybackResourceAsync()
         playerRepository.setIsPlaying(false)
         playerRepository.resetCurrent()
