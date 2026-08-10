@@ -22,6 +22,7 @@ import io.github.julystar.musicapp.source.api.SourcePlaybackFailureReason
 import io.github.julystar.musicapp.source.api.SourcePlaybackResult
 import io.github.julystar.musicapp.source.api.SourceSearchFailureReason
 import io.github.julystar.musicapp.source.api.SourceSearchResult
+import io.github.julystar.musicapp.source.api.encodedPlaybackId
 
 class ServerMusicSource(
     private val kind: RemoteServerKind,
@@ -79,6 +80,8 @@ class ServerMusicSource(
                         path = "/${track.remoteId}",
                         type = SourceNodeType.Track,
                         mimeType = track.mimeType,
+                        audioProperties = track.audioProperties,
+                        sourceMediaId = track.sourceMediaId,
                     )
                 }
             )
@@ -102,6 +105,7 @@ class ServerMusicSource(
                         album = track.album,
                         durationMs = track.durationMs,
                         path = track.streamUrl,
+                        audioProperties = track.audioProperties,
                     )
                 }
             )
@@ -121,6 +125,6 @@ class ServerMusicSource(
 }
 
 private fun io.github.julystar.musicapp.source.api.RemoteServerTrack.encodedId(): String =
-    "${accountId.value}|$remoteId"
+    encodedPlaybackId()
 
 private const val SERVER_BROWSE_LIMIT = 10_000

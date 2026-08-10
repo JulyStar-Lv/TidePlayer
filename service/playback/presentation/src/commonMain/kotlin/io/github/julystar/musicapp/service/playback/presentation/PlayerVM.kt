@@ -24,6 +24,7 @@ import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toIn
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toNowPlayingControlsState
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toNowPlayingQueueState
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toNowPlayingTrackItem
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.withPlaybackSources
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -229,7 +230,7 @@ class PlayerVM constructor(
             if (!playbackSourceRepository.select(trackId, sourceItemId)) return@launch
             val sources = playbackSourceRepository.sources(trackId)
                 .map(PlaybackSourceOption::toNowPlayingSourceItem)
-            _nowPlayingState.value = _nowPlayingState.value.copy(playbackSources = sources)
+            _nowPlayingState.value = _nowPlayingState.value.withPlaybackSources(sources)
             _nowPlayingEvents.send(
                 NowPlayingEvent.ShowMessage("Preferred source updated; it will be used first next time."),
             )
@@ -267,6 +268,7 @@ private fun PlaybackSourceOption.toNowPlayingSourceItem() = NowPlayingSourceItem
     displayName = displayName,
     quality = quality,
     isSelected = isSelected,
+    playbackAudioInfo = playbackAudioInfo,
 )
 
 private fun ULong.toPlaybackPositionMs(): Long {

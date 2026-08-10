@@ -161,7 +161,7 @@ private fun TrackEntity.qualityLabel(): String = when {
     lossless == true && ((sampleRate ?: 0) >= 96_000 || (bitsPerSample ?: 0) >= 24) ->
         "Hi-Res Lossless"
     lossless == true -> "Lossless"
-    (bitRate ?: 0) >= 320_000 -> "High Quality"
+    (bitRate ?: 0) >= 320 -> "High Quality"
     else -> "Standard"
 }
 

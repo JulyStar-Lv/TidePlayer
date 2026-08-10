@@ -3,6 +3,8 @@ package io.github.julystar.musicapp.service.playback.data
 import io.github.julystar.musicapp.database.ProviderTypes
 import io.github.julystar.musicapp.database.TrackSourcePlaybackCandidate
 import io.github.julystar.musicapp.database.TrackSourceRefDao
+import io.github.julystar.musicapp.core.domain.model.MediaId
+import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.source.api.BuiltInSourceIds
 import io.github.julystar.musicapp.source.api.LegacyStoragePlaybackResolver
 import io.github.julystar.musicapp.source.api.MusicSourceRegistry
@@ -122,14 +124,18 @@ class PlaybackResourceResolver(
         val path = candidate.item.canonicalPath ?: return null
         val sourceId = candidate.account.providerType.toBuiltInSourceId()
         val source = sourceRegistry.sourceOrNull(sourceId) ?: return null
-        return source.resolvePlayback(
+        val mediaId = if (candidate.account.providerType.isRemoteServerProvider()) {
+            val remoteId = candidate.item.providerItemId ?: return null
+            MediaId(sourceId = sourceId, mediaType = MediaType.Track, remoteId = remoteId)
+        } else {
             legacyStorageTrackMediaId(
                 sourceId = sourceId,
                 accountId = StorageId(candidate.item.sourceAccountId)
                     .toLegacyStorageSourceAccountId(),
                 path = path,
             )
-        )
+        }
+        return source.resolvePlayback(mediaId)
     }
 
     private suspend fun resolveLegacyLocation(
@@ -185,5 +191,12 @@ private fun String.toBuiltInSourceId() = when (this) {
     ProviderTypes.WebDav -> BuiltInSourceIds.WebDav
     ProviderTypes.OneDrive -> BuiltInSourceIds.OneDrive
     ProviderTypes.Smb -> BuiltInSourceIds.Smb
+    ProviderTypes.Navidrome -> BuiltInSourceIds.Navidrome
+    ProviderTypes.OpenSubsonic -> BuiltInSourceIds.OpenSubsonic
+    ProviderTypes.Emby -> BuiltInSourceIds.Emby
     else -> BuiltInSourceIds.WebDav
 }
+
+private fun String.isRemoteServerProvider(): Boolean = this == ProviderTypes.Navidrome ||
+    this == ProviderTypes.OpenSubsonic ||
+    this == ProviderTypes.Emby

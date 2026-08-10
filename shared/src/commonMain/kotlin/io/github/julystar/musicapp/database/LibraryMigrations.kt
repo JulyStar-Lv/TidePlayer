@@ -766,3 +766,11 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
         ).use { statement -> statement.step() }
     }
 }
+
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.prepare(
+            "ALTER TABLE track_source_ref ADD COLUMN channelLayout TEXT"
+        ).use { statement -> statement.step() }
+    }
+}

@@ -385,6 +385,7 @@ class PlayerRepository(
         val trackId = music.meta.id.value
         val artist = roomLibraryStore.getTrackPrimaryArtist(trackId)
         val annotation = roomLibraryStore.getTrackAnnotation(trackId)
+        val playbackAudioInfo = roomLibraryStore.getPlaybackAudioInfo(trackId)
         val lyrics = roomLibraryStore.getPlaybackLyrics(trackId)
         val artwork = music.toCurrentPlaybackArtwork()
         if (_music.value?.meta?.id == music.meta.id) {
@@ -394,6 +395,7 @@ class PlayerRepository(
                 artwork = artwork,
                 lyrics = lyrics,
                 annotation = annotation,
+                playbackAudioInfo = playbackAudioInfo,
             )
         }
     }
@@ -412,6 +414,7 @@ private suspend fun Music.toCurrentTrackInfo(
     artwork: Artwork?,
     lyrics: Lyrics,
     annotation: String?,
+    playbackAudioInfo: io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo?,
 ): CurrentTrackInfo {
     return CurrentTrackInfo(
         id = meta.id.value,
@@ -424,6 +427,7 @@ private suspend fun Music.toCurrentTrackInfo(
         coverArtwork = artwork,
         artist = artist,
         annotation = annotation,
+        playbackAudioInfo = playbackAudioInfo,
         mediaId = legacyStorageTrackMediaIdOrNull(
             storageLookup = storageLookup,
             sourceStorageId = loc.storageId.value,

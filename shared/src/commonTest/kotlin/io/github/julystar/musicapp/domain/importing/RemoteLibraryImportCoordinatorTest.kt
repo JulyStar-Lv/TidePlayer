@@ -536,8 +536,8 @@ class RemoteLibraryImportCoordinatorTest {
             sampleRate = 48_000u,
             bitDepth = 24u.toUByte(),
             channels = 2u.toUByte(),
-            overallBitrate = 950_000u,
-            audioBitrate = 900_000u,
+            overallBitrate = 950u,
+            audioBitrate = 900u,
         )
         val track = buildTrackEntity(
             entry = entry,
@@ -563,7 +563,7 @@ class RemoteLibraryImportCoordinatorTest {
         assertEquals(3, track.trackNumber)
         assertEquals(2025, track.year)
         assertEquals(48_000, track.sampleRate)
-        assertEquals(900_000, track.bitRate)
+        assertEquals(900, track.bitRate)
         assertEquals(24, track.bitsPerSample)
         assertEquals(2, track.channels)
         assertEquals("Artist", track.artist)

@@ -14,15 +14,13 @@ import io.github.julystar.musicapp.source.api.SourceAuthFailureReason
 import io.github.julystar.musicapp.source.api.SourceAuthResult
 import io.github.julystar.musicapp.source.api.SourcePlaybackFailureReason
 import io.github.julystar.musicapp.source.api.SourcePlaybackResult
+import io.github.julystar.musicapp.source.api.decodeRemoteServerPlaybackTarget
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import uniffi.app_backend.ctEmbyLogin
 import uniffi.app_backend.ctEmbyRequest
@@ -79,7 +77,6 @@ class RemoteServerGatewayImpl(
         when (kind) {
             RemoteServerKind.Navidrome,
             RemoteServerKind.OpenSubsonic -> loadSubsonicTracks(
-                kind = kind,
                 accountId = accountId,
                 baseUrl = account.endpoint.orEmpty(),
                 username = credential.username,
@@ -102,10 +99,9 @@ class RemoteServerGatewayImpl(
         kind: RemoteServerKind,
         encodedRemoteId: String,
     ): SourcePlaybackResult = runCatching {
-        val accountValue = encodedRemoteId.substringBefore('|')
-        val remoteId = encodedRemoteId.substringAfter('|', missingDelimiterValue = "")
-        require(remoteId.isNotBlank())
-        val accountId = SourceAccountId(accountValue)
+        val target = encodedRemoteId.decodeRemoteServerPlaybackTarget()
+            ?: error("Remote server playback target is invalid")
+        val accountId = target.accountId
         val account = loadAccount(accountId, kind)
         val credential = storageRepository.loadCredentialByAccountId(accountId)
             ?: error("Remote server credential is unavailable")
@@ -116,16 +112,17 @@ class RemoteServerGatewayImpl(
                 username = credential.username,
                 password = credential.secret,
                 endpoint = "stream",
-                params = mapOf("id" to remoteId),
+                params = mapOf("id" to target.remoteId),
             )
             RemoteServerKind.Emby -> ctEmbyResourceUrl(
                 baseUrl = account.endpoint.orEmpty(),
                 token = credential.secret,
-                path = "Audio/$remoteId/stream",
-                params = mapOf(
-                    "UserId" to account.externalAccountId.orEmpty(),
-                    "static" to "true",
-                ),
+                path = "Audio/${target.remoteId}/stream",
+                params = buildMap {
+                    put("UserId", account.externalAccountId.orEmpty())
+                    put("static", "true")
+                    target.sourceMediaId?.let { put("MediaSourceId", it) }
+                },
             )
         }
         SourcePlaybackResult.Success(PlaybackResource(uri = uri))
@@ -140,7 +137,6 @@ class RemoteServerGatewayImpl(
             ?: error("Remote server account is unavailable")
 
     private fun loadSubsonicTracks(
-        kind: RemoteServerKind,
         accountId: SourceAccountId,
         baseUrl: String,
         username: String,
@@ -191,6 +187,7 @@ class RemoteServerGatewayImpl(
                         )
                     },
                     mimeType = song.string("contentType"),
+                    audioProperties = SubsonicAudioPropertiesMapper.map(song),
                 )
             }
             if (songs.size < pageSize) break
@@ -227,23 +224,30 @@ class RemoteServerGatewayImpl(
             result += items.mapNotNull { element ->
                 val item = element as? JsonObject ?: return@mapNotNull null
                 val id = item.string("Id") ?: return@mapNotNull null
+                val audio = EmbyAudioPropertiesMapper.map(item)
                 RemoteServerTrack(
                     accountId = accountId,
                     remoteId = id,
                     title = item.string("Name") ?: id,
-                    artist = item.array("Artists")?.firstOrNull()?.jsonPrimitive?.contentOrNull
+                    artist = (item.array("Artists")?.firstOrNull() as? JsonPrimitive)?.contentOrNull
                         ?: item.string("AlbumArtist"),
                     album = item.string("Album"),
                     durationMs = item.long("RunTimeTicks")?.div(10_000L),
                     streamUrl = ctEmbyResourceUrl(
                         baseUrl, token, "Audio/$id/stream",
-                        mapOf("UserId" to userId, "static" to "true")
+                        buildMap {
+                            put("UserId", userId)
+                            put("static", "true")
+                            audio.sourceMediaId?.let { put("MediaSourceId", it) }
+                        }
                     ),
                     coverUrl = ctEmbyResourceUrl(
                         baseUrl, token, "Items/$id/Images/Primary",
                         mapOf("maxWidth" to "512", "quality" to "90")
                     ),
-                    mimeType = "audio/*",
+                    mimeType = audio.mimeType ?: "audio/*",
+                    audioProperties = audio.properties,
+                    sourceMediaId = audio.sourceMediaId,
                 )
             }
             if (items.size < pageSize) break
@@ -264,5 +268,7 @@ private fun JsonObject.objectAt(vararg names: String): JsonObject? =
     names.fold(this as JsonObject?) { current, name -> current?.get(name) as? JsonObject }
 
 private fun JsonObject.array(name: String): JsonArray? = get(name) as? JsonArray
-private fun JsonObject.string(name: String): String? = get(name)?.jsonPrimitive?.contentOrNull
-private fun JsonObject.long(name: String): Long? = get(name)?.jsonPrimitive?.longOrNull
+private fun JsonObject.string(name: String): String? =
+    (get(name) as? JsonPrimitive)?.contentOrNull
+
+private fun JsonObject.long(name: String): Long? = (get(name) as? JsonPrimitive)?.longOrNull

@@ -486,6 +486,7 @@ class DownloadedMediaFinalizer(
                     sampleRate = verified?.sampleRate?.toInt(),
                     bitsPerSample = verified?.bitDepth?.toInt(),
                     channels = verified?.channels?.toInt(),
+                    channelLayout = verified?.channelLayout,
                     lossless = verified?.lossless,
                     createdAt = now,
                     updatedAt = now,

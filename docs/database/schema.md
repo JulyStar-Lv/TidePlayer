@@ -145,10 +145,11 @@ exported under
 | `downloadable` | 是否可用于下载。 |
 | `codec` | 音频编码，如 FLAC、AAC。 |
 | `container` | 容器格式，如 FLAC、MP4。 |
-| `bitRate` | 比特率，通常为 kbps。 |
+| `bitRate` | 比特率，单位 kbps。 |
 | `sampleRate` | 采样率，单位 Hz。 |
 | `bitsPerSample` | 位深。 |
 | `channels` | 声道数。 |
+| `channelLayout` | 声道布局文本；与声道数独立保存。 |
 | `lossless` | 是否无损。 |
 | `createdAt` | 引用创建时间。 |
 | `updatedAt` | 引用最近更新时间。 |
@@ -207,7 +208,7 @@ exported under
 | `year` | 年份。 |
 | `date` | 原始日期文本。 |
 | `sampleRate` | 采样率，单位 Hz。 |
-| `bitRate` | 比特率，通常为 kbps。 |
+| `bitRate` | 比特率，单位 kbps。 |
 | `bitsPerSample` | 位深。 |
 | `channels` | 声道数。 |
 | `channelLayout` | 声道布局文本。 |

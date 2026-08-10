@@ -24,6 +24,7 @@ import io.github.julystar.musicapp.core.data.toLegacyStorageEntryLoc
 import io.github.julystar.musicapp.core.data.toPlaybackLyrics
 import io.github.julystar.musicapp.core.data.selectLyrics
 import io.github.julystar.musicapp.core.domain.model.AppSettings
+import io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo
 import io.github.julystar.musicapp.core.domain.model.Lyrics as DomainLyrics
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
@@ -31,8 +32,10 @@ import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_I
 import io.github.julystar.musicapp.domain.importing.normalizeRemotePath
 import io.github.julystar.musicapp.domain.importing.stableTrackId
 import io.github.julystar.musicapp.platform.currentTimeMillis
+import io.github.julystar.musicapp.service.playback.data.toPlaybackAudioInfo
 import io.github.julystar.musicapp.source.api.SourceNodeSelection
 import io.github.julystar.musicapp.source.api.SourceNodeType
+import io.github.julystar.musicapp.source.api.SourceAudioProperties
 import kotlinx.coroutines.flow.first
 import okio.FileSystem
 import okio.Path.Companion.toPath
@@ -54,7 +57,6 @@ import uniffi.app_backend.PlaylistId
 import uniffi.app_backend.PlaylistMeta
 import uniffi.app_backend.StorageEntry
 import uniffi.app_backend.StorageEntryLoc
-import uniffi.app_backend.ToAddMusicEntry
 import kotlin.math.max
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -100,6 +102,16 @@ class RoomLibraryStore(
 
     suspend fun getTrackAnnotation(trackId: Long): String? {
         return trackDao.get(trackId)?.comment?.takeIf(String::isNotBlank)
+    }
+
+    suspend fun getPlaybackAudioInfo(trackId: Long): PlaybackAudioInfo? {
+        val track = trackDao.get(trackId) ?: return null
+        val candidates = trackSourceRefDao.playbackCandidates(trackId)
+        val selected = candidates
+            .filter { candidate -> candidate.ref.isPreferred }
+            .singleOrNull()
+            ?: candidates.firstOrNull()
+        return selected?.toPlaybackAudioInfo(track) ?: track.toPlaybackAudioInfo()
     }
 
     suspend fun getTrackReplayGain(trackId: Long): TrackReplayGain? {
@@ -187,6 +199,32 @@ class RoomLibraryStore(
     }
 
     suspend fun createPlaylist(arg: ArgCreatePlaylist): Playlist? {
+        return createPlaylist(
+            title = arg.title,
+            cover = arg.cover,
+            entries = arg.entries.map { input ->
+                TrackEntryInput(entry = input.entry, title = input.name)
+            },
+        )
+    }
+
+    suspend fun createPlaylist(request: CreatePlaylistRequest): Playlist? {
+        return createPlaylist(
+            title = request.title,
+            cover = request.cover
+                ?.takeIf { selection -> selection.node.type == SourceNodeType.Image }
+                ?.toLegacyStorageEntryLoc(),
+            entries = request.entries
+                .filter { selection -> selection.node.type == SourceNodeType.Track }
+                .mapNotNull(SourceNodeSelection::toTrackEntryInputOrNull),
+        )
+    }
+
+    private suspend fun createPlaylist(
+        title: String,
+        cover: StorageEntryLoc?,
+        entries: List<TrackEntryInput>,
+    ): Playlist? {
         val now = currentTimeMillis()
         val playlistId = (playlistDao.maxId() ?: 0L) + 1L
         database.useWriterConnection { connection ->
@@ -194,17 +232,17 @@ class RoomLibraryStore(
                 playlistDao.upsert(
                     PlaylistEntity(
                         id = playlistId,
-                        title = arg.title,
+                        title = title,
                         artworkId = null,
-                        coverStorageId = arg.cover?.storageId?.value,
-                        coverPath = arg.cover?.path,
+                        coverStorageId = cover?.storageId?.value,
+                        coverPath = cover?.path,
                         createdAt = now,
                         updatedAt = now,
                         sortOrder = (playlistDao.maxSortOrder() ?: -1L) + 1L,
                     )
                 )
                 playlistDao.upsertTracks(
-                    ensureTracksForEntries(arg.entries.map { it.entry to it.name }, now)
+                    ensureTracksForEntries(entries, now)
                         .mapIndexed { index, track ->
                             PlaylistTrackCrossRef(
                                 playlistId = playlistId,
@@ -217,24 +255,6 @@ class RoomLibraryStore(
             }
         }
         return getPlaylist(PlaylistId(playlistId))
-    }
-
-    suspend fun createPlaylist(request: CreatePlaylistRequest): Playlist? {
-        return createPlaylist(
-            ArgCreatePlaylist(
-                title = request.title,
-                cover = request.cover
-                    ?.takeIf { selection -> selection.node.type == SourceNodeType.Image }
-                    ?.toLegacyStorageEntryLoc(),
-                entries = request.entries
-                    .filter { selection -> selection.node.type == SourceNodeType.Track }
-                    .mapNotNull { selection ->
-                        selection.toLegacyStorageEntry()?.let { entry ->
-                            ToAddMusicEntry(entry, entry.name)
-                        }
-                    },
-            )
-        )
     }
 
     suspend fun updatePlaylist(arg: ArgUpdatePlaylist) {
@@ -262,6 +282,16 @@ class RoomLibraryStore(
     }
 
     suspend fun addMusicEntries(playlistId: PlaylistId, entries: List<StorageEntry>): List<MusicId> {
+        return addMusicInputs(
+            playlistId = playlistId,
+            entries = entries.map { entry -> TrackEntryInput(entry = entry) },
+        )
+    }
+
+    private suspend fun addMusicInputs(
+        playlistId: PlaylistId,
+        entries: List<TrackEntryInput>,
+    ): List<MusicId> {
         if (entries.isEmpty()) return emptyList()
         val now = currentTimeMillis()
         val currentRows = playlistDaoRows(playlistId.value)
@@ -270,7 +300,7 @@ class RoomLibraryStore(
         val addedIds = mutableListOf<MusicId>()
         database.useWriterConnection { connection ->
             connection.immediateTransaction {
-                val tracks = ensureTracksForEntries(entries.map { it to null }, now)
+                val tracks = ensureTracksForEntries(entries, now)
                     .filter { it.id !in existingTrackIds }
                 playlistDao.upsertTracks(
                     tracks.mapIndexed { index, track ->
@@ -302,9 +332,9 @@ class RoomLibraryStore(
         playlistId: PlaylistId,
         selections: List<SourceNodeSelection>,
     ): List<MusicId> {
-        return addMusicEntries(
+        return addMusicInputs(
             playlistId = playlistId,
-            entries = selections.mapNotNull { selection -> selection.toLegacyStorageEntry() },
+            entries = selections.mapNotNull(SourceNodeSelection::toTrackEntryInputOrNull),
         )
     }
 
@@ -365,11 +395,11 @@ class RoomLibraryStore(
     }
 
     private suspend fun ensureTracksForEntries(
-        entries: List<Pair<StorageEntry, String?>>, 
+        entries: List<TrackEntryInput>,
         now: Long,
     ): List<TrackEntity> {
-        val normalizedEntries = entries.map { (entry, entryTitle) ->
-            Triple(entry, entryTitle, normalizeRemotePath(entry.path))
+        val normalizedEntries = entries.map { input ->
+            Triple(input.entry, input, normalizeRemotePath(input.entry.path))
         }
         val existingItems = normalizedEntries
             .groupBy { it.first.storageId.value }
@@ -380,9 +410,9 @@ class RoomLibraryStore(
                 )
             }
             .associateBy { it.sourceAccountId to it.canonicalPath }
-        val sourceItems = normalizedEntries.map { (entry, entryTitle, path) ->
+        val sourceItems = normalizedEntries.map { (entry, input, path) ->
             val existing = existingItems[entry.storageId.value to path]
-            val title = entryTitle
+            val title = input.title
                 ?.takeIf { it.isNotBlank() }
                 ?: entry.name.ifBlank { path.substringAfterLast('/').substringBeforeLast('.') }
             SourceItemEntity(
@@ -421,11 +451,13 @@ class RoomLibraryStore(
                 )
             }
             .associateBy { it.sourceAccountId to it.canonicalPath }
-        val tracks = entries.map { (entry, entryTitle) ->
+        val tracks = entries.map { input ->
+            val entry = input.entry
             val path = normalizeRemotePath(entry.path)
-            val title = entryTitle
+            val title = input.title
                 ?.takeIf { it.isNotBlank() }
                 ?: entry.name.ifBlank { path.substringAfterLast('/').substringBeforeLast('.') }
+            val audio = input.audioProperties
             TrackEntity(
                 id = stableTrackId(entry.storageId.value, path),
                 title = title.substringBeforeLast('.', title),
@@ -442,14 +474,14 @@ class RoomLibraryStore(
                 trackTotal = null,
                 year = null,
                 date = null,
-                sampleRate = null,
-                bitRate = null,
-                bitsPerSample = null,
-                channels = null,
-                channelLayout = null,
-                codec = null,
-                container = null,
-                lossless = null,
+                sampleRate = audio?.sampleRateHz?.takeIf { it > 0 },
+                bitRate = audio?.bitrateKbps?.takeIf { it > 0 },
+                bitsPerSample = audio?.bitDepth?.takeIf { it > 0 },
+                channels = audio?.channels?.takeIf { it > 0 },
+                channelLayout = audio?.channelLayout?.takeIf(String::isNotBlank),
+                codec = audio?.codec?.takeIf(String::isNotBlank),
+                container = audio?.container?.takeIf(String::isNotBlank),
+                lossless = audio?.lossless,
                 createdAt = now,
                 updatedAt = now,
             )
@@ -478,6 +510,7 @@ class RoomLibraryStore(
                         sampleRate = track.sampleRate,
                         bitsPerSample = track.bitsPerSample,
                         channels = track.channels,
+                        channelLayout = track.channelLayout,
                         lossless = track.lossless,
                         createdAt = now,
                         updatedAt = now,
@@ -605,6 +638,21 @@ data class PlaybackItemMetadata(
     val artist: String?,
     val album: String?,
 )
+
+private data class TrackEntryInput(
+    val entry: StorageEntry,
+    val title: String? = null,
+    val audioProperties: SourceAudioProperties? = null,
+)
+
+private fun SourceNodeSelection.toTrackEntryInputOrNull(): TrackEntryInput? {
+    val entry = toLegacyStorageEntry() ?: return null
+    return TrackEntryInput(
+        entry = entry,
+        title = entry.name,
+        audioProperties = node.audioProperties,
+    )
+}
 
 private fun List<MusicAbstract>.totalDuration(): Duration? {
     var total = Duration.ZERO

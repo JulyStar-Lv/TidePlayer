@@ -2,6 +2,9 @@ package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.CurrentTrackInfo
+import io.github.julystar.musicapp.core.domain.model.AudioDeliveryMode
+import io.github.julystar.musicapp.core.domain.model.AudioTechnicalInfo
+import io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo
 import io.github.julystar.musicapp.core.domain.model.LyricLine
 import io.github.julystar.musicapp.core.domain.model.Lyrics
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
@@ -92,6 +95,57 @@ class NowPlayingStateTest {
         assertEquals(false, state.isLoading)
         assertEquals(RepeatMode.All, state.repeatMode)
         assertEquals(true, state.shuffleEnabled)
+    }
+
+    @Test
+    fun nowPlayingUsesEffectiveTranscodedAudioQuality() {
+        val info = currentTrackInfo(Artwork.LibraryTrack(7)).copy(
+            playbackAudioInfo = PlaybackAudioInfo(
+                source = AudioTechnicalInfo(
+                    codec = "FLAC",
+                    bitrateKbps = 5_640,
+                    sampleRateHz = 192_000,
+                    bitDepth = 24,
+                ),
+                effective = AudioTechnicalInfo(
+                    codec = "AAC",
+                    bitrateKbps = 320,
+                    sampleRateHz = 48_000,
+                ),
+                deliveryMode = AudioDeliveryMode.Transcode,
+            )
+        )
+
+        assertEquals("AAC · 48 kHz · 320 kbps", info.toNowPlayingTrackItem().audioQuality)
+    }
+
+    @Test
+    fun selectedPlaybackSourceImmediatelyUpdatesNowPlayingQuality() {
+        val initial = currentTrackInfo(Artwork.LibraryTrack(7))
+            .copy(
+                playbackAudioInfo = PlaybackAudioInfo(
+                    source = AudioTechnicalInfo(codec = "FLAC", sampleRateHz = 96_000, bitDepth = 24),
+                    deliveryMode = AudioDeliveryMode.DirectPlay,
+                )
+            )
+            .toInitialNowPlayingState()
+        val switched = initial.withPlaybackSources(
+            listOf(
+                NowPlayingSourceItem(
+                    sourceItemId = 2,
+                    accountName = "Emby",
+                    displayName = "Song",
+                    quality = "AAC · 256 kbps",
+                    isSelected = true,
+                    playbackAudioInfo = PlaybackAudioInfo(
+                        source = AudioTechnicalInfo(codec = "AAC", bitrateKbps = 256),
+                        deliveryMode = AudioDeliveryMode.DirectPlay,
+                    ),
+                )
+            )
+        )
+
+        assertEquals("AAC · 256 kbps", switched.currentTrack?.audioQuality)
     }
 
     @Test

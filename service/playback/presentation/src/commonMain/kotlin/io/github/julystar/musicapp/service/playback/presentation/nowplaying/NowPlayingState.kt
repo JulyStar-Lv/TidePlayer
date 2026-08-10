@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.Lyrics
 import io.github.julystar.musicapp.core.domain.model.MediaId
+import io.github.julystar.musicapp.core.domain.model.AudioTechnicalInfoFormatter
+import io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -23,6 +25,7 @@ data class NowPlayingSourceItem(
     val displayName: String,
     val quality: String?,
     val isSelected: Boolean,
+    val playbackAudioInfo: PlaybackAudioInfo? = null,
 )
 
 @Immutable
@@ -35,12 +38,16 @@ data class NowPlayingTrackItem(
     val lyrics: Lyrics = Lyrics(),
     val mediaId: MediaId?,
     val annotation: String? = null,
+    val playbackAudioInfo: PlaybackAudioInfo? = null,
 ) {
     val canDownload: Boolean
         get() = mediaId != null
 
     val hasLyric: Boolean
         get() = lyrics.hasLyric
+
+    val audioQuality: String?
+        get() = AudioTechnicalInfoFormatter.format(playbackAudioInfo)
 }
 
 @Immutable

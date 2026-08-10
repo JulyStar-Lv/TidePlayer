@@ -643,6 +643,18 @@ private fun TrackInformation(
                 .fillMaxWidth()
                 .padding(top = 3.dp),
         )
+        track?.audioQuality?.let { quality ->
+            Text(
+                text = quality,
+                color = mutedColor,
+                style = MiuixTheme.textStyles.footnote1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+            )
+        }
     }
 }
 

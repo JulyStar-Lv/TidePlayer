@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.service.playback.data
 
 import io.github.julystar.musicapp.core.domain.model.MediaId
+import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceId
 import io.github.julystar.musicapp.database.ProviderTypes
@@ -97,6 +98,38 @@ class PlaybackResourceResolverTest {
                 sourceId = BuiltInSourceIds.WebDav,
                 accountId = SourceAccountId("storage:42"),
                 path = "/Music/Candidate.flac",
+            ),
+            capturedMediaId,
+        )
+    }
+
+    @Test
+    fun remoteServerCandidateUsesProviderPlaybackIdWithoutLegacyPathEncoding() = runBlocking {
+        var capturedMediaId: MediaId? = null
+        val source = fakeMusicSource(BuiltInSourceIds.Emby) { mediaId ->
+            capturedMediaId = mediaId
+            SourcePlaybackResult.Success(PlaybackResource(uri = "http://127.0.0.1/emby-track.flac"))
+        }
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(
+                    path = "/Music/Emby Track.flac",
+                    providerType = ProviderTypes.Emby,
+                    sourceItemId = 321,
+                ),
+            ),
+            sourceRegistry = MusicSourceRegistry(listOf(source)),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+        )
+
+        resolver.resolve(music(storageId = 42, path = "/Legacy/Track.flac"))
+
+        assertEquals(
+            MediaId(
+                sourceId = BuiltInSourceIds.Emby,
+                mediaType = MediaType.Track,
+                remoteId = "item-321",
             ),
             capturedMediaId,
         )

@@ -6,7 +6,9 @@ import androidx.room.useWriterConnection
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import io.github.julystar.musicapp.core.data.CreatePlaylistRequest
+import io.github.julystar.musicapp.core.domain.model.AudioDeliveryMode
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.AudioTechnicalInfoFormatter
 import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import io.github.julystar.musicapp.core.domain.model.toOptions
 import io.github.julystar.musicapp.domain.importing.OptionalMetadataUpdate
@@ -16,6 +18,7 @@ import io.github.julystar.musicapp.source.api.BuiltInSourceIds
 import io.github.julystar.musicapp.source.api.SourceNode
 import io.github.julystar.musicapp.source.api.SourceNodeSelection
 import io.github.julystar.musicapp.source.api.SourceNodeType
+import io.github.julystar.musicapp.source.api.SourceAudioProperties
 import io.github.julystar.musicapp.singleton.RoomLibraryStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -36,6 +39,29 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RoomLibraryIntegrationTest {
+    @Test
+    fun migrationTwentyOneToTwentyTwoAddsSourceChannelLayout() {
+        val connection = BundledSQLiteDriver().open(":memory:")
+        try {
+            connection.execute(
+                "CREATE TABLE track_source_ref (trackId INTEGER NOT NULL PRIMARY KEY)"
+            )
+            connection.execute("INSERT INTO track_source_ref(trackId) VALUES (1)")
+
+            MIGRATION_21_22.migrate(connection)
+
+            assertTrue("channelLayout" in columns(connection, "track_source_ref"))
+            connection.prepare(
+                "SELECT channelLayout FROM track_source_ref WHERE trackId = 1"
+            ).use { statement ->
+                assertTrue(statement.step())
+                assertTrue(statement.isNull(0))
+            }
+        } finally {
+            connection.close()
+        }
+    }
+
     @Test
     fun migrationNineteenToTwentyAddsEmbeddedLyricsKind() {
         val connection = BundledSQLiteDriver().open(":memory:")
@@ -437,6 +463,52 @@ class RoomLibraryIntegrationTest {
             assertEquals(StorageEntryLoc(StorageId(1), "/Music/Track.flac"), music.loc)
             assertEquals("Display Title", music.meta.title)
         }
+
+    @Test
+    fun roomLibraryStorePersistsSourceAudioPropertiesForPlayback() = withDatabase { database ->
+        seedStorageAndFolder(database)
+        val store = roomLibraryStore(database)
+        val playlist = assertNotNull(
+            store.createPlaylist(
+                CreatePlaylistRequest(
+                    title = "Server audio",
+                    cover = null,
+                    entries = listOf(
+                        sourceSelection(
+                            path = "/Music/HiRes.flac",
+                            name = "HiRes.flac",
+                            type = SourceNodeType.Track,
+                            audioProperties = SourceAudioProperties(
+                                codec = "FLAC",
+                                container = "FLAC",
+                                bitrateKbps = 2_784,
+                                sampleRateHz = 96_000,
+                                bitDepth = 24,
+                                channels = 2,
+                                channelLayout = "stereo",
+                                lossless = true,
+                            ),
+                        )
+                    ),
+                )
+            )
+        )
+        val trackId = playlist.musics.single().meta.id.value
+        val ref = database.trackSourceRefDao().findByTrackId(trackId).single()
+
+        assertEquals(2_784, ref.bitRate)
+        assertEquals(96_000, ref.sampleRate)
+        assertEquals(24, ref.bitsPerSample)
+        assertEquals(2, ref.channels)
+        assertEquals("stereo", ref.channelLayout)
+        val playbackAudioInfo = assertNotNull(store.getPlaybackAudioInfo(trackId))
+        assertEquals(AudioDeliveryMode.DirectPlay, playbackAudioInfo.deliveryMode)
+        assertEquals(playbackAudioInfo.source, playbackAudioInfo.effective)
+        assertEquals(
+            "FLAC · 24-bit · 96 kHz · Stereo · 2784 kbps",
+            AudioTechnicalInfoFormatter.format(playbackAudioInfo),
+        )
+    }
 
     @Test
     fun sourceErrorsCanBeScopedToImportJob() = withDatabase { database ->
@@ -1191,7 +1263,7 @@ class RoomLibraryIntegrationTest {
         year = 2026,
         date = "2026",
         sampleRate = 48_000,
-        bitRate = 900_000,
+        bitRate = 900,
         bitsPerSample = 24,
         channels = 2,
         channelLayout = null,
@@ -1219,7 +1291,7 @@ class RoomLibraryIntegrationTest {
         downloadable = true,
         codec = "FLAC",
         container = "FLAC",
-        bitRate = 900_000,
+        bitRate = 900,
         sampleRate = 48_000,
         bitsPerSample = 24,
         channels = 2,
@@ -1232,6 +1304,7 @@ class RoomLibraryIntegrationTest {
         path: String,
         name: String,
         type: SourceNodeType,
+        audioProperties: SourceAudioProperties? = null,
     ) = SourceNodeSelection(
         sourceId = BuiltInSourceIds.Local,
         accountId = SourceAccountId("storage:1"),
@@ -1248,6 +1321,7 @@ class RoomLibraryIntegrationTest {
             etag = "\"etag-$name\"",
             createdAtEpochMs = 1,
             modifiedAtEpochMs = 1,
+            audioProperties = audioProperties,
         ),
     )
 

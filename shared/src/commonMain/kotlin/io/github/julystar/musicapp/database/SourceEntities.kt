@@ -185,6 +185,7 @@ data class TrackSourceRefEntity(
     val sampleRate: Int?,
     val bitsPerSample: Int?,
     val channels: Int?,
+    val channelLayout: String? = null,
     val lossless: Boolean?,
     val createdAt: Long,
     val updatedAt: Long,

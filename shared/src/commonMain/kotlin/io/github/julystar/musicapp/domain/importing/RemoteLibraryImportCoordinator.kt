@@ -2559,6 +2559,7 @@ internal fun buildTrackSourceRefEntity(
         sampleRate = metadata.sampleRate?.toInt() ?: track.sampleRate,
         bitsPerSample = metadata.bitDepth?.toInt() ?: track.bitsPerSample,
         channels = metadata.channels?.toInt() ?: track.channels,
+        channelLayout = metadata.channelLayout ?: track.channelLayout,
         lossless = metadata.lossless ?: track.lossless,
         createdAt = existingRef?.createdAt ?: now,
         updatedAt = now,

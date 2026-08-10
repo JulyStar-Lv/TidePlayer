@@ -123,6 +123,8 @@ data class RemoteServerTrack(
     val streamUrl: String,
     val coverUrl: String? = null,
     val mimeType: String? = null,
+    val audioProperties: SourceAudioProperties? = null,
+    val sourceMediaId: String? = null,
 )
 
 interface RemoteServerGateway {
@@ -192,6 +194,8 @@ data class SourceNode(
     val ctag: String? = null,
     val createdAtEpochMs: Long? = null,
     val modifiedAtEpochMs: Long? = null,
+    val audioProperties: SourceAudioProperties? = null,
+    val sourceMediaId: String? = null,
 ) {
     init {
         require(nodeId.isNotBlank()) { "SourceNode nodeId cannot be blank" }
@@ -228,6 +232,7 @@ data class SourceMediaItem(
     val album: String? = null,
     val durationMs: Long? = null,
     val path: String? = null,
+    val audioProperties: SourceAudioProperties? = null,
 ) {
     init {
         require(title.isNotBlank()) { "SourceMediaItem title cannot be blank" }

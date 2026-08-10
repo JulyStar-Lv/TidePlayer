@@ -17,7 +17,10 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":source:api"))
         }
-        commonTest.dependencies { implementation(kotlin("test")) }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
     }
 }
 

@@ -1,13 +1,16 @@
 package io.github.julystar.musicapp.service.playback.data
 
 import io.github.julystar.musicapp.database.TrackSourcePlaybackCandidate
+import io.github.julystar.musicapp.database.TrackDao
 import io.github.julystar.musicapp.database.TrackSourceRefDao
 import io.github.julystar.musicapp.platform.currentTimeMillis
 import io.github.julystar.musicapp.service.playback.domain.PlaybackSourceOption
 import io.github.julystar.musicapp.service.playback.domain.PlaybackSourceRepository
+import io.github.julystar.musicapp.core.domain.model.AudioTechnicalInfoFormatter
 
 class RoomPlaybackSourceRepository(
     private val trackSourceRefDao: TrackSourceRefDao,
+    private val trackDao: TrackDao,
 ) : PlaybackSourceRepository {
     override suspend fun sources(trackId: Long): List<PlaybackSourceOption> {
         val candidates = trackSourceRefDao.playbackCandidates(trackId)
@@ -17,9 +20,11 @@ class RoomPlaybackSourceRepository(
             ?.item
             ?.id
             ?: candidates.firstOrNull()?.item?.id
+        val track = trackDao.get(trackId)
         return candidates.map { candidate ->
             candidate.toPlaybackSourceOption(
                 isSelected = candidate.item.id == selectedSourceItemId,
+                fallbackTrack = track,
             )
         }
     }
@@ -35,17 +40,15 @@ class RoomPlaybackSourceRepository(
 
 private fun TrackSourcePlaybackCandidate.toPlaybackSourceOption(
     isSelected: Boolean,
+    fallbackTrack: io.github.julystar.musicapp.database.TrackEntity?,
 ): PlaybackSourceOption {
-    val quality = listOfNotNull(
-        ref.codec?.uppercase(),
-        ref.sampleRate?.takeIf { it > 0 }?.let { sampleRate -> "${sampleRate / 1_000.0} kHz" },
-        ref.bitsPerSample?.takeIf { it > 0 }?.let { bits -> "$bits-bit" },
-    ).joinToString(" · ").takeIf(String::isNotBlank)
+    val audioInfo = toPlaybackAudioInfo(fallbackTrack)
     return PlaybackSourceOption(
         sourceItemId = item.id,
         accountName = account.displayName,
         displayName = item.displayName,
-        quality = quality,
+        quality = AudioTechnicalInfoFormatter.format(audioInfo),
         isSelected = isSelected,
+        playbackAudioInfo = audioInfo,
     )
 }

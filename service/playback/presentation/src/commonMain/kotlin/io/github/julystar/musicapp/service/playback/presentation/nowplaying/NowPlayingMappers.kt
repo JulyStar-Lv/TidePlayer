@@ -20,6 +20,18 @@ public fun CurrentTrackInfo.toNowPlayingTrackItem(): NowPlayingTrackItem {
         lyrics = lyrics,
         mediaId = mediaId,
         annotation = annotation?.takeIf(String::isNotBlank),
+        playbackAudioInfo = playbackAudioInfo,
+    )
+}
+
+internal fun NowPlayingState.withPlaybackSources(
+    sources: List<NowPlayingSourceItem>,
+): NowPlayingState {
+    val selectedAudioInfo = sources.firstOrNull(NowPlayingSourceItem::isSelected)
+        ?.playbackAudioInfo
+    return copy(
+        currentTrack = currentTrack?.copy(playbackAudioInfo = selectedAudioInfo),
+        playbackSources = sources,
     )
 }
 
