@@ -11,6 +11,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.julystar.musicapp.platform.appContext
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationRequest
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationResult
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizer
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
 import io.github.julystar.musicapp.service.download.domain.DownloadTask
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskId
@@ -29,6 +32,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.io.Closeable
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -79,6 +83,7 @@ internal class AndroidDownloadWorker(
     private val repository: DownloadTaskRepository by inject()
     private val sourceRegistry: MusicSourceRegistry by inject()
     private val legacyStoragePlaybackResolver: LegacyStoragePlaybackResolver by inject()
+    private val downloadFinalizer: DownloadFinalizer by inject()
     private val nowEpochMs: () -> Long = { Clock.System.now().toEpochMilliseconds() }
 
     override suspend fun doWork(): Result {
@@ -90,6 +95,17 @@ internal class AndroidDownloadWorker(
     }
 
     private suspend fun runTask(task: DownloadTask): Result {
+        if (task.status == DownloadStatus.Finalizing && task.localPath != null) {
+            return try {
+                finalizeDownloadedFile(task)
+                Result.success()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                markFailed(task.id, error.message ?: "Download finalization failed")
+                Result.failure()
+            }
+        }
         if (updateStatus(task.id, DownloadStatus.Resolving) == null) {
             return Result.success()
         }
@@ -173,6 +189,7 @@ internal class AndroidDownloadWorker(
                             lastPersistedBytes = downloadedBytes
                         }
                     }
+                    output.fd.sync()
                 }
             } catch (e: CancellationException) {
                 val current = repository.getTask(task.id)
@@ -194,15 +211,46 @@ internal class AndroidDownloadWorker(
                 totalBytes = totalBytes,
             )
             movePartFile(partFile, targetFile)
-            updateStatus(task.id, DownloadStatus.Completed) { current ->
+            val finalizing = updateStatus(task.id, DownloadStatus.Finalizing) { current ->
                 current.copy(
                     downloadedBytes = downloadedBytes,
                     totalBytes = normalizedTotalBytes(totalBytes, downloadedBytes),
                     localPath = targetFile.absolutePath,
                     mimeType = resource.mimeType ?: current.mimeType,
                     errorMessage = null,
+                    finalizationWarning = null,
                 )
+            } ?: return
+            finalizeDownloadedFile(finalizing)
+        }
+    }
+
+    private suspend fun finalizeDownloadedFile(task: DownloadTask) {
+        val localPath = task.localPath ?: throw IOException("Downloaded file path is missing")
+        when (
+            val result = downloadFinalizer.finalize(
+                DownloadFinalizationRequest(
+                    mediaId = task.mediaId,
+                    localPath = localPath,
+                    mimeType = task.mimeType,
+                    fallbackTitle = task.title,
+                    fallbackArtist = task.artist,
+                    fallbackAlbum = task.album,
+                    expectedDurationMs = task.durationMs,
+                    expectedBytes = task.totalBytes ?: task.downloadedBytes,
+                )
+            )
+        ) {
+            is DownloadFinalizationResult.Success -> {
+                updateStatus(task.id, DownloadStatus.Completed) { current ->
+                    current.copy(
+                        localPath = result.localPath,
+                        errorMessage = null,
+                        finalizationWarning = result.warnings.toWarningMessage(),
+                    )
+                }
             }
+            is DownloadFinalizationResult.Failure -> throw IOException(result.message)
         }
     }
 
@@ -354,17 +402,33 @@ internal class AndroidDownloadWorker(
     }
 
     private fun movePartFile(partFile: File, targetFile: File) {
-        if (targetFile.exists()) targetFile.delete()
-        if (!partFile.renameTo(targetFile)) {
-            partFile.copyTo(targetFile, overwrite = true)
-            partFile.delete()
+        if (!targetFile.exists() && partFile.renameTo(targetFile)) return
+        val commitFile = File(targetFile.parentFile, "${targetFile.name}.commit.tmp")
+        commitFile.delete()
+        FileInputStream(partFile).use { input ->
+            FileOutputStream(commitFile).use { output ->
+                input.copyTo(output)
+                output.fd.sync()
+            }
         }
+        if (targetFile.exists() && !targetFile.delete()) {
+            commitFile.delete()
+            throw IOException("Unable to replace previous download")
+        }
+        if (!commitFile.renameTo(targetFile)) {
+            commitFile.delete()
+            throw IOException("Unable to commit downloaded file")
+        }
+        partFile.delete()
     }
 
     private fun parseUri(value: String): URI? {
         return runCatching { URI(value) }.getOrNull()
     }
 }
+
+private fun List<String>.toWarningMessage(): String? =
+    joinToString("; ").takeIf(String::isNotBlank)?.take(1_000)
 
 private class OpenedAndroidDownloadResource(
     val input: InputStream,

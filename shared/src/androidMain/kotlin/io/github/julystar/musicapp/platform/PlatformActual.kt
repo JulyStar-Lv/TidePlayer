@@ -65,7 +65,6 @@ actual fun platformSettingsCapabilities() =
         colorOsLockScreenLyricsSupported = true,
         settingsBackupSupported = true,
         scheduledBackupSupported = true,
-        externalEditorSupported = true,
     )
 
 private val systemLocalesAtStartup: LocaleList by lazy {

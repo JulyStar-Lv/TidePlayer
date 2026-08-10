@@ -596,13 +596,6 @@
     <string name="settings_player_song_annotation">Show song annotation</string>
     <string name="settings_desktop_shortcuts">Desktop playback shortcuts</string>
     <string name="settings_desktop_shortcuts_summary">Ctrl+Space: play/pause · Alt+Left/Right: previous/next</string>
-    <string name="settings_metadata_editor">Metadata editor app</string>
-    <string name="settings_lyric_timing_editor">Lyric timing app</string>
-    <string name="settings_editor_ask_every_time">Ask every time</string>
-    <string name="settings_editor_lyrico">Lyrico</string>
-    <string name="settings_editor_lunabeat_metadata">LunaBeat (metadata editor)</string>
-    <string name="settings_editor_music_tag">Music Tag</string>
-    <string name="settings_editor_lunabeat_lyric_timing">LunaBeat (lyric timing)</string>
     <string name="settings_audio_effects_section">Equalizer and DSP</string>
     <string name="settings_audio_effects_enabled">Enable audio effects</string>
     <string name="settings_audio_effects_enabled_summary">Changes apply to the current track at the next audio-buffer boundary</string>
@@ -778,6 +771,11 @@
     <string name="settings_reverb_hall">Hall</string>
     <string name="settings_reverb_plate">Plate</string>
     <string name="settings_metadata_parsing_section">Artist and genre parsing</string>
+    <string name="settings_download_persistence_section">Downloaded media</string>
+    <string name="settings_enrich_downloaded_files">Complete downloaded file metadata</string>
+    <string name="settings_enrich_downloaded_files_summary">After a download completes, save resolved song information, artwork, and lyrics into the audio file and lyric files.</string>
+    <string name="settings_save_sidecar_lyrics">Save lyric files</string>
+    <string name="settings_save_sidecar_lyrics_summary">Keep compatible LRC and high-quality TTML lyrics beside the audio file.</string>
     <string name="settings_artist_separators">Artist separators</string>
     <string name="settings_artist_protected_names">Protected artist names</string>
     <string name="settings_genre_separators">Genre separators</string>

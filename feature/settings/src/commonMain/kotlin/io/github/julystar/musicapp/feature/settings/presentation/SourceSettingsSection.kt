@@ -107,6 +107,34 @@ fun SourceSettingsSection(
     ) {
         UnifiedLibraryCard(state = state, onAction = onAction)
 
+        SettingsSection(title = stringResource(Res.string.settings_download_persistence_section)) {
+            SettingsSwitchRow(
+                title = stringResource(Res.string.settings_enrich_downloaded_files),
+                summary = stringResource(Res.string.settings_enrich_downloaded_files_summary),
+                checked = settings.downloadFinalization.enrichMetadata,
+                onCheckedChange = { enabled ->
+                    onAction(
+                        SettingsAction.SetDownloadFinalizationSettings(
+                            settings.downloadFinalization.copy(enrichMetadata = enabled),
+                        )
+                    )
+                },
+            )
+            SettingsSwitchRow(
+                title = stringResource(Res.string.settings_save_sidecar_lyrics),
+                summary = stringResource(Res.string.settings_save_sidecar_lyrics_summary),
+                checked = settings.downloadFinalization.saveSidecarLyrics,
+                enabled = settings.downloadFinalization.enrichMetadata,
+                onCheckedChange = { enabled ->
+                    onAction(
+                        SettingsAction.SetDownloadFinalizationSettings(
+                            settings.downloadFinalization.copy(saveSidecarLyrics = enabled),
+                        )
+                    )
+                },
+            )
+        }
+
         SettingsSection(title = stringResource(Res.string.settings_sources_section)) {
             state.sourceAccounts.forEach { account ->
                 SourceAccountRow(

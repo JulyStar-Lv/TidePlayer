@@ -135,6 +135,13 @@ Android and Desktop reject a resumed HTTP response unless it returns `206`,
 and all schedulers reject a changed total size. Pause retains partial data;
 cancel deletes it.
 
+Once all bytes are durable, SMB downloads follow the same
+`Downloading -> Finalizing -> Completed` pipeline as other sources. The
+finalizer reads the already resolved library/plugin candidates, safely writes
+supported embedded metadata and artwork, preserves LRC/TTML sidecars, verifies
+the result, and refreshes the single Room track without rescanning the share.
+Metadata warnings keep the raw audio as a completed download.
+
 iOS cannot assume that a system background URLSession can reconnect to a
 short-lived localhost gateway after TidePlayer has been terminated. The first
 version retains resume data and the playback session in memory, but reliable

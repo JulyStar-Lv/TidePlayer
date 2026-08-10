@@ -14,7 +14,6 @@ data class NowPlayingState(
     val queue: NowPlayingQueueState = NowPlayingQueueState(),
     val controls: NowPlayingControlsState = NowPlayingControlsState(),
     val playbackSources: List<NowPlayingSourceItem> = emptyList(),
-    val externalEditorSupported: Boolean = false,
 )
 
 @Immutable
@@ -74,8 +73,6 @@ sealed interface NowPlayingAction {
     data object NavigateBack : NowPlayingAction
     data object AddLyric : NowPlayingAction
     data object SearchMetadata : NowPlayingAction
-    data object OpenMetadataEditor : NowPlayingAction
-    data object OpenLyricTimingEditor : NowPlayingAction
     data object RemoveLyric : NowPlayingAction
     data object RemoveCurrentTrack : NowPlayingAction
     data object DownloadCurrentTrack : NowPlayingAction

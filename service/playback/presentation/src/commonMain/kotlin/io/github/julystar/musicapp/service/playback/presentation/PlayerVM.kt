@@ -4,12 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.PlaybackAdvancedSettings
 import io.github.julystar.musicapp.core.domain.model.CurrentTrackInfo
-import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.domain.model.PreviousButtonBehavior
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
-import io.github.julystar.musicapp.core.domain.repository.ExternalEditorKind
-import io.github.julystar.musicapp.core.domain.repository.ExternalEditorLauncher
-import io.github.julystar.musicapp.core.domain.repository.ExternalEditorRequest
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
 import io.github.julystar.musicapp.service.playback.domain.NowPlayingRepository
@@ -45,20 +41,16 @@ class PlayerVM constructor(
     private val playbackController: PlaybackController,
     private val enqueueDownload: EnqueueDownloadUseCase,
     private val settingsRepository: SettingsRepository,
-    private val externalEditorLauncher: ExternalEditorLauncher,
     private val playbackSourceRepository: PlaybackSourceRepository,
 ) : ViewModel() {
     private val whileSubscribed = SharingStarted.WhileSubscribed(5_000)
     // A destination-scoped VM must expose the current cover before its first transition frame.
     private var currentTrackInfo: CurrentTrackInfo? = nowPlayingRepository.currentTrackInfo.value
     private val _nowPlayingState = MutableStateFlow(
-        currentTrackInfo.toInitialNowPlayingState(
-            externalEditorSupported = externalEditorLauncher.isSupported,
-        ),
+        currentTrackInfo.toInitialNowPlayingState(),
     )
     private val _nowPlayingEvents = Channel<NowPlayingEvent>(Channel.BUFFERED)
     private val _playbackAdvancedSettings = MutableStateFlow(PlaybackAdvancedSettings.Default)
-    private var playerInteractionSettings = PlayerInteractionSettings.Default
 
     val playbackState = playbackController.state
     val playbackPosition = playbackController.position
@@ -95,7 +87,6 @@ class PlayerVM constructor(
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
                 _playbackAdvancedSettings.value = settings.playbackAdvanced
-                playerInteractionSettings = settings.playerInteraction
             }
         }
         viewModelScope.launch {
@@ -149,8 +140,6 @@ class PlayerVM constructor(
             NowPlayingAction.NavigateBack -> Unit
             NowPlayingAction.AddLyric -> Unit
             NowPlayingAction.SearchMetadata -> Unit
-            NowPlayingAction.OpenMetadataEditor -> openExternalEditor(ExternalEditorKind.Metadata)
-            NowPlayingAction.OpenLyricTimingEditor -> openExternalEditor(ExternalEditorKind.LyricTiming)
             NowPlayingAction.RemoveLyric -> removeLyric()
             NowPlayingAction.RemoveCurrentTrack -> remove()
             NowPlayingAction.DownloadCurrentTrack -> downloadCurrentTrack()
@@ -244,28 +233,6 @@ class PlayerVM constructor(
             _nowPlayingEvents.send(
                 NowPlayingEvent.ShowMessage("Preferred source updated; it will be used first next time."),
             )
-        }
-    }
-
-    private fun openExternalEditor(kind: ExternalEditorKind) {
-        val track = currentTrackInfo ?: return
-        val launched = externalEditorLauncher.launch(
-            ExternalEditorRequest(
-                kind = kind,
-                trackId = track.id,
-                title = track.title,
-                artist = track.artist,
-                sourcePath = track.sourcePath,
-                metadataEditor = playerInteractionSettings.metadataEditor,
-                lyricTimingEditor = playerInteractionSettings.lyricTimingEditor,
-            )
-        )
-        if (!launched) {
-            viewModelScope.launch {
-                _nowPlayingEvents.send(
-                    NowPlayingEvent.ShowMessage("Unable to open an editor for this track")
-                )
-            }
         }
     }
 

@@ -312,6 +312,7 @@ dependencies = [
  "serde_json",
  "storage-backend",
  "thiserror 1.0.69",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

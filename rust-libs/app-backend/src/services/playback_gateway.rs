@@ -4,7 +4,7 @@ use std::{
     io::{self, Read, Seek, SeekFrom, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
     num::NonZeroUsize,
-    path::PathBuf,
+    path::{Path as FsPath, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
@@ -51,6 +51,20 @@ pub struct PlaybackCacheOptions {
     pub extension: String,
     pub write_enabled: bool,
     pub max_bytes: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum PlaybackCachePromotionStatus {
+    Partial,
+    Promoted,
+    AlreadyPromoted,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct PlaybackCachePromotionResult {
+    pub status: PlaybackCachePromotionStatus,
+    pub path: Option<String>,
+    pub bytes: u64,
 }
 
 #[derive(uniffi::Object)]
@@ -325,16 +339,115 @@ fn cache_paths(options: &PlaybackCacheOptions) -> Option<(PathBuf, PathBuf, Path
     if options.directory.trim().is_empty() || options.key.trim().is_empty() {
         return None;
     }
-    let digest = Sha256::digest(options.key.as_bytes());
-    let hash = digest
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let hash = playback_cache_hash(&options.key);
     let extension = sanitized_extension(&options.extension);
     let complete_path = PathBuf::from(&options.directory).join(format!("{hash}.{extension}"));
     let partial_path = PathBuf::from(&options.directory).join(format!("{hash}.{extension}.part"));
     let index_path = PathBuf::from(&options.directory).join(format!("{hash}.{extension}.blocks"));
     Some((complete_path, partial_path, index_path))
+}
+
+fn playback_cache_hash(key: &str) -> String {
+    Sha256::digest(key.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+pub fn promote_completed_playback_cache(
+    options: PlaybackCacheOptions,
+    destination_directory: String,
+) -> io::Result<PlaybackCachePromotionResult> {
+    let Some((complete_path, partial_path, index_path)) = cache_paths(&options) else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "playback cache identity is incomplete",
+        ));
+    };
+    if destination_directory.trim().is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "playback cache promotion directory is empty",
+        ));
+    }
+    let extension = sanitized_extension(&options.extension);
+    let hash = playback_cache_hash(&options.key);
+    let destination_directory = PathBuf::from(destination_directory);
+    let destination = destination_directory.join(format!("{hash}.{extension}"));
+    let marker = complete_path.with_extension(format!("{extension}.promoted"));
+
+    if destination.is_file() {
+        write_promotion_marker(&marker, &destination)?;
+        let bytes = destination.metadata()?.len();
+        return Ok(PlaybackCachePromotionResult {
+            status: PlaybackCachePromotionStatus::AlreadyPromoted,
+            path: Some(destination.to_string_lossy().into_owned()),
+            bytes,
+        });
+    }
+    if marker.exists() {
+        let _ = fs::remove_file(&marker);
+    }
+    let bytes = match complete_path.metadata() {
+        Ok(metadata) if metadata.is_file() && metadata.len() > 0 => metadata.len(),
+        _ => {
+            return Ok(PlaybackCachePromotionResult {
+                status: PlaybackCachePromotionStatus::Partial,
+                path: None,
+                bytes: 0,
+            });
+        }
+    };
+
+    fs::create_dir_all(&destination_directory)?;
+    let temporary = destination.with_extension(format!("{extension}.promote.tmp"));
+    if temporary.exists() {
+        fs::remove_file(&temporary)?;
+    }
+    let moved = fs::rename(&complete_path, &temporary).is_ok();
+    if !moved {
+        fs::copy(&complete_path, &temporary)?;
+    }
+    let promotion_result = (|| {
+        let temporary_file = OpenOptions::new().read(true).write(true).open(&temporary)?;
+        temporary_file.sync_all()?;
+        if temporary_file.metadata()?.len() != bytes {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "promoted playback cache size changed",
+            ));
+        }
+        fs::rename(&temporary, &destination)?;
+        if let Ok(directory) = File::open(&destination_directory) {
+            let _ = directory.sync_all();
+        }
+        if !moved {
+            fs::remove_file(&complete_path)?;
+        }
+        let _ = fs::remove_file(&partial_path);
+        let _ = fs::remove_file(&index_path);
+        write_promotion_marker(&marker, &destination)?;
+        Ok(())
+    })();
+    if promotion_result.is_err() && moved && temporary.exists() && !complete_path.exists() {
+        let _ = fs::rename(&temporary, &complete_path);
+    }
+    promotion_result?;
+    Ok(PlaybackCachePromotionResult {
+        status: PlaybackCachePromotionStatus::Promoted,
+        path: Some(destination.to_string_lossy().into_owned()),
+        bytes,
+    })
+}
+
+fn write_promotion_marker(marker: &FsPath, destination: &FsPath) -> io::Result<()> {
+    let temporary = marker.with_extension("promoted.tmp");
+    fs::write(&temporary, destination.to_string_lossy().as_bytes())?;
+    File::open(&temporary)?.sync_all()?;
+    if marker.exists() {
+        fs::remove_file(marker)?;
+    }
+    fs::rename(temporary, marker)
 }
 
 fn sanitized_extension(extension: &str) -> String {
@@ -1221,6 +1334,83 @@ mod tests {
         let response = client.get(completed.url()).send().await.unwrap();
         assert_eq!(response.bytes().await.unwrap().as_ref(), b"0123456789");
         completed.shutdown();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn partial_playback_cache_cannot_be_promoted() {
+        let root = std::env::temp_dir().join(format!(
+            "musicapp-playback-promotion-partial-{}",
+            random_token()
+        ));
+        let options = PlaybackCacheOptions {
+            directory: root.join("cache").to_string_lossy().into_owned(),
+            key: "partial-cache".to_string(),
+            extension: "flac".to_string(),
+            write_enabled: true,
+            max_bytes: 1_024,
+        };
+        let (_, partial, index) = cache_paths(&options).unwrap();
+        fs::create_dir_all(partial.parent().unwrap()).unwrap();
+        fs::write(&partial, b"incomplete").unwrap();
+        fs::write(&index, b"10\n0\n").unwrap();
+
+        let result = promote_completed_playback_cache(
+            options,
+            root.join("downloads").to_string_lossy().into_owned(),
+        )
+        .unwrap();
+
+        assert_eq!(result.status, PlaybackCachePromotionStatus::Partial);
+        assert!(result.path.is_none());
+        assert!(partial.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn promotes_completed_cache_once_and_preserves_bytes_and_extension() {
+        let root = std::env::temp_dir().join(format!(
+            "musicapp-playback-promotion-complete-{}",
+            random_token()
+        ));
+        let options = PlaybackCacheOptions {
+            directory: root.join("cache").to_string_lossy().into_owned(),
+            key: "storage:42\n/Music/Track.flac\nversion-1".to_string(),
+            extension: "flac".to_string(),
+            write_enabled: true,
+            max_bytes: 1_024,
+        };
+        let (complete, _, _) = cache_paths(&options).unwrap();
+        fs::create_dir_all(complete.parent().unwrap()).unwrap();
+        let original = b"complete audio bytes";
+        fs::write(&complete, original).unwrap();
+        let destination_directory = root.join("downloads");
+
+        let promoted = promote_completed_playback_cache(
+            options.clone(),
+            destination_directory.to_string_lossy().into_owned(),
+        )
+        .unwrap();
+        let path = PathBuf::from(promoted.path.as_ref().unwrap());
+        assert_eq!(promoted.status, PlaybackCachePromotionStatus::Promoted);
+        assert_eq!(promoted.bytes, original.len() as u64);
+        assert_eq!(
+            path.extension().and_then(|value| value.to_str()),
+            Some("flac")
+        );
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(!complete.exists());
+
+        let repeated = promote_completed_playback_cache(
+            options,
+            destination_directory.to_string_lossy().into_owned(),
+        )
+        .unwrap();
+        assert_eq!(
+            repeated.status,
+            PlaybackCachePromotionStatus::AlreadyPromoted
+        );
+        assert_eq!(fs::read(&path).unwrap(), original);
         fs::remove_dir_all(root).unwrap();
     }
 

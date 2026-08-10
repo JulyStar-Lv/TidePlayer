@@ -206,9 +206,20 @@ interface DownloadController {
     suspend fun pause(id: DownloadTaskId)
     suspend fun resume(id: DownloadTaskId)
     suspend fun cancel(id: DownloadTaskId)
+    suspend fun cancelAll()
+    suspend fun recoverInterruptedTasks(): Int
     suspend fun retry(id: DownloadTaskId)
 }
 ```
+
+Every platform scheduler durably commits raw audio and persists the
+`Finalizing` state before invoking `DownloadFinalizer`. Kotlin resolves a
+source-aware `MetadataSnapshot` from the existing library; the shared Rust
+`audio-metadata` writer edits a temporary copy with Lofty, verifies it through
+the existing reader, and atomically replaces the media and sidecars. Completed
+playback caches use the same finalizer after an idempotent promote step. See
+[download-finalization.md](./download-finalization.md) for recovery, metadata,
+lyrics, and format policy.
 
 ### LibrarySyncController
 

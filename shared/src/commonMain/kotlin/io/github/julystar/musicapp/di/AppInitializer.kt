@@ -21,6 +21,7 @@ import io.github.julystar.musicapp.core.domain.repository.SettingsMigration
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.platform.currentTimeMillis
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncController
+import io.github.julystar.musicapp.service.download.domain.DownloadController
 import kotlinx.coroutines.flow.first
 import io.github.julystar.musicapp.database.AppDatabase
 import io.github.julystar.musicapp.database.PluginDao
@@ -109,6 +110,7 @@ object AppInitializer {
         try {
             RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PlaybackRestoring)
             koin.get<LibrarySyncController>().recoverInterruptedTasks()
+            koin.get<DownloadController>().recoverInterruptedTasks()
             if ("playback_restore" !in disabledComponents) {
                 koin.get<PlayerRepository>().reload()
             }

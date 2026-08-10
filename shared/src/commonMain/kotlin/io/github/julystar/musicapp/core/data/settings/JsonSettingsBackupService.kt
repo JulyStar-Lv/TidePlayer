@@ -183,6 +183,7 @@ private fun AppSettings.mergeBackup(
     if (selection.libraryAndMetadata) {
         merged = merged.copy(
             metadataParsing = backup.metadataParsing,
+            downloadFinalization = backup.downloadFinalization,
             autoScanMode = backup.autoScanMode,
             scanSubdirectories = backup.scanSubdirectories,
             webDavMetadataScanMode = backup.webDavMetadataScanMode,

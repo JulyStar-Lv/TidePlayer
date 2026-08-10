@@ -1,5 +1,12 @@
 use std::{fs, path::PathBuf, sync::Arc};
 
+use audio_metadata::writer::{
+    cleanup_metadata_temporary_file, metadata_write_capabilities, write_metadata_atomic,
+    ArtworkWriteRequest, LyricsWriteRequest, MetadataFields,
+    MetadataMergeMode as AudioMetadataMergeMode,
+    MetadataWriteCapabilities as AudioMetadataWriteCapabilities,
+    MetadataWriteRequest as AudioMetadataWriteRequest, MAX_WRITE_ARTWORK_BYTES,
+};
 use audio_metadata::{
     read_metadata_with_options, EmbeddedArtwork, MetadataReadOptions as AudioMetadataReadOptions,
     ReaderLimits, StorageRangeSource,
@@ -11,8 +18,10 @@ use crate::{
     ctx::BackendContext,
     error::{BError, BResult},
     objects::{
-        MetadataReadOptions, RemoteArtwork, RemoteEmbeddedLyrics, RemoteMetadata,
-        RemoteMetadataRequest, RemoteMetadataResult, RemoteRawMetadataEntry, Storage,
+        AudioMetadataWriteRequest as UniFfiAudioMetadataWriteRequest, AudioMetadataWriteResult,
+        LocalMetadataSummary, MetadataMergeMode, MetadataReadOptions, MetadataWriteCapabilities,
+        RemoteArtwork, RemoteEmbeddedLyrics, RemoteMetadata, RemoteMetadataRequest,
+        RemoteMetadataResult, RemoteRawMetadataEntry, Storage,
     },
     schema::StorageEntryLoc,
     services::build_storage_backend,
@@ -130,6 +139,190 @@ pub async fn ct_read_remote_metadata(
         metadata_elapsed_ms: read_result.stats.elapsed_ms,
         artwork_cached_bytes,
     })
+}
+
+#[uniffi::export]
+pub fn ct_metadata_write_capabilities(path: String) -> MetadataWriteCapabilities {
+    metadata_write_capabilities(path).into()
+}
+
+#[uniffi::export]
+pub fn ct_cleanup_metadata_temporary_file(path: String) -> BResult<bool> {
+    Ok(cleanup_metadata_temporary_file(path)?)
+}
+
+#[uniffi::export]
+pub async fn ct_write_audio_metadata(
+    request: UniFfiAudioMetadataWriteRequest,
+) -> BResult<AudioMetadataWriteResult> {
+    tracing::info!("download finalization metadata write started");
+    let (result, preparation_warnings) = async_runtime::tokio_runtime()
+        .spawn_blocking(move || {
+            let mut preparation_warnings = Vec::new();
+            let artwork = request.artwork.and_then(|artwork| {
+                if fs::metadata(&artwork.local_path)
+                    .ok()
+                    .is_some_and(|metadata| metadata.len() > MAX_WRITE_ARTWORK_BYTES as u64)
+                {
+                    preparation_warnings.push(format!(
+                        "cached artwork exceeds the {MAX_WRITE_ARTWORK_BYTES} byte embedding limit"
+                    ));
+                    return None;
+                }
+                match fs::read(&artwork.local_path) {
+                    Ok(data) => Some(ArtworkWriteRequest {
+                        data,
+                        mime_type: artwork.mime_type,
+                    }),
+                    Err(error) => {
+                        preparation_warnings
+                            .push(format!("failed to read cached artwork: {error}"));
+                        None
+                    }
+                }
+            });
+            let result = write_metadata_atomic(AudioMetadataWriteRequest {
+                path: request.path,
+                metadata: MetadataFields {
+                    title: request.metadata.title,
+                    artist: request.metadata.artist,
+                    artists: request.metadata.artists,
+                    album_artist: request.metadata.album_artist,
+                    album: request.metadata.album,
+                    composer: request.metadata.composer,
+                    lyricist: request.metadata.lyricist,
+                    conductor: request.metadata.conductor,
+                    genre: request.metadata.genre,
+                    grouping: request.metadata.grouping,
+                    comment: request.metadata.comment,
+                    copyright: request.metadata.copyright,
+                    publisher: request.metadata.publisher,
+                    date: request.metadata.date,
+                    original_release_date: request.metadata.original_release_date,
+                    track_number: request.metadata.track_number,
+                    track_total: request.metadata.track_total,
+                    disc_number: request.metadata.disc_number,
+                    disc_total: request.metadata.disc_total,
+                    bpm: request.metadata.bpm,
+                    musical_key: request.metadata.musical_key,
+                    isrc: request.metadata.isrc,
+                    musicbrainz_recording_id: request.metadata.musicbrainz_recording_id,
+                    musicbrainz_track_id: request.metadata.musicbrainz_track_id,
+                    musicbrainz_release_id: request.metadata.musicbrainz_release_id,
+                    musicbrainz_release_group_id: request.metadata.musicbrainz_release_group_id,
+                    musicbrainz_artist_id: request.metadata.musicbrainz_artist_id,
+                    musicbrainz_release_artist_id: request.metadata.musicbrainz_release_artist_id,
+                    musicbrainz_work_id: request.metadata.musicbrainz_work_id,
+                    replay_gain_track_gain: request.metadata.replay_gain_track_gain,
+                    replay_gain_track_peak: request.metadata.replay_gain_track_peak,
+                    replay_gain_album_gain: request.metadata.replay_gain_album_gain,
+                    replay_gain_album_peak: request.metadata.replay_gain_album_peak,
+                },
+                artwork,
+                lyrics: request.lyrics.map(|lyrics| LyricsWriteRequest {
+                    embedded: lyrics.embedded,
+                    lrc: lyrics.lrc,
+                    ttml: lyrics.ttml,
+                    save_sidecars: lyrics.save_sidecars,
+                }),
+                merge_mode: match request.merge_mode {
+                    MetadataMergeMode::FillMissing => AudioMetadataMergeMode::FillMissing,
+                    MetadataMergeMode::PreferSnapshot => AudioMetadataMergeMode::PreferSnapshot,
+                },
+            })?;
+            Ok::<_, audio_metadata::writer::MetadataWriteError>((result, preparation_warnings))
+        })
+        .await
+        .map_err(|error| BError::CustomError {
+            message: format!("metadata writer task failed: {error}"),
+        })??;
+    let mut warnings = preparation_warnings;
+    warnings.extend(result.warnings);
+    if warnings.is_empty() {
+        tracing::info!(
+            changed = result.changed,
+            fields = result.written_fields.len(),
+            "download finalization metadata verification succeeded"
+        );
+    } else {
+        tracing::warn!(
+            warnings = warnings.len(),
+            "download finalization metadata write completed with warnings"
+        );
+    }
+    Ok(AudioMetadataWriteResult {
+        changed: result.changed,
+        written_fields: result.written_fields,
+        warnings,
+        capabilities: result.capabilities.into(),
+        verified: result.verified.map(Into::into),
+    })
+}
+
+impl From<AudioMetadataWriteCapabilities> for MetadataWriteCapabilities {
+    fn from(value: AudioMetadataWriteCapabilities) -> Self {
+        Self {
+            format: value.format,
+            metadata: value.metadata,
+            artwork: value.artwork,
+            embedded_lyrics: value.embedded_lyrics,
+            synced_lyrics: value.synced_lyrics,
+            arbitrary_text: value.arbitrary_text,
+            sidecar_lyrics: value.sidecar_lyrics,
+        }
+    }
+}
+
+impl From<audio_metadata::NormalizedMetadata> for LocalMetadataSummary {
+    fn from(value: audio_metadata::NormalizedMetadata) -> Self {
+        Self {
+            title: value.title,
+            artist: value.artist,
+            artists: value.artists,
+            album_artist: value.album_artist,
+            album: value.album,
+            composer: value.composer,
+            lyricist: value.lyricist,
+            conductor: value.conductor,
+            genre: value.genre,
+            grouping: value.grouping,
+            comment: value.comment,
+            copyright: value.copyright,
+            publisher: value.publisher,
+            date: value.date,
+            original_release_date: value.original_release_date,
+            track_number: value.track_number,
+            track_total: value.track_total,
+            disc_number: value.disc_number,
+            disc_total: value.disc_total,
+            bpm: value.bpm,
+            musical_key: value.musical_key,
+            isrc: value.isrc,
+            musicbrainz_recording_id: value.musicbrainz_recording_id,
+            musicbrainz_track_id: value.musicbrainz_track_id,
+            musicbrainz_release_id: value.musicbrainz_release_id,
+            musicbrainz_release_group_id: value.musicbrainz_release_group_id,
+            musicbrainz_artist_id: value.musicbrainz_artist_id,
+            musicbrainz_release_artist_id: value.musicbrainz_release_artist_id,
+            musicbrainz_work_id: value.musicbrainz_work_id,
+            replay_gain_track_gain: value.replay_gain_track_gain,
+            replay_gain_track_peak: value.replay_gain_track_peak,
+            replay_gain_album_gain: value.replay_gain_album_gain,
+            replay_gain_album_peak: value.replay_gain_album_peak,
+            has_embedded_artwork: value.has_embedded_artwork,
+            embedded_lyrics_kind: value.embedded_lyrics_kind,
+            duration_ms: value.duration_ms,
+            sample_rate: value.sample_rate,
+            bit_depth: value.bit_depth,
+            channels: value.channels,
+            channel_layout: value.channel_layout,
+            overall_bitrate: value.overall_bitrate,
+            audio_bitrate: value.audio_bitrate,
+            codec: value.codec,
+            container: value.container,
+            lossless: value.lossless,
+        }
+    }
 }
 
 #[uniffi::export]

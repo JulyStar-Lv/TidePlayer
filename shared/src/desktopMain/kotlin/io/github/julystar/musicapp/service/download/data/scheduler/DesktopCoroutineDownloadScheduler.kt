@@ -1,6 +1,9 @@
 package io.github.julystar.musicapp.service.download.data.scheduler
 
-import io.github.julystar.musicapp.platform.getAppCacheDir
+import io.github.julystar.musicapp.platform.getAppDataDirectory
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationRequest
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationResult
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizer
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
 import io.github.julystar.musicapp.service.download.domain.DownloadTask
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskId
@@ -39,8 +42,9 @@ internal class DesktopCoroutineDownloadScheduler(
     private val sourceRegistry: MusicSourceRegistry,
     private val legacyStoragePlaybackResolver: LegacyStoragePlaybackResolver,
     private val scope: CoroutineScope,
+    private val downloadFinalizer: DownloadFinalizer = DownloadFinalizer.Disabled,
     private val downloadDirectoryProvider: () -> File = {
-        File(getAppCacheDir(), "downloads")
+        File(getAppDataDirectory(), "downloads")
     },
     private val resourceOpener: DesktopDownloadResourceOpener = JvmDesktopDownloadResourceOpener,
     private val maxConcurrentTasks: Int = 2,
@@ -77,6 +81,10 @@ internal class DesktopCoroutineDownloadScheduler(
     }
 
     private suspend fun runTask(task: DownloadTask) {
+        if (task.status == DownloadStatus.Finalizing && task.localPath != null) {
+            finalizeDownloadedFile(task)
+            return
+        }
         if (updateStatus(task.id, DownloadStatus.Resolving) == null) return
 
         val source = sourceRegistry.sourceOrNull(task.mediaId.sourceId)
@@ -156,6 +164,7 @@ internal class DesktopCoroutineDownloadScheduler(
                                 lastPersistedBytes = downloadedBytes
                             }
                         }
+                        output.fd.sync()
                     }
                 } catch (e: CancellationException) {
                     val current = repository.getTask(task.id)
@@ -177,16 +186,47 @@ internal class DesktopCoroutineDownloadScheduler(
                     totalBytes = totalBytes,
                 )
                 movePartFile(partFile, targetFile)
-                updateStatus(task.id, DownloadStatus.Completed) { current ->
+                val finalizing = updateStatus(task.id, DownloadStatus.Finalizing) { current ->
                     current.copy(
                         downloadedBytes = downloadedBytes,
                         totalBytes = normalizedTotalBytes(totalBytes, downloadedBytes),
                         localPath = targetFile.absolutePath,
                         mimeType = resource.mimeType ?: current.mimeType,
                         errorMessage = null,
+                        finalizationWarning = null,
+                    )
+                } ?: return@withContext
+                finalizeDownloadedFile(finalizing)
+            }
+        }
+    }
+
+    private suspend fun finalizeDownloadedFile(task: DownloadTask) {
+        val localPath = task.localPath ?: return
+        when (
+            val result = downloadFinalizer.finalize(
+                DownloadFinalizationRequest(
+                    mediaId = task.mediaId,
+                    localPath = localPath,
+                    mimeType = task.mimeType,
+                    fallbackTitle = task.title,
+                    fallbackArtist = task.artist,
+                    fallbackAlbum = task.album,
+                    expectedDurationMs = task.durationMs,
+                    expectedBytes = task.totalBytes ?: task.downloadedBytes,
+                )
+            )
+        ) {
+            is DownloadFinalizationResult.Success -> {
+                updateStatus(task.id, DownloadStatus.Completed) { current ->
+                    current.copy(
+                        localPath = result.localPath,
+                        errorMessage = null,
+                        finalizationWarning = result.warnings.toWarningMessage(),
                     )
                 }
             }
+            is DownloadFinalizationResult.Failure -> markFailed(task.id, result.message)
         }
     }
 
@@ -255,13 +295,29 @@ internal class DesktopCoroutineDownloadScheduler(
     }
 
     private fun movePartFile(partFile: File, targetFile: File) {
-        if (targetFile.exists()) targetFile.delete()
-        if (!partFile.renameTo(targetFile)) {
-            partFile.copyTo(targetFile, overwrite = true)
-            partFile.delete()
+        if (!targetFile.exists() && partFile.renameTo(targetFile)) return
+        val commitFile = File(targetFile.parentFile, "${targetFile.name}.commit.tmp")
+        commitFile.delete()
+        FileInputStream(partFile).use { input ->
+            FileOutputStream(commitFile).use { output ->
+                input.copyTo(output)
+                output.fd.sync()
+            }
         }
+        if (targetFile.exists() && !targetFile.delete()) {
+            commitFile.delete()
+            throw IOException("Unable to replace previous download")
+        }
+        if (!commitFile.renameTo(targetFile)) {
+            commitFile.delete()
+            throw IOException("Unable to commit downloaded file")
+        }
+        partFile.delete()
     }
 }
+
+private fun List<String>.toWarningMessage(): String? =
+    joinToString("; ").takeIf(String::isNotBlank)?.take(1_000)
 
 internal interface DesktopDownloadResourceOpener {
     fun open(

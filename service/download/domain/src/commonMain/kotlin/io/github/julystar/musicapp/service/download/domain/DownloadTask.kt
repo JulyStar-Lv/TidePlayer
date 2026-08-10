@@ -14,6 +14,7 @@ enum class DownloadStatus {
     Queued,
     Resolving,
     Downloading,
+    Finalizing,
     Paused,
     Completed,
     Failed,
@@ -33,6 +34,7 @@ data class DownloadTask(
     val localPath: String? = null,
     val mimeType: String? = null,
     val errorMessage: String? = null,
+    val finalizationWarning: String? = null,
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long,
 ) {
@@ -61,6 +63,11 @@ fun DownloadStatus.canTransitionTo(next: DownloadStatus): Boolean {
         )
         DownloadStatus.Downloading -> next in setOf(
             DownloadStatus.Paused,
+            DownloadStatus.Finalizing,
+            DownloadStatus.Failed,
+            DownloadStatus.Cancelled,
+        )
+        DownloadStatus.Finalizing -> next in setOf(
             DownloadStatus.Completed,
             DownloadStatus.Failed,
             DownloadStatus.Cancelled,

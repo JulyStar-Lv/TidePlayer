@@ -4,8 +4,6 @@ import androidx.compose.runtime.Composable
 import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.MAX_REPLAY_GAIN_PREAMP_TENTHS_DB
 import io.github.julystar.musicapp.core.domain.model.MIN_REPLAY_GAIN_PREAMP_TENTHS_DB
-import io.github.julystar.musicapp.core.domain.model.LyricTimingEditorApp
-import io.github.julystar.musicapp.core.domain.model.MetadataEditorApp
 import io.github.julystar.musicapp.core.domain.model.PlayNextMode
 import io.github.julystar.musicapp.core.domain.model.PreviousButtonBehavior
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
@@ -264,34 +262,6 @@ fun PlaybackSettingsSection(
                     },
                 )
             }
-            if (capabilities.externalEditorSupported) {
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_metadata_editor),
-                    selected = interaction.metadataEditor,
-                    options = MetadataEditorApp.entries.toList(),
-                    optionLabel = { editor -> stringResource(editor.titleResource()) },
-                    onSelect = { editor ->
-                        onAction(
-                            SettingsAction.SetPlayerInteractionSettings(
-                                interaction.copy(metadataEditor = editor)
-                            )
-                        )
-                    },
-                )
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_lyric_timing_editor),
-                    selected = interaction.lyricTimingEditor,
-                    options = LyricTimingEditorApp.entries.toList(),
-                    optionLabel = { editor -> stringResource(editor.titleResource()) },
-                    onSelect = { editor ->
-                        onAction(
-                            SettingsAction.SetPlayerInteractionSettings(
-                                interaction.copy(lyricTimingEditor = editor)
-                            )
-                        )
-                    },
-                )
-            }
         }
 
         if (capabilities.audioEffectsSupported) {
@@ -330,18 +300,6 @@ private fun PlayNextMode.titleResource() = when (this) {
 private fun ShuffleStrategy.titleResource() = when (this) {
     ShuffleStrategy.QueueOrder -> Res.string.settings_shuffle_queue
     ShuffleStrategy.TrueRandom -> Res.string.settings_shuffle_true_random
-}
-
-private fun MetadataEditorApp.titleResource() = when (this) {
-    MetadataEditorApp.AskEveryTime -> Res.string.settings_editor_ask_every_time
-    MetadataEditorApp.Lyrico -> Res.string.settings_editor_lyrico
-    MetadataEditorApp.LunaBeat -> Res.string.settings_editor_lunabeat_metadata
-    MetadataEditorApp.MusicTag -> Res.string.settings_editor_music_tag
-}
-
-private fun LyricTimingEditorApp.titleResource() = when (this) {
-    LyricTimingEditorApp.AskEveryTime -> Res.string.settings_editor_ask_every_time
-    LyricTimingEditorApp.LunaBeat -> Res.string.settings_editor_lunabeat_lyric_timing
 }
 
 private fun ReplayGainMode.titleResource() = when (this) {

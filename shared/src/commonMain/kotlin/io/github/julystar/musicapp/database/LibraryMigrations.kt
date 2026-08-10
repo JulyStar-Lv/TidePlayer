@@ -758,3 +758,11 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         ).use { statement -> statement.step() }
     }
 }
+
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.prepare(
+            "ALTER TABLE download_task ADD COLUMN finalizationWarning TEXT"
+        ).use { statement -> statement.step() }
+    }
+}

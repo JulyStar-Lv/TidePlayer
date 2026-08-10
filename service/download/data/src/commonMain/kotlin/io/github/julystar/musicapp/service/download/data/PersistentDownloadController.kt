@@ -53,6 +53,14 @@ class PersistentDownloadController(
         }
     }
 
+    override suspend fun recoverInterruptedTasks(): Int {
+        val recoverable = repository.observeActiveTasks().first().filter { task ->
+            task.status == DownloadStatus.Finalizing && task.localPath != null
+        }
+        recoverable.forEach { task -> scheduler.schedule(task) }
+        return recoverable.size
+    }
+
     override suspend fun retry(id: DownloadTaskId) {
         updateStatus(id, DownloadStatus.Queued, clearError = true)?.let { task ->
             scheduler.schedule(task)

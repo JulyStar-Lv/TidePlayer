@@ -186,6 +186,7 @@ data class DownloadTaskEntity(
     val localPath: String?,
     val mimeType: String?,
     val errorMessage: String?,
+    val finalizationWarning: String?,
     val createdAt: Long,
     val updatedAt: Long,
 )

@@ -5,6 +5,7 @@
     <string name="downloads_status_queued">Queued</string>
     <string name="downloads_status_resolving">Preparing</string>
     <string name="downloads_status_downloading">Downloading</string>
+    <string name="downloads_status_finalizing">Finalizing</string>
     <string name="downloads_status_paused">Paused</string>
     <string name="downloads_status_completed">Completed</string>
     <string name="downloads_status_failed">Failed</string>

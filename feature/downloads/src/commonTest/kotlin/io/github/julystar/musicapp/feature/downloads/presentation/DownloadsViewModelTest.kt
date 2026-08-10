@@ -47,8 +47,10 @@ class DownloadsViewModelTest {
         val downloading = viewModel.state.value.tasks[0]
         assertEquals("Track task-1", downloading.title)
         assertEquals("Artist - Album", downloading.subtitle)
-        assertEquals("DOWNLOADING", downloading.statusLabel)
-        assertEquals("50% - 512 B / 1 KB", downloading.progressLabel)
+        assertEquals(DownloadStatus.Downloading, downloading.status)
+        assertEquals(50, downloading.progressPercent)
+        assertEquals(512, downloading.downloadedBytes)
+        assertEquals(1024, downloading.totalBytes)
         assertEquals(0.5f, downloading.progressFraction)
         assertTrue(downloading.canPause)
         assertFalse(downloading.canResume)

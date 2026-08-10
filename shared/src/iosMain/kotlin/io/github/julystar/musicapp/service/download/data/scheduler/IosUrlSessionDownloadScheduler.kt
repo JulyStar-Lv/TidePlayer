@@ -1,6 +1,9 @@
 package io.github.julystar.musicapp.service.download.data.scheduler
 
-import io.github.julystar.musicapp.platform.getAppCacheDir
+import io.github.julystar.musicapp.platform.getAppDataDirectory
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationRequest
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationResult
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizer
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
 import io.github.julystar.musicapp.service.download.domain.DownloadTask
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskId
@@ -30,6 +33,11 @@ import platform.Foundation.NSURLSessionTask
 import platform.Foundation.NSURLSessionTaskDelegateProtocol
 import platform.Foundation.setValue
 import platform.darwin.NSObject
+import platform.posix.O_RDONLY
+import platform.posix.close
+import platform.posix.fsync
+import platform.posix.open
+import platform.posix.rename
 import kotlin.coroutines.resume
 import kotlin.math.max
 import kotlin.time.Clock
@@ -40,8 +48,9 @@ internal class IosUrlSessionDownloadScheduler(
     private val sourceRegistry: MusicSourceRegistry,
     private val legacyStoragePlaybackResolver: LegacyStoragePlaybackResolver,
     private val scope: CoroutineScope,
+    private val downloadFinalizer: DownloadFinalizer = DownloadFinalizer.Disabled,
     private val downloadDirectoryProvider: () -> String = {
-        "${getAppCacheDir()}/downloads"
+        "${getAppDataDirectory()}/downloads"
     },
     private val nowEpochMs: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) : DownloadTaskScheduler {
@@ -113,6 +122,10 @@ internal class IosUrlSessionDownloadScheduler(
     }
 
     private suspend fun runTask(task: DownloadTask) {
+        if (task.status == DownloadStatus.Finalizing && task.localPath != null) {
+            finalizeDownloadedFile(task)
+            return
+        }
         if (updateStatus(task.id, DownloadStatus.Resolving) == null) return
 
         pausedTaskIds -= task.id.value
@@ -219,7 +232,6 @@ internal class IosUrlSessionDownloadScheduler(
 
             val resource = activeResources[id.value]
             val targetPath = targetPathFor(current, resource)
-            val targetUrl = NSURL.fileURLWithPath(targetPath)
             val fileManager = NSFileManager.defaultManager
             fileManager.createDirectoryAtPath(
                 path = targetPath.substringBeforeLast('/'),
@@ -227,28 +239,85 @@ internal class IosUrlSessionDownloadScheduler(
                 attributes = null,
                 error = null,
             )
-            fileManager.removeItemAtURL(targetUrl, error = null)
-            val moved = fileManager.moveItemAtURL(
-                srcURL = location,
-                toURL = targetUrl,
-                error = null,
-            )
-            if (!moved) {
-                markFailed(id, "Unable to move downloaded file")
+            if (!commitDownloadedFile(fileManager, location, targetPath)) {
+                markFailed(id, "Unable to commit downloaded file")
                 return@launch
             }
 
             val totalBytes = current.totalBytes
                 ?.let { max(it, current.downloadedBytes) }
                 ?: current.downloadedBytes
-            updateStatus(id, DownloadStatus.Completed) { task ->
+            val finalizing = updateStatus(id, DownloadStatus.Finalizing) { task ->
                 task.copy(
                     totalBytes = totalBytes,
                     localPath = targetPath,
                     mimeType = resource?.mimeType ?: task.mimeType,
                     errorMessage = null,
+                    finalizationWarning = null,
                 )
+            } ?: return@launch
+            finalizeDownloadedFile(finalizing)
+        }
+    }
+
+    private fun commitDownloadedFile(
+        fileManager: NSFileManager,
+        location: NSURL,
+        targetPath: String,
+    ): Boolean {
+        val sourcePath = location.path ?: return false
+        val targetDirectory = targetPath.substringBeforeLast('/')
+        if (rename(sourcePath, targetPath) == 0) {
+            syncPath(targetPath)
+            syncPath(targetDirectory)
+            return true
+        }
+
+        val temporaryPath = "$targetPath.commit.tmp"
+        val temporaryUrl = NSURL.fileURLWithPath(temporaryPath)
+        fileManager.removeItemAtURL(temporaryUrl, error = null)
+        if (!fileManager.copyItemAtURL(location, temporaryUrl, error = null)) return false
+        if (!syncPath(temporaryPath)) return false
+        if (rename(temporaryPath, targetPath) != 0) return false
+        syncPath(targetDirectory)
+        fileManager.removeItemAtURL(location, error = null)
+        return fileManager.fileExistsAtPath(targetPath)
+    }
+
+    private fun syncPath(path: String): Boolean {
+        val descriptor = open(path, O_RDONLY)
+        if (descriptor < 0) return false
+        val synced = fsync(descriptor) == 0
+        close(descriptor)
+        return synced
+    }
+
+    private suspend fun finalizeDownloadedFile(task: DownloadTask) {
+        val localPath = task.localPath ?: return
+        when (
+            val result = downloadFinalizer.finalize(
+                DownloadFinalizationRequest(
+                    mediaId = task.mediaId,
+                    localPath = localPath,
+                    mimeType = task.mimeType,
+                    fallbackTitle = task.title,
+                    fallbackArtist = task.artist,
+                    fallbackAlbum = task.album,
+                    expectedDurationMs = task.durationMs,
+                    expectedBytes = task.totalBytes ?: task.downloadedBytes,
+                )
+            )
+        ) {
+            is DownloadFinalizationResult.Success -> {
+                updateStatus(task.id, DownloadStatus.Completed) { current ->
+                    current.copy(
+                        localPath = result.localPath,
+                        errorMessage = null,
+                        finalizationWarning = result.warnings.toWarningMessage(),
+                    )
+                }
             }
+            is DownloadFinalizationResult.Failure -> markFailed(task.id, result.message)
         }
     }
 
@@ -351,6 +420,9 @@ internal class IosUrlSessionDownloadScheduler(
         }
     }
 }
+
+private fun List<String>.toWarningMessage(): String? =
+    joinToString("; ").takeIf(String::isNotBlank)?.take(1_000)
 
 private fun safeFileName(value: String): String {
     return value

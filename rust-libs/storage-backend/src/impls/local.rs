@@ -13,6 +13,19 @@ pub struct LocalBackend;
 
 static ANDROID_PREFIX_PATH: &str = "/storage/emulated/0";
 
+fn platform_local_path(path: String) -> String {
+    if std::env::consts::OS == "windows" {
+        path.replace('/', "\\")
+    } else if std::env::consts::OS == "android"
+        && !path.starts_with("/data/")
+        && !path.starts_with("/storage/")
+    {
+        ANDROID_PREFIX_PATH.to_string() + path.as_str()
+    } else {
+        path
+    }
+}
+
 impl Default for LocalBackend {
     fn default() -> Self {
         Self::new()
@@ -25,13 +38,7 @@ impl LocalBackend {
     }
 
     async fn list_impl(&self, dir: String) -> StorageBackendResult<Vec<Entry>> {
-        let dir = if std::env::consts::OS == "windows" {
-            dir.replace('/', "\\")
-        } else if std::env::consts::OS == "android" {
-            ANDROID_PREFIX_PATH.to_string() + dir.as_str()
-        } else {
-            dir.to_string()
-        };
+        let dir = platform_local_path(dir);
 
         let mut ret = tokio_runtime()
             .spawn(async move {
@@ -80,13 +87,7 @@ impl LocalBackend {
     }
 
     async fn get_impl(&self, p: String, byte_offset: u64) -> StorageBackendResult<StreamFile> {
-        let p = if std::env::consts::OS == "windows" {
-            p.replace('/', "\\")
-        } else if std::env::consts::OS == "android" {
-            ANDROID_PREFIX_PATH.to_string() + p.as_str()
-        } else {
-            p.to_string()
-        };
+        let p = platform_local_path(p);
 
         let buf = {
             let p = p.clone();
@@ -112,13 +113,7 @@ impl LocalBackend {
         p: String,
         range: ByteRange,
     ) -> StorageBackendResult<RangeResponse> {
-        let p = if std::env::consts::OS == "windows" {
-            p.replace('/', "\\")
-        } else if std::env::consts::OS == "android" {
-            ANDROID_PREFIX_PATH.to_string() + p.as_str()
-        } else {
-            p
-        };
+        let p = platform_local_path(p);
 
         let (buf, total_size) = tokio_runtime()
             .spawn(async move {

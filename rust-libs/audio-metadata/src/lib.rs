@@ -17,6 +17,8 @@ use lofty::{
 };
 use storage_backend::{ByteRange, StorageBackend};
 
+pub mod writer;
+
 #[cfg(test)]
 thread_local! {
     static ARTWORK_PARSE_ATTEMPTS: std::cell::Cell<usize> = std::cell::Cell::new(0);
@@ -372,6 +374,32 @@ pub fn read_metadata_with_options(
         .try_into()
         .unwrap_or(u64::MAX);
     Ok(MetadataReadResult { metadata, stats })
+}
+
+pub fn read_local_metadata(
+    path: impl AsRef<std::path::Path>,
+    options: MetadataReadOptions,
+) -> Result<NormalizedMetadata, MetadataError> {
+    let tagged_file = Probe::open(path)?
+        .options(
+            ParseOptions::new()
+                .read_cover_art(options.read_artwork)
+                .read_cover_art_presence(!options.read_artwork),
+        )
+        .guess_file_type()?
+        .read()?;
+    let properties = tagged_file.properties();
+    let file_type = tagged_file.file_type();
+    let has_embedded_artwork = tagged_file
+        .tags()
+        .iter()
+        .any(|tag| !tag.pictures().is_empty());
+    let tag = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag());
+    let mut metadata = normalize_metadata(tag, properties, file_type, options)?;
+    metadata.has_embedded_artwork = has_embedded_artwork;
+    Ok(metadata)
 }
 
 fn read_metadata_attempt(

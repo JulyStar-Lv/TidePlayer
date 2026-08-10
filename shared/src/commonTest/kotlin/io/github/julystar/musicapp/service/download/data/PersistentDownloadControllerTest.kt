@@ -168,6 +168,7 @@ private class FakeDownloadTaskRepository : DownloadTaskRepository {
                     DownloadStatus.Queued,
                     DownloadStatus.Resolving,
                     DownloadStatus.Downloading,
+                    DownloadStatus.Finalizing,
                     DownloadStatus.Paused,
                 )
             }

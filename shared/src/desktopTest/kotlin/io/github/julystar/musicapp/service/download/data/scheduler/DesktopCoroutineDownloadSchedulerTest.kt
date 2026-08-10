@@ -5,6 +5,8 @@ import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceId
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizationResult
+import io.github.julystar.musicapp.service.download.domain.DownloadFinalizer
 import io.github.julystar.musicapp.service.download.domain.DownloadTask
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskId
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskRepository
@@ -79,8 +81,61 @@ class DesktopCoroutineDownloadSchedulerTest {
         assertEquals(4, completed.downloadedBytes)
         assertEquals(4, completed.totalBytes)
         assertEquals("audio/flac", completed.mimeType)
+        assertTrue(
+            repository.statuses.containsAll(
+                listOf(
+                    DownloadStatus.Downloading,
+                    DownloadStatus.Finalizing,
+                    DownloadStatus.Completed,
+                )
+            )
+        )
         awaitRelease(playbackResourceResolver, sourceFile.toURI().toString())
         assertEquals(listOf(sourceFile.toURI().toString()), playbackResourceResolver.releasedUris)
+    }
+
+    @Test
+    fun finalizationWarningStillCompletesTask() = runBlocking {
+        val tempDir = Files.createTempDirectory("musicapp-download-warning-test").toFile()
+        val sourceFile = File(tempDir, "source.flac").apply {
+            writeBytes(byteArrayOf(1, 2, 3, 4))
+        }
+        val repository = FakeDownloadTaskRepository()
+        val task = task()
+        repository.upsertTask(task)
+        val scheduler = DesktopCoroutineDownloadScheduler(
+            repository = repository,
+            sourceRegistry = MusicSourceRegistry(
+                listOf(
+                    FakeMusicSource(
+                        SourcePlaybackResult.Success(
+                            PlaybackResource(
+                                uri = sourceFile.toURI().toString(),
+                                mimeType = "audio/flac",
+                                isLocal = true,
+                            )
+                        )
+                    )
+                )
+            ),
+            legacyStoragePlaybackResolver = RecordingLegacyStoragePlaybackResolver(),
+            scope = this,
+            downloadFinalizer = DownloadFinalizer { request ->
+                DownloadFinalizationResult.Success(
+                    localPath = request.localPath,
+                    warnings = listOf("Artwork was too large"),
+                )
+            },
+            downloadDirectoryProvider = { File(tempDir, "downloads") },
+            maxConcurrentTasks = 1,
+            nowEpochMs = { 25 },
+        )
+
+        scheduler.schedule(task)
+
+        val completed = awaitTask(repository, task.id, DownloadStatus.Completed)
+        assertEquals("Artwork was too large", completed.finalizationWarning)
+        assertTrue(File(completed.localPath!!).isFile)
     }
 
     @Test
@@ -307,6 +362,7 @@ private class RecordingLegacyStoragePlaybackResolver : LegacyStoragePlaybackReso
 
 private class FakeDownloadTaskRepository : DownloadTaskRepository {
     private val tasks = MutableStateFlow(emptyList<DownloadTask>())
+    val statuses = mutableListOf<DownloadStatus>()
 
     override fun observeTasks(): Flow<List<DownloadTask>> {
         return tasks
@@ -319,6 +375,7 @@ private class FakeDownloadTaskRepository : DownloadTaskRepository {
                     DownloadStatus.Queued,
                     DownloadStatus.Resolving,
                     DownloadStatus.Downloading,
+                    DownloadStatus.Finalizing,
                     DownloadStatus.Paused,
                 )
             }
@@ -335,6 +392,7 @@ private class FakeDownloadTaskRepository : DownloadTaskRepository {
 
     override suspend fun upsertTask(task: DownloadTask) {
         tasks.value = tasks.value.filterNot { it.id == task.id } + task
+        statuses += task.status
     }
 
     override suspend fun updateTask(task: DownloadTask) {

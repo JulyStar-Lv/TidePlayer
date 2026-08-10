@@ -16,6 +16,9 @@ thiserror = { workspace = true }
 storage-backend = { path = "../storage-backend" }
 async-runtime = { workspace = true }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
+
 [dev-dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }

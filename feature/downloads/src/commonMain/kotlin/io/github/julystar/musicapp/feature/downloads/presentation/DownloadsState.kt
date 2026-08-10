@@ -28,6 +28,7 @@ data class DownloadTaskUi(
     val totalBytes: Long?,
     val progressFraction: Float?,
     val errorMessage: String?,
+    val warningMessage: String?,
     val canPause: Boolean,
     val canResume: Boolean,
     val canRetry: Boolean,
@@ -65,6 +66,7 @@ internal fun DownloadTask.toDownloadTaskUi(): DownloadTaskUi {
             }
         },
         errorMessage = errorMessage?.takeIf { it.isNotBlank() },
+        warningMessage = finalizationWarning?.takeIf { it.isNotBlank() },
         canPause = status.canTransitionTo(DownloadStatus.Paused),
         canResume = status == DownloadStatus.Paused && status.canTransitionTo(DownloadStatus.Queued),
         canRetry = status == DownloadStatus.Failed && status.canTransitionTo(DownloadStatus.Queued),
@@ -73,6 +75,7 @@ internal fun DownloadTask.toDownloadTaskUi(): DownloadTaskUi {
             DownloadStatus.Queued,
             DownloadStatus.Resolving,
             DownloadStatus.Downloading,
+            DownloadStatus.Finalizing,
             DownloadStatus.Paused,
         ),
     )

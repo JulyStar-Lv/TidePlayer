@@ -909,3 +909,22 @@ persists through KMP Preferences DataStore rather than Room.
 
 **Files created:** `service/playback/data/PlaylistDomainMapper.kt`
 **Files modified:** `viewmodels/PlaylistVM.kt`
+
+## 2026-08-10 — Download finalization and cache promotion
+
+- Rust writer tests exercise FLAC, MP3, M4A, OGG Vorbis, Opus, and WAV fixture
+  round trips, conservative fill-missing behavior, invalid/oversized artwork,
+  sidecar output, unsupported input, and preservation of the original file on
+  write failure.
+- Playback gateway tests prove partial caches cannot promote, complete caches
+  preserve bytes and extension, repeated promotion is idempotent, and cache
+  cleanup does not remove the promoted file.
+- `DesktopCoroutineDownloadSchedulerTest` verifies
+  `Downloading -> Finalizing -> Completed` and completed-with-warning behavior.
+- `LyricsSidecarSerializerTest` covers plain, LRC, word-timed LRC, TTML,
+  Chinese UTF-8, empty input, and primary/translation separation.
+- `DownloadedMediaFinalizerIntegrationTest` finalizes a real FLAC fixture,
+  verifies Room track/artwork/lyrics and the preferred local source, and checks
+  that a missing stable file returns a structured failure.
+- `DownloadPersistenceIntegrationTest` verifies the version 20 to 21 migration
+  preserves existing tasks while adding the nullable finalization warning.

@@ -125,6 +125,7 @@ flowchart TD
 详细文档：
 
 - [架构报告](./docs/architecture/final-architecture.md)
+- [下载文件最终化](./docs/architecture/download-finalization.md)
 - [Room KMP 数据库结构](./docs/database/schema.md)
 - [SMB 音源](./docs/music-sources/smb.md)
 - [插件运行时](./docs/plugin-runtime.md)
@@ -164,7 +165,7 @@ TidePlayer/
 │   ├── app-backend/             面向 UniFFI 的后端门面
 │   ├── async-runtime/           Rust 异步运行时支持
 │   ├── storage-backend/         远端存储和扫描
-│   ├── audio-metadata/          音频元数据提取
+│   ├── audio-metadata/          音频元数据读取、临时写入与验证
 │   ├── plugin-runtime/          QuickJS 插件 Host
 │   ├── order-key/               稳定排序键
 │   └── uniffi-bindgen/          UniFFI 绑定生成辅助工具

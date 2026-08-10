@@ -43,6 +43,7 @@ import musicapp.feature.downloads.generated.resources.downloads_status_cancelled
 import musicapp.feature.downloads.generated.resources.downloads_status_completed
 import musicapp.feature.downloads.generated.resources.downloads_status_downloading
 import musicapp.feature.downloads.generated.resources.downloads_status_failed
+import musicapp.feature.downloads.generated.resources.downloads_status_finalizing
 import musicapp.feature.downloads.generated.resources.downloads_status_paused
 import musicapp.feature.downloads.generated.resources.downloads_status_queued
 import musicapp.feature.downloads.generated.resources.downloads_status_resolving
@@ -161,6 +162,15 @@ private fun DownloadTaskRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    task.warningMessage?.let { message ->
+                        Text(
+                            text = message,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.footnote1,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 DownloadTaskActions(task = task, onAction = onAction)
             }
@@ -236,6 +246,7 @@ private val DownloadStatus.resource: StringResource
         DownloadStatus.Queued -> Res.string.downloads_status_queued
         DownloadStatus.Resolving -> Res.string.downloads_status_resolving
         DownloadStatus.Downloading -> Res.string.downloads_status_downloading
+        DownloadStatus.Finalizing -> Res.string.downloads_status_finalizing
         DownloadStatus.Paused -> Res.string.downloads_status_paused
         DownloadStatus.Completed -> Res.string.downloads_status_completed
         DownloadStatus.Failed -> Res.string.downloads_status_failed

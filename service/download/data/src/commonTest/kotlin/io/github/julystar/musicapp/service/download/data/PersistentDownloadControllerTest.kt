@@ -120,6 +120,20 @@ class PersistentDownloadControllerTest {
             scheduler.cancelled.toSet(),
         )
     }
+
+    @Test
+    fun recoveryOnlyReschedulesPersistedFinalizationWithAStableFile() = runBlocking {
+        val repository = InMemoryDownloadTaskRepository(
+            task(id = "ready", status = DownloadStatus.Finalizing, localPath = "/downloads/ready.flac"),
+            task(id = "missing", status = DownloadStatus.Finalizing),
+            task(id = "active", status = DownloadStatus.Downloading),
+        )
+        val scheduler = RecordingDownloadTaskScheduler()
+        val controller = PersistentDownloadController(repository, scheduler)
+
+        assertEquals(1, controller.recoverInterruptedTasks())
+        assertEquals(listOf(DownloadTaskId("ready")), scheduler.scheduled.map { it.id })
+    }
 }
 
 private class InMemoryDownloadTaskRepository(
@@ -189,6 +203,7 @@ private fun task(
     id: String = "task-1",
     status: DownloadStatus,
     errorMessage: String? = null,
+    localPath: String? = null,
 ): DownloadTask {
     return DownloadTask(
         id = DownloadTaskId(id),
@@ -200,6 +215,7 @@ private fun task(
         title = "Track",
         status = status,
         errorMessage = errorMessage,
+        localPath = localPath,
         createdAtEpochMs = 1,
         updatedAtEpochMs = 1,
     )

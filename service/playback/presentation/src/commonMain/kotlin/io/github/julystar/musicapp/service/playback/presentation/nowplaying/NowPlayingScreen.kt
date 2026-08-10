@@ -125,7 +125,6 @@ import musicapp.service.playback.presentation.generated.resources.icon_transport
 import musicapp.service.playback.presentation.generated.resources.icon_transport_repeat
 import musicapp.service.playback.presentation.generated.resources.icon_transport_repeat_one
 import musicapp.service.playback.presentation.generated.resources.icon_transport_shuffle
-import musicapp.core.presentation.generated.resources.icon_timelapse
 import musicapp.service.playback.presentation.generated.resources.icon_vertialcal_more
 import musicapp.service.playback.presentation.generated.resources.music_lyric_add
 import musicapp.service.playback.presentation.generated.resources.music_lyric_fail
@@ -133,8 +132,6 @@ import musicapp.service.playback.presentation.generated.resources.music_lyric_no
 import musicapp.service.playback.presentation.generated.resources.music_lyric_remove
 import musicapp.service.playback.presentation.generated.resources.music_lyric_try_add_desc
 import musicapp.service.playback.presentation.generated.resources.music_player_context_menu_remove
-import musicapp.service.playback.presentation.generated.resources.music_player_edit_lyric_timing
-import musicapp.service.playback.presentation.generated.resources.music_player_edit_metadata
 import musicapp.service.playback.presentation.generated.resources.music_player_search_metadata
 import musicapp.service.playback.presentation.generated.resources.now_playing_title
 import musicapp.service.playback.presentation.generated.resources.player_add_favorite
@@ -255,26 +252,6 @@ private fun NowPlayingMoreButton(
                             onAction(NowPlayingAction.SearchMetadata)
                         },
                     ),
-                    if (nowPlayingState.externalEditorSupported) {
-                        DesignContextMenuItem(
-                            label = Res.string.music_player_edit_metadata,
-                            icon = CoreRes.drawable.icon_settings_sliders,
-                            onClick = {
-                                moreMenuExpanded = false
-                                onAction(NowPlayingAction.OpenMetadataEditor)
-                            },
-                        )
-                    } else null,
-                    if (nowPlayingState.externalEditorSupported) {
-                        DesignContextMenuItem(
-                            label = Res.string.music_player_edit_lyric_timing,
-                            icon = CoreRes.drawable.icon_timelapse,
-                            onClick = {
-                                moreMenuExpanded = false
-                                onAction(NowPlayingAction.OpenLyricTimingEditor)
-                            },
-                        )
-                    } else null,
                     if (hasLyric) {
                         DesignContextMenuItem(
                             label = Res.string.music_lyric_remove,

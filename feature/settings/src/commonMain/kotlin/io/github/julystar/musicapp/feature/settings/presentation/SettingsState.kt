@@ -10,6 +10,7 @@ import io.github.julystar.musicapp.core.domain.model.AudioDspMeterSnapshot
 import io.github.julystar.musicapp.core.domain.model.AudioDspPerformanceSnapshot
 import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeStatus
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
+import io.github.julystar.musicapp.core.domain.model.DownloadFinalizationSettings
 import io.github.julystar.musicapp.core.domain.model.LibraryRebuildState
 import io.github.julystar.musicapp.core.domain.model.LocalMusicDirectory
 import io.github.julystar.musicapp.core.domain.model.LyricFontSettings
@@ -133,6 +134,9 @@ sealed interface SettingsAction {
     data class SetPlaybackAdvancedSettings(val settings: PlaybackAdvancedSettings) : SettingsAction
     data class SetPlayerInteractionSettings(val settings: PlayerInteractionSettings) : SettingsAction
     data class SetMetadataParsingSettings(val settings: MetadataParsingSettings) : SettingsAction
+    data class SetDownloadFinalizationSettings(
+        val settings: DownloadFinalizationSettings,
+    ) : SettingsAction
     data class SetAudioEffectSettings(val settings: AudioEffectSettings) : SettingsAction
     data class SetLyricOutputSettings(val settings: LyricOutputSettings) : SettingsAction
     data class SetBackupSettings(val settings: SettingsBackupSettings) : SettingsAction

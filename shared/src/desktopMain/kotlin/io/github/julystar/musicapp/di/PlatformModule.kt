@@ -16,8 +16,6 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import io.github.julystar.musicapp.core.data.settings.DesktopNetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
-import io.github.julystar.musicapp.core.data.settings.UnsupportedExternalEditorLauncher
-import io.github.julystar.musicapp.core.domain.repository.ExternalEditorLauncher
 
 actual val platformModule: Module = module {
     single<DesktopPlaybackEngine> { RodioDesktopPlaybackEngine() }
@@ -27,6 +25,7 @@ actual val platformModule: Module = module {
             sourceRegistry = get(),
             legacyStoragePlaybackResolver = get(),
             scope = get(),
+            downloadFinalizer = get(),
         )
     }
     single<PlayerController> {
@@ -49,5 +48,4 @@ actual val platformModule: Module = module {
         DesktopFloatingLyricsController(get(), get(), get(), get(), get())
     }
     single<NetworkStatusProvider> { DesktopNetworkStatusProvider() }
-    single<ExternalEditorLauncher> { UnsupportedExternalEditorLauncher() }
 }

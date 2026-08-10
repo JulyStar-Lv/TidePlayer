@@ -16,6 +16,7 @@ import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
 import io.github.julystar.musicapp.core.domain.model.BackupSchedule
 import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.DownloadFinalizationSettings
 import io.github.julystar.musicapp.core.domain.model.LyricFontChoice
 import io.github.julystar.musicapp.core.domain.model.LyricFontSettings
 import io.github.julystar.musicapp.core.domain.model.LyricOutputSettings
@@ -23,8 +24,6 @@ import io.github.julystar.musicapp.core.domain.model.LyricSourceKind
 import io.github.julystar.musicapp.core.domain.model.LyricSourceMode
 import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
 import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
-import io.github.julystar.musicapp.core.domain.model.LyricTimingEditorApp
-import io.github.julystar.musicapp.core.domain.model.MetadataEditorApp
 import io.github.julystar.musicapp.core.domain.model.MetadataParsingSettings
 import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
 import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
@@ -168,10 +167,6 @@ class DataStoreSettingsRepository(
                 showTotalDuration = preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] ?: false,
                 showSongAnnotation = preferences[PLAYER_SHOW_SONG_ANNOTATION_KEY] ?: true,
                 desktopShortcutsEnabled = preferences[DESKTOP_SHORTCUTS_ENABLED_KEY] ?: true,
-                metadataEditor = preferences[METADATA_EDITOR_KEY]
-                    .enumOrDefault(MetadataEditorApp.AskEveryTime),
-                lyricTimingEditor = preferences[LYRIC_TIMING_EDITOR_KEY]
-                    .enumOrDefault(LyricTimingEditorApp.AskEveryTime),
             ),
             metadataParsing = MetadataParsingSettings(
                 artistSeparators = preferences[ARTIST_SEPARATORS_KEY]
@@ -181,6 +176,10 @@ class DataStoreSettingsRepository(
                     ?: MetadataParsingSettings.Default.genreSeparators,
                 genreProtectedNames = preferences[GENRE_PROTECTED_NAMES_KEY].orEmpty(),
                 ignoreTagCase = preferences[TAG_IGNORE_CASE_KEY] ?: false,
+            ),
+            downloadFinalization = DownloadFinalizationSettings(
+                enrichMetadata = preferences[DOWNLOAD_FINALIZATION_ENABLED_KEY] ?: true,
+                saveSidecarLyrics = preferences[SAVE_SIDECAR_LYRICS_KEY] ?: true,
             ),
             audioEffects = normalizeAudioEffectSettings(
                 preferences[AUDIO_EFFECTS_CONFIG_JSON_KEY]
@@ -390,8 +389,13 @@ class DataStoreSettingsRepository(
             preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] = settings.showTotalDuration
             preferences[PLAYER_SHOW_SONG_ANNOTATION_KEY] = settings.showSongAnnotation
             preferences[DESKTOP_SHORTCUTS_ENABLED_KEY] = settings.desktopShortcutsEnabled
-            preferences[METADATA_EDITOR_KEY] = settings.metadataEditor.name
-            preferences[LYRIC_TIMING_EDITOR_KEY] = settings.lyricTimingEditor.name
+        }
+    }
+
+    override suspend fun setDownloadFinalizationSettings(settings: DownloadFinalizationSettings) {
+        dataStore.edit { preferences ->
+            preferences[DOWNLOAD_FINALIZATION_ENABLED_KEY] = settings.enrichMetadata
+            preferences[SAVE_SIDECAR_LYRICS_KEY] = settings.saveSidecarLyrics
         }
     }
 
@@ -485,6 +489,7 @@ class DataStoreSettingsRepository(
         setPlaybackAdvancedSettings(settings.playbackAdvanced)
         setPlayerInteractionSettings(settings.playerInteraction)
         setMetadataParsingSettings(settings.metadataParsing)
+        setDownloadFinalizationSettings(settings.downloadFinalization)
         setAudioEffectSettings(settings.audioEffects)
         setLyricOutputSettings(settings.lyricOutput)
         setBackupSettings(settings.backup)
@@ -668,13 +673,15 @@ internal val PLAYER_TAP_PROGRESS_SEEK_KEY = booleanPreferencesKey("settings.play
 internal val PLAYER_SHOW_TOTAL_DURATION_KEY = booleanPreferencesKey("settings.player.showTotalDuration")
 internal val PLAYER_SHOW_SONG_ANNOTATION_KEY = booleanPreferencesKey("settings.player.showSongAnnotation")
 internal val DESKTOP_SHORTCUTS_ENABLED_KEY = booleanPreferencesKey("settings.player.desktopShortcuts")
-internal val METADATA_EDITOR_KEY = stringPreferencesKey("settings.player.metadataEditor")
-internal val LYRIC_TIMING_EDITOR_KEY = stringPreferencesKey("settings.player.lyricTimingEditor")
 internal val ARTIST_SEPARATORS_KEY = stringPreferencesKey("settings.metadata.artistSeparators")
 internal val ARTIST_PROTECTED_NAMES_KEY = stringPreferencesKey("settings.metadata.artistProtectedNames")
 internal val GENRE_SEPARATORS_KEY = stringPreferencesKey("settings.metadata.genreSeparators")
 internal val GENRE_PROTECTED_NAMES_KEY = stringPreferencesKey("settings.metadata.genreProtectedNames")
 internal val TAG_IGNORE_CASE_KEY = booleanPreferencesKey("settings.metadata.ignoreTagCase")
+internal val DOWNLOAD_FINALIZATION_ENABLED_KEY =
+    booleanPreferencesKey("settings.downloadFinalization.enrichMetadata")
+internal val SAVE_SIDECAR_LYRICS_KEY =
+    booleanPreferencesKey("settings.downloadFinalization.saveSidecarLyrics")
 internal val AUDIO_EFFECTS_ENABLED_KEY = booleanPreferencesKey("settings.audioEffects.enabled")
 internal val AUDIO_EFFECTS_CONFIG_JSON_KEY =
     stringPreferencesKey("settings.audioEffects.configJson")
@@ -781,13 +788,13 @@ private val SETTINGS_KEYS = setOf(
     PLAYER_SHOW_TOTAL_DURATION_KEY,
     PLAYER_SHOW_SONG_ANNOTATION_KEY,
     DESKTOP_SHORTCUTS_ENABLED_KEY,
-    METADATA_EDITOR_KEY,
-    LYRIC_TIMING_EDITOR_KEY,
     ARTIST_SEPARATORS_KEY,
     ARTIST_PROTECTED_NAMES_KEY,
     GENRE_SEPARATORS_KEY,
     GENRE_PROTECTED_NAMES_KEY,
     TAG_IGNORE_CASE_KEY,
+    DOWNLOAD_FINALIZATION_ENABLED_KEY,
+    SAVE_SIDECAR_LYRICS_KEY,
     AUDIO_EFFECTS_ENABLED_KEY,
     AUDIO_EFFECTS_CONFIG_JSON_KEY,
     EQ_BAND_GAINS_DB_KEY,

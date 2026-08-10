@@ -8,6 +8,8 @@ pub enum BError {
     RemoteStorageError(#[from] storage_backend::StorageBackendError),
     #[error("metadata error: {0}")]
     MetadataError(#[from] audio_metadata::MetadataError),
+    #[error("metadata write error: {0}")]
+    MetadataWriteError(#[from] audio_metadata::writer::MetadataWriteError),
     #[error("failed to load asset: {0:?}")]
     AssetLoadFail(String),
     #[error("asset not found")]

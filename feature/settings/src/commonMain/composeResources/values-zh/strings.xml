@@ -596,13 +596,6 @@
     <string name="settings_player_song_annotation">显示歌曲注释</string>
     <string name="settings_desktop_shortcuts">桌面播放快捷键</string>
     <string name="settings_desktop_shortcuts_summary">Ctrl+空格：播放/暂停 · Alt+左/右：上一首/下一首</string>
-    <string name="settings_metadata_editor">元数据编辑软件</string>
-    <string name="settings_lyric_timing_editor">歌词打轴软件</string>
-    <string name="settings_editor_ask_every_time">每次选择</string>
-    <string name="settings_editor_lyrico">Lyrico</string>
-    <string name="settings_editor_lunabeat_metadata">LunaBeat（编辑元数据）</string>
-    <string name="settings_editor_music_tag">音乐标签</string>
-    <string name="settings_editor_lunabeat_lyric_timing">LunaBeat（歌词打轴）</string>
     <string name="settings_audio_effects_section">均衡器与 DSP</string>
     <string name="settings_audio_effects_enabled">启用音频效果</string>
     <string name="settings_audio_effects_enabled_summary">参数会在当前歌曲的下一个音频缓冲区边界生效</string>
@@ -778,6 +771,11 @@
     <string name="settings_reverb_hall">大厅</string>
     <string name="settings_reverb_plate">板式混响</string>
     <string name="settings_metadata_parsing_section">艺术家与流派解析</string>
+    <string name="settings_download_persistence_section">下载文件</string>
+    <string name="settings_enrich_downloaded_files">完善下载文件元数据</string>
+    <string name="settings_enrich_downloaded_files_summary">下载完成后，将补充的歌曲信息、封面和歌词保存到音乐文件及歌词文件。</string>
+    <string name="settings_save_sidecar_lyrics">保存歌词文件</string>
+    <string name="settings_save_sidecar_lyrics_summary">在音频文件旁保留兼容的 LRC 和高质量 TTML 歌词。</string>
     <string name="settings_artist_separators">艺术家分隔符</string>
     <string name="settings_artist_protected_names">受保护的艺术家名称</string>
     <string name="settings_genre_separators">流派分隔符</string>

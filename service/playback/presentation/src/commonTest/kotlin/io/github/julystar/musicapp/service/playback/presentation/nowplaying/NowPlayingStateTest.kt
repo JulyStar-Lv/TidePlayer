@@ -23,10 +23,9 @@ class NowPlayingStateTest {
         val artwork = Artwork.LibraryTrack(trackId = 7)
         val info = currentTrackInfo(artwork = artwork)
 
-        val state = info.toInitialNowPlayingState(externalEditorSupported = true)
+        val state = info.toInitialNowPlayingState()
 
         assertEquals(artwork, state.currentTrack?.artwork)
-        assertTrue(state.externalEditorSupported)
     }
 
     @Test

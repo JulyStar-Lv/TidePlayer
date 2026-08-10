@@ -13,12 +13,6 @@
     <!-- Required to maintain app compatibility. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <queries>
-        <package android:name="com.lonx.lyrico" />
-        <package android:name="com.example.LyricBox" />
-        <package android:name="com.example.lyricbox" />
-        <package android:name="com.xjcheng.musictageditor" />
-    </queries>
     <application
         android:name=".AppApplication"
         android:allowBackup="true"
@@ -76,15 +70,6 @@
                     android:host="oauth2redirect" />
             </intent-filter>
         </activity>
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
         <provider
             android:name=".DiagnosticsFileProvider"
             android:authorities="${applicationId}.diagnostics.fileprovider"

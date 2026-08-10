@@ -327,6 +327,9 @@ class SettingsVM(
             is SettingsAction.SetMetadataParsingSettings -> updateSetting {
                 settingsRepository.setMetadataParsingSettings(action.settings)
             }
+            is SettingsAction.SetDownloadFinalizationSettings -> updateSetting {
+                settingsRepository.setDownloadFinalizationSettings(action.settings)
+            }
             is SettingsAction.SetAudioEffectSettings -> updateSetting {
                 settingsRepository.setAudioEffectSettings(action.settings)
             }

@@ -8,6 +8,7 @@ import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
 import io.github.julystar.musicapp.core.domain.model.DiagnosticsExportResult
 import io.github.julystar.musicapp.core.domain.model.DiagnosticsReport
+import io.github.julystar.musicapp.core.domain.model.DownloadFinalizationSettings
 import io.github.julystar.musicapp.core.domain.model.LibraryRebuildState
 import io.github.julystar.musicapp.core.domain.model.LyricFontSettings
 import io.github.julystar.musicapp.core.domain.model.LyricOutputSettings
@@ -58,6 +59,7 @@ interface SettingsRepository {
     suspend fun setPlaybackAdvancedSettings(settings: PlaybackAdvancedSettings) = Unit
     suspend fun setPlayerInteractionSettings(settings: PlayerInteractionSettings) = Unit
     suspend fun setMetadataParsingSettings(settings: MetadataParsingSettings) = Unit
+    suspend fun setDownloadFinalizationSettings(settings: DownloadFinalizationSettings) = Unit
     suspend fun setAudioEffectSettings(settings: AudioEffectSettings) = Unit
     suspend fun setLyricOutputSettings(settings: LyricOutputSettings) = Unit
     suspend fun setBackupSettings(settings: SettingsBackupSettings) = Unit

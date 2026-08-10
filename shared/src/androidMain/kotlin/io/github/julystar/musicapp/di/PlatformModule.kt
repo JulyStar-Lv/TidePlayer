@@ -12,9 +12,6 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 import io.github.julystar.musicapp.core.data.settings.AndroidNetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
-import io.github.julystar.musicapp.core.AndroidExternalEditorLauncher
-import io.github.julystar.musicapp.core.domain.repository.ExternalEditorLauncher
-import io.github.julystar.musicapp.platform.appContext
 
 actual val platformModule: Module = module {
     single {
@@ -34,5 +31,4 @@ actual val platformModule: Module = module {
     single { PermissionRepository(get()) } bind PermissionChecker::class
     single<DownloadTaskScheduler> { AndroidWorkManagerDownloadScheduler() }
     single<NetworkStatusProvider> { AndroidNetworkStatusProvider() }
-    single<ExternalEditorLauncher> { AndroidExternalEditorLauncher(appContext) }
 }

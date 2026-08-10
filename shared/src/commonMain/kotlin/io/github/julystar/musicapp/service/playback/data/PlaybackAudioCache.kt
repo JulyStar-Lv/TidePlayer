@@ -59,6 +59,7 @@ interface PlaybackAudioCache {
 class PersistentPlaybackAudioCache(
     private val settingsRepository: SettingsRepository,
     cacheDirectory: String,
+    private val completedMediaPromoter: CompletedMediaPromoter = CompletedMediaPromoter.Disabled,
 ) : PlaybackAudioCache {
     private val directory = (cacheDirectory.toPath() / CACHE_DIRECTORY_NAME).toString()
     private val mutex = Mutex()
@@ -83,7 +84,7 @@ class PersistentPlaybackAudioCache(
             mimeType = mimeType,
             isLocal = true,
         )
-        retain(resource.uri, session, original = null)
+        retain(resource.uri, session, original = null, identity = identity, mimeType = mimeType)
         return resource
     }
 
@@ -114,7 +115,13 @@ class PersistentPlaybackAudioCache(
             expiresAtEpochMs = null,
             isLocal = false,
         )
-        retain(wrapped.uri, session, original = resource)
+        retain(
+            uri = wrapped.uri,
+            session = session,
+            original = resource,
+            identity = identity,
+            mimeType = resource.mimeType,
+        )
         return wrapped
     }
 
@@ -123,6 +130,7 @@ class PersistentPlaybackAudioCache(
             sessions.remove(resource.uri)
         } ?: return resource
         retained.session.shutdown()
+        completedMediaPromoter.promote(retained.toCompletedPlaybackCache(directory))
         return retained.original
     }
 
@@ -130,18 +138,26 @@ class PersistentPlaybackAudioCache(
         val retained = mutex.withLock {
             sessions.values.toList().also { sessions.clear() }
         }
-        retained.forEach { it.session.shutdown() }
+        retained.forEach { retainedSession ->
+            retainedSession.session.shutdown()
+            completedMediaPromoter.promote(retainedSession.toCompletedPlaybackCache(directory))
+        }
     }
 
     private suspend fun retain(
         uri: String,
         session: PlaybackSession,
         original: PlaybackResource?,
+        identity: PlaybackCacheIdentity,
+        mimeType: String?,
     ) {
         val previous = mutex.withLock {
-            sessions.put(uri, RetainedCacheSession(session, original))
+            sessions.put(uri, RetainedCacheSession(session, original, identity, mimeType))
         }
-        previous?.session?.shutdown()
+        previous?.let { retained ->
+            retained.session.shutdown()
+            completedMediaPromoter.promote(retained.toCompletedPlaybackCache(directory))
+        }
     }
 
     private fun cacheOptions(
@@ -161,6 +177,17 @@ class PersistentPlaybackAudioCache(
 private data class RetainedCacheSession(
     val session: PlaybackSession,
     val original: PlaybackResource?,
+    val identity: PlaybackCacheIdentity,
+    val mimeType: String?,
+)
+
+private fun RetainedCacheSession.toCompletedPlaybackCache(
+    directory: String,
+) = CompletedPlaybackCache(
+    identity = identity,
+    mimeType = mimeType,
+    cacheDirectory = directory,
+    extension = cacheExtension(identity.path, mimeType),
 )
 
 private fun cacheExtension(path: String, mimeType: String?): String {

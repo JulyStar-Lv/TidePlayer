@@ -163,26 +163,10 @@ data class PlayerInteractionSettings(
     val showTotalDuration: Boolean = false,
     val showSongAnnotation: Boolean = true,
     val desktopShortcutsEnabled: Boolean = true,
-    val metadataEditor: MetadataEditorApp = MetadataEditorApp.AskEveryTime,
-    val lyricTimingEditor: LyricTimingEditorApp = LyricTimingEditorApp.AskEveryTime,
 ) {
     companion object {
         val Default = PlayerInteractionSettings()
     }
-}
-
-@Serializable
-enum class MetadataEditorApp {
-    AskEveryTime,
-    Lyrico,
-    LunaBeat,
-    MusicTag,
-}
-
-@Serializable
-enum class LyricTimingEditorApp {
-    AskEveryTime,
-    LunaBeat,
 }
 
 @Serializable
@@ -195,6 +179,16 @@ data class MetadataParsingSettings(
 ) {
     companion object {
         val Default = MetadataParsingSettings()
+    }
+}
+
+@Serializable
+data class DownloadFinalizationSettings(
+    val enrichMetadata: Boolean = true,
+    val saveSidecarLyrics: Boolean = true,
+) {
+    companion object {
+        val Default = DownloadFinalizationSettings()
     }
 }
 
@@ -514,6 +508,7 @@ data class AppSettings(
     val playbackAdvanced: PlaybackAdvancedSettings = PlaybackAdvancedSettings.Default,
     val playerInteraction: PlayerInteractionSettings = PlayerInteractionSettings.Default,
     val metadataParsing: MetadataParsingSettings = MetadataParsingSettings.Default,
+    val downloadFinalization: DownloadFinalizationSettings = DownloadFinalizationSettings.Default,
     val audioEffects: AudioEffectSettings = AudioEffectSettings.Default,
     val lyricOutput: LyricOutputSettings = LyricOutputSettings.Default,
     val backup: SettingsBackupSettings = SettingsBackupSettings.Default,
@@ -634,7 +629,6 @@ data class SettingsCapabilities(
     val lyricGetterSupported: Boolean = false,
     val flymeStatusLyricsSupported: Boolean = false,
     val colorOsLockScreenLyricsSupported: Boolean = false,
-    val externalEditorSupported: Boolean = false,
     val desktopShortcutsSupported: Boolean = false,
     val settingsBackupSupported: Boolean = false,
     val scheduledBackupSupported: Boolean = false,

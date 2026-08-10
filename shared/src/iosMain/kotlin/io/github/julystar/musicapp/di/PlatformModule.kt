@@ -10,8 +10,6 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import io.github.julystar.musicapp.core.data.settings.IosNetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
-import io.github.julystar.musicapp.core.data.settings.UnsupportedExternalEditorLauncher
-import io.github.julystar.musicapp.core.domain.repository.ExternalEditorLauncher
 
 actual val platformModule: Module = module {
     single<PlayerController> {
@@ -34,8 +32,8 @@ actual val platformModule: Module = module {
             sourceRegistry = get(),
             legacyStoragePlaybackResolver = get(),
             scope = get(),
+            downloadFinalizer = get(),
         )
     }
     single<NetworkStatusProvider> { IosNetworkStatusProvider() }
-    single<ExternalEditorLauncher> { UnsupportedExternalEditorLauncher() }
 }

@@ -10,6 +10,7 @@ interface DownloadController {
     suspend fun resume(id: DownloadTaskId)
     suspend fun cancel(id: DownloadTaskId)
     suspend fun cancelAll()
+    suspend fun recoverInterruptedTasks(): Int = 0
     suspend fun retry(id: DownloadTaskId)
 }
 

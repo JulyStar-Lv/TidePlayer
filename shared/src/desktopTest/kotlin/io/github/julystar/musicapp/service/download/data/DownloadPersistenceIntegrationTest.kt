@@ -6,6 +6,7 @@ import io.github.julystar.musicapp.core.domain.model.MediaId
 import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.core.domain.model.SourceId
 import io.github.julystar.musicapp.database.MIGRATION_3_4
+import io.github.julystar.musicapp.database.MIGRATION_20_21
 import io.github.julystar.musicapp.database.AppDatabase
 import io.github.julystar.musicapp.database.AppDatabaseConstructor
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
@@ -19,6 +20,36 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class DownloadPersistenceIntegrationTest {
+    @Test
+    fun migrationTwentyToTwentyOneAddsFinalizationWarning() {
+        val connection = BundledSQLiteDriver().open(":memory:")
+        try {
+            connection.prepare(
+                "CREATE TABLE download_task (id TEXT NOT NULL PRIMARY KEY, status TEXT NOT NULL)"
+            ).use { statement -> statement.step() }
+            connection.prepare(
+                "INSERT INTO download_task VALUES ('download-1', 'Completed')"
+            ).use { statement -> statement.step() }
+
+            MIGRATION_20_21.migrate(connection)
+
+            val columns = buildSet {
+                connection.prepare("PRAGMA table_info(download_task)").use { statement ->
+                    while (statement.step()) add(statement.getText(1))
+                }
+            }
+            assertTrue("finalizationWarning" in columns)
+            connection.prepare(
+                "SELECT finalizationWarning FROM download_task WHERE id = 'download-1'"
+            ).use { statement ->
+                assertTrue(statement.step())
+                assertTrue(statement.isNull(0))
+            }
+        } finally {
+            connection.close()
+        }
+    }
+
     @Test
     fun migrationThreeToFourAddsDownloadTaskTable() {
         val connection = BundledSQLiteDriver().open(":memory:")

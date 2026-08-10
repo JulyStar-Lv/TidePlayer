@@ -60,6 +60,7 @@ internal fun DownloadTask.toEntity(): DownloadTaskEntity {
         localPath = localPath,
         mimeType = mimeType,
         errorMessage = errorMessage,
+        finalizationWarning = finalizationWarning,
         createdAt = createdAtEpochMs,
         updatedAt = updatedAtEpochMs,
     )
@@ -83,6 +84,7 @@ internal fun DownloadTaskEntity.toDomain(): DownloadTask {
         localPath = localPath,
         mimeType = mimeType,
         errorMessage = errorMessage,
+        finalizationWarning = finalizationWarning,
         createdAtEpochMs = createdAt,
         updatedAtEpochMs = updatedAt,
     )

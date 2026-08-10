@@ -389,6 +389,9 @@ interface TrackDao {
     @Query("SELECT COUNT(*) FROM track")
     suspend fun count(): Long
 
+    @Query("SELECT MAX(id) FROM track")
+    suspend fun maxId(): Long?
+
     @Upsert
     suspend fun upsertAll(tracks: List<TrackEntity>)
 
@@ -1147,7 +1150,7 @@ interface DownloadTaskDao {
     @Query("SELECT * FROM download_task ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<DownloadTaskEntity>>
 
-    @Query("SELECT * FROM download_task WHERE status IN ('Queued', 'Resolving', 'Downloading', 'Paused') ORDER BY updatedAt")
+    @Query("SELECT * FROM download_task WHERE status IN ('Queued', 'Resolving', 'Downloading', 'Finalizing', 'Paused') ORDER BY updatedAt")
     fun observeActive(): Flow<List<DownloadTaskEntity>>
 
     @Query("SELECT * FROM download_task WHERE id = :id")
