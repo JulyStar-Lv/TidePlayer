@@ -135,10 +135,14 @@ jobs:
 
   ios:
     name: iOS Simulator
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+      - name: Report Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          xcrun swift --version
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
