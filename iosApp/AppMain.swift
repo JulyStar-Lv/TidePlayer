@@ -3,6 +3,7 @@ import MediaPlayer
 import SwiftUI
 import SharedKit
 
+@MainActor
 private final class NowPlayingCoordinator {
     private let infoCenter = MPNowPlayingInfoCenter.default()
     private let commandCenter = MPRemoteCommandCenter.shared()
@@ -14,7 +15,9 @@ private final class NowPlayingCoordinator {
         guard timer == nil else { return }
         sync()
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.sync()
+            Task { @MainActor [weak self] in
+                self?.sync()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -31,10 +34,6 @@ private final class NowPlayingCoordinator {
     }
 
     func sync() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in self?.sync() }
-            return
-        }
         guard let snapshot = MainViewControllerKt.currentNowPlayingSnapshot() else {
             infoCenter.nowPlayingInfo = nil
             currentMediaId = nil
@@ -105,7 +104,7 @@ private final class NowPlayingCoordinator {
 
     private func loadArtwork(for mediaId: String) {
         MainViewControllerKt.loadNowPlayingArtworkBase64(mediaId: mediaId) { [weak self] encoded in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 guard
                     let self,
                     self.currentMediaId == mediaId,
@@ -143,6 +142,7 @@ private final class NowPlayingCoordinator {
     }
 }
 
+@MainActor
 private final class AppDelegate: NSObject, UIApplicationDelegate {
     private var remoteCommandTargets: [(command: MPRemoteCommand, target: Any)] = []
     private var audioSessionObservers: [NSObjectProtocol] = []
@@ -307,8 +307,13 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
                 object: session,
                 queue: .main
             ) { [weak self] notification in
+                let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
                 Task { @MainActor [weak self] in
-                    self?.handleAudioSessionInterruption(notification)
+                    self?.handleAudioSessionInterruption(
+                        rawType: rawType,
+                        rawOptions: rawOptions
+                    )
                 }
             }
         )
@@ -318,8 +323,9 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
                 object: session,
                 queue: .main
             ) { [weak self] notification in
+                let rawReason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
                 Task { @MainActor [weak self] in
-                    self?.handleAudioRouteChange(notification)
+                    self?.handleAudioRouteChange(rawReason: rawReason)
                 }
             }
         )
@@ -331,6 +337,7 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.configureAudioSession()
+                    _ = MainViewControllerKt.handleAudioRouteChanged()
                     self?.nowPlaying.sync()
                 }
             }
@@ -343,9 +350,9 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
         audioSessionObservers.removeAll()
     }
 
-    private func handleAudioSessionInterruption(_ notification: Notification) {
+    private func handleAudioSessionInterruption(rawType: UInt?, rawOptions: UInt?) {
         guard
-            let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let rawType,
             let type = AVAudioSession.InterruptionType(rawValue: rawType)
         else {
             return
@@ -356,8 +363,7 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
             _ = MainViewControllerKt.handleAudioSessionInterruptionBegan()
             nowPlaying.sync()
         case .ended:
-            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions ?? 0)
             let shouldResume = options.contains(.shouldResume)
             if shouldResume {
                 try? AVAudioSession.sharedInstance().setActive(true)
@@ -371,17 +377,18 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
         }
     }
 
-    private func handleAudioRouteChange(_ notification: Notification) {
+    private func handleAudioRouteChange(rawReason: UInt?) {
+        _ = MainViewControllerKt.handleAudioRouteChanged()
         guard
-            let rawReason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+            let rawReason,
             let reason = AVAudioSession.RouteChangeReason(rawValue: rawReason)
         else {
             return
         }
         if reason == .oldDeviceUnavailable {
             _ = MainViewControllerKt.handleAudioRouteDisconnected()
-            nowPlaying.sync()
         }
+        nowPlaying.sync()
     }
 }
 
