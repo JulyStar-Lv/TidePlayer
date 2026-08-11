@@ -156,7 +156,7 @@ private fun EqualizerModeSection(
                     ),
                 )
             },
-            variant = DesignTabsVariant.Segmented,
+            variant = DesignTabsVariant.Pill,
             modifier = Modifier.padding(12.dp),
         )
     }

@@ -377,7 +377,7 @@ private fun ArtistSectionTabs(
             onSelectedIndexChange = { index ->
                 onSectionSelected(ArtistSection.entries[index])
             },
-            variant = DesignTabsVariant.Segmented,
+            variant = DesignTabsVariant.Pill,
         )
     }
 }
