@@ -71,6 +71,8 @@ enum class SettingsPage {
     Home,
     Appearance,
     Playback,
+    Equalizer,
+    AudioEffects,
     Lyrics,
     Source,
     NetworkCache,

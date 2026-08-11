@@ -11,6 +11,7 @@ import io.github.julystar.musicapp.core.domain.model.MIN_REPLAY_GAIN_PREAMP_TENT
 import io.github.julystar.musicapp.core.domain.model.PlayNextMode
 import io.github.julystar.musicapp.core.domain.model.PreviousButtonBehavior
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
+import io.github.julystar.musicapp.core.domain.model.EqualizerMode
 import io.github.julystar.musicapp.core.domain.model.ShuffleStrategy
 import io.github.julystar.musicapp.core.domain.model.StartupPlaybackMode
 import io.github.julystar.musicapp.service.playback.domain.AudioOutputDeviceId
@@ -25,6 +26,8 @@ fun PlaybackSettingsSection(
     onSelectAudioOutput: (AudioOutputDeviceId?) -> Unit,
     onRefreshAudioOutputs: () -> Unit,
     onBack: (() -> Unit)?,
+    onNavigateToEqualizer: () -> Unit,
+    onNavigateToAudioEffects: () -> Unit,
     onAction: (SettingsAction) -> Unit,
 ) {
     val settings = state.settings
@@ -324,9 +327,88 @@ fun PlaybackSettingsSection(
         }
 
         if (capabilities.audioEffectsSupported) {
-            AudioEffectsSettingsSection(state = state, onAction = onAction)
+            val effects = settings.audioEffects
+            SettingsSection(title = stringResource(Res.string.settings_audio_processing_section)) {
+                SettingsInfoRow(
+                    title = stringResource(Res.string.settings_equalizer_section),
+                    value = effects.localizedEqualizerSummary(),
+                    onClick = onNavigateToEqualizer,
+                )
+                SettingsInfoRow(
+                    title = stringResource(Res.string.settings_audio_effects_title),
+                    value = effects.localizedAudioEffectsSummary(),
+                    onClick = onNavigateToAudioEffects,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
+    .localizedEqualizerSummary(): String {
+    val summary = equalizerUiSummary()
+    if (!summary.enabled) return stringResource(Res.string.settings_audio_processing_off)
+    return when (summary.mode) {
+        EqualizerMode.Graphic -> {
+            val presetName = summary.presetId?.let { id -> equalizerPresetName(id) }
+            if (presetName != null) {
+                presetName
+            } else {
+                stringResource(
+                    Res.string.settings_equalizer_custom_bands,
+                    summary.bandCount,
+                )
+            }
+        }
+        EqualizerMode.Parametric -> stringResource(
+            Res.string.settings_equalizer_parametric_bands,
+            summary.bandCount,
+        )
+    }
+}
+
+@Composable
+private fun io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
+    .localizedAudioEffectsSummary(): String {
+    if (!enabled) return stringResource(Res.string.settings_audio_processing_off)
+    val modules = activeAudioEffectModules()
+    return when {
+        modules.isEmpty() -> stringResource(Res.string.settings_audio_effects_none_enabled)
+        modules.size == 1 -> modules.first().localizedName()
+        modules.size == 2 ->
+            modules.first().localizedName() + " · " + modules.last().localizedName()
+        else -> stringResource(Res.string.settings_audio_effects_enabled_count, modules.size)
+    }
+}
+
+@Composable
+internal fun equalizerPresetName(id: String): String? = when (id) {
+    "flat" -> stringResource(Res.string.settings_eq_preset_flat)
+    "pop" -> stringResource(Res.string.settings_eq_preset_pop)
+    "rock" -> stringResource(Res.string.settings_eq_preset_rock)
+    "jazz" -> stringResource(Res.string.settings_eq_preset_jazz)
+    "classical" -> stringResource(Res.string.settings_eq_preset_classical)
+    "vocal" -> stringResource(Res.string.settings_eq_preset_vocal)
+    "bass_boost" -> stringResource(Res.string.settings_eq_preset_bass_boost)
+    "treble_boost" -> stringResource(Res.string.settings_eq_preset_treble_boost)
+    else -> null
+}
+
+@Composable
+internal fun AudioEffectModule.localizedName(): String = when (this) {
+    AudioEffectModule.Tone -> stringResource(Res.string.settings_tone_enabled)
+    AudioEffectModule.Loudness -> stringResource(Res.string.settings_loudness)
+    AudioEffectModule.MonoBass -> stringResource(Res.string.settings_mono_bass)
+    AudioEffectModule.DynamicEqualizer -> stringResource(Res.string.settings_dynamic_eq)
+    AudioEffectModule.MoogFilter -> stringResource(Res.string.settings_moog_section)
+    AudioEffectModule.Compressor -> stringResource(Res.string.settings_compressor)
+    AudioEffectModule.Reverb -> stringResource(Res.string.settings_reverb)
+    AudioEffectModule.StereoWidth -> stringResource(Res.string.settings_stereo_width)
+    AudioEffectModule.Crossfeed -> stringResource(Res.string.settings_crossfeed)
+    AudioEffectModule.Spatial -> stringResource(Res.string.settings_spatial_mode)
+    AudioEffectModule.SpeakerOutput -> stringResource(Res.string.settings_speaker_output)
+    AudioEffectModule.Limiter -> stringResource(Res.string.settings_peak_limiter)
 }
 
 private fun Int.formatTenthsDb(): String {

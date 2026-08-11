@@ -175,7 +175,9 @@ fun SettingsScreen(
                     icon = CoreRes.drawable.icon_settings_circle_play,
                     iconColors = DesignGradients.PinkPurple.colors,
                     onClick = onNavigateToPlayback,
-                    selected = selectedPage == SettingsPage.Playback,
+                    selected = selectedPage == SettingsPage.Playback ||
+                        selectedPage == SettingsPage.Equalizer ||
+                        selectedPage == SettingsPage.AudioEffects,
                     showDivider = false,
                 )
             }

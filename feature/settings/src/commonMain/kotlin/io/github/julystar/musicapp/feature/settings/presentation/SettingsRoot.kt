@@ -30,6 +30,8 @@ fun SettingsRoot(
     gitCommitSha: String,
     onNavigateToAppearance: () -> Unit,
     onNavigateToPlayback: () -> Unit,
+    onNavigateToEqualizer: () -> Unit,
+    onNavigateToAudioEffects: () -> Unit,
     onNavigateToLyrics: () -> Unit,
     onNavigateToSource: () -> Unit,
     onNavigateToPlugins: () -> Unit,
@@ -101,6 +103,18 @@ fun SettingsRoot(
                 audioOutputState = audioOutputState,
                 onSelectAudioOutput = advancedPlaybackController::selectOutputDevice,
                 onRefreshAudioOutputs = advancedPlaybackController::refreshOutputDevices,
+                onBack = back,
+                onNavigateToEqualizer = onNavigateToEqualizer,
+                onNavigateToAudioEffects = onNavigateToAudioEffects,
+                onAction = settingsVM::onAction,
+            )
+            SettingsPage.Equalizer -> EqualizerSettingsScreen(
+                state = state,
+                onBack = back,
+                onAction = settingsVM::onAction,
+            )
+            SettingsPage.AudioEffects -> AudioEffectsSettingsScreen(
+                state = state,
                 onBack = back,
                 onAction = settingsVM::onAction,
             )

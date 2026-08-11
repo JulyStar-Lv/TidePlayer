@@ -10,6 +10,8 @@ import io.github.julystar.musicapp.feature.settings.presentation.SettingsRoot
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_APPEARANCE = "settings/appearance"
 private const val ROUTE_PLAYBACK = "settings/playback"
+private const val ROUTE_EQUALIZER = "settings/playback/equalizer"
+private const val ROUTE_AUDIO_EFFECTS = "settings/playback/audio-effects"
 private const val ROUTE_LYRICS = "settings/lyrics"
 private const val ROUTE_SOURCE = "settings/source"
 private const val ROUTE_NETWORK_CACHE = "settings/network-cache"
@@ -40,6 +42,8 @@ fun SettingsTabGraph(
             gitCommitSha = gitCommitSha,
             onNavigateToAppearance = { navController.navigateSection(ROUTE_APPEARANCE) },
             onNavigateToPlayback = { navController.navigateSection(ROUTE_PLAYBACK) },
+            onNavigateToEqualizer = { navigate(ROUTE_EQUALIZER) },
+            onNavigateToAudioEffects = { navigate(ROUTE_AUDIO_EFFECTS) },
             onNavigateToLyrics = { navController.navigateSection(ROUTE_LYRICS) },
             onNavigateToSource = navController::navigateToSourceSettings,
             onNavigateToPlugins = onNavigateToPlugins,
@@ -60,6 +64,8 @@ fun SettingsTabGraph(
         composable(ROUTE_SETTINGS) { Route(SettingsPage.Home) }
         composable(ROUTE_APPEARANCE) { Route(SettingsPage.Appearance) }
         composable(ROUTE_PLAYBACK) { Route(SettingsPage.Playback) }
+        composable(ROUTE_EQUALIZER) { Route(SettingsPage.Equalizer) }
+        composable(ROUTE_AUDIO_EFFECTS) { Route(SettingsPage.AudioEffects) }
         composable(ROUTE_LYRICS) { Route(SettingsPage.Lyrics) }
         composable(ROUTE_SOURCE) { Route(SettingsPage.Source) }
         composable(ROUTE_NETWORK_CACHE) { Route(SettingsPage.NetworkCache) }

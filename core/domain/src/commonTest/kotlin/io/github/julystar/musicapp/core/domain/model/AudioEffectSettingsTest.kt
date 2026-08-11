@@ -5,6 +5,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AudioEffectSettingsTest {
@@ -124,5 +126,70 @@ class AudioEffectSettingsTest {
         assertEquals(5, restored.profile.limiter.lookaheadMs)
         assertEquals(HeadroomSettings(), legacyWithoutPhaseTwoFields.headroom)
         assertEquals(3, legacyWithoutPhaseTwoFields.profile.limiter.lookaheadMs)
+    }
+
+    @Test
+    fun graphicEqualizerPresetApplicationClampsValuesAndDetectsCustomState() {
+        val preset = EqualizerPreset(
+            id = "test",
+            bandGainsDb = listOf(-99, -8, -4, 0, 2, 4, 8, 12, 24, 99),
+        )
+        val applied = GraphicEqualizerSettings(enabled = false).applyPreset(preset)
+
+        assertTrue(applied.enabled)
+        assertEquals(MIN_EQ_BAND_GAIN_DB, applied.bandGainsDb.first())
+        assertEquals(MAX_EQ_BAND_GAIN_DB, applied.bandGainsDb.last())
+        assertNull(applied.matchingPreset())
+    }
+
+    @Test
+    fun graphicEqualizerPresetRequiresExactlyTenBands() {
+        assertFailsWith<IllegalArgumentException> {
+            EqualizerPreset(id = "invalid", bandGainsDb = listOf(0))
+        }
+    }
+
+    @Test
+    fun graphicEqualizerResetOnlyResetsEqValues() {
+        val reset = GraphicEqualizerSettings(
+            enabled = false,
+            bandGainsDb = List(EQ_BAND_COUNT) { 6 },
+            qHundredths = 250,
+            preampTenthsDb = -60,
+        ).resetEqualizer()
+
+        assertEquals(false, reset.enabled)
+        assertEquals(DEFAULT_EQ_BAND_GAINS_DB, reset.bandGainsDb)
+        assertEquals(DEFAULT_EQ_Q_HUNDREDTHS, reset.qHundredths)
+        assertEquals(0, reset.preampTenthsDb)
+    }
+
+    @Test
+    fun parametricEqualizerNormalizationRespectsMaximumBandCount() {
+        val profile = normalizeAudioEffectProfile(
+            AudioEffectProfile.Default.copy(
+                parametricEqualizer = ParametricEqualizerSettings(
+                    bands = List(MAX_PARAMETRIC_EQ_BANDS + 5) { ParametricEqBand() },
+                ),
+            ),
+        )
+
+        assertEquals(MAX_PARAMETRIC_EQ_BANDS, profile.parametricEqualizer.bands.size)
+    }
+
+    @Test
+    fun audioEffectPresetRetainsCompleteProfileSemantics() {
+        val profile = AudioEffectProfile.Default.copy(
+            graphicEqualizer = GraphicEqualizerSettings(
+                bandGainsDb = List(EQ_BAND_COUNT) { 3 },
+            ),
+            compressor = CompressorSettings(enabled = true),
+            reverb = ReverbSettings(preset = ReverbPreset.Hall),
+        )
+        val preset = AudioEffectPreset("complete", "Complete", profile)
+
+        assertEquals(profile, preset.profile)
+        assertTrue(preset.profile.compressor.enabled)
+        assertEquals(ReverbPreset.Hall, preset.profile.reverb.preset)
     }
 }
