@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
     path::PathBuf,
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
@@ -17,7 +18,13 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_RANGE, RANGE},
     StatusCode,
 };
-use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source};
+use rodio::{
+    cpal::{
+        self,
+        traits::{DeviceTrait, HostTrait},
+    },
+    Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source,
+};
 
 use super::{
     audio_dsp_bridge::{
@@ -37,21 +44,45 @@ pub enum DesktopRodioLoadResult {
     Unsupported,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct DesktopAudioOutputDevice {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum DesktopAudioOutputSwitchResult {
+    Ready,
+    DeviceNotFound,
+    OpenFailed,
+    RestoreFailed,
+}
+
 #[derive(uniffi::Object)]
 pub struct DesktopRodioPlayer {
     state: Mutex<DesktopRodioState>,
     completion: Arc<PlaybackCompletionState>,
     telemetry: Arc<DspRuntimeTelemetry>,
+    output_backend: Arc<dyn AudioOutputBackend>,
 }
 
 #[derive(Default)]
 struct DesktopRodioState {
     output: Option<RodioOutput>,
+    active_device_id: Option<String>,
     loaded: bool,
+    loaded_resource: Option<LoadedResource>,
     duration_ms: i64,
     dsp_config: AudioDspConfig,
     crossfade_duration_ms: u64,
     dsp_input: Option<DesktopDspConfigInput>,
+}
+
+#[derive(Clone)]
+struct LoadedResource {
+    uri: String,
+    http_header_fields: String,
 }
 
 #[derive(Default)]
@@ -61,10 +92,22 @@ struct PlaybackCompletionState {
 }
 
 struct RodioOutput {
-    _sink: MixerDeviceSink,
+    sink: Option<MixerDeviceSink>,
     player: Arc<Player>,
     telemetry: Arc<DspRuntimeTelemetry>,
 }
+
+trait AudioOutputBackend: Send + Sync {
+    fn list_devices(&self) -> Result<Vec<DesktopAudioOutputDevice>, String>;
+
+    fn open_output(
+        &self,
+        device_id: Option<&str>,
+        telemetry: Arc<DspRuntimeTelemetry>,
+    ) -> Result<(RodioOutput, String), AudioOutputOpenError>;
+}
+
+struct CpalAudioOutputBackend;
 
 #[uniffi::export]
 impl DesktopRodioPlayer {
@@ -77,7 +120,8 @@ impl DesktopRodioPlayer {
         let dsp_config = state.dsp_config;
         let crossfade_duration_ms = state.crossfade_duration_ms;
         let was_loaded = state.loaded;
-        let output = match state.ensure_output(self.telemetry.clone()) {
+        let output = match state.ensure_output(self.output_backend.as_ref(), self.telemetry.clone())
+        {
             Ok(output) => output,
             Err(message) => {
                 self.telemetry
@@ -118,6 +162,10 @@ impl DesktopRodioPlayer {
         }
         let player = output.player.clone();
         state.loaded = true;
+        state.loaded_resource = Some(LoadedResource {
+            uri,
+            http_header_fields,
+        });
         state.duration_ms = duration_ms;
         state.dsp_input = Some(dsp_input);
         let generation = self.completion.generation.fetch_add(1, Ordering::AcqRel) + 1;
@@ -146,6 +194,7 @@ impl DesktopRodioPlayer {
             output.player.stop();
         }
         state.loaded = false;
+        state.loaded_resource = None;
         state.duration_ms = 0;
         state.dsp_input = None;
         self.telemetry.reset();
@@ -192,6 +241,104 @@ impl DesktopRodioPlayer {
                 == generation
     }
 
+    pub fn list_audio_output_devices(&self) -> Vec<DesktopAudioOutputDevice> {
+        match self.output_backend.list_devices() {
+            Ok(devices) => devices,
+            Err(message) => {
+                tracing::warn!(message, "desktop audio output enumeration failed");
+                Vec::new()
+            }
+        }
+    }
+
+    pub fn current_audio_output_device(&self) -> Option<DesktopAudioOutputDevice> {
+        let active_device_id = self.state.lock().unwrap().active_device_id.clone();
+        let devices = self.list_audio_output_devices();
+        active_device_id
+            .as_ref()
+            .and_then(|id| devices.iter().find(|device| &device.id == id).cloned())
+            .or_else(|| devices.into_iter().find(|device| device.is_default))
+    }
+
+    pub fn refresh_audio_output_devices(&self) -> Vec<DesktopAudioOutputDevice> {
+        let devices = self.list_audio_output_devices();
+        let active_device_id = self.state.lock().unwrap().active_device_id.clone();
+        if active_device_id
+            .as_ref()
+            .is_some_and(|id| devices.iter().all(|device| &device.id != id))
+        {
+            let _ = self.set_audio_output_device(None);
+            return self.list_audio_output_devices();
+        }
+        devices
+    }
+
+    pub fn set_audio_output_device(
+        &self,
+        device_id: Option<String>,
+    ) -> DesktopAudioOutputSwitchResult {
+        let requested_device_id = device_id.filter(|id| !id.trim().is_empty());
+        let (next_output, active_device_id) = match self
+            .output_backend
+            .open_output(requested_device_id.as_deref(), self.telemetry.clone())
+        {
+            Ok(output) => output,
+            Err(AudioOutputOpenError::DeviceNotFound(message)) => {
+                tracing::warn!(message, "desktop audio output device was not found");
+                return DesktopAudioOutputSwitchResult::DeviceNotFound;
+            }
+            Err(AudioOutputOpenError::OpenFailed(message)) => {
+                tracing::warn!(message, "desktop audio output device could not be opened");
+                return DesktopAudioOutputSwitchResult::OpenFailed;
+            }
+        };
+
+        let mut state = self.state.lock().unwrap();
+        let restored = if state.loaded {
+            let Some(resource) = state.loaded_resource.clone() else {
+                return DesktopAudioOutputSwitchResult::RestoreFailed;
+            };
+            let Some(current_output) = state.output.as_ref() else {
+                return DesktopAudioOutputSwitchResult::RestoreFailed;
+            };
+            let restore_snapshot = PlaybackRestoreSnapshot::capture(&current_output.player);
+            let (duration_ms, dsp_input) = match next_output.load_resource(
+                &resource.uri,
+                &resource.http_header_fields,
+                state.dsp_config,
+            ) {
+                Ok(result) => result,
+                Err(message) => {
+                    tracing::warn!(message, "desktop audio output playback restore failed");
+                    return DesktopAudioOutputSwitchResult::RestoreFailed;
+                }
+            };
+            if let Err(error) = next_output.player.try_seek(restore_snapshot.position) {
+                tracing::warn!(%error, "desktop audio output seek restore failed");
+                return DesktopAudioOutputSwitchResult::RestoreFailed;
+            }
+            restore_snapshot.apply_controls(&next_output.player);
+            Some((duration_ms, dsp_input, next_output.player.clone()))
+        } else {
+            None
+        };
+
+        if let Some(previous_output) = state.output.replace(next_output) {
+            previous_output.player.stop();
+        }
+        state.active_device_id = Some(active_device_id);
+        if let Some((duration_ms, dsp_input, player)) = restored {
+            state.duration_ms = duration_ms;
+            state.dsp_input = Some(dsp_input);
+            let generation = self.completion.generation.fetch_add(1, Ordering::AcqRel) + 1;
+            self.completion
+                .completed_generation
+                .store(0, Ordering::Release);
+            observe_playback_completion(player, self.completion.clone(), generation);
+        }
+        DesktopAudioOutputSwitchResult::Ready
+    }
+
     pub fn configure_dsp(&self, config: DspConfiguration, crossfade_duration_ms: u64) {
         let mut state = self.state.lock().unwrap();
         let dsp_config = config.into_core();
@@ -209,11 +356,16 @@ impl DesktopRodioPlayer {
 
 impl DesktopRodioPlayer {
     fn new() -> Self {
+        Self::new_with_output_backend(Arc::new(CpalAudioOutputBackend))
+    }
+
+    fn new_with_output_backend(output_backend: Arc<dyn AudioOutputBackend>) -> Self {
         let telemetry = Arc::new(DspRuntimeTelemetry::default());
         Self {
             state: Mutex::new(DesktopRodioState::default()),
             completion: Arc::new(PlaybackCompletionState::default()),
             telemetry,
+            output_backend,
         }
     }
 
@@ -246,26 +398,44 @@ fn observe_playback_completion(
 impl DesktopRodioState {
     fn ensure_output(
         &mut self,
+        output_backend: &dyn AudioOutputBackend,
         telemetry: Arc<DspRuntimeTelemetry>,
     ) -> Result<&mut RodioOutput, String> {
         if self.output.is_none() {
-            self.output = Some(RodioOutput::new(telemetry)?);
+            let (output, active_device_id) = output_backend
+                .open_output(None, telemetry)
+                .map_err(AudioOutputOpenError::into_message)?;
+            self.output = Some(output);
+            self.active_device_id = Some(active_device_id);
         }
         Ok(self.output.as_mut().unwrap())
     }
 }
 
 impl RodioOutput {
-    fn new(telemetry: Arc<DspRuntimeTelemetry>) -> Result<Self, String> {
-        let mut sink = DeviceSinkBuilder::open_default_sink()
-            .map_err(|error| format!("open default audio sink failed: {error}"))?;
+    fn new_for_device(
+        device_id: Option<&str>,
+        telemetry: Arc<DspRuntimeTelemetry>,
+    ) -> Result<(Self, String), AudioOutputOpenError> {
+        let device = resolve_audio_output_device(device_id)?;
+        let active_device_id = device.id().map_err(|error| {
+            AudioOutputOpenError::OpenFailed(format!("read audio device id failed: {error}"))
+        })?;
+        let mut sink = DeviceSinkBuilder::from_device(device)
+            .and_then(|builder| builder.open_sink_or_fallback())
+            .map_err(|error| {
+                AudioOutputOpenError::OpenFailed(format!("open audio sink failed: {error}"))
+            })?;
         sink.log_on_drop(false);
         let player = Arc::new(Player::connect_new(sink.mixer()));
-        Ok(Self {
-            _sink: sink,
-            player,
-            telemetry,
-        })
+        Ok((
+            Self {
+                sink: Some(sink),
+                player,
+                telemetry,
+            },
+            active_device_id.to_string(),
+        ))
     }
 
     fn load_resource(
@@ -282,8 +452,21 @@ impl RodioOutput {
     }
 
     fn replace_player(&mut self) -> Arc<Player> {
-        let next = Arc::new(Player::connect_new(self._sink.mixer()));
+        let next = self
+            .sink
+            .as_ref()
+            .map(|sink| Arc::new(Player::connect_new(sink.mixer())))
+            .unwrap_or_else(|| Arc::new(Player::new().0));
         std::mem::replace(&mut self.player, next)
+    }
+
+    #[cfg(test)]
+    fn new_for_test(telemetry: Arc<DspRuntimeTelemetry>) -> Self {
+        Self {
+            sink: None,
+            player: Arc::new(Player::new().0),
+            telemetry,
+        }
     }
 
     fn load_file_resource(
@@ -346,6 +529,121 @@ impl RodioOutput {
             DesktopDspSource::new_with_telemetry(source, dsp_config, self.telemetry.clone());
         self.player.append(source);
         input
+    }
+}
+
+enum AudioOutputOpenError {
+    DeviceNotFound(String),
+    OpenFailed(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PlaybackRestoreSnapshot {
+    position: Duration,
+    was_paused: bool,
+    volume: f32,
+}
+
+impl PlaybackRestoreSnapshot {
+    fn capture(player: &Player) -> Self {
+        Self {
+            position: player.get_pos(),
+            was_paused: player.is_paused(),
+            volume: player.volume(),
+        }
+    }
+
+    fn apply_controls(self, player: &Player) {
+        player.set_volume(self.volume);
+        if self.was_paused {
+            player.pause();
+        } else {
+            player.play();
+        }
+    }
+}
+
+impl AudioOutputOpenError {
+    fn into_message(self) -> String {
+        match self {
+            Self::DeviceNotFound(message) | Self::OpenFailed(message) => message,
+        }
+    }
+}
+
+fn resolve_audio_output_device(
+    device_id: Option<&str>,
+) -> Result<cpal::Device, AudioOutputOpenError> {
+    let host = cpal::default_host();
+    let Some(device_id) = device_id else {
+        return host.default_output_device().ok_or_else(|| {
+            AudioOutputOpenError::DeviceNotFound(
+                "system default audio output device is unavailable".to_string(),
+            )
+        });
+    };
+    let parsed_id = cpal::DeviceId::from_str(device_id).map_err(|error| {
+        AudioOutputOpenError::DeviceNotFound(format!(
+            "invalid audio output device id '{device_id}': {error}"
+        ))
+    })?;
+    host.device_by_id(&parsed_id).ok_or_else(|| {
+        AudioOutputOpenError::DeviceNotFound(format!(
+            "audio output device '{device_id}' is unavailable"
+        ))
+    })
+}
+
+fn system_audio_output_devices() -> Result<Vec<DesktopAudioOutputDevice>, String> {
+    let host = cpal::default_host();
+    let default_device_id = host
+        .default_output_device()
+        .and_then(|device| device.id().ok())
+        .map(|id| id.to_string());
+    let devices = host
+        .output_devices()
+        .map_err(|error| format!("list audio output devices failed: {error}"))?;
+    Ok(devices
+        .filter_map(|device| {
+            let id = device.id().ok()?.to_string();
+            let name = device
+                .description()
+                .ok()
+                .map(|description| description.name().trim().to_string())
+                .filter(|name| !name.is_empty())
+                .unwrap_or_else(|| id.clone());
+            Some(describe_audio_output_device(
+                id,
+                name,
+                default_device_id.as_deref(),
+            ))
+        })
+        .collect())
+}
+
+impl AudioOutputBackend for CpalAudioOutputBackend {
+    fn list_devices(&self) -> Result<Vec<DesktopAudioOutputDevice>, String> {
+        system_audio_output_devices()
+    }
+
+    fn open_output(
+        &self,
+        device_id: Option<&str>,
+        telemetry: Arc<DspRuntimeTelemetry>,
+    ) -> Result<(RodioOutput, String), AudioOutputOpenError> {
+        RodioOutput::new_for_device(device_id, telemetry)
+    }
+}
+
+fn describe_audio_output_device(
+    id: String,
+    name: String,
+    default_device_id: Option<&str>,
+) -> DesktopAudioOutputDevice {
+    DesktopAudioOutputDevice {
+        is_default: default_device_id == Some(id.as_str()),
+        id,
+        name,
     }
 }
 
@@ -724,6 +1022,63 @@ mod tests {
     use super::*;
     use std::{io::Write, net::TcpListener, thread};
 
+    struct FakeAudioOutputBackend {
+        devices: Vec<DesktopAudioOutputDevice>,
+        open_requests: Mutex<Vec<Option<String>>>,
+    }
+
+    impl FakeAudioOutputBackend {
+        fn new() -> Self {
+            Self {
+                devices: vec![
+                    DesktopAudioOutputDevice {
+                        id: "fake:built-in".to_string(),
+                        name: "Speakers".to_string(),
+                        is_default: true,
+                    },
+                    DesktopAudioOutputDevice {
+                        id: "fake:usb".to_string(),
+                        name: "USB DAC".to_string(),
+                        is_default: false,
+                    },
+                ],
+                open_requests: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl AudioOutputBackend for FakeAudioOutputBackend {
+        fn list_devices(&self) -> Result<Vec<DesktopAudioOutputDevice>, String> {
+            Ok(self.devices.clone())
+        }
+
+        fn open_output(
+            &self,
+            device_id: Option<&str>,
+            telemetry: Arc<DspRuntimeTelemetry>,
+        ) -> Result<(RodioOutput, String), AudioOutputOpenError> {
+            self.open_requests
+                .lock()
+                .unwrap()
+                .push(device_id.map(str::to_string));
+            let resolved_id = device_id.unwrap_or("fake:built-in");
+            if resolved_id == "fake:missing" {
+                return Err(AudioOutputOpenError::DeviceNotFound(
+                    "fake device missing".to_string(),
+                ));
+            }
+            if resolved_id == "fake:busy" {
+                return Err(AudioOutputOpenError::OpenFailed(
+                    "fake device busy".to_string(),
+                ));
+            }
+            Ok((
+                RodioOutput::new_for_test(telemetry),
+                resolved_id.to_string(),
+            ))
+        }
+    }
+
     #[test]
     fn empty_uri_is_unsupported_without_opening_output() {
         let player = DesktopRodioPlayer::new();
@@ -755,14 +1110,98 @@ mod tests {
     }
 
     #[test]
+    fn device_descriptors_keep_cpal_ids_and_real_default() {
+        let first = describe_audio_output_device(
+            "coreaudio:first".to_string(),
+            "Speakers".to_string(),
+            Some("coreaudio:second"),
+        );
+        let second = describe_audio_output_device(
+            "coreaudio:second".to_string(),
+            "Speakers".to_string(),
+            Some("coreaudio:second"),
+        );
+
+        assert_ne!(first.id, second.id);
+        assert!(!first.is_default);
+        assert!(second.is_default);
+    }
+
+    #[test]
+    fn fake_backend_enumerates_default_and_switches_without_hardware() {
+        let backend = Arc::new(FakeAudioOutputBackend::new());
+        let player = DesktopRodioPlayer::new_with_output_backend(backend.clone());
+
+        assert_eq!(backend.devices, player.list_audio_output_devices());
+        assert_eq!(
+            Some("fake:built-in"),
+            player
+                .current_audio_output_device()
+                .as_ref()
+                .map(|device| device.id.as_str())
+        );
+        assert_eq!(
+            DesktopAudioOutputSwitchResult::Ready,
+            player.set_audio_output_device(Some("fake:usb".to_string()))
+        );
+        assert_eq!(
+            Some("fake:usb"),
+            player
+                .current_audio_output_device()
+                .as_ref()
+                .map(|device| device.id.as_str())
+        );
+        assert_eq!(
+            vec![Some("fake:usb".to_string())],
+            *backend.open_requests.lock().unwrap()
+        );
+    }
+
+    #[test]
+    fn switch_failure_does_not_change_player_state() {
+        let backend = Arc::new(FakeAudioOutputBackend::new());
+        let player = DesktopRodioPlayer::new_with_output_backend(backend);
+
+        assert_eq!(
+            DesktopAudioOutputSwitchResult::Ready,
+            player.set_audio_output_device(Some("fake:usb".to_string()))
+        );
+
+        assert_eq!(
+            DesktopAudioOutputSwitchResult::DeviceNotFound,
+            player.set_audio_output_device(Some("fake:missing".to_string()))
+        );
+        let state = player.state.lock().unwrap();
+        assert!(state.output.is_some());
+        assert_eq!(Some("fake:usb"), state.active_device_id.as_deref());
+        assert!(!state.loaded);
+    }
+
+    #[test]
+    fn playback_restore_snapshot_preserves_pause_and_volume_controls() {
+        let telemetry = Arc::new(DspRuntimeTelemetry::default());
+        let previous = RodioOutput::new_for_test(telemetry.clone());
+        previous.player.set_volume(0.37);
+        previous.player.pause();
+        let snapshot = PlaybackRestoreSnapshot::capture(&previous.player);
+        let next = RodioOutput::new_for_test(telemetry);
+
+        snapshot.apply_controls(&next.player);
+
+        assert_eq!(Duration::ZERO, snapshot.position);
+        assert!(next.player.is_paused());
+        assert!((next.player.volume() - 0.37).abs() < f32::EPSILON);
+    }
+
+    #[test]
     fn parses_http_header_fields() {
-        let headers = parse_header_fields("Authorization: Bearer token\n\nUser-Agent: MelodyTrove")
+        let headers = parse_header_fields("Authorization: Bearer token\n\nUser-Agent: TidePlayer")
             .collect::<Vec<_>>();
 
         assert_eq!(
             vec![
                 ("Authorization", "Bearer token"),
-                ("User-Agent", "MelodyTrove")
+                ("User-Agent", "TidePlayer")
             ],
             headers
         );
