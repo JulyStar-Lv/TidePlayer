@@ -102,6 +102,8 @@ import musicapp.core.presentation.generated.resources.icon_pin
 import musicapp.core.presentation.generated.resources.icon_pin_filled
 import musicapp.core.presentation.generated.resources.icon_search
 import musicapp.core.presentation.generated.resources.icon_vertialcal_more
+import musicapp.feature.library.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -654,7 +656,7 @@ private fun LazyListScope.LibraryCategoryItems(
             LibrarySongSearchBar(
                 value = artistQuery,
                 onValueChange = onArtistQueryChange,
-                placeholder = "Search artists",
+                placeholder = stringResource(Res.string.library_search_category_hint, stringResource(Res.string.library_category_artists)),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -720,9 +722,10 @@ private fun LazyListScope.LibraryCategoryItems(
                 filteredArtistRows.isEmpty() -> item {
                     DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
                         LibraryEmptyContent(
-                            title = "No matches",
-                            message = "Try a different search.",
-                            action = "Clear search" to { onArtistQueryChange("") },
+                            title = stringResource(Res.string.library_no_matches),
+                            message = stringResource(Res.string.library_try_different_search),
+                            action = stringResource(Res.string.library_action_clear_search) to
+                                { onArtistQueryChange("") },
                         )
                     }
                 }
@@ -757,9 +760,10 @@ private fun LazyListScope.LibraryCategoryItems(
         LibraryDesignCategory.Folders -> item {
             DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
                 LibraryEmptyContent(
-                    title = "No folders added",
-                    message = "Import a folder to add its music to your library.",
-                    action = "Import folder" to onNavigateToLibraryFolderImport,
+                    title = stringResource(Res.string.library_no_folders_added),
+                    message = stringResource(Res.string.library_import_folder_message),
+                    action = stringResource(Res.string.library_action_import_folder) to
+                        onNavigateToLibraryFolderImport,
                     painter = painterResource(CoreRes.drawable.icon_folder),
                 )
             }
@@ -767,7 +771,11 @@ private fun LazyListScope.LibraryCategoryItems(
 
         LibraryDesignCategory.Playlists -> item {
             PlaylistListView(
-                playlists = playlists.toLibraryPlaylistRows(favoriteTracks),
+                playlists = playlists.toLibraryPlaylistRows(
+                    favoriteTracks = favoriteTracks,
+                    favoritesTitle = stringResource(Res.string.library_my_favorites),
+                    favoritesDescription = stringResource(Res.string.library_liked_songs),
+                ),
                 onOpenPlaylist = { playlist ->
                     if (playlist.key == FavoritesPlaylistKey) {
                         onNavigateToFavorites()
@@ -784,9 +792,10 @@ private fun LazyListScope.LibraryCategoryItems(
         LibraryDesignCategory.Downloads -> item {
             DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
                 LibraryEmptyContent(
-                    title = "No downloads yet",
-                    message = "Keep music available when you are offline.",
-                    action = "Browse songs" to { onSelectCategory(LibraryDesignCategory.Songs) },
+                    title = stringResource(Res.string.library_no_downloads_yet),
+                    message = stringResource(Res.string.library_offline_message),
+                    action = stringResource(Res.string.library_action_browse_songs) to
+                        { onSelectCategory(LibraryDesignCategory.Songs) },
                     painter = painterResource(CoreRes.drawable.icon_download),
                 )
             }
@@ -795,8 +804,8 @@ private fun LazyListScope.LibraryCategoryItems(
         LibraryDesignCategory.Sources -> item {
             DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
                 LibraryEmptyContent(
-                    title = "One library, every source",
-                    message = "Manage Local and WebDAV sources from Settings.",
+                    title = stringResource(Res.string.library_sources_title),
+                    message = stringResource(Res.string.library_sources_message),
                     painter = painterResource(CoreRes.drawable.icon_cloud),
                 )
             }
@@ -1772,11 +1781,13 @@ private fun PlaylistSummary.compactMetadata(): String {
 
 private fun List<PlaylistSummary>.toLibraryPlaylistRows(
     favoriteTracks: List<LibraryTrackItem>,
+    favoritesTitle: String,
+    favoritesDescription: String,
 ): List<LibraryPlaylistRowItem> {
     val favoritesRow = LibraryPlaylistRowItem(
         key = FavoritesPlaylistKey,
-        title = "My Favorites",
-        description = "Your liked songs",
+        title = favoritesTitle,
+        description = favoritesDescription,
         musicCount = favoriteTracks.size.toLong(),
         durationLabel = formatPlaylistDuration(favoriteTracks.sumOf { it.durationMs ?: 0L }),
         isFavorites = true,

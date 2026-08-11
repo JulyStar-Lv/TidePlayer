@@ -44,51 +44,57 @@ object AppInitializer {
         koin: Koin,
         disabledComponents: Set<String> = emptySet(),
     ) {
-        runBlocking {
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.SettingsLoading)
-            val settingsRepository = koin.get<SettingsRepository>()
-            settingsRepository.settings.first()
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.SettingsReady)
+        runBlocking { initializeBridgeAsync(koin, disabledComponents) }
+    }
 
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.DatabaseOpening)
-            try {
-                koin.get<AppDatabase>()
-                val sourceAccounts = koin.get<SourceAccountDao>().listAll()
-                RustDiagnosticsRepository.setMusicRoots(
-                    sourceAccounts.mapNotNull { account -> account.rootPath?.takeIf(String::isNotBlank) },
-                )
-            } catch (error: Throwable) {
-                recordStartupFailure(DiagnosticIncidentType.DatabaseOpenFailure, error)
-                throw error
-            }
-            try {
-                koin.get<SettingsMigration>().migrate()
-            } catch (error: Throwable) {
-                recordStartupFailure(DiagnosticIncidentType.DatabaseMigrationFailure, error)
-                throw error
-            }
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.DatabaseReady)
+    /** Suspending counterpart used by recovery actions triggered from Compose. */
+    suspend fun initializeBridgeAsync(
+        koin: Koin,
+        disabledComponents: Set<String> = emptySet(),
+    ) {
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.SettingsLoading)
+        val settingsRepository = koin.get<SettingsRepository>()
+        settingsRepository.settings.first()
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.SettingsReady)
 
-            applyRecoveryOptions(koin, disabledComponents)
-
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.BackendCreating)
-            try {
-                koin.get<Bridge>().initialize()
-            } catch (error: Throwable) {
-                recordStartupFailure(DiagnosticIncidentType.StartupFailure, error)
-                throw error
-            }
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.BackendReady)
-
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PluginsLoading)
-            try {
-                initializePluginSources(koin, disabledComponents)
-            } catch (error: Throwable) {
-                recordStartupFailure(DiagnosticIncidentType.PluginBootFailure, error)
-                throw error
-            }
-            RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PluginsReady)
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.DatabaseOpening)
+        try {
+            koin.get<AppDatabase>()
+            val sourceAccounts = koin.get<SourceAccountDao>().listAll()
+            RustDiagnosticsRepository.setMusicRoots(
+                sourceAccounts.mapNotNull { account -> account.rootPath?.takeIf(String::isNotBlank) },
+            )
+        } catch (error: Throwable) {
+            recordStartupFailure(DiagnosticIncidentType.DatabaseOpenFailure, error)
+            throw error
         }
+        try {
+            koin.get<SettingsMigration>().migrate()
+        } catch (error: Throwable) {
+            recordStartupFailure(DiagnosticIncidentType.DatabaseMigrationFailure, error)
+            throw error
+        }
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.DatabaseReady)
+
+        applyRecoveryOptions(koin, disabledComponents)
+
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.BackendCreating)
+        try {
+            koin.get<Bridge>().initialize()
+        } catch (error: Throwable) {
+            recordStartupFailure(DiagnosticIncidentType.StartupFailure, error)
+            throw error
+        }
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.BackendReady)
+
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PluginsLoading)
+        try {
+            initializePluginSources(koin, disabledComponents)
+        } catch (error: Throwable) {
+            recordStartupFailure(DiagnosticIncidentType.PluginBootFailure, error)
+            throw error
+        }
+        RustDiagnosticsRepository.updateStartupStage(DiagnosticStartupStage.PluginsReady)
     }
 
     internal suspend fun initializePluginSources(

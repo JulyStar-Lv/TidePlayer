@@ -12,6 +12,7 @@ import io.github.julystar.musicapp.service.playback.domain.PlaybackEngineLoadRes
 import io.github.julystar.musicapp.service.playback.domain.PlaybackEngineUnsupportedReason
 import io.github.julystar.musicapp.service.playback.domain.PlaybackPosition
 import uniffi.app_backend.DesktopRodioLoadResult
+import uniffi.app_backend.DesktopAudioOutputSwitchResult
 import uniffi.app_backend.DesktopRodioPlayer
 import uniffi.app_backend.DspConfiguration
 import uniffi.app_backend.NativeDspRuntimeSnapshot
@@ -27,6 +28,29 @@ interface DesktopPlaybackEngine : PlaybackEngine {
         playback: PlaybackAdvancedSettings,
         replayGainDb: Float,
     ) = Unit
+
+    fun listAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = emptyList()
+
+    fun currentAudioOutputDevice(): DesktopAudioOutputDescriptor? = null
+
+    fun refreshAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = listAudioOutputDevices()
+
+    fun selectAudioOutputDevice(deviceId: String?): DesktopAudioOutputSelectionResult =
+        DesktopAudioOutputSelectionResult.Unsupported
+}
+
+data class DesktopAudioOutputDescriptor(
+    val id: String,
+    val name: String,
+    val isDefault: Boolean,
+)
+
+enum class DesktopAudioOutputSelectionResult {
+    Ready,
+    DeviceNotFound,
+    OpenFailed,
+    RestoreFailed,
+    Unsupported,
 }
 
 class NoopDesktopPlaybackEngine : DesktopPlaybackEngine {
@@ -108,6 +132,18 @@ class RodioDesktopPlaybackEngine internal constructor(
 
     override fun takePlaybackCompleted(): Boolean = runtime.takePlaybackCompleted()
 
+    override fun listAudioOutputDevices(): List<DesktopAudioOutputDescriptor> =
+        runtime.listAudioOutputDevices()
+
+    override fun currentAudioOutputDevice(): DesktopAudioOutputDescriptor? =
+        runtime.currentAudioOutputDevice()
+
+    override fun refreshAudioOutputDevices(): List<DesktopAudioOutputDescriptor> =
+        runtime.refreshAudioOutputDevices()
+
+    override fun selectAudioOutputDevice(deviceId: String?): DesktopAudioOutputSelectionResult =
+        runtime.selectAudioOutputDevice(deviceId)
+
     override fun release() = stop()
 }
 
@@ -126,6 +162,11 @@ internal interface DesktopRodioRuntime {
         config: DspConfiguration,
         crossfadeDurationMs: ULong,
     ) = Unit
+    fun listAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = emptyList()
+    fun currentAudioOutputDevice(): DesktopAudioOutputDescriptor? = null
+    fun refreshAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = listAudioOutputDevices()
+    fun selectAudioOutputDevice(deviceId: String?): DesktopAudioOutputSelectionResult =
+        DesktopAudioOutputSelectionResult.Unsupported
 }
 
 private class UniffiDesktopRodioRuntime(
@@ -161,6 +202,44 @@ private class UniffiDesktopRodioRuntime(
     override fun durationMs(): Long = player.durationMs()
 
     override fun takePlaybackCompleted(): Boolean = player.takePlaybackCompleted()
+
+    override fun listAudioOutputDevices(): List<DesktopAudioOutputDescriptor> =
+        player.listAudioOutputDevices().map { device ->
+            DesktopAudioOutputDescriptor(
+                id = device.id,
+                name = device.name,
+                isDefault = device.isDefault,
+            )
+        }
+
+    override fun currentAudioOutputDevice(): DesktopAudioOutputDescriptor? =
+        player.currentAudioOutputDevice()?.let { device ->
+            DesktopAudioOutputDescriptor(
+                id = device.id,
+                name = device.name,
+                isDefault = device.isDefault,
+            )
+        }
+
+    override fun refreshAudioOutputDevices(): List<DesktopAudioOutputDescriptor> =
+        player.refreshAudioOutputDevices().map { device ->
+            DesktopAudioOutputDescriptor(
+                id = device.id,
+                name = device.name,
+                isDefault = device.isDefault,
+            )
+        }
+
+    override fun selectAudioOutputDevice(deviceId: String?): DesktopAudioOutputSelectionResult =
+        when (player.setAudioOutputDevice(deviceId)) {
+            DesktopAudioOutputSwitchResult.READY -> DesktopAudioOutputSelectionResult.Ready
+            DesktopAudioOutputSwitchResult.DEVICE_NOT_FOUND ->
+                DesktopAudioOutputSelectionResult.DeviceNotFound
+            DesktopAudioOutputSwitchResult.OPEN_FAILED ->
+                DesktopAudioOutputSelectionResult.OpenFailed
+            DesktopAudioOutputSwitchResult.RESTORE_FAILED ->
+                DesktopAudioOutputSelectionResult.RestoreFailed
+        }
 
     override fun runtimeSnapshot(): NativeDspRuntimeSnapshot = player.runtimeSnapshot()
 

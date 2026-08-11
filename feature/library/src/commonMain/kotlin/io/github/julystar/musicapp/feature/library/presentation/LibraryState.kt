@@ -14,6 +14,7 @@ import io.github.julystar.musicapp.core.domain.model.SortDirection
 import io.github.julystar.musicapp.core.domain.repository.LibraryFolderItem
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 
 /**
  * Top-level library presentation state.
@@ -99,5 +100,5 @@ sealed interface LibraryAction {
 }
 
 sealed interface LibraryEvent {
-    data class ShowMessage(val message: String) : LibraryEvent
+    data class ShowMessage(val message: UiMessage) : LibraryEvent
 }

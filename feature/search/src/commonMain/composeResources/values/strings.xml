@@ -40,6 +40,9 @@
     <string name="search_artists">Artists</string>
     <string name="search_result_count">%1$d results</string>
     <string name="search_result_summary">%1$d songs · %2$d albums · %3$d artists</string>
+    <string name="search_results_title">Search Results</string>
+    <string name="search_result_type_album">Album</string>
+    <string name="search_result_type_artist">Artist</string>
     <string name="search_no_history">No recent searches</string>
     <string name="search_local_library">Library</string>
     <string name="search_unknown_artist">Unknown artist</string>

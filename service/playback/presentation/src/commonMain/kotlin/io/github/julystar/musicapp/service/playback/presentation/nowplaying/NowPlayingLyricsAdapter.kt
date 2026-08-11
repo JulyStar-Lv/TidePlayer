@@ -10,7 +10,7 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeSyllable
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 
-/** Converts MelodyTrove timestamped lyric lines into the accompanist lyrics-core timeline model. */
+/** Converts TidePlayer timestamped lyric lines into the accompanist lyrics-core timeline model. */
 fun List<LyricLine>.toSyncedLyrics(
     trackTitle: String,
     trackDurationMs: Long?,

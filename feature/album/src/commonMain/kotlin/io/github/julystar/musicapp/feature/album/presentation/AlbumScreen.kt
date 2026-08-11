@@ -53,6 +53,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
@@ -136,7 +137,7 @@ fun AlbumScreen(
             when {
                 state.error != null -> DesignStatusCard(
                     title = stringResource(Res.string.album_unavailable),
-                    message = state.error,
+                    message = state.error.resolve(),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = DesignTokens.adaptive.compactHeaderHeight)
@@ -161,6 +162,7 @@ fun AlbumScreen(
                             compact = compact,
                             titleAlpha = pageTitleAlpha,
                             showDetails = !state.isLoading,
+                            defaultTitle = defaultTitle,
                         )
                     }
                     if (!state.isLoading) {
@@ -233,6 +235,7 @@ private fun AlbumHero(
     compact: Boolean,
     titleAlpha: Float,
     showDetails: Boolean,
+    defaultTitle: String,
 ) {
     val artworkSize = if (compact) 168.dp else 280.dp
     val artworkRadius = if (compact) 18.dp else 24.dp
@@ -269,7 +272,7 @@ private fun AlbumHero(
         ) {
             if (showDetails) {
                 Text(
-                    text = state.title,
+                    text = state.title.ifBlank { defaultTitle },
                     style = MiuixTheme.textStyles.title2.copy(
                         fontSize = titleSize,
                         lineHeight = titleLineHeight,

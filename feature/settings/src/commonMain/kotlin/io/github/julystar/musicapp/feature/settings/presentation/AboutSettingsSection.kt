@@ -63,7 +63,7 @@ fun LicensesSettingsScreen(onBack: (() -> Unit)?) {
     SettingsPageLayout(title = stringResource(Res.string.settings_licenses_title), onBack = onBack) {
         SettingsSection(title = stringResource(Res.string.settings_licenses_title)) {
             SettingsInfoRow(
-                title = "Tide Player",
+                title = stringResource(Res.string.settings_app_display_name),
                 value = stringResource(Res.string.settings_licenses_summary),
             )
         }

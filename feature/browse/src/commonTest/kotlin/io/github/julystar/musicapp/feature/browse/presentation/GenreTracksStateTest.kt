@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.browse.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,10 +35,14 @@ class GenreTracksStateTest {
 
     @Test
     fun `error state preserves genre`() {
-        val state = GenreTracksState(isLoading = false, genre = "Jazz", error = "Failed")
+        val state = GenreTracksState(
+            isLoading = false,
+            genre = "Jazz",
+            error = UiMessage.Text("Failed"),
+        )
 
         assertEquals("Jazz", state.genre)
-        assertEquals("Failed", state.error)
+        assertEquals(UiMessage.Text("Failed"), state.error)
     }
 
     @Test

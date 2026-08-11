@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.repository.TrackBrowserRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
 import kotlinx.collections.immutable.toPersistentList
@@ -15,7 +17,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 sealed interface GenreTracksEvent {
-    data class ShowMessage(val message: String) : GenreTracksEvent
+    data class ShowMessage(val message: UiMessage) : GenreTracksEvent
 }
 
 class GenreTracksViewModel(
@@ -62,23 +64,26 @@ class GenreTracksViewModel(
                 _state.value = _state.value.copy(isLoading = false, tracks = items.toPersistentList())
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                _state.value = _state.value.copy(isLoading = false, error = e.message ?: "Failed to load genre tracks")
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = UiMessage.Resource(UiMessageKey.GenreTracksLoadFailed),
+                )
             }
         }
     }
 
     private fun downloadTrack(track: GenreTrackItem) {
         val mediaId = track.mediaId ?: run {
-            viewModelScope.launch { _events.send(GenreTracksEvent.ShowMessage("This track cannot be downloaded yet.")) }
+            viewModelScope.launch { _events.send(GenreTracksEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded))) }
             return
         }
         viewModelScope.launch {
             try {
                 enqueueDownload(DownloadRequest(mediaId = mediaId, title = track.title, durationMs = track.durationMs))
-                _events.send(GenreTracksEvent.ShowMessage("Added to Downloads."))
+                _events.send(GenreTracksEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads)))
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                _events.send(GenreTracksEvent.ShowMessage(e.message?.takeIf { it.isNotBlank() } ?: "Failed to add download."))
+                _events.send(GenreTracksEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed)))
             }
         }
     }

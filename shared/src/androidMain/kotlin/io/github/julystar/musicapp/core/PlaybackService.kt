@@ -150,7 +150,7 @@ class PlaybackService : MediaLibraryService() {
                 delay(150)
             }
         }
-        val sessionPlayer = MelodyTroveSessionPlayer(
+        val sessionPlayer = TidePlayerSessionPlayer(
             player = player,
             onNextBoundary = ::playNext,
             onPreviousBoundary = ::playPrevious,

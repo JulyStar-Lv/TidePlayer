@@ -35,6 +35,7 @@ import io.github.julystar.musicapp.core.domain.repository.SourceSettingsReposito
 import io.github.julystar.musicapp.core.domain.repository.StorageRepository
 import io.github.julystar.musicapp.core.domain.repository.StorageUsageRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncController
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncFailure
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncRequest
@@ -123,7 +124,10 @@ class SettingsVMTest {
             viewModel.onAction(SettingsAction.SetThemeMode(AppThemeMode.System))
             advanceUntilIdle()
             assertEquals(AppThemeMode.Dark, repository.values.value.themeMode)
-            assertTrue(environment.toast.messages.last().contains("write failed"))
+            assertTrue(
+                (environment.toast.emittedMessages.last() as UiMessage.Text)
+                    .value.contains("write failed")
+            )
 
             viewModel.onAction(SettingsAction.SetAutoScanMode(AutoScanMode.OnStartup))
             viewModel.onAction(SettingsAction.SetLyricTextAlignment(LyricTextAlignment.Center))
@@ -869,11 +873,9 @@ private class FakeAppDataClearService : AppDataClearService {
 }
 
 private class FakeToastRepository : ToastRepository {
-    val messages = mutableListOf<String>()
-    override val toast: SharedFlow<String> = MutableSharedFlow()
-    override val toastRes: SharedFlow<Int> = MutableSharedFlow()
-    override fun emitToast(msg: String) { messages += msg }
-    override fun emitToastRes(resId: Int) = Unit
+    val emittedMessages = mutableListOf<UiMessage>()
+    override val messages: SharedFlow<UiMessage> = MutableSharedFlow()
+    override fun emit(message: UiMessage) { emittedMessages += message }
 }
 
 private class FakePermissionChecker(

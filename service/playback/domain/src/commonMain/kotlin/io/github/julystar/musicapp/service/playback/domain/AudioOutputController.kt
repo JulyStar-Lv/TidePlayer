@@ -6,4 +6,6 @@ interface AudioOutputController {
     val outputState: StateFlow<AudioOutputState>
 
     fun selectOutputDevice(deviceId: AudioOutputDeviceId?)
+
+    fun refreshOutputDevices() = Unit
 }

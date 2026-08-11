@@ -4,6 +4,7 @@ import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryArtistItem
 import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlin.test.Test
@@ -99,7 +100,7 @@ class LibraryStateTest {
 
     @Test
     fun `show message event carries text`() {
-        val event = LibraryEvent.ShowMessage("hello")
+        val event = LibraryEvent.ShowMessage(UiMessage.Text("hello"))
         assertEquals("hello", event.message)
     }
 

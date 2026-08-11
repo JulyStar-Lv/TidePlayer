@@ -12,6 +12,8 @@ import io.github.julystar.musicapp.feature.search.domain.SearchTrackItem
 import io.github.julystar.musicapp.feature.search.domain.mergeSearchSuggestions
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -151,9 +153,7 @@ class SearchViewModel(
         if (!track.isPlayableFromSearch()) {
             coroutineScope.launch {
                 _events.send(
-                    SearchEvent.ShowMessage(
-                        "Add this source result to your library before playing it.",
-                    ),
+                    SearchEvent.ShowMessage(UiMessage.Resource(UiMessageKey.SourceResultMustBeImported)),
                 )
             }
             return
@@ -179,7 +179,7 @@ class SearchViewModel(
         val mediaId = track.mediaId
         if (mediaId == null) {
             coroutineScope.launch {
-                _events.send(SearchEvent.ShowMessage("This track cannot be downloaded yet."))
+                _events.send(SearchEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded)))
             }
             return
         }
@@ -193,14 +193,12 @@ class SearchViewModel(
                         durationMs = track.durationMs,
                     )
                 )
-                _events.send(SearchEvent.ShowMessage("Added to Downloads."))
+                _events.send(SearchEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads)))
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Throwable) {
                 _events.send(
-                    SearchEvent.ShowMessage(
-                        exception.message?.takeIf { it.isNotBlank() } ?: "Failed to add download.",
-                    )
+                    SearchEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed))
                 )
             }
         }

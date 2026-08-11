@@ -10,6 +10,8 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import io.github.julystar.musicapp.core.data.settings.IosNetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
+import io.github.julystar.musicapp.service.playback.data.IosAdvancedPlaybackController
+import io.github.julystar.musicapp.service.playback.domain.AdvancedPlaybackController
 
 actual val platformModule: Module = module {
     single<PlayerController> {
@@ -36,4 +38,5 @@ actual val platformModule: Module = module {
         )
     }
     single<NetworkStatusProvider> { IosNetworkStatusProvider() }
+    single<AdvancedPlaybackController> { IosAdvancedPlaybackController() }
 }

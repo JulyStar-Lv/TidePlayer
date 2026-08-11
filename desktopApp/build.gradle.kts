@@ -21,6 +21,7 @@ kotlin {
                 implementation(project(":core:presentation"))
                 implementation(project(":service:playback:domain"))
                 implementation(compose.desktop.currentOs)
+                implementation(compose.components.resources)
                 implementation(libs.koin.core)
                 implementation(libs.filekit.dialogs.compose)
             }

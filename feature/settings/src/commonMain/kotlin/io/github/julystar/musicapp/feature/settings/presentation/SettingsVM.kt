@@ -38,6 +38,7 @@ import io.github.julystar.musicapp.core.domain.repository.SourceSettingsReposito
 import io.github.julystar.musicapp.core.domain.repository.StorageRepository
 import io.github.julystar.musicapp.core.domain.repository.StorageUsageRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
+import io.github.julystar.musicapp.core.domain.repository.emitText
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncAlreadyActiveException
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncController
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncFailure
@@ -971,7 +972,7 @@ class SettingsVM(
     }
 
     private suspend fun syncFolder(request: LibrarySyncRequest, startMessage: String) {
-        toastRepository.emitToast(startMessage)
+        toastRepository.emitText(startMessage)
         runCatching { librarySyncController.syncFolder(request) }
             .onSuccess { value ->
                 emitFeedback(
@@ -1148,7 +1149,7 @@ class SettingsVM(
     }
 
     private suspend fun emitFeedback(resource: StringResource, vararg formatArgs: Any) {
-        toastRepository.emitToast(textProvider.get(resource, *formatArgs))
+        toastRepository.emitText(textProvider.get(resource, *formatArgs))
     }
 
     private suspend fun Throwable.userMessage(): String =

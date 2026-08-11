@@ -9,6 +9,8 @@ import uniffi.app_backend.ArgInitializeApp
 import uniffi.app_backend.Backend
 import uniffi.app_backend.createBackend
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.diagnostics.AppLogger
 
 
@@ -70,7 +72,7 @@ class Bridge(
                 "Synchronous bridge operation failed",
                 e.stackTraceToString(),
             )
-            toastRepository.emitToast(e.toString())
+            toastRepository.emit(UiMessageKey.SourceUnavailable)
             return null
         }
     }

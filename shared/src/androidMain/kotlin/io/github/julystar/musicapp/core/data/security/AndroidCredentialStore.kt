@@ -3,6 +3,8 @@ package io.github.julystar.musicapp.core.data.security
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import io.github.julystar.musicapp.core.domain.model.StoredCredential
+import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
+import io.github.julystar.musicapp.diagnostics.AppLogger
 import android.util.Base64
 import io.github.julystar.musicapp.migration.AppIdentifiers
 import io.github.julystar.musicapp.migration.LegacyCredentialIds
@@ -27,11 +29,33 @@ private class AndroidCredentialStore : CredentialStore {
 
     override suspend fun load(storageId: Long): StoredCredential? {
         val key = storageId.toString()
-        preferences.getString(key, null)?.let { encoded ->
-            return decrypt(encoded, KEY_ALIAS)
+        val currentEncoded = preferences.getString(key, null)
+        if (currentEncoded != null) {
+            runCatching { decrypt(currentEncoded, KEY_ALIAS) }
+                .onSuccess { return it }
+                .onFailure { error ->
+                    AppLogger.warn(
+                        DiagnosticLogCategory.Security,
+                        "AndroidCredentialStore",
+                        "Stored credential cannot be decrypted; reauthentication is required",
+                        error.stackTraceToString(),
+                    )
+                    preferences.edit { remove(key) }
+                }
         }
         val legacyEncoded = legacyPreferences.getString(key, null) ?: return null
-        val credential = decrypt(legacyEncoded, LegacyCredentialIds.ANDROID_KEY_ALIAS)
+        val credential = runCatching {
+            decrypt(legacyEncoded, LegacyCredentialIds.ANDROID_KEY_ALIAS)
+        }.getOrElse { error ->
+            AppLogger.warn(
+                DiagnosticLogCategory.Security,
+                "AndroidCredentialStore",
+                "Legacy credential cannot be decrypted; reauthentication is required",
+                error.stackTraceToString(),
+            )
+            legacyPreferences.edit { remove(key) }
+            return null
+        }
         save(storageId, credential)
         check(loadCurrent(storageId) == credential) {
             "Unable to verify migrated Android credential"
@@ -42,7 +66,7 @@ private class AndroidCredentialStore : CredentialStore {
 
     private fun loadCurrent(storageId: Long): StoredCredential? {
         val encoded = preferences.getString(storageId.toString(), null) ?: return null
-        return decrypt(encoded, KEY_ALIAS)
+        return runCatching { decrypt(encoded, KEY_ALIAS) }.getOrNull()
     }
 
     private fun decrypt(encoded: String, keyAlias: String): StoredCredential {

@@ -1,4 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_display_name">Tide Player</string>
     <string name="common_retry">Retry</string>
+    <string name="ui_message_added_to_downloads">Added to Downloads.</string>
+    <string name="ui_message_download_failed">Download failed.</string>
+    <string name="ui_message_download_action_failed">Download action failed.</string>
+    <string name="ui_message_download_removed">Download removed.</string>
+    <string name="ui_message_track_cannot_download">This track cannot be downloaded yet.</string>
+    <string name="ui_message_source_unavailable">The selected source is unavailable.</string>
+    <string name="ui_message_audio_stream_failed">Unable to open the audio stream.</string>
+    <string name="ui_message_preferred_source_updated">Preferred source updated. It will be used first next time.</string>
+    <string name="ui_message_play_history_cleared">Play history cleared.</string>
+    <string name="ui_message_playlist_operation_failed">Playlist operation failed.</string>
+    <string name="ui_message_favorite_operation_failed">Favorite operation failed.</string>
+    <string name="ui_message_favorite_added">Added to Favorites.</string>
+    <string name="ui_message_favorite_removed">Removed from Favorites.</string>
+    <string name="ui_message_metadata_completed">Metadata action completed.</string>
+    <string name="ui_message_metadata_failed">Metadata action failed.</string>
+    <string name="ui_message_audio_output_switch_failed">Unable to switch the audio output device.</string>
+    <string name="ui_message_unknown_album">Unknown Album</string>
+    <string name="ui_message_unknown_artist">Unknown Artist</string>
+    <string name="ui_message_unknown_track">Unknown Track</string>
+    <string name="ui_message_album_load_failed">Failed to load album.</string>
+    <string name="ui_message_artist_load_failed">Failed to load artist.</string>
+    <string name="ui_message_browse_load_failed">Failed to load library categories.</string>
+    <string name="ui_message_genre_tracks_load_failed">Failed to load genre tracks.</string>
+    <string name="ui_message_radio_generation_failed">Failed to generate radio.</string>
+    <string name="ui_message_recently_added_load_failed">Failed to load recently added tracks.</string>
+    <string name="ui_message_recently_played_load_failed">Failed to load recently played tracks.</string>
+    <string name="ui_message_lyrics_load_failed">Failed to load lyrics.</string>
+    <string name="ui_message_onedrive_sign_in_failed">Unable to start OneDrive sign-in.</string>
+    <string name="ui_message_onedrive_drive_list_failed">Unable to list OneDrive drives.</string>
+    <string name="ui_message_library_import_started">Importing library folder…</string>
+    <string name="ui_message_library_import_completed">Library import completed: %1$s imported, %2$s skipped, %3$s failed</string>
+    <string name="ui_message_library_import_cancelled">Library import cancelled.</string>
+    <string name="ui_message_library_import_failed">Library import failed.</string>
+    <string name="ui_message_source_result_import_required">Add this source result to your library before playing it.</string>
+    <string name="ui_message_play_history_clear_failed">Failed to clear play history.</string>
+    <string name="ui_message_download_remove_failed">Failed to remove the download.</string>
 </resources>

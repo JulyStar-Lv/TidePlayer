@@ -55,6 +55,7 @@ actual fun platformSettingsCapabilities() =
         historicalAnrTraceSupported = false,
         incidentRecoverySupported = true,
         fileShareSupported = true,
+        audioRoutePickerSupported = true,
         settingsBackupSupported = true,
         scheduledBackupSupported = true,
     )

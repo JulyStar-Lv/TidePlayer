@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_app_display_name">Tide Player</string>
+    <string name="settings_action_clear">Clear</string>
+    <string name="settings_action_working">Working…</string>
+    <string name="settings_action_done">Done</string>
+    <string name="settings_action_failed_retry">Failed — tap to retry</string>
+    <string name="settings_action_confirm">Confirm</string>
+    <string name="settings_action_cancel">Cancel</string>
+    <string name="settings_audio_output_section">Audio Output</string>
+    <string name="settings_current_audio_output">Current output</string>
+    <string name="settings_select_audio_output">Select output</string>
+    <string name="settings_audio_output_unavailable">No output detected</string>
+    <string name="settings_audio_output_default">%1$s (System default)</string>
     <string name="settings_title">Settings</string>
     <string name="settings_home_section">Settings</string>
     <string name="settings_appearance_title">Appearance &amp; language</string>

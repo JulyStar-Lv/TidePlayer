@@ -5,6 +5,7 @@ import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.MediaId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -49,5 +50,5 @@ sealed interface PlaylistAction {
 }
 
 sealed interface PlaylistEvent {
-    data class ShowMessage(val message: String) : PlaylistEvent
+    data class ShowMessage(val message: UiMessage) : PlaylistEvent
 }

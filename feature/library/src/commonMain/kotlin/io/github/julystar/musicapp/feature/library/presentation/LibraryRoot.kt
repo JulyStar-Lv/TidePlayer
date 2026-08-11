@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_ID
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
+import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackController
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ fun LibraryRoot(
     viewModel: LibraryVM = koinViewModel(),
 ) {
     val playbackController = koinInject<PlaybackController>()
+    val toastRepository = koinInject<ToastRepository>()
     val coroutineScope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
     val playerState by playbackController.state.collectAsState()
@@ -31,7 +33,7 @@ fun LibraryRoot(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is LibraryEvent.ShowMessage -> Unit
+                is LibraryEvent.ShowMessage -> toastRepository.emit(event.message)
             }
         }
     }

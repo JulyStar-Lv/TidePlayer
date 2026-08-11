@@ -89,6 +89,12 @@ import musicapp.core.presentation.generated.resources.icon_setting
 import musicapp.core.presentation.generated.resources.icon_timelapse
 import musicapp.core.presentation.generated.resources.icon_wifitethering
 import musicapp.feature.settings.generated.resources.Res as SettingsRes
+import musicapp.feature.settings.generated.resources.settings_action_cancel
+import musicapp.feature.settings.generated.resources.settings_action_clear
+import musicapp.feature.settings.generated.resources.settings_action_confirm
+import musicapp.feature.settings.generated.resources.settings_action_done
+import musicapp.feature.settings.generated.resources.settings_action_failed_retry
+import musicapp.feature.settings.generated.resources.settings_action_working
 import musicapp.feature.settings.generated.resources.settings_cancel
 import musicapp.feature.settings.generated.resources.settings_save
 import kotlin.math.roundToInt
@@ -709,10 +715,11 @@ internal fun SettingsActionRow(
     label: String,
     subtitle: String,
     state: SettingsActionState,
-    actionLabel: String = "Clear",
+    actionLabel: String? = null,
     onStateChange: (SettingsActionState) -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val effectiveActionLabel = actionLabel ?: stringResource(SettingsRes.string.settings_action_clear)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -730,9 +737,9 @@ internal fun SettingsActionRow(
                 fontWeight = FontWeight.Medium,
             )
             val statusText = when (state) {
-                SettingsActionState.Busy -> "Working…"
-                SettingsActionState.Success -> "Done"
-                SettingsActionState.Error -> "Failed — tap to retry"
+                SettingsActionState.Busy -> stringResource(SettingsRes.string.settings_action_working)
+                SettingsActionState.Success -> stringResource(SettingsRes.string.settings_action_done)
+                SettingsActionState.Error -> stringResource(SettingsRes.string.settings_action_failed_retry)
                 else -> subtitle
             }
             Text(
@@ -748,7 +755,7 @@ internal fun SettingsActionRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Confirm",
+                        text = stringResource(SettingsRes.string.settings_action_confirm),
                         color = Color.White,
                         style = MiuixTheme.textStyles.footnote1,
                         fontWeight = FontWeight.SemiBold,
@@ -760,7 +767,7 @@ internal fun SettingsActionRow(
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                     Text(
-                        text = "Cancel",
+                        text = stringResource(SettingsRes.string.settings_action_cancel),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         style = MiuixTheme.textStyles.footnote1,
                         fontWeight = FontWeight.SemiBold,
@@ -785,7 +792,7 @@ internal fun SettingsActionRow(
                 modifier = Modifier.size(18.dp),
             )
             SettingsActionState.Idle -> Text(
-                text = actionLabel,
+                text = effectiveActionLabel,
                 color = MiuixTheme.colorScheme.onSurface,
                 style = MiuixTheme.textStyles.footnote1,
                 fontWeight = FontWeight.SemiBold,

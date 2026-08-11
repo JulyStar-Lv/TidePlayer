@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.repository.BrowseRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -69,7 +71,10 @@ class BrowseViewModel(
                 )
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                _state.value = _state.value.copy(isLoading = false, error = e.message ?: "Failed to load browse content")
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = UiMessage.Resource(UiMessageKey.BrowseLoadFailed),
+                )
             }
         }
     }

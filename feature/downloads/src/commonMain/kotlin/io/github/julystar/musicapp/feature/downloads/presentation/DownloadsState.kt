@@ -5,6 +5,7 @@ import io.github.julystar.musicapp.service.download.domain.DownloadStatus
 import io.github.julystar.musicapp.service.download.domain.DownloadTask
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskId
 import io.github.julystar.musicapp.service.download.domain.canTransitionTo
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.math.roundToInt
@@ -44,7 +45,7 @@ sealed interface DownloadsAction {
 }
 
 sealed interface DownloadsEvent {
-    data class ShowMessage(val message: String) : DownloadsEvent
+    data class ShowMessage(val message: UiMessage) : DownloadsEvent
 }
 
 internal fun DownloadTask.toDownloadTaskUi(): DownloadTaskUi {

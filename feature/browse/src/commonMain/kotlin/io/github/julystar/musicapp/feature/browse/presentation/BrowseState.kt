@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.browse.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import androidx.compose.runtime.Immutable
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import kotlinx.collections.immutable.ImmutableList
@@ -11,7 +13,7 @@ data class BrowseState(
     val albums: ImmutableList<BrowseAlbumItem> = persistentListOf(),
     val artists: ImmutableList<BrowseArtistItem> = persistentListOf(),
     val genres: ImmutableList<String> = persistentListOf(),
-    val error: String? = null,
+    val error: UiMessage? = null,
 )
 
 @Immutable

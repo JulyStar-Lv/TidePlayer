@@ -39,6 +39,8 @@ import uniffi.app_backend.Playlist
 import uniffi.app_backend.PlaylistId
 import uniffi.app_backend.StorageId
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.diagnostics.AppLogger
 import kotlin.math.max
 
@@ -191,7 +193,13 @@ class PlayerControllerRepository internal constructor(
                 playerState.setIsLoading(false)
                 playerState.setIsPlaying(false)
                 _scope.launch {
-                    toastRepository.emitToast(error.toString())
+                    AppLogger.error(
+                        DiagnosticLogCategory.Playback,
+                        "PlayerControllerRepository",
+                        "Android playback failed",
+                        error.stackTraceToString(),
+                    )
+                    toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                 }
             }
 
@@ -307,7 +315,7 @@ class PlayerControllerRepository internal constructor(
                             PlaybackPreparationResult.NetworkBlocked,
                             PlaybackPreparationResult.Failed -> {
                                 pendingNetworkRecovery = id to playlistId
-                                toastRepository.emitToast("Unable to open audio stream")
+                                toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                                 playerState.resetCurrent()
                                 return@launch
                             }
@@ -315,7 +323,7 @@ class PlayerControllerRepository internal constructor(
                     }
                     is PlaybackEngineLoadResult.Failure -> {
                         pendingNetworkRecovery = id to playlistId
-                        toastRepository.emitToast("Unable to open audio stream")
+                        toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                         playerState.resetCurrent()
                         return@launch
                     }
@@ -333,7 +341,13 @@ class PlayerControllerRepository internal constructor(
                 throw exception
             } catch (exception: Exception) {
                 releasePlaybackResource()
-                toastRepository.emitToast(exception.toString())
+                AppLogger.error(
+                    DiagnosticLogCategory.Playback,
+                    "PlayerControllerRepository",
+                    "Android playback preparation failed",
+                    exception.stackTraceToString(),
+                )
+                toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                 playerState.setIsPlaying(false)
                 playerState.resetCurrent()
             } finally {

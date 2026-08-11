@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.lyrics.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -44,10 +46,10 @@ class LyricsStateTest {
 
     @Test
     fun `error state carries message`() {
-        val state = LyricsState(isLoading = false, error = "Failed to load lyrics")
+        val state = LyricsState(isLoading = false, error = UiMessage.Text("Failed to load lyrics"))
 
         assertFalse(state.isLoading)
-        assertEquals("Failed to load lyrics", state.error)
+        assertEquals(UiMessage.Text("Failed to load lyrics"), state.error)
     }
 
     @Test
@@ -62,12 +64,12 @@ class LyricsStateTest {
             isLoading = false,
             trackTitle = "Lost Song",
             trackArtist = "Ghost",
-            error = "Not found",
+            error = UiMessage.Text("Not found"),
         )
 
         assertEquals("Lost Song", state.trackTitle)
         assertEquals("Ghost", state.trackArtist)
-        assertEquals("Not found", state.error)
+        assertEquals(UiMessage.Text("Not found"), state.error)
     }
 
     @Test

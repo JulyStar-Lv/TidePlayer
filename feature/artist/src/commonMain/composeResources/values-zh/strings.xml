@@ -20,4 +20,5 @@
     <string name="artist_no_songs">暂无歌曲</string>
     <string name="artist_no_songs_message">该艺术家的歌曲会显示在这里。</string>
     <string name="artist_unknown_year">未知年份</string>
+    <string name="artist_unknown_album">未知专辑</string>
 </resources>

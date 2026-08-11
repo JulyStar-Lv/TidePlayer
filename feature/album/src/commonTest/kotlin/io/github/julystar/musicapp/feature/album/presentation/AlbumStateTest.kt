@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.album.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,10 +37,15 @@ class AlbumStateTest {
 
     @Test
     fun `error state preserves album metadata`() {
-        val state = AlbumState(isLoading = false, title = "Album", artist = "Artist", error = "Not found")
+        val state = AlbumState(
+            isLoading = false,
+            title = "Album",
+            artist = "Artist",
+            error = UiMessage.Text("Not found"),
+        )
 
         assertEquals("Album", state.title)
-        assertEquals("Not found", state.error)
+        assertEquals(UiMessage.Text("Not found"), state.error)
     }
 
     @Test

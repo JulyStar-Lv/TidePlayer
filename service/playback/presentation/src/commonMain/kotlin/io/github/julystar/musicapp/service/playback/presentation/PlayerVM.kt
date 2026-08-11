@@ -6,6 +6,8 @@ import io.github.julystar.musicapp.core.domain.model.PlaybackAdvancedSettings
 import io.github.julystar.musicapp.core.domain.model.CurrentTrackInfo
 import io.github.julystar.musicapp.core.domain.model.PreviousButtonBehavior
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
 import io.github.julystar.musicapp.service.playback.domain.NowPlayingRepository
@@ -217,7 +219,9 @@ class PlayerVM constructor(
         val mediaId = track?.mediaId
         if (track == null || mediaId == null) {
             viewModelScope.launch {
-                _nowPlayingEvents.send(NowPlayingEvent.ShowMessage("This track cannot be downloaded yet."))
+                _nowPlayingEvents.send(
+                    NowPlayingEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded))
+                )
             }
             return
         }
@@ -232,7 +236,7 @@ class PlayerVM constructor(
                 .map(PlaybackSourceOption::toNowPlayingSourceItem)
             _nowPlayingState.value = _nowPlayingState.value.withPlaybackSources(sources)
             _nowPlayingEvents.send(
-                NowPlayingEvent.ShowMessage("Preferred source updated; it will be used first next time."),
+                NowPlayingEvent.ShowMessage(UiMessage.Resource(UiMessageKey.PreferredSourceUpdated)),
             )
         }
     }
@@ -248,14 +252,14 @@ class PlayerVM constructor(
                         durationMs = track.durationMs,
                     )
                 )
-                _nowPlayingEvents.send(NowPlayingEvent.ShowMessage("Added to Downloads."))
+                _nowPlayingEvents.send(
+                    NowPlayingEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads))
+                )
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Throwable) {
                 _nowPlayingEvents.send(
-                    NowPlayingEvent.ShowMessage(
-                        exception.message?.takeIf { it.isNotBlank() } ?: "Failed to add download.",
-                    )
+                    NowPlayingEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed))
                 )
             }
         }

@@ -40,7 +40,7 @@ class LyricsRepositoryImpl(
             ?: emptyList()
 
         return DomainLyrics(
-            trackTitle = track?.title ?: "Unknown Track",
+            trackTitle = track?.title.orEmpty(),
             trackArtist = artistNames.joinToString(", ").ifBlank { track?.artist },
             lines = lines,
             format = lyrics?.format,

@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.artist.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,10 +37,10 @@ class ArtistStateTest {
 
     @Test
     fun `error state preserves name`() {
-        val state = ArtistState(isLoading = false, name = "Artist", error = "Failed")
+        val state = ArtistState(isLoading = false, name = "Artist", error = UiMessage.Text("Failed"))
 
         assertEquals("Artist", state.name)
-        assertEquals("Failed", state.error)
+        assertEquals(UiMessage.Text("Failed"), state.error)
     }
 
     @Test

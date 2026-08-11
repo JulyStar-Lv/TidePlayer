@@ -13,6 +13,7 @@ interface AdvancedPlaybackController : AudioOutputController {
     fun setReplayGainMode(mode: ReplayGainMode)
     fun setReplayGainPreampDb(preampDb: Float)
     override fun selectOutputDevice(deviceId: AudioOutputDeviceId?)
+    override fun refreshOutputDevices()
 }
 
 data class PlaybackEngineCapabilities(
@@ -34,7 +35,8 @@ enum class PlaybackFeature {
     OutputDeviceSelection,
     AndroidAuto,
     AirPlay,
-    CarPlay,
+    CarPlayNowPlaying,
+    CarPlayLibraryBrowser,
 }
 
 data class PlaybackEnhancementSettings(
@@ -96,6 +98,7 @@ enum class AudioOutputDeviceType {
     Hdmi,
     Network,
     AirPlay,
+    CarPlay,
     Unknown,
 }
 

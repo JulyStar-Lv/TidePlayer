@@ -9,6 +9,7 @@ import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
+import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
 import io.github.julystar.musicapp.service.playback.presentation.sleep.SleepModeVM
 import io.github.julystar.musicapp.core.presentation.platform.KeepScreenOnEffect
@@ -29,6 +30,7 @@ fun NowPlayingRoot(
     sleepModeViewModel: SleepModeVM = koinViewModel(),
     settingsRepository: SettingsRepository = koinInject(),
     favoritesRepository: FavoritesRepository = koinInject(),
+    toastRepository: ToastRepository = koinInject(),
 ) {
     val state by playerViewModel.nowPlayingState.collectAsState()
     val settings by settingsRepository.settings.collectAsState(AppSettings.Default)
@@ -41,7 +43,7 @@ fun NowPlayingRoot(
     LaunchedEffect(playerViewModel) {
         playerViewModel.nowPlayingEvents.collect { event ->
             when (event) {
-                is NowPlayingEvent.ShowMessage -> Unit
+                is NowPlayingEvent.ShowMessage -> toastRepository.emit(event.message)
             }
         }
     }

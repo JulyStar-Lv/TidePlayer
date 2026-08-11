@@ -26,9 +26,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import okio.Path.Companion.toPath
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PluginProductionAssemblyTest {
     @Test
     fun databasePluginMapsToRegistryAndDisableRemovesIt() = runTest {

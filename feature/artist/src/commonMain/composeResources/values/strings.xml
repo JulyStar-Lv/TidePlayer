@@ -20,4 +20,5 @@
     <string name="artist_no_songs">No songs yet</string>
     <string name="artist_no_songs_message">Music by this artist will appear here.</string>
     <string name="artist_unknown_year">Unknown year</string>
+    <string name="artist_unknown_album">Unknown Album</string>
 </resources>

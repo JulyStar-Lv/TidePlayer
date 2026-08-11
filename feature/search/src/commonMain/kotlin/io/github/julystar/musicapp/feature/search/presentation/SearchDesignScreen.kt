@@ -83,6 +83,13 @@ import musicapp.feature.search.generated.resources.search_recent_searches
 import musicapp.feature.search.generated.resources.search_sources_unavailable
 import musicapp.feature.search.generated.resources.search_suggestions
 import musicapp.feature.search.generated.resources.search_title
+import musicapp.feature.search.generated.resources.search_subtitle
+import musicapp.feature.search.generated.resources.search_retry
+import musicapp.feature.search.generated.resources.search_results_title
+import musicapp.feature.search.generated.resources.search_result_type_album
+import musicapp.feature.search.generated.resources.search_result_type_artist
+import musicapp.feature.search.generated.resources.search_result_summary
+import musicapp.feature.search.generated.resources.search_empty
 import musicapp.feature.search.generated.resources.search_trending_library
 import musicapp.feature.search.generated.resources.search_trending_subtitle
 import musicapp.feature.search.generated.resources.search_try_query
@@ -149,7 +156,7 @@ fun SearchDesignScreen(
                 } else {
                     DesignPageHeader(
                         title = stringResource(Res.string.search_title),
-                        subtitle = "Songs, artists, albums, genres and connected sources.",
+                        subtitle = stringResource(Res.string.search_subtitle),
                         modifier = Modifier.alpha(pageTitleAlpha),
                     )
                 }
@@ -180,7 +187,7 @@ fun SearchDesignScreen(
                         SearchStatus(
                             title = stringResource(Res.string.search_sources_unavailable),
                             message = stringResource(Res.string.search_connection_retry),
-                            actionLabel = "Retry",
+                            actionLabel = stringResource(Res.string.search_retry),
                             onAction = { onAction(SearchAction.Retry) },
                         )
                     }
@@ -488,18 +495,22 @@ private fun SearchResultsSummary(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
-            text = "Search Results",
+            text = stringResource(Res.string.search_results_title),
             color = MiuixTheme.colorScheme.onBackground,
             style = MiuixTheme.textStyles.title2,
             fontWeight = FontWeight.SemiBold,
         )
-        val parts = buildList {
-            if (trackCount > 0) add("$trackCount ${if (trackCount == 1) "song" else "songs"}")
-            if (albumCount > 0) add("$albumCount ${if (albumCount == 1) "album" else "albums"}")
-            if (artistCount > 0) add("$artistCount ${if (artistCount == 1) "artist" else "artists"}")
-        }
         Text(
-            text = parts.joinToString(" · ").ifEmpty { "No matches" },
+            text = if (trackCount + albumCount + artistCount == 0) {
+                stringResource(Res.string.search_empty)
+            } else {
+                stringResource(
+                    Res.string.search_result_summary,
+                    trackCount,
+                    albumCount,
+                    artistCount,
+                )
+            },
             color = MiuixTheme.colorScheme.onBackgroundVariant,
             style = MiuixTheme.textStyles.footnote1,
         )
@@ -674,7 +685,7 @@ private fun SearchAlbumResultRow(
             }
         }
         Text(
-            text = "Album",
+            text = stringResource(Res.string.search_result_type_album),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             style = MiuixTheme.textStyles.footnote1,
         )
@@ -728,7 +739,7 @@ private fun SearchArtistResultRow(
             )
         }
         Text(
-            text = "Artist",
+            text = stringResource(Res.string.search_result_type_artist),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             style = MiuixTheme.textStyles.footnote1,
         )

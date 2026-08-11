@@ -16,9 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.julystar.musicapp.core.presentation.components.DesignToast
 import io.github.julystar.musicapp.core.presentation.overlay.ToastVM
+import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -26,19 +27,20 @@ fun ToastFrame(
     toastVM: ToastVM = koinViewModel(),
 ) {
     val spacing = DesignTokens.spacing
-    var message by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<UiMessage?>(null) }
     var visible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        toastVM.toast.collectLatest { msg ->
+        toastVM.messages.collect { msg ->
             message = msg
             visible = true
             delay(2000)
             visible = false
+            delay(200)
         }
     }
 
-    // TODO: KMP - toastRes uses Android R.int resource IDs, needs migration to compose resources
+    val resolvedMessage = message?.resolve().orEmpty()
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -50,7 +52,7 @@ fun ToastFrame(
             exit = fadeOut(),
         ) {
             DesignToast(
-                message = message,
+                message = resolvedMessage,
                 modifier = Modifier.padding(bottom = spacing.xxl),
             )
         }

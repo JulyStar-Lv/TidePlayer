@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.DomainArtistDetail
 import io.github.julystar.musicapp.core.domain.repository.ArtistDetailRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
 import kotlinx.collections.immutable.toPersistentList
@@ -53,7 +55,7 @@ class ArtistViewModel(
                 val albumItems: List<ArtistAlbumItem> = detail.albums.map { album ->
                     ArtistAlbumItem(
                         id = album.id,
-                        name = album.name ?: "Unknown Album",
+                        name = album.name.orEmpty(),
                         year = album.year,
                         artwork = album.firstTrackId?.let {
                             Artwork.LibraryTrack(trackId = it)
@@ -80,7 +82,7 @@ class ArtistViewModel(
                 _state.value = ArtistState(
                     isLoading = false,
                     artistId = artistId,
-                    name = detail.name ?: "Unknown Artist",
+                    name = detail.name.orEmpty(),
                     artwork = artistArtwork,
                     albums = albumItems.toPersistentList(),
                     tracks = trackItems.toPersistentList(),
@@ -90,7 +92,7 @@ class ArtistViewModel(
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Failed to load artist",
+                    error = UiMessage.Resource(UiMessageKey.ArtistLoadFailed),
                 )
             }
         }
@@ -99,7 +101,7 @@ class ArtistViewModel(
     private fun downloadTrack(track: ArtistTrackItem) {
         val mediaId = track.mediaId ?: run {
             viewModelScope.launch {
-                _events.send(ArtistEvent.ShowMessage("This track cannot be downloaded yet."))
+                _events.send(ArtistEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded)))
             }
             return
         }
@@ -112,12 +114,12 @@ class ArtistViewModel(
                         durationMs = track.durationMs,
                     )
                 )
-                _events.send(ArtistEvent.ShowMessage("Added to Downloads."))
+                _events.send(ArtistEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads)))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _events.send(
-                    ArtistEvent.ShowMessage(e.message?.takeIf { it.isNotBlank() } ?: "Failed to add download.")
+                    ArtistEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed))
                 )
             }
         }

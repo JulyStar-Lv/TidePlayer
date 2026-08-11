@@ -44,7 +44,7 @@ class PluginImportRuntimeDesktopTest {
                       "name": "Imported Metadata",
                       "versionCode": 1,
                       "versionName": "1.0.0",
-                      "author": "MelodyTrove Test",
+                      "author": "TidePlayer Test",
                       "description": "Lyrico v3 import and runtime contract test",
                       "apiVersion": 1,
                       "minHostApiVersion": 3,

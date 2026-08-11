@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.recentlyadded.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import io.github.julystar.musicapp.core.domain.model.MediaId
 import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.core.domain.model.SourceId
@@ -42,9 +44,13 @@ class RecentlyAddedStateTest {
         val tracks = persistentListOf(
             RecentlyAddedTrackItem(1, "T", null, null, null, null, false),
         )
-        val state = RecentlyAddedState(isLoading = false, tracks = tracks, error = "boom")
+        val state = RecentlyAddedState(
+            isLoading = false,
+            tracks = tracks,
+            error = UiMessage.Text("boom"),
+        )
 
-        assertEquals("boom", state.error)
+        assertEquals(UiMessage.Text("boom"), state.error)
         assertEquals(1, state.tracks.size)
     }
 

@@ -4,8 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackController
+import io.github.julystar.musicapp.service.playback.domain.launchPlaybackUiAction
+import io.github.julystar.musicapp.service.playback.domain.playbackUiRequest
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -16,13 +20,15 @@ fun ArtistRoot(
     viewModel: ArtistViewModel = koinViewModel(),
 ) {
     val playbackController = koinInject<PlaybackController>()
+    val toastRepository = koinInject<ToastRepository>()
+    val coroutineScope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
     val playerState by playbackController.state.collectAsState()
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is ArtistEvent.ShowMessage -> Unit
+                is ArtistEvent.ShowMessage -> toastRepository.emit(event.message)
             }
         }
     }
@@ -36,17 +42,18 @@ fun ArtistRoot(
                 ArtistAction.Retry -> viewModel.onAction(action)
                 ArtistAction.PlayAll -> {
                     val items = state.tracks.map { it.toPlayableItem(state.name) }
-                    kotlinx.coroutines.runBlocking {
-                        playbackController.play(items = items)
+                    playbackUiRequest(items)?.let { request ->
+                        coroutineScope.launchPlaybackUiAction(
+                            onFailure = { toastRepository.emit(sourceUnavailableMessage()) },
+                        ) { playbackController.play(request.items, request.startIndex) }
                     }
                 }
                 is ArtistAction.PlayTrack -> {
                     val items = state.tracks.map { it.toPlayableItem(state.name) }
-                    val startIndex = state.tracks.indexOfFirst { it.id == action.trackId }
-                    if (startIndex >= 0) {
-                        kotlinx.coroutines.runBlocking {
-                            playbackController.play(items = items, startIndex = startIndex)
-                        }
+                    playbackUiRequest(items, action.trackId)?.let { request ->
+                        coroutineScope.launchPlaybackUiAction(
+                            onFailure = { toastRepository.emit(sourceUnavailableMessage()) },
+                        ) { playbackController.play(request.items, request.startIndex) }
                     }
                 }
                 is ArtistAction.NavigateToAlbum -> onNavigateToAlbum(action.albumId)
@@ -63,3 +70,8 @@ private fun ArtistTrackItem.toPlayableItem(artistName: String): PlayableItem = P
     durationMs = durationMs,
     libraryTrackId = id,
 )
+
+private fun sourceUnavailableMessage() =
+    io.github.julystar.musicapp.core.domain.repository.UiMessage.Resource(
+        io.github.julystar.musicapp.core.domain.repository.UiMessageKey.SourceUnavailable,
+    )

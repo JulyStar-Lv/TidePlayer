@@ -14,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import io.github.julystar.musicapp.service.playback.domain.AdvancedPlaybackController
+import org.koin.compose.koinInject
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
 import io.github.vinceglb.filekit.path
@@ -40,6 +42,8 @@ fun SettingsRoot(
     onBack: () -> Unit,
     settingsVM: SettingsVM = koinViewModel(),
 ) {
+    val advancedPlaybackController = koinInject<AdvancedPlaybackController>()
+    val audioOutputState by advancedPlaybackController.outputState.collectAsState()
     val state by settingsVM.state.collectAsState()
     val uriHandler = LocalUriHandler.current
     val directoryPicker = rememberDirectoryPickerLauncher { directory ->
@@ -60,6 +64,11 @@ fun SettingsRoot(
                 SettingsEvent.OpenLibraryFolderPicker -> directoryPicker.launch()
                 SettingsEvent.OpenSourcePathPicker -> onNavigateToSourcePathPicker()
             }
+        }
+    }
+    LaunchedEffect(page, advancedPlaybackController) {
+        if (page == SettingsPage.Playback) {
+            advancedPlaybackController.refreshOutputDevices()
         }
     }
 
@@ -89,6 +98,9 @@ fun SettingsRoot(
             )
             SettingsPage.Playback -> PlaybackSettingsSection(
                 state = state,
+                audioOutputState = audioOutputState,
+                onSelectAudioOutput = advancedPlaybackController::selectOutputDevice,
+                onRefreshAudioOutputs = advancedPlaybackController::refreshOutputDevices,
                 onBack = back,
                 onAction = settingsVM::onAction,
             )

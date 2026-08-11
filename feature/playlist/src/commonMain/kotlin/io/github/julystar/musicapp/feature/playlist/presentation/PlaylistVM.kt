@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 
 class PlaylistVM constructor(
     private val playlistRepository: PlaylistRepository,
@@ -145,7 +147,7 @@ class PlaylistVM constructor(
         val mediaId = track.mediaId
         if (mediaId == null) {
             viewModelScope.launch {
-                _events.send(PlaylistEvent.ShowMessage("This track cannot be downloaded yet."))
+                _events.send(PlaylistEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded)))
             }
             return
         }
@@ -158,14 +160,12 @@ class PlaylistVM constructor(
                         durationMs = track.durationMs,
                     )
                 )
-                _events.send(PlaylistEvent.ShowMessage("Added to Downloads."))
+                _events.send(PlaylistEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads)))
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Throwable) {
                 _events.send(
-                    PlaylistEvent.ShowMessage(
-                        exception.message?.takeIf { it.isNotBlank() } ?: "Failed to add download.",
-                    )
+                    PlaylistEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed))
                 )
             }
         }

@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Until those are available, settings are stored in-memory only.
  */
 class DesktopAdvancedPlaybackController(
-    private val audioOutput: DesktopAudioOutputController = DesktopAudioOutputController(),
+    private val audioOutput: DesktopAudioOutputController,
 ) : AdvancedPlaybackController {
     private val _capabilities = MutableStateFlow(
         PlaybackEngineCapabilities(
@@ -79,5 +79,9 @@ class DesktopAdvancedPlaybackController(
 
     override fun selectOutputDevice(deviceId: AudioOutputDeviceId?) {
         audioOutput.selectOutputDevice(deviceId)
+    }
+
+    override fun refreshOutputDevices() {
+        audioOutput.refreshOutputDevices()
     }
 }

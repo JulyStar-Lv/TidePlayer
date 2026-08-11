@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.browse.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,9 +38,13 @@ class BrowseStateTest {
 
     @Test
     fun `error state preserves collections`() {
-        val state = BrowseState(isLoading = false, albums = persistentListOf(BrowseAlbumItem(1, "A", null, null, 1)), error = "err")
+        val state = BrowseState(
+            isLoading = false,
+            albums = persistentListOf(BrowseAlbumItem(1, "A", null, null, 1)),
+            error = UiMessage.Text("err"),
+        )
 
-        assertEquals("err", state.error)
+        assertEquals(UiMessage.Text("err"), state.error)
         assertEquals(1, state.albums.size)
     }
 

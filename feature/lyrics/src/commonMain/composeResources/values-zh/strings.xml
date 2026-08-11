@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lyrics_loading">正在加载歌词</string>
+    <string name="lyrics_not_available">暂无可用歌词</string>
+    <string name="lyrics_retry">重试</string>
+</resources>

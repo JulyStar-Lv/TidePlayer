@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.radio.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import io.github.julystar.musicapp.core.domain.model.MediaId
 import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.core.domain.model.SourceId
@@ -39,9 +41,9 @@ class RadioStateTest {
     @Test
     fun `error state preserves previous tracks`() {
         val tracks = persistentListOf(RadioTrackItem(1, "T", null, null, null, null, false))
-        val state = RadioState(isLoading = false, tracks = tracks, error = "boom")
+        val state = RadioState(isLoading = false, tracks = tracks, error = UiMessage.Text("boom"))
 
-        assertEquals("boom", state.error)
+        assertEquals(UiMessage.Text("boom"), state.error)
         assertEquals(1, state.tracks.size)
     }
 

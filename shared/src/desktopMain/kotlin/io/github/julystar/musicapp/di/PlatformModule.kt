@@ -10,6 +10,7 @@ import io.github.julystar.musicapp.service.playback.data.PlayerController
 import io.github.julystar.musicapp.service.download.data.scheduler.DesktopCoroutineDownloadScheduler
 import io.github.julystar.musicapp.service.download.domain.DownloadTaskScheduler
 import io.github.julystar.musicapp.service.playback.data.DesktopAdvancedPlaybackController
+import io.github.julystar.musicapp.service.playback.data.DesktopAudioOutputController
 import io.github.julystar.musicapp.service.playback.data.DesktopFloatingLyricsController
 import io.github.julystar.musicapp.service.playback.domain.AdvancedPlaybackController
 import org.koin.core.module.Module
@@ -43,7 +44,14 @@ actual val platformModule: Module = module {
         )
     }
     single<PermissionChecker> { DesktopPermissionChecker() }
-    single<AdvancedPlaybackController> { DesktopAdvancedPlaybackController() }
+    single {
+        DesktopAudioOutputController(
+            playbackEngine = get(),
+            toastRepository = get(),
+            scope = get(),
+        )
+    }
+    single<AdvancedPlaybackController> { DesktopAdvancedPlaybackController(get()) }
     single(createdAtStart = true) {
         DesktopFloatingLyricsController(get(), get(), get(), get(), get())
     }

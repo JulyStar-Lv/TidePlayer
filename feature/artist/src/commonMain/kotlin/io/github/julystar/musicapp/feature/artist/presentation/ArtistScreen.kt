@@ -57,6 +57,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTabs
 import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
@@ -80,6 +81,7 @@ import musicapp.feature.artist.generated.resources.artist_retry
 import musicapp.feature.artist.generated.resources.artist_summary
 import musicapp.feature.artist.generated.resources.artist_unavailable
 import musicapp.feature.artist.generated.resources.artist_unknown_year
+import musicapp.feature.artist.generated.resources.artist_unknown_album
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
@@ -148,7 +150,7 @@ fun ArtistScreen(
 
                 state.error != null -> DesignStatusCard(
                     title = stringResource(Res.string.artist_unavailable),
-                    message = state.error,
+                    message = state.error.resolve(),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = DesignTokens.adaptive.compactHeaderHeight)
@@ -441,7 +443,7 @@ private fun ArtistAlbumCard(
             ArtworkImage(artwork = album.artwork, modifier = Modifier.fillMaxSize())
         }
         Text(
-            text = album.name,
+            text = album.name.ifBlank { stringResource(Res.string.artist_unknown_album) },
             color = MiuixTheme.colorScheme.onSurface,
             style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 18.sp),
             fontWeight = FontWeight.SemiBold,

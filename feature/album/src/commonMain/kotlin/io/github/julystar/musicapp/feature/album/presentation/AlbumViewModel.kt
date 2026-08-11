@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.DomainAlbumDetail
 import io.github.julystar.musicapp.core.domain.repository.AlbumDetailRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
 import kotlinx.collections.immutable.toPersistentList
@@ -80,7 +82,7 @@ class AlbumViewModel(
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Failed to load album",
+                    error = UiMessage.Resource(UiMessageKey.AlbumLoadFailed),
                 )
             }
         }
@@ -89,7 +91,7 @@ class AlbumViewModel(
     private fun downloadTrack(track: AlbumTrackItem) {
         val mediaId = track.mediaId ?: run {
             viewModelScope.launch {
-                _events.send(AlbumEvent.ShowMessage("This track cannot be downloaded yet."))
+                _events.send(AlbumEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded)))
             }
             return
         }
@@ -102,12 +104,12 @@ class AlbumViewModel(
                         durationMs = track.durationMs,
                     )
                 )
-                _events.send(AlbumEvent.ShowMessage("Added to Downloads."))
+                _events.send(AlbumEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads)))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _events.send(
-                    AlbumEvent.ShowMessage(e.message?.takeIf { it.isNotBlank() } ?: "Failed to add download.")
+                    AlbumEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed))
                 )
             }
         }

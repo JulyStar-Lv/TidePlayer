@@ -19,6 +19,7 @@ import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode as DomainAppThemeMode
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
+import io.github.julystar.musicapp.core.domain.repository.emitText
 import io.github.julystar.musicapp.core.domain.recovery.StartupMode
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode as PresentationAppThemeMode
@@ -112,7 +113,7 @@ fun Root(
             diagnosticsState?.startupPlan
                 ?.takeIf { it.mode != StartupMode.NormalStartup }
                 ?.reason
-                ?.let(toastRepository::emitToast)
+                ?.let(toastRepository::emitText)
         }
         StartupLifecycleEffect(onReady, onStartupStable)
     }

@@ -6,6 +6,7 @@ import io.github.julystar.musicapp.core.domain.model.Lyrics
 import io.github.julystar.musicapp.core.domain.model.MediaId
 import io.github.julystar.musicapp.core.domain.model.AudioTechnicalInfoFormatter
 import io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -96,5 +97,5 @@ sealed interface NowPlayingAction {
 }
 
 sealed interface NowPlayingEvent {
-    data class ShowMessage(val message: String) : NowPlayingEvent
+    data class ShowMessage(val message: UiMessage) : NowPlayingEvent
 }

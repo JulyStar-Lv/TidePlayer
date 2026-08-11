@@ -6,7 +6,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 
 /**
- * Gives every Media3 controller the same command semantics as MelodyTrove's in-app controls.
+ * Gives every Media3 controller the same command semantics as TidePlayer's in-app controls.
  *
  * Automatic transitions still use the native Media3 timeline. Explicit next/previous commands are
  * delegated to the application controller so true-random shuffle, requested-next ordering, repeat
@@ -14,7 +14,7 @@ import androidx.media3.common.util.UnstableApi
  * and Android Auto. STOP remains a resumable pause for external controllers.
  */
 @OptIn(UnstableApi::class)
-internal class MelodyTroveSessionPlayer(
+internal class TidePlayerSessionPlayer(
     player: Player,
     private val onNextBoundary: () -> Unit,
     private val onPreviousBoundary: () -> Unit,

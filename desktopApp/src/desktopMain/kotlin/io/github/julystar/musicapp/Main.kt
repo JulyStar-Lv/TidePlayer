@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -30,6 +31,12 @@ import io.github.julystar.musicapp.service.playback.domain.PlaybackController
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
 import io.github.vinceglb.filekit.FileKit
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.getString
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.app_display_name
 import androidx.compose.ui.res.painterResource
 import java.awt.Dimension
 import java.awt.GraphicsConfiguration
@@ -70,6 +77,7 @@ private const val CycleRepeatAction = "musicapp.cycleRepeat"
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    val windowTitle = runBlocking { getString(CoreRes.string.app_display_name) }
     FileKit.init(appId = "io.github.julystar.musicapp")
     DiagnosticsBootstrap.initialize()
     installDesktopFatalHandler()
@@ -88,6 +96,7 @@ fun main() {
         var recoveryIncidentIds by remember {
             mutableStateOf(initialRecoveryIncidentIds)
         }
+        val applicationScope = rememberCoroutineScope()
 
         val initialWindowSize = remember { calculateInitialWindowSize() }
         val windowState = rememberWindowState(size = initialWindowSize)
@@ -98,7 +107,7 @@ fun main() {
                 runCatching { RustDiagnosticsRepository.shutdown() }
                 exitApplication()
             },
-            title = "Tide Player",
+            title = windowTitle,
             state = windowState,
             icon = painterResource("icon.png"),
             init = ::configureWindowChrome,
@@ -120,20 +129,24 @@ fun main() {
                         diagnosticsState = diagnosticsState,
                         onTryNormalStartup = { disabledComponents ->
                             val incidentIds = diagnosticsState.recoveryIncidentIds()
-                            runCatching {
-                                RustDiagnosticsRepository.beginRecovery(disabledComponents)
-                                incidentIds.forEach { incidentId ->
-                                    RustDiagnosticsRepository.markRecoveryAttempted(
-                                        incidentId,
-                                        disabledComponents,
+                            applicationScope.launch {
+                                runCatching {
+                                    RustDiagnosticsRepository.beginRecovery(disabledComponents)
+                                    incidentIds.forEach { incidentId ->
+                                        RustDiagnosticsRepository.markRecoveryAttempted(
+                                            incidentId,
+                                            disabledComponents,
+                                        )
+                                    }
+                                    recoveryIncidentIds = incidentIds
+                                    withContext(Dispatchers.IO) {
+                                        runtime.initializeAsync(disabledComponents)
+                                    }
+                                    diagnosticsState = diagnosticsState.copy(
+                                        snapshot = RustDiagnosticsRepository.snapshot(),
+                                        startupPlan = StartupPlan(StartupMode.NormalStartup),
                                     )
                                 }
-                                recoveryIncidentIds = incidentIds
-                                runtime.initialize(disabledComponents)
-                                diagnosticsState = diagnosticsState.copy(
-                                    snapshot = RustDiagnosticsRepository.snapshot(),
-                                    startupPlan = StartupPlan(StartupMode.NormalStartup),
-                                )
                             }
                         },
                     )
@@ -177,13 +190,15 @@ private class DesktopApplicationRuntime {
         get() = checkNotNull(koinApp).koin
 
     fun initialize(disabledComponents: Set<String>) {
+        runBlocking { initializeAsync(disabledComponents) }
+    }
+
+    suspend fun initializeAsync(disabledComponents: Set<String>) {
         if (koinApp != null) return
         val application = initKoin()
         try {
-            AppInitializer.initializeBridge(application.koin, disabledComponents)
-            runBlocking {
-                AppInitializer.reloadRepositories(application.koin, disabledComponents)
-            }
+            AppInitializer.initializeBridgeAsync(application.koin, disabledComponents)
+            AppInitializer.reloadRepositories(application.koin, disabledComponents)
             koinApp = application
         } catch (error: Throwable) {
             application.close()

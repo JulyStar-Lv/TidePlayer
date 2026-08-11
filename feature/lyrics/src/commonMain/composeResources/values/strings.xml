@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lyrics_loading">Loading lyrics</string>
+    <string name="lyrics_not_available">No lyrics available</string>
+    <string name="lyrics_retry">Retry</string>
+</resources>

@@ -57,6 +57,7 @@ actual fun platformSettingsCapabilities() =
         settingsBackupSupported = true,
         scheduledBackupSupported = true,
         desktopShortcutsSupported = true,
+        audioOutputSelectionSupported = true,
     )
 
 private val systemLocaleAtStartup: Locale = Locale.getDefault()

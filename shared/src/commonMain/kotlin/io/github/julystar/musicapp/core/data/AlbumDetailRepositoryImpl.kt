@@ -19,7 +19,7 @@ class AlbumDetailRepositoryImpl(
             ?.let { track -> metadataDao.genreNamesForTrack(track.id).firstOrNull() }
 
         return DomainAlbumDetail(
-            albumTitle = album?.name ?: "Unknown Album",
+            albumTitle = album?.name.orEmpty(),
             albumArtist = artist.ifBlank {
                 tracks.firstOrNull { track -> !track.artist.isNullOrBlank() }?.artist
             },

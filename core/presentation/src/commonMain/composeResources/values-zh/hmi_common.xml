@@ -1,4 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_display_name">Tide Player</string>
     <string name="common_retry">重试</string>
+    <string name="ui_message_added_to_downloads">已添加到下载。</string>
+    <string name="ui_message_download_failed">下载失败。</string>
+    <string name="ui_message_download_action_failed">下载操作失败。</string>
+    <string name="ui_message_download_removed">已移除下载。</string>
+    <string name="ui_message_track_cannot_download">此歌曲暂时无法下载。</string>
+    <string name="ui_message_source_unavailable">所选音源不可用。</string>
+    <string name="ui_message_audio_stream_failed">无法打开音频流。</string>
+    <string name="ui_message_preferred_source_updated">首选音源已更新，下次将优先使用。</string>
+    <string name="ui_message_play_history_cleared">播放历史已清除。</string>
+    <string name="ui_message_playlist_operation_failed">播放列表操作失败。</string>
+    <string name="ui_message_favorite_operation_failed">收藏操作失败。</string>
+    <string name="ui_message_favorite_added">已添加到收藏。</string>
+    <string name="ui_message_favorite_removed">已从收藏移除。</string>
+    <string name="ui_message_metadata_completed">元数据操作已完成。</string>
+    <string name="ui_message_metadata_failed">元数据操作失败。</string>
+    <string name="ui_message_audio_output_switch_failed">无法切换音频输出设备。</string>
+    <string name="ui_message_unknown_album">未知专辑</string>
+    <string name="ui_message_unknown_artist">未知艺术家</string>
+    <string name="ui_message_unknown_track">未知歌曲</string>
+    <string name="ui_message_album_load_failed">专辑加载失败。</string>
+    <string name="ui_message_artist_load_failed">艺术家加载失败。</string>
+    <string name="ui_message_browse_load_failed">音乐库分类加载失败。</string>
+    <string name="ui_message_genre_tracks_load_failed">流派歌曲加载失败。</string>
+    <string name="ui_message_radio_generation_failed">电台生成失败。</string>
+    <string name="ui_message_recently_added_load_failed">最近添加加载失败。</string>
+    <string name="ui_message_recently_played_load_failed">最近播放加载失败。</string>
+    <string name="ui_message_lyrics_load_failed">歌词加载失败。</string>
+    <string name="ui_message_onedrive_sign_in_failed">无法启动 OneDrive 登录。</string>
+    <string name="ui_message_onedrive_drive_list_failed">无法获取 OneDrive 驱动器。</string>
+    <string name="ui_message_library_import_started">正在导入音乐库文件夹…</string>
+    <string name="ui_message_library_import_completed">音乐库导入完成：已导入 %1$s 首，跳过 %2$s 首，失败 %3$s 首</string>
+    <string name="ui_message_library_import_cancelled">音乐库导入已取消。</string>
+    <string name="ui_message_library_import_failed">音乐库导入失败。</string>
+    <string name="ui_message_source_result_import_required">请先将此音源结果添加到音乐库再播放。</string>
+    <string name="ui_message_play_history_clear_failed">播放历史清除失败。</string>
+    <string name="ui_message_download_remove_failed">下载移除失败。</string>
 </resources>

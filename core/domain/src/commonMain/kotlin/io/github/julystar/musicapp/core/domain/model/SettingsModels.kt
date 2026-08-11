@@ -484,7 +484,7 @@ data class SettingsBackupSettings(
     val selection: SettingsBackupSelection = SettingsBackupSelection.All,
     val schedule: BackupSchedule = BackupSchedule.Off,
     val webDavAccountId: Long? = null,
-    val remoteDirectory: String = "/MelodyTrove/Backups",
+    val remoteDirectory: String = "/TidePlayer/Backups",
 ) {
     companion object {
         val Default = SettingsBackupSettings()
@@ -630,6 +630,8 @@ data class SettingsCapabilities(
     val flymeStatusLyricsSupported: Boolean = false,
     val colorOsLockScreenLyricsSupported: Boolean = false,
     val desktopShortcutsSupported: Boolean = false,
+    val audioOutputSelectionSupported: Boolean = false,
+    val audioRoutePickerSupported: Boolean = false,
     val settingsBackupSupported: Boolean = false,
     val scheduledBackupSupported: Boolean = false,
 )

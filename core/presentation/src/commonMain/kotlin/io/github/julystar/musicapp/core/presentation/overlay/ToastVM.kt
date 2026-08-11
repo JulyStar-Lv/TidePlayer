@@ -6,6 +6,5 @@ import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 class ToastVM(
     toastRepository: ToastRepository,
 ) : ViewModel() {
-    val toast = toastRepository.toast
-    val toastRes = toastRepository.toastRes
+    val messages = toastRepository.messages
 }

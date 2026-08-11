@@ -60,6 +60,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingAction
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.ImmersivePlayerBackground
@@ -73,6 +74,10 @@ import musicapp.core.presentation.generated.resources.icon_deleteseep
 import musicapp.service.playback.presentation.generated.resources.Res
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact_filled
+import musicapp.feature.lyrics.generated.resources.Res as LyricsRes
+import musicapp.feature.lyrics.generated.resources.lyrics_loading
+import musicapp.feature.lyrics.generated.resources.lyrics_not_available
+import musicapp.feature.lyrics.generated.resources.lyrics_retry
 import musicapp.service.playback.presentation.generated.resources.icon_vertialcal_more
 import musicapp.service.playback.presentation.generated.resources.music_lyric_remove
 import musicapp.service.playback.presentation.generated.resources.player_add_favorite
@@ -337,7 +342,7 @@ private fun NowPlayingLyricsContent(
         )
         loadState == LyricsLoadState.Missing || loadState == LyricsLoadState.Failed || syncedLyrics.lines.isEmpty() ->
             LyricsStatus(
-                message = "No lyrics available",
+                message = stringResource(LyricsRes.string.lyrics_not_available),
                 modifier = modifier,
             )
         else -> {
@@ -400,9 +405,16 @@ private fun StoredLyricsContent(
     modifier: Modifier = Modifier,
 ) {
     when {
-        state.isLoading -> LyricsStatus("Loading lyrics", modifier)
-        state.error != null -> LyricsStatus(state.error, modifier, onRetry = { onAction(LyricsAction.Retry) })
-        state.lines.isEmpty() -> LyricsStatus("No lyrics available", modifier)
+        state.isLoading -> LyricsStatus(stringResource(LyricsRes.string.lyrics_loading), modifier)
+        state.error != null -> LyricsStatus(
+            state.error.resolve(),
+            modifier,
+            onRetry = { onAction(LyricsAction.Retry) },
+        )
+        state.lines.isEmpty() -> LyricsStatus(
+            stringResource(LyricsRes.string.lyrics_not_available),
+            modifier,
+        )
         else -> LazyColumn(
             modifier = modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -447,7 +459,7 @@ private fun LyricsStatus(
         if (onRetry != null) {
             Spacer(Modifier.height(12.dp))
             DesignTextButton(
-                text = "Retry",
+                text = stringResource(LyricsRes.string.lyrics_retry),
                 variant = DesignTextButtonVariant.Primary,
                 size = DesignTextButtonSize.Medium,
                 onClick = onRetry,

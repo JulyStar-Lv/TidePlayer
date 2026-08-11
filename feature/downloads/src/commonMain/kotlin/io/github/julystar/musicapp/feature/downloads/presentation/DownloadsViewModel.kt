@@ -3,6 +3,8 @@ package io.github.julystar.musicapp.feature.downloads.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.service.download.domain.DownloadController
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -54,9 +56,7 @@ class DownloadsViewModel(
                 throw exception
             } catch (exception: Throwable) {
                 _events.send(
-                    DownloadsEvent.ShowMessage(
-                        exception.message?.takeIf { it.isNotBlank() } ?: "Download action failed",
-                    )
+                    DownloadsEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadActionFailed))
                 )
             }
         }

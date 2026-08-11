@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.radio.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import androidx.compose.runtime.Immutable
 import io.github.julystar.musicapp.core.domain.model.MediaId
 import kotlinx.collections.immutable.ImmutableList
@@ -9,7 +11,7 @@ import kotlinx.collections.immutable.persistentListOf
 data class RadioState(
     val isLoading: Boolean = true,
     val tracks: ImmutableList<RadioTrackItem> = persistentListOf(),
-    val error: String? = null,
+    val error: UiMessage? = null,
 )
 
 @Immutable

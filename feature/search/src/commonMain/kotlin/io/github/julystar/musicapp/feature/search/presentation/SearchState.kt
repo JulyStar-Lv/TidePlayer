@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import io.github.julystar.musicapp.feature.search.domain.SearchAlbumItem
 import io.github.julystar.musicapp.feature.search.domain.SearchArtistItem
 import io.github.julystar.musicapp.feature.search.domain.SearchTrackItem
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -48,5 +49,5 @@ sealed interface SearchEvent {
     data class OpenTrack(val track: SearchTrackItem) : SearchEvent
     data class NavigateToAlbum(val albumId: Long) : SearchEvent
     data class NavigateToArtist(val artistId: Long) : SearchEvent
-    data class ShowMessage(val message: String) : SearchEvent
+    data class ShowMessage(val message: UiMessage) : SearchEvent
 }

@@ -82,7 +82,7 @@ private fun buildMediaItem(
 
     val mediaItem = MediaItem.Builder()
         .setMediaId(meta.id.value.toString())
-        .setUri(playbackUri?.toUri() ?: "melodytrove://data?music=${meta.id.value}".toUri())
+        .setUri(playbackUri?.toUri() ?: "tideplayer://data?music=${meta.id.value}".toUri())
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(meta.title)

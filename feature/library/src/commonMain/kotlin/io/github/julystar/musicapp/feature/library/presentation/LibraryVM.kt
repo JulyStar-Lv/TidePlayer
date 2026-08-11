@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 
 class LibraryVM(
     libraryRepository: LibraryRepository,
@@ -227,7 +229,7 @@ class LibraryVM(
         val mediaId = track.mediaId
         if (mediaId == null) {
             viewModelScope.launch {
-                _events.send(LibraryEvent.ShowMessage("This track cannot be downloaded yet."))
+                _events.send(LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.TrackCannotBeDownloaded)))
             }
             return
         }
@@ -241,14 +243,12 @@ class LibraryVM(
                         durationMs = track.durationMs,
                     )
                 )
-                _events.send(LibraryEvent.ShowMessage("Added to Downloads."))
+                _events.send(LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.AddedToDownloads)))
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Throwable) {
                 _events.send(
-                    LibraryEvent.ShowMessage(
-                        exception.message?.takeIf { it.isNotBlank() } ?: "Failed to add download.",
-                    )
+                    LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadFailed))
                 )
             }
         }
@@ -260,16 +260,16 @@ class LibraryVM(
                 val isNowFavorite = favoritesRepository.toggleFavorite(trackId)
                 _events.send(
                     LibraryEvent.ShowMessage(
-                        if (isNowFavorite) "Added to Favorites." else "Removed from Favorites."
+                        UiMessage.Resource(
+                            if (isNowFavorite) UiMessageKey.FavoriteAdded else UiMessageKey.FavoriteRemoved
+                        )
                     )
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 _events.send(
-                    LibraryEvent.ShowMessage(
-                        e.message?.takeIf { it.isNotBlank() } ?: "Failed to update favorite."
-                    )
+                    LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.FavoriteOperationFailed))
                 )
             }
         }
@@ -279,14 +279,12 @@ class LibraryVM(
         viewModelScope.launch {
             try {
                 historyRepository.clearHistory()
-                _events.send(LibraryEvent.ShowMessage("Play history cleared."))
+                _events.send(LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.PlayHistoryCleared)))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 _events.send(
-                    LibraryEvent.ShowMessage(
-                        e.message?.takeIf { it.isNotBlank() } ?: "Failed to clear history."
-                    )
+                    LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.PlayHistoryClearFailed))
                 )
             }
         }
@@ -296,14 +294,12 @@ class LibraryVM(
         viewModelScope.launch {
             try {
                 downloadCollectionRepository.removeDownload(trackId)
-                _events.send(LibraryEvent.ShowMessage("Download removed."))
+                _events.send(LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadRemoved)))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 _events.send(
-                    LibraryEvent.ShowMessage(
-                        e.message?.takeIf { it.isNotBlank() } ?: "Failed to remove download."
-                    )
+                    LibraryEvent.ShowMessage(UiMessage.Resource(UiMessageKey.DownloadRemoveFailed))
                 )
             }
         }

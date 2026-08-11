@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.album.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import androidx.compose.runtime.Immutable
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.MediaId
@@ -16,7 +18,7 @@ data class AlbumState(
     val genre: String? = null,
     val artwork: Artwork? = null,
     val tracks: ImmutableList<AlbumTrackItem> = persistentListOf(),
-    val error: String? = null,
+    val error: UiMessage? = null,
 )
 
 @Immutable

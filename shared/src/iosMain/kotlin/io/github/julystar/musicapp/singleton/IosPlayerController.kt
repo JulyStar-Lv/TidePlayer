@@ -16,6 +16,8 @@ import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.source.api.PlaybackResource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -209,7 +211,7 @@ class IosPlayerController internal constructor(
                     PlaybackPreparationResult.NetworkBlocked,
                     PlaybackPreparationResult.Failed -> {
                         pendingNetworkRecovery = id to playlistId
-                        toastRepository.emitToast("Unable to open audio stream")
+                        toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                         playerRepository.resetCurrent()
                         return@launch
                     }
@@ -239,7 +241,7 @@ class IosPlayerController internal constructor(
                     "iOS playback failed",
                     error.stackTraceToString(),
                 )
-                toastRepository.emitToast(error.toString())
+                toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                 playerRepository.resetCurrent()
                 playerRepository.setIsPlaying(false)
             } finally {

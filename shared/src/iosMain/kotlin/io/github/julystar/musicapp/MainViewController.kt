@@ -3,6 +3,7 @@ package io.github.julystar.musicapp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import io.github.julystar.musicapp.core.data.StorageRepositoryImpl
@@ -31,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.koin.core.Koin
 import org.koin.core.context.stopKoin
 import platform.UIKit.UIViewController
@@ -60,14 +62,16 @@ private fun initializeDiagnostics() {
 }
 
 private fun initializeApplication(disabledComponents: Set<String> = emptySet()) {
+    runBlocking { initializeApplicationAsync(disabledComponents) }
+}
+
+private suspend fun initializeApplicationAsync(disabledComponents: Set<String> = emptySet()) {
     if (applicationInitialized) return
 
     val koin = initKoin().koin
     try {
-        AppInitializer.initializeBridge(koin, disabledComponents)
-        runBlocking {
-            AppInitializer.reloadRepositories(koin, disabledComponents)
-        }
+        AppInitializer.initializeBridgeAsync(koin, disabledComponents)
+        AppInitializer.reloadRepositories(koin, disabledComponents)
         applicationKoin = koin
         applicationInitialized = true
     } catch (error: Throwable) {
@@ -89,24 +93,29 @@ fun MainViewController(): UIViewController {
         var recoveryIncidentIds by remember {
             mutableStateOf(initialRecoveryIncidentIds)
         }
+        val applicationScope = rememberCoroutineScope()
         Root(
             diagnosticsState = diagnosticsState,
             onTryNormalStartup = { disabledComponents ->
                 val incidentIds = diagnosticsState.recoveryIncidentIds()
-                runCatching {
-                    RustDiagnosticsRepository.beginRecovery(disabledComponents)
-                    incidentIds.forEach { incidentId ->
-                        RustDiagnosticsRepository.markRecoveryAttempted(
-                            incidentId,
-                            disabledComponents,
+                applicationScope.launch {
+                    runCatching {
+                        RustDiagnosticsRepository.beginRecovery(disabledComponents)
+                        incidentIds.forEach { incidentId ->
+                            RustDiagnosticsRepository.markRecoveryAttempted(
+                                incidentId,
+                                disabledComponents,
+                            )
+                        }
+                        recoveryIncidentIds = incidentIds
+                        withContext(Dispatchers.Default) {
+                            initializeApplicationAsync(disabledComponents)
+                        }
+                        diagnosticsState = diagnosticsState.copy(
+                            snapshot = RustDiagnosticsRepository.snapshot(),
+                            startupPlan = StartupPlan(StartupMode.NormalStartup),
                         )
                     }
-                    recoveryIncidentIds = incidentIds
-                    initializeApplication(disabledComponents)
-                    diagnosticsState = diagnosticsState.copy(
-                        snapshot = RustDiagnosticsRepository.snapshot(),
-                        startupPlan = StartupPlan(StartupMode.NormalStartup),
-                    )
                 }
             },
             onStartupStable = {
@@ -288,6 +297,14 @@ fun handleAudioRouteDisconnected(): Boolean = withPlaybackController { controlle
     if (controller.state.value.status == PlaybackStatus.Playing) {
         controller.pause()
     }
+}
+
+fun handleAudioRouteChanged(): Boolean {
+    val controller = applicationKoin?.getOrNull<
+        io.github.julystar.musicapp.service.playback.domain.AdvancedPlaybackController
+        >() ?: return false
+    controller.refreshOutputDevices()
+    return true
 }
 
 fun handlePlaybackBackCommand(): Boolean = dispatchPlatformBack()

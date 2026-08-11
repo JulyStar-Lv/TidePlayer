@@ -22,7 +22,7 @@ import uniffi.app_backend.MusicId
 import java.io.IOException
 
 /**
- * Resolves a lightweight MelodyTrove queue URI only when Media3 opens that item.
+ * Resolves a lightweight TidePlayer queue URI only when Media3 opens that item.
  *
  * This keeps WebDAV/SMB/OneDrive credentials and temporary resources out of MediaItem metadata,
  * avoids eagerly resolving an entire queue, and guarantees that resources opened for preloading or

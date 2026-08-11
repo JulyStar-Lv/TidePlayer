@@ -1,6 +1,10 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.MAX_REPLAY_GAIN_PREAMP_TENTHS_DB
 import io.github.julystar.musicapp.core.domain.model.MIN_REPLAY_GAIN_PREAMP_TENTHS_DB
@@ -9,12 +13,17 @@ import io.github.julystar.musicapp.core.domain.model.PreviousButtonBehavior
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
 import io.github.julystar.musicapp.core.domain.model.ShuffleStrategy
 import io.github.julystar.musicapp.core.domain.model.StartupPlaybackMode
+import io.github.julystar.musicapp.service.playback.domain.AudioOutputDeviceId
+import io.github.julystar.musicapp.service.playback.domain.AudioOutputState
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
 
 @Composable
 fun PlaybackSettingsSection(
     state: SettingsUiState,
+    audioOutputState: AudioOutputState,
+    onSelectAudioOutput: (AudioOutputDeviceId?) -> Unit,
+    onRefreshAudioOutputs: () -> Unit,
     onBack: (() -> Unit)?,
     onAction: (SettingsAction) -> Unit,
 ) {
@@ -22,6 +31,44 @@ fun PlaybackSettingsSection(
     val capabilities = state.capabilities
 
     SettingsPageLayout(title = stringResource(Res.string.settings_playback_title), onBack = onBack) {
+        if (
+            capabilities.audioOutputSelectionSupported ||
+            capabilities.audioRoutePickerSupported
+        ) {
+            SettingsSection(title = stringResource(Res.string.settings_audio_output_section)) {
+                SettingsInfoRow(
+                    title = stringResource(Res.string.settings_current_audio_output),
+                    value = audioOutputState.selectedDevice?.name
+                        ?: stringResource(Res.string.settings_audio_output_unavailable),
+                    onClick = onRefreshAudioOutputs,
+                )
+                if (
+                    capabilities.audioOutputSelectionSupported &&
+                    audioOutputState.devices.isNotEmpty()
+                ) {
+                    val selected = audioOutputState.selectedDevice ?: audioOutputState.devices.first()
+                    SettingsSelectRow(
+                        label = stringResource(Res.string.settings_select_audio_output),
+                        selected = selected,
+                        options = audioOutputState.devices,
+                        optionLabel = { device ->
+                            if (device.isSystemDefault) {
+                                stringResource(Res.string.settings_audio_output_default, device.name)
+                            } else {
+                                device.name
+                            }
+                        },
+                        onSelect = { onSelectAudioOutput(it.id) },
+                    )
+                }
+                if (capabilities.audioRoutePickerSupported) {
+                    PlatformAudioRoutePicker(
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    )
+                }
+            }
+        }
+
         if (capabilities.audioFocusSupported) {
             SettingsSection(title = stringResource(Res.string.settings_audio_focus_section)) {
                 SettingsSelectRow(

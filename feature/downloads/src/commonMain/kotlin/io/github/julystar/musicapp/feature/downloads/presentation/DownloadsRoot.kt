@@ -5,20 +5,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import io.github.julystar.musicapp.core.domain.repository.ToastRepository
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun DownloadsRoot(
-    onShowMessage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: DownloadsViewModel = koinViewModel(),
+    toastRepository: ToastRepository = koinInject(),
 ) {
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is DownloadsEvent.ShowMessage -> onShowMessage(event.message)
+                is DownloadsEvent.ShowMessage -> toastRepository.emit(event.message)
             }
         }
     }

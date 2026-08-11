@@ -90,6 +90,7 @@ kotlin {
         }
         commonMain.dependencies {
             implementation(project(":core:domain"))
+            implementation(project(":core:data"))
             implementation(project(":core:lyrics-core"))
             implementation(project(":core:presentation"))
             implementation(project(":source:api"))

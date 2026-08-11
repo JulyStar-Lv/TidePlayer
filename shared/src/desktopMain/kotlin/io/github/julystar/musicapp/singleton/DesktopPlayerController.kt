@@ -16,6 +16,10 @@ import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
+import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.core.domain.repository.emit
+import io.github.julystar.musicapp.diagnostics.AppLogger
 import io.github.julystar.musicapp.source.api.PlaybackResource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -234,7 +238,7 @@ class DesktopPlayerController(
                     PlaybackPreparationResult.NetworkBlocked,
                     PlaybackPreparationResult.Failed -> {
                         pendingNetworkRecovery = id to playlistId
-                        toastRepository.emitToast("Unable to open audio stream")
+                        toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                         if (!canTransition) {
                             playerRepository.resetCurrent()
                             playerRepository.setIsLoading(false)
@@ -245,7 +249,13 @@ class DesktopPlayerController(
                 throw error
             } catch (error: Exception) {
                 if (!canTransition) releasePlaybackResource()
-                toastRepository.emitToast(error.message?.takeIf { it.isNotBlank() } ?: error.toString())
+                AppLogger.error(
+                    DiagnosticLogCategory.Playback,
+                    "DesktopPlayerController",
+                    "Desktop playback failed",
+                    error.stackTraceToString(),
+                )
+                toastRepository.emit(UiMessageKey.UnableToOpenAudioStream)
                 if (!canTransition) {
                     playerRepository.resetCurrent()
                     playerRepository.setIsPlaying(false)

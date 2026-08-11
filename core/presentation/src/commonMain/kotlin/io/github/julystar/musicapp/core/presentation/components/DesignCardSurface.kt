@@ -21,7 +21,7 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * Semantic MelodyTrove surface used by page cards, settings groups and feedback panels.
+ * Semantic TidePlayer surface used by page cards, settings groups and feedback panels.
  * Normal content relies on tonal separation instead of a permanent outline; callers can
  * opt into a border for selected, warning or floating states.
  */

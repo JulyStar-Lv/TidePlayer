@@ -9,6 +9,8 @@ import io.github.julystar.musicapp.core.domain.model.metadataScanModeFor
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.StorageRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncController
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncRequest
 import io.github.julystar.musicapp.source.api.ImportRepository
@@ -348,9 +350,7 @@ class EditStorageVM constructor(
                 if (error is CancellationException) {
                     throw error
                 }
-                toastRepository.emitToast(
-                    "Unable to start OneDrive sign-in: ${error.message ?: "unknown error"}"
-                )
+                toastRepository.emit(UiMessageKey.OneDriveSignInFailed)
             }
         }
     }
@@ -358,7 +358,7 @@ class EditStorageVM constructor(
     private fun prepareImportLibraryFolder() {
         importRepository.prepareCurrentDirectory { selection ->
             viewModelScope.launch {
-                toastRepository.emitToast("Importing library folder...")
+                toastRepository.emit(UiMessageKey.LibraryImportStarted)
                 val metadataScanMode = settingsRepository.settings.first().metadataScanModeFor(
                     isWebDav = _draft.value.storageType == SourceEditorType.WebDav ||
                         _draft.value.storageType == SourceEditorType.Smb,
@@ -375,18 +375,18 @@ class EditStorageVM constructor(
                     )
                 }
                 result.onSuccess { value ->
-                    toastRepository.emitToast(
-                        "Library import completed: ${value.importedCount} imported, " +
-                            "${value.skippedCount} skipped, ${value.failedCount} failed"
+                    toastRepository.emit(
+                        UiMessageKey.LibraryImportCompleted,
+                        value.importedCount.toString(),
+                        value.skippedCount.toString(),
+                        value.failedCount.toString(),
                     )
                     storageRepository.reload()
                 }.onFailure { error ->
                     if (error is CancellationException) {
-                        toastRepository.emitToast("Library import cancelled")
+                        toastRepository.emit(UiMessageKey.LibraryImportCancelled)
                     } else {
-                        toastRepository.emitToast(
-                            "Library import failed: ${error.message ?: "unknown error"}"
-                        )
+                        toastRepository.emit(UiMessageKey.LibraryImportFailed)
                     }
                 }
             }
@@ -459,9 +459,7 @@ class EditStorageVM constructor(
                 }
             } catch (error: Exception) {
                 _oneDriveDrives.value = emptyList()
-                toastRepository.emitToast(
-                    "Unable to list OneDrive drives: ${error.message ?: "unknown error"}"
-                )
+                toastRepository.emit(UiMessageKey.OneDriveDriveListFailed)
             } finally {
                 _oneDriveDrivesLoading.value = false
             }

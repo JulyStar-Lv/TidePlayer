@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.feature.lyrics.presentation
 
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -14,7 +16,7 @@ data class LyricsState(
     val lines: ImmutableList<String> = persistentListOf(),
     val format: String? = null,
     val synchronized: Boolean = false,
-    val error: String? = null,
+    val error: UiMessage? = null,
     val wordTimedLines: ImmutableList<WordTimedLyricLine> = persistentListOf(),
 )
 

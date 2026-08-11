@@ -9,6 +9,6 @@ class IosPermissionChecker : PermissionChecker {
     override val havePermission: StateFlow<Boolean> = MutableStateFlow(true)
 
     override fun requestStoragePermission() {
-        // MelodyTrove reads only its sandbox and remote providers on iOS.
+        // TidePlayer reads only its sandbox and remote providers on iOS.
     }
 }

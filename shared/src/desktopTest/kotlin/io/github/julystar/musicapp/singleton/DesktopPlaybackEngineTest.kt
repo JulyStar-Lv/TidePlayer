@@ -77,13 +77,34 @@ class DesktopPlaybackEngineTest {
     }
 
     @Test
+    fun rodioEngineDelegatesAudioOutputStateAndSelection() {
+        val runtime = RecordingDesktopRodioRuntime(loadResult = true).apply {
+            audioDevices = listOf(
+                DesktopAudioOutputDescriptor("cpal:one", "Speakers", true),
+                DesktopAudioOutputDescriptor("cpal:two", "USB DAC", false),
+            )
+            currentAudioDevice = audioDevices.first()
+            audioSelectionResult = DesktopAudioOutputSelectionResult.Ready
+        }
+        val engine = RodioDesktopPlaybackEngine(runtime)
+
+        assertEquals(runtime.audioDevices, engine.listAudioOutputDevices())
+        assertEquals(runtime.currentAudioDevice, engine.currentAudioOutputDevice())
+        assertEquals(
+            DesktopAudioOutputSelectionResult.Ready,
+            engine.selectAudioOutputDevice("cpal:two"),
+        )
+        assertEquals(listOf<String?>("cpal:two"), runtime.selectedAudioDeviceIds)
+    }
+
+    @Test
     fun rodioEnginePassesPlaybackHeadersToRuntime() {
         val runtime = RecordingDesktopRodioRuntime(loadResult = true)
         val engine = RodioDesktopPlaybackEngine(runtime)
         val request = loadRequest(
             headers = mapOf(
                 "Authorization" to "Bearer token",
-                "User-Agent" to "MelodyTrove",
+                "User-Agent" to "TidePlayer",
             )
         )
 
@@ -192,6 +213,10 @@ private class RecordingDesktopRodioRuntime(
         private set
     var configuredCrossfadeMs: ULong? = null
         private set
+    var audioDevices: List<DesktopAudioOutputDescriptor> = emptyList()
+    var currentAudioDevice: DesktopAudioOutputDescriptor? = null
+    var audioSelectionResult = DesktopAudioOutputSelectionResult.Unsupported
+    val selectedAudioDeviceIds = mutableListOf<String?>()
 
     override fun load(uri: String, headers: Map<String, String>): Boolean {
         loadedUris += uri
@@ -228,6 +253,17 @@ private class RecordingDesktopRodioRuntime(
 
     override fun takePlaybackCompleted(): Boolean = playbackCompleted.also {
         playbackCompleted = false
+    }
+
+    override fun listAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = audioDevices
+
+    override fun currentAudioOutputDevice(): DesktopAudioOutputDescriptor? = currentAudioDevice
+
+    override fun refreshAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = audioDevices
+
+    override fun selectAudioOutputDevice(deviceId: String?): DesktopAudioOutputSelectionResult {
+        selectedAudioDeviceIds += deviceId
+        return audioSelectionResult
     }
 
     override fun configureAudioProcessing(
