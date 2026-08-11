@@ -38,6 +38,7 @@ class WebDavMusicSource(
         SourceCapability.Search,
         SourceCapability.Stream,
         SourceCapability.Download,
+        SourceCapability.IncrementalSync,
     )
 
     override suspend fun authenticate(configuration: SourceConfiguration): SourceAuthResult {
