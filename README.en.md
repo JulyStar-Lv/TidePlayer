@@ -40,8 +40,12 @@ TidePlayer is a local-first private music collection player built with Kotlin Mu
 | Source | Browse | Search | Stream | Download | Incremental sync |
 | --- | :---: | :---: | :---: | :---: | :---: |
 | Local | Yes | Yes | Yes | Yes | Not yet |
-| WebDAV | Yes | Yes | Yes | Yes | Not yet |
+| WebDAV | Yes | Yes | Yes | Yes | Yes (RFC 6578 sync-token with safe full-scan fallback) |
 | SMB2/3 | Yes | Yes | Yes | Yes | Not yet |
+| OneDrive | Yes | Yes | Yes | Yes | Yes (Delta) |
+| Navidrome | Yes | Yes | Yes | Yes | Not yet |
+| OpenSubsonic | Yes | Yes | Yes | Yes | Not yet |
+| Emby | Yes | Yes | Yes | Yes | Not yet |
 
 Source adapters authenticate, browse, search, and resolve playback resources. They do not write directly to canonical music tables.
 
@@ -64,8 +68,8 @@ When external word-timed or TTML lyrics are ranked ahead of an available plain-l
 - Shared playback state, position, queue, play mode, and now-playing contracts.
 - Playback URLs, headers, cookies, and expiring tokens are resolved immediately before playback and are not persisted in Room.
 - Android playback through Media3 and MediaSession.
-- iOS playback through an AVPlayer-backed engine adapter.
-- Desktop playback through the Rust/rodio backend.
+- iOS playback through AVPlayer, a processing tap, and the shared Rust DSP. The audio session supports AirPlay; Settings embeds the native `AVRoutePickerView` and reports `currentRoute`. Now Playing/Remote Command covers lock screen, Control Center, Bluetooth, and CarPlay Now Playing, but TidePlayer does not currently provide a full CarPlay library browser app.
+- Desktop playback through Rust/rodio. cpal is the sole source of truth for output devices and the system default; switching restores the resource position, playing/paused state, volume, and DSP.
 - Persistent download tasks with pause, resume, retry, cancel, and progress state.
 - Platform schedulers: Android WorkManager, iOS background URLSession, and Desktop coroutines.
 
@@ -120,6 +124,7 @@ Core architecture rules:
 Detailed documents:
 
 - [Architecture report](./docs/architecture/final-architecture.md)
+- [Android backup and restore policy](./docs/platform/android-backup-policy.md)
 - [Room KMP schema](./docs/database/schema.md)
 - [SMB music source](./docs/music-sources/smb.md)
 - [Plugin runtime](./docs/plugin-runtime.md)
@@ -135,8 +140,8 @@ TidePlayer/
 ├── androidApp/                  Android application entry point
 ├── desktopApp/                  Desktop JVM application entry point
 ├── iosApp/                      SwiftUI container and Xcode project
-├── shared/                      App assembly, navigation, DI, Room, data layer, platform actuals
-├── core/                        Domain, presentation, lyric core and lyric UI
+├── shared/                      App assembly, navigation, DI, Room, main data layer, platform actuals
+├── core/                        Domain, stable data implementations, presentation, lyric core and lyric UI
 ├── source/                      MusicSource API plus Local/WebDAV/SMB providers
 ├── service/                     Playback, download and library-sync layers
 ├── feature/                     Home, library, search, settings, sources, playlists, etc.

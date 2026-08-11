@@ -1,6 +1,6 @@
 # TidePlayer Final Architecture Report
 
-Date: 2026-07-27
+Date: 2026-08-11
 
 This document records the current architecture after the Komi Store-style KMP/CMP refactor. It reflects the physical module split and playback engine adapter work completed through Round 34 in `docs/architecture/komi-cmp-task.md`.
 
@@ -14,6 +14,7 @@ TidePlayer/
 ├── shared/                             Transitional app assembly, data, DI, navigation, platform actuals
 ├── core/
 │   ├── domain/                         Pure Kotlin domain models and repository interfaces
+│   ├── data/                           Stable cross-platform data implementations
 │   └── presentation/                   Compose design system, theme, media rendering helpers
 ├── source/
 │   ├── api/                            MusicSource contracts and registry
@@ -81,21 +82,21 @@ TidePlayer/
 | `:feature:browse` | Browse feature | Presentation only; ViewModel and Root stay in `shared` due to DAO deps |
 | `:feature:library` | Library feature | Presentation only; ViewModel and Root stay in `shared` due to DAO deps |
 
-`shared` remains as the transitional assembly module for Koin, navigation, Room, UniFFI, platform actuals, Rust bridge code, and legacy ViewModels/widgets that still own data dependencies.
+`shared` remains the transitional assembly module for Koin, navigation, Room, UniFFI, platform actuals, Rust bridge code, and data implementations that still depend on those boundaries. The cross-platform `ToastRepositoryImpl` has moved to `:core:data`; moving Room or DataStore further remains a separate migration because their builders and several repositories still depend on `shared` platform/UniFFI wiring.
 
 ## 2. Dependency Map
 
 ```text
 androidApp / desktopApp / iosApp
     ↓
-shared
+shared assembly
     ↓
-feature:*        service:*:domain        source:api        core:presentation
+feature:*        service:*        source:*        core:data / core:presentation
     ↓                    ↓                   ↓                    ↓
 core:domain       core:domain          core:domain          core:domain
 ```
 
-Data-side code is intentionally still in `shared` where it depends on Room, UniFFI, Rust bridge APIs, platform actuals, or existing legacy repositories.
+Data-side code stays in `shared` only where it currently depends on Room, UniFFI, Rust bridge APIs, platform actuals, or existing compatibility repositories. `core:data` depends on `core:domain` and never on `shared`.
 
 ### Enforced Boundaries
 
@@ -141,6 +142,16 @@ interface MusicSource {
 Local, WebDAV, OneDrive, SMB, and server adapters live in physical `source:*`
 modules. `shared` supplies their Room, credential-store, and Rust/UniFFI bridge
 implementations through Koin.
+
+Current protocol-level incremental capability is intentionally narrow:
+
+| Source | `IncrementalSync` | Implementation |
+| --- | :---: | --- |
+| Local | No | Explicit scan; no FileObserver/FSEvents watcher |
+| WebDAV | Yes | RFC 6578 sync-token with cached capability and safe full-scan fallback |
+| SMB | No | Signature/full scan; SMB Change Notify is not implemented |
+| OneDrive | Yes | Microsoft Graph Delta cursor |
+| Navidrome / OpenSubsonic / Emby | No | Bounded server-library fetch; no provider delta cursor |
 
 ### PlaybackController
 
@@ -338,19 +349,31 @@ limits, and the compatibility matrix.
   implements the common `PlaybackEngine` contract.
 - Downloads are scheduled through the Android platform scheduler.
 - Credentials use Android platform secure storage.
+- Backup uses an encrypted allowlist for non-secret settings and `library.db`;
+  credentials, downloads, caches, diagnostics, temporary resources, and
+  external files are excluded. Undecryptable restored credential references
+  require reauthentication rather than retrying or crashing.
 
 ### iOS
 
-- Playback uses AVFoundation through an `IosPlaybackEngine` adapter that
-  implements the common `PlaybackEngine` contract.
+- Playback uses AVPlayer through an `IosPlaybackEngine` adapter, AVPlayer item
+  processing taps, and the shared Rust DSP.
+- The audio session enables AirPlay; Settings embeds Apple's
+  `AVRoutePickerView`, and `IosAdvancedPlaybackController` publishes the actual
+  `AVAudioSession.currentRoute`. Route-change notifications refresh that state.
+- MPNowPlayingInfoCenter and MPRemoteCommandCenter cover lock-screen, Control
+  Center, Bluetooth, and CarPlay Now Playing control. A browsable CarPlay media
+  application is not implemented or advertised.
 - Downloads use the iOS scheduler boundary.
 - Credentials use Keychain-backed storage.
 
 ### Desktop
 
 - Playback uses the Desktop RustAudio/rodio adapter through the common
-  `PlaybackEngine` contract; deeper Rust backend work remains for advanced
-  engine support.
+  `PlaybackEngine` contract. cpal enumerates output devices and identifies the
+  real system default. UniFFI device selection opens and restores a new rodio
+  sink before releasing the old output, preserving position, play/pause state,
+  volume, resource headers, crossfade configuration, and DSP state.
 - Downloads use coroutine-based desktop scheduling.
 - Credentials use desktop platform storage.
 
@@ -418,11 +441,12 @@ compilation, shared cross-platform compilation, and Desktop app compilation.
 
 | Limit | Status |
 |-------|--------|
-| `core:data` physical module | Blocked by UniFFI/Rust bridge ownership and shared Room/platform dependencies |
+| Further `core:data` extraction | `ToastRepositoryImpl` is extracted; Room, database builders, DataStore repositories, and UniFFI-backed repositories remain in `shared` pending a boundary-safe relocation |
 | SMB incremental synchronization | First version performs full scans; Change Notify is not implemented |
 | iOS SMB download after process termination | URLSession cannot rely on a terminated localhost playback session; in-process resume is implemented |
-| Advanced playback | Domain contracts and platform engine adapters exist; gapless, crossfade, ReplayGain, output devices, Android Auto, AirPlay, and CarPlay require Rust rodio or platform/backend work |
-| Vehicle/system integrations | Android Auto, AirPlay, CarPlay require platform/backend implementation |
+| Desktop output hot-plug | Devices refresh on Settings entry, user refresh, selection, and failure; no background cpal hot-plug daemon |
+| AirPlay verification | Native route picker and route state are implemented; real-device/AirPlay receiver behavior still requires hardware verification |
+| CarPlay library browser | Not implemented; current capability is Now Playing/remote control only and requires normal Apple entitlement/device validation |
 | OneDrive cancellable delta sync | Requires lower-level Rust request cancellation |
 | Full Miuix migration | Material 3 wrappers remain because Miuix 0.9.2 APIs differ from expected signatures |
 

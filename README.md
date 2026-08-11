@@ -34,8 +34,12 @@ TidePlayer 是一款使用 Kotlin Multiplatform、Compose Multiplatform、Rust �
 | 音源 | 浏览 | 搜索 | 播放 | 下载 | 增量同步 |
 | --- | :---: | :---: | :---: | :---: | :---: |
 | 本地 | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
-| WebDAV | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| WebDAV | 支持 | 支持 | 支持 | 支持 | 支持（RFC 6578 sync-token，安全回退全量扫描） |
 | SMB2/3 | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| OneDrive | 支持 | 支持 | 支持 | 支持 | 支持（Delta） |
+| Navidrome | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| OpenSubsonic | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| Emby | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
 
 音源适配器负责鉴权、浏览、搜索和解析播放资源，不会直接写入规范化音乐表。
 
@@ -58,8 +62,8 @@ Fast/Standard 会把每个来源文件的封面存在状态和内嵌歌词类型
 - 统一的播放状态、播放进度、队列、播放模式和正在播放展示契约。
 - 播放 URL、请求头、Cookie 和短期 Token 只在实际播放前解析，不写入 Room。
 - Android 使用 Media3 和 MediaSession。
-- iOS 使用 AVPlayer 播放引擎适配器。
-- Desktop 使用 Rust/rodio 播放后端。
+- iOS 使用 AVPlayer、Processing Tap 和共享 Rust DSP；系统音频会话支持 AirPlay，设置页使用原生 `AVRoutePickerView` 并展示 `currentRoute`。锁屏、控制中心、蓝牙和 CarPlay Now Playing 使用 Now Playing/Remote Command；当前不提供完整 CarPlay 曲库浏览应用。
+- Desktop 使用 Rust/rodio 播放后端；cpal 是输出设备列表与系统默认设备的唯一事实来源，切换设备时恢复曲目位置、播放/暂停状态、音量和 DSP。
 - 下载任务持久化，支持暂停、继续、重试、取消和进度更新。
 - 平台下载调度器：Android WorkManager、iOS 后台 URLSession、Desktop 协程调度器。
 
@@ -126,6 +130,7 @@ flowchart TD
 
 - [架构报告](./docs/architecture/final-architecture.md)
 - [下载文件最终化](./docs/architecture/download-finalization.md)
+- [Android 备份与恢复策略](./docs/platform/android-backup-policy.md)
 - [Room KMP 数据库结构](./docs/database/schema.md)
 - [SMB 音源](./docs/music-sources/smb.md)
 - [插件运行时](./docs/plugin-runtime.md)
@@ -141,8 +146,9 @@ TidePlayer/
 ├── androidApp/                  Android 应用入口
 ├── desktopApp/                  Desktop JVM 应用入口
 ├── iosApp/                      SwiftUI 容器与 Xcode 工程
-├── shared/                      应用装配、导航、DI、Room、数据层和平台 actual
+├── shared/                      应用装配、导航、DI、Room、主要数据层和平台 actual
 ├── core/
+│   ├── data/                    稳定、跨平台的数据实现（当前含 UiMessage 总线）
 │   ├── domain/                  纯领域模型和 Repository 契约
 │   ├── presentation/            共享设计系统和展示层工具
 │   ├── lyrics-core/             共享歌词模型与处理逻辑

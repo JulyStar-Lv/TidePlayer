@@ -53,7 +53,7 @@ Full goal document: `docs/architecture/komi-cmp-goal.md`
 - [x] PlaybackController, PlaybackEngine interfaces
 - [x] PlaybackModels (PlayableItem, PlaybackQueue, PlayerState, etc.)
 - [x] Android: Media3 ExoPlayer + PlaybackService + MediaSession
-- [x] iOS: AVQueuePlayer skeleton
+- [x] iOS: AVPlayer engine, processing tap/shared DSP, audio session, Now Playing and Remote Command integration
 - [x] Desktop: RustAudio/rodio via uniffi (RodioDesktopPlaybackEngine)
 - [x] MiniPlayer and NowPlaying share same controller
 - [x] PlaybackShell with global MiniPlayer
@@ -90,7 +90,7 @@ Full goal document: `docs/architecture/komi-cmp-goal.md`
 
 ### Library Sync (Data)
 - [x] `service:librarysync:data` KMP module created
-- [x] `librarySyncDataModule` Koin placeholder
+- [x] `librarySyncDataModule` Koin assembly
 - [x] `LegacyLibrarySyncController` (wraps Rust importer)
 - [x] `RoomLibrarySyncTaskRepository`
 - [x] Active task detection, pause/cancel/resume/retry
@@ -133,7 +133,7 @@ Full goal document: `docs/architecture/komi-cmp-goal.md`
 - [x] Settings screen renders playback section conditionally based on engine capabilities
 
 ### Desktop Advanced Controller
-- [x] `DesktopAudioOutputController` — Java Sound API device enumeration
+- [x] `DesktopAudioOutputController` — cpal enumeration through Rust/UniFFI, real rodio output switching, backend state refresh and failure reporting
 - [x] `DesktopAdvancedPlaybackController` — full enhancement control
 - [x] Registered in desktop `PlatformModule` as `AdvancedPlaybackController`
 
@@ -164,10 +164,11 @@ Full goal document: `docs/architecture/komi-cmp-goal.md`
 
 | Item | Status | Notes |
 |------|--------|-------|
-| AirPlay / CarPlay iOS integration | Not started | Flagged in domain enums, no iOS skeleton |
-| iOS simulator tests | Blocked | Local iOS 15.5 malformed bundle runtime (signal 11) |
-| Rust rodio audio device selection | Interface exists | `setAudioDevice()` not yet exposed via uniffi |
-| Database extraction to core:data | Pending | Room lives in shared; will move to core:data later |
+| AirPlay / CarPlay iOS integration | Partial, truthful boundary | AirPlay session, native route picker, current-route state, route-change refresh, Now Playing and Remote Command are implemented; no browsable CarPlay media app |
+| iOS simulator gate | Automated | Kotlin/Native simulator compilation and unsigned Xcode simulator build are part of GitHub Actions; device/AirPlay hardware remains manual |
+| Rust rodio audio device selection | Implemented | cpal devices and default are exported through UniFFI; switching restores playback state and leaves the old output active on open/restore failure |
+| Data extraction to core:data | In progress | Cross-platform UiMessage repository implementation moved to `core:data`; Room/DataStore/UniFFI-backed repositories remain in `shared` |
+| Incremental sync | Aligned | WebDAV RFC 6578 and OneDrive Delta advertise `IncrementalSync`; Local, SMB and server providers do not |
 
 ---
 

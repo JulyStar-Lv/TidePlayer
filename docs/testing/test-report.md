@@ -1,9 +1,48 @@
 # TidePlayer test report
 
-Last updated: 2026-07-28
+Last updated: 2026-08-11
 
 This report tracks verified migration gates. Secrets used for live WebDAV
 checks were provided at runtime and are not stored in this repository.
+
+## Current capability matrix
+
+| Area | Current automated coverage | Manual or hardware coverage still required |
+| --- | --- | --- |
+| UI actions and messages | `PlaybackUiActionTest`, queued `ToastRepositoryTest`, `ToastVM` forwarding, feature event/state tests, and first-party HMI/resource parity audit | Visual timing and accessibility behavior on each platform |
+| Desktop output | Rust fake `AudioOutputBackend` tests cover IDs/default, successful set, failure preservation and playback control restoration; Kotlin tests cover UniFFI delegation and controller success/failure state | Real CoreAudio/WASAPI/ALSA device switching and hot-plug |
+| Android backup | Debug resource packaging plus XML parsing validates both allowlist files; credential-decrypt failure is handled as reauthentication | Restore between two physical devices and OEM backup transports |
+| iOS audio route | Kotlin/Native compiles `AVAudioSession.currentRoute` and native `AVRoutePickerView`; unsigned Xcode simulator build is the CI gate | AirPlay receiver, headphones/Bluetooth routing, and CarPlay entitlement/device behavior |
+| Incremental sync | WebDAV capability test plus existing RFC 6578 controller tests; OneDrive Delta remains enabled | Provider-specific live accounts and server behavior |
+
+## Current CI gates
+
+GitHub Actions currently runs separate Rust, Android, Desktop/Kotlin, and unsigned arm64 iOS Simulator jobs. The iOS job installs both Apple Rust targets, executes `:shared:compileKotlinIosSimulatorArm64`, and runs the actual `iosApp/App.xcodeproj` / `App` scheme without code signing.
+
+Local verification for this update is recorded only from commands that completed:
+
+| Command | Actual result |
+| --- | --- |
+| `./gradlew :shared:desktopTest :desktopApp:compileKotlinDesktop :shared:compileDebugKotlinAndroid :androidApp:assembleDebug :shared:compileKotlinIosSimulatorArm64 --continue --console=plain` | Passed; 1,189 tasks (81 executed), Desktop tests, Desktop compile, Android compile/APK, and iOS Simulator arm64 Kotlin compile completed |
+| `./gradlew :shared:desktopTest --console=plain` | Passed; 326 tests, 0 failures/errors, 1 skipped |
+| `./gradlew :desktopApp:compileKotlinDesktop :shared:compileKotlinIosSimulatorArm64 --continue --console=plain` | Passed; 450 tasks, Desktop and iOS Simulator Kotlin/UniFFI compilation successful |
+| `./gradlew :shared:compileDebugKotlinAndroid :shared:testDebugUnitTest :androidApp:assembleDebug --continue --console=plain` | Passed; 1031 tasks and 248 Android unit tests, 0 failures/errors/skips; debug APK assembled |
+| `xcodebuild -project iosApp/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build` | Passed unsigned arm64 Simulator build; Kotlin framework and Swift 6 app compiled and linked |
+| `cargo fmt --manifest-path rust-libs/Cargo.toml --all -- --check` | Passed |
+| `cargo clippy --manifest-path rust-libs/Cargo.toml --workspace --all-targets -- -D warnings` | Passed |
+| `cargo test --manifest-path rust-libs/Cargo.toml --workspace` | Passed; 214 Rust tests, 0 failures, with 4 external-Samba tests intentionally ignored |
+| `cargo test --manifest-path rust-libs/Cargo.toml -p app-backend desktop_rodio --lib` | Passed; 10 Desktop rodio tests, 0 failures |
+| `xmllint --noout androidApp/src/main/res/xml/data_extraction_rules.xml androidApp/src/main/res/xml/backup_rules.xml` | Passed |
+| `python3 scripts/audit-hmi-i18n.py` | Passed; 27 resource groups have English/Chinese key, type and placeholder parity; no obvious hard-coded HMI text found |
+| Ruby YAML parse of both workflow files | Passed |
+
+## Current known limitations
+
+- AirPlay, CarPlay, Android restore, and Desktop audio switching were not hardware verified in this local run.
+- TidePlayer exposes CarPlay Now Playing/remote controls only; a browsable CarPlay media app is not implemented.
+- Desktop devices refresh on Settings entry, explicit refresh, selection, and failure; there is no continuous hot-plug daemon.
+- Local, SMB, Navidrome, OpenSubsonic, and Emby do not advertise protocol-level incremental sync. WebDAV RFC 6578 and OneDrive Delta do.
+- `core:data` currently owns the stable UiMessage repository implementation; Room, database builders, DataStore, and UniFFI-backed repositories still reside in `shared`.
 
 ## Embedded lyric classification and playback lookup (2026-07-28)
 
