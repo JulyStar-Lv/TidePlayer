@@ -643,18 +643,6 @@ private fun TrackInformation(
                 .fillMaxWidth()
                 .padding(top = 3.dp),
         )
-        track?.audioQuality?.let { quality ->
-            Text(
-                text = quality,
-                color = mutedColor,
-                style = MiuixTheme.textStyles.footnote1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp),
-            )
-        }
     }
 }
 
@@ -856,6 +844,7 @@ private fun DesktopNowPlayingLayout(
             TrackRow(
                 state = state,
                 lyricDisplaySettings = lyricDisplaySettings,
+                showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
                 liked = liked,
                 onLikedChange = onLikedChange,
                 onAction = onAction,
@@ -1076,6 +1065,7 @@ private fun CompactArtworkArea(
 private fun TrackRow(
     state: NowPlayingState,
     lyricDisplaySettings: LyricDisplaySettings,
+    showAudioTechnicalInfo: Boolean,
     liked: Boolean,
     onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
@@ -1084,41 +1074,67 @@ private fun TrackRow(
     dense: Boolean = false,
 ) {
     val track = state.currentTrack
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TrackInformation(
-            track = track,
-            lyricDisplaySettings = lyricDisplaySettings,
-            modifier = Modifier.weight(1f),
-            lightTheme = true,
-            compact = compact,
-        )
-        Box(
-            modifier = Modifier
-                .size(if (dense) 40.dp else 44.dp)
-                .clip(CircleShape)
-                .clickable { onLikedChange(!liked) },
-            contentAlignment = Alignment.Center,
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = painterResource(
-                    if (liked) Res.drawable.icon_heart_compact_filled else Res.drawable.icon_heart_compact,
-                ),
-                contentDescription = stringResource(
-                    if (liked) Res.string.player_remove_favorite else Res.string.player_add_favorite,
-                ),
-                tint = if (liked) MiuixTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
-                modifier = Modifier.size(if (dense) 20.dp else 24.dp),
+            TrackInformation(
+                track = track,
+                lyricDisplaySettings = lyricDisplaySettings,
+                modifier = Modifier.weight(1f),
+                lightTheme = true,
+                compact = compact,
+            )
+            Box(
+                modifier = Modifier
+                    .size(if (dense) 40.dp else 44.dp)
+                    .clip(CircleShape)
+                    .clickable { onLikedChange(!liked) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (liked) Res.drawable.icon_heart_compact_filled else Res.drawable.icon_heart_compact,
+                    ),
+                    contentDescription = stringResource(
+                        if (liked) Res.string.player_remove_favorite else Res.string.player_add_favorite,
+                    ),
+                    tint = if (liked) MiuixTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(if (dense) 20.dp else 24.dp),
+                )
+            }
+            NowPlayingMoreButton(
+                hasLyric = track?.hasLyric == true,
+                nowPlayingState = state,
+                onAction = onAction,
+                compact = true,
             )
         }
-        NowPlayingMoreButton(
-            hasLyric = track?.hasLyric == true,
-            nowPlayingState = state,
-            onAction = onAction,
-            compact = true,
-        )
+        if (showAudioTechnicalInfo) {
+            track?.audioQuality?.takeIf(String::isNotBlank)?.let { quality ->
+                Text(
+                    text = quality,
+                    color = Color.White.copy(alpha = 0.55f),
+                    style = TextStyle(
+                        fontFamily = DesignFontFamilies.Mono,
+                        fontSize = when {
+                            dense -> 11.sp
+                            compact -> 12.sp
+                            else -> 13.sp
+                        },
+                        lineHeight = when {
+                            dense -> 15.sp
+                            compact -> 17.sp
+                            else -> 18.sp
+                        },
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+                )
+            }
+        }
     }
 }
 
@@ -1285,6 +1301,7 @@ private fun CompactClassicNowPlayingLayout(
             TrackRow(
                 state = state,
                 lyricDisplaySettings = lyricDisplaySettings,
+                showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
                 liked = liked,
                 onLikedChange = onLikedChange,
                 onAction = onAction,
@@ -1396,6 +1413,7 @@ private fun CompactLandscapeNowPlayingLayout(
                 TrackRow(
                     state = state,
                     lyricDisplaySettings = lyricDisplaySettings,
+                    showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
                     liked = liked,
                     onLikedChange = onLikedChange,
                     onAction = onAction,

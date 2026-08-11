@@ -295,6 +295,18 @@ fun PlaybackSettingsSection(
                     )
                 },
             )
+            SettingsSwitchRow(
+                title = stringResource(Res.string.settings_player_audio_technical_info),
+                summary = stringResource(Res.string.settings_player_audio_technical_info_summary),
+                checked = interaction.showAudioTechnicalInfo,
+                onCheckedChange = {
+                    onAction(
+                        SettingsAction.SetPlayerInteractionSettings(
+                            interaction.copy(showAudioTechnicalInfo = it)
+                        )
+                    )
+                },
+            )
             if (capabilities.desktopShortcutsSupported) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_desktop_shortcuts),

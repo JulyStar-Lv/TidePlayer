@@ -166,6 +166,7 @@ class DataStoreSettingsRepository(
                 tapProgressToSeekEnabled = preferences[PLAYER_TAP_PROGRESS_SEEK_KEY] ?: true,
                 showTotalDuration = preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] ?: false,
                 showSongAnnotation = preferences[PLAYER_SHOW_SONG_ANNOTATION_KEY] ?: true,
+                showAudioTechnicalInfo = preferences[PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY] ?: false,
                 desktopShortcutsEnabled = preferences[DESKTOP_SHORTCUTS_ENABLED_KEY] ?: true,
             ),
             metadataParsing = MetadataParsingSettings(
@@ -388,6 +389,7 @@ class DataStoreSettingsRepository(
             preferences[PLAYER_TAP_PROGRESS_SEEK_KEY] = settings.tapProgressToSeekEnabled
             preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] = settings.showTotalDuration
             preferences[PLAYER_SHOW_SONG_ANNOTATION_KEY] = settings.showSongAnnotation
+            preferences[PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY] = settings.showAudioTechnicalInfo
             preferences[DESKTOP_SHORTCUTS_ENABLED_KEY] = settings.desktopShortcutsEnabled
         }
     }
@@ -672,6 +674,8 @@ internal val PLAYER_COVER_SWIPE_KEY = booleanPreferencesKey("settings.player.cov
 internal val PLAYER_TAP_PROGRESS_SEEK_KEY = booleanPreferencesKey("settings.player.tapProgressSeek")
 internal val PLAYER_SHOW_TOTAL_DURATION_KEY = booleanPreferencesKey("settings.player.showTotalDuration")
 internal val PLAYER_SHOW_SONG_ANNOTATION_KEY = booleanPreferencesKey("settings.player.showSongAnnotation")
+internal val PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY =
+    booleanPreferencesKey("settings.player.showAudioTechnicalInfo")
 internal val DESKTOP_SHORTCUTS_ENABLED_KEY = booleanPreferencesKey("settings.player.desktopShortcuts")
 internal val ARTIST_SEPARATORS_KEY = stringPreferencesKey("settings.metadata.artistSeparators")
 internal val ARTIST_PROTECTED_NAMES_KEY = stringPreferencesKey("settings.metadata.artistProtectedNames")
@@ -787,6 +791,7 @@ private val SETTINGS_KEYS = setOf(
     PLAYER_TAP_PROGRESS_SEEK_KEY,
     PLAYER_SHOW_TOTAL_DURATION_KEY,
     PLAYER_SHOW_SONG_ANNOTATION_KEY,
+    PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY,
     DESKTOP_SHORTCUTS_ENABLED_KEY,
     ARTIST_SEPARATORS_KEY,
     ARTIST_PROTECTED_NAMES_KEY,

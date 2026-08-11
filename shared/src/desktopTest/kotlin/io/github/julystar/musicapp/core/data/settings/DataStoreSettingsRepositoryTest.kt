@@ -21,6 +21,7 @@ import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import io.github.julystar.musicapp.core.domain.model.MoogFilterSettings
 import io.github.julystar.musicapp.core.domain.model.ParametricEqBand
 import io.github.julystar.musicapp.core.domain.model.ParametricEqualizerSettings
+import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.domain.model.EqualizerMode
 import io.github.julystar.musicapp.core.domain.model.withAudioEffectProfile
 import kotlinx.coroutines.flow.first
@@ -49,6 +50,9 @@ class DataStoreSettingsRepositoryTest {
         repository.setRetryPlaybackOnFailure(false)
         repository.setResumePlaybackAfterNetworkRecovery(false)
         repository.setKeepScreenOnInPlayer(true)
+        repository.setPlayerInteractionSettings(
+            PlayerInteractionSettings.Default.copy(showAudioTechnicalInfo = true)
+        )
         repository.setLyricTextAlignment(LyricTextAlignment.Right)
         repository.setLyricPrimaryFontScalePercent(125)
         repository.setLyricPrimaryFontSizeSp(42)
@@ -84,6 +88,7 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.retryPlaybackOnFailure)
         assertFalse(settings.resumePlaybackAfterNetworkRecovery)
         assertTrue(settings.keepScreenOnInPlayer)
+        assertTrue(settings.playerInteraction.showAudioTechnicalInfo)
         assertEquals(LyricTextAlignment.Right, settings.lyrics.textAlignment)
         assertEquals(125, settings.lyrics.primaryFontScalePercent)
         assertEquals(42, settings.lyrics.primaryFontSizeSp)
@@ -247,6 +252,9 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(45, normalized.lyrics.perspectiveAngleDegrees)
 
         repository.setThemeMode(AppThemeMode.Light)
+        repository.setPlayerInteractionSettings(
+            PlayerInteractionSettings.Default.copy(showAudioTechnicalInfo = true)
+        )
         repository.resetToDefaults()
         assertEquals(AppSettings.Default, repository.settingsValue())
     }

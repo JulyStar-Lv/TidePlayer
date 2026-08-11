@@ -12,6 +12,7 @@ import io.github.julystar.musicapp.core.domain.model.MAX_IMAGE_CACHE_LIMIT_BYTES
 import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
 import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
+import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -38,6 +39,9 @@ class DataStoreSettingsRepositoryTest {
         repository.setRetryPlaybackOnFailure(false)
         repository.setResumePlaybackAfterNetworkRecovery(false)
         repository.setKeepScreenOnInPlayer(true)
+        repository.setPlayerInteractionSettings(
+            PlayerInteractionSettings.Default.copy(showAudioTechnicalInfo = true)
+        )
         repository.setLyricTextAlignment(LyricTextAlignment.Right)
         repository.setLyricPrimaryFontScalePercent(125)
         repository.setLyricPrimaryFontSizeSp(42)
@@ -74,6 +78,7 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.retryPlaybackOnFailure)
         assertFalse(settings.resumePlaybackAfterNetworkRecovery)
         assertTrue(settings.keepScreenOnInPlayer)
+        assertTrue(settings.playerInteraction.showAudioTechnicalInfo)
         assertEquals(LyricTextAlignment.Right, settings.lyrics.textAlignment)
         assertEquals(125, settings.lyrics.primaryFontScalePercent)
         assertEquals(42, settings.lyrics.primaryFontSizeSp)
@@ -174,6 +179,9 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(45, normalized.lyrics.perspectiveAngleDegrees)
 
         repository.setThemeMode(AppThemeMode.Light)
+        repository.setPlayerInteractionSettings(
+            PlayerInteractionSettings.Default.copy(showAudioTechnicalInfo = true)
+        )
         repository.resetToDefaults()
         assertEquals(AppSettings.Default, repository.settingsValue())
     }

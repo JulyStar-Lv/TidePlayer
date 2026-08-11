@@ -606,6 +606,8 @@
     <string name="settings_player_tap_progress">点击进度条跳转</string>
     <string name="settings_player_total_duration">显示总时长</string>
     <string name="settings_player_song_annotation">显示歌曲注释</string>
+    <string name="settings_player_audio_technical_info">显示音频技术信息</string>
+    <string name="settings_player_audio_technical_info_summary">在歌手下方显示音频参数</string>
     <string name="settings_desktop_shortcuts">桌面播放快捷键</string>
     <string name="settings_desktop_shortcuts_summary">Ctrl+空格：播放/暂停 · Alt+左/右：上一首/下一首</string>
     <string name="settings_audio_effects_section">均衡器与 DSP</string>

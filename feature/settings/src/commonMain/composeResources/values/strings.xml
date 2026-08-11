@@ -606,6 +606,8 @@
     <string name="settings_player_tap_progress">Tap the progress bar to seek</string>
     <string name="settings_player_total_duration">Show total duration</string>
     <string name="settings_player_song_annotation">Show song annotation</string>
+    <string name="settings_player_audio_technical_info">Show audio technical information</string>
+    <string name="settings_player_audio_technical_info_summary">Show audio details below the artist</string>
     <string name="settings_desktop_shortcuts">Desktop playback shortcuts</string>
     <string name="settings_desktop_shortcuts_summary">Ctrl+Space: play/pause · Alt+Left/Right: previous/next</string>
     <string name="settings_audio_effects_section">Equalizer and DSP</string>
