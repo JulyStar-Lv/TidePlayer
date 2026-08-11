@@ -23,16 +23,19 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -79,14 +82,22 @@ import io.github.julystar.musicapp.service.playback.presentation.navigation.play
 import io.github.julystar.musicapp.service.playback.presentation.shell.PlaybackMiniPlayerHost
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberHasPlaybackItem
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkAnimatedVisibilityScope
+import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkExitInProgress
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkSharedTransitionScope
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
 import io.github.julystar.musicapp.widgets.appbar.NavigationRailBar
 import io.github.julystar.musicapp.widgets.appbar.SidebarBar
 import io.github.julystar.musicapp.widgets.appbar.getNavigationRailWidth
 import io.github.julystar.musicapp.widgets.appbar.getSidebarWidth
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+private const val ImmersiveContentLayoutDelayMillis = 48
+private const val PlayerArtworkTargetPrecomposeDelayMillis = 32L
+private const val PlayerArtworkExitStartDelayMillis = 32L
+private const val PlayerArtworkTargetPrecomposeAlpha = 0.01f
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -97,12 +108,43 @@ internal fun RootNavHost(
     var metadataTrack by remember { mutableStateOf<NowPlayingTrackItem?>(null) }
     var showQueue by remember { mutableStateOf(false) }
     var selectedRootTabName by rememberSaveable { mutableStateOf(HomeTab.HOME.name) }
+    var precomposingPlayerArtworkTarget by remember { mutableStateOf(false) }
+    var playerArtworkExitInProgress by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     val showRootNavigationChrome = !isImmersivePlayerRoute(currentRoute)
+    var contentUsesNavigationChrome by remember { mutableStateOf(showRootNavigationChrome) }
     val onRootTabSelected: (HomeTab) -> Unit = { selectedRootTabName = it.name }
     val playerTransitionDurationMillis = DesignTokens.motion.playerExpandMillis
+    val onNavigateBackFromNowPlaying: () -> Unit = {
+        if (!precomposingPlayerArtworkTarget) {
+            precomposingPlayerArtworkTarget = true
+            coroutineScope.launch {
+                delay(PlayerArtworkTargetPrecomposeDelayMillis)
+                playerArtworkExitInProgress = true
+                delay(PlayerArtworkExitStartDelayMillis)
+                if (!navController.popBackStack()) {
+                    precomposingPlayerArtworkTarget = false
+                    playerArtworkExitInProgress = false
+                } else {
+                    delay(playerTransitionDurationMillis.toLong())
+                    playerArtworkExitInProgress = false
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(showRootNavigationChrome) {
+        if (precomposingPlayerArtworkTarget && showRootNavigationChrome) {
+            precomposingPlayerArtworkTarget = false
+        }
+        if (contentUsesNavigationChrome != showRootNavigationChrome) {
+            delay(ImmersiveContentLayoutDelayMillis.toLong())
+            contentUsesNavigationChrome = showRootNavigationChrome
+        }
+    }
 
     // Keep the NavHost identity stable while persistent chrome animates independently.
     val movableNavigationContent = remember(navController, playerTransitionDurationMillis) {
@@ -118,6 +160,12 @@ internal fun RootNavHost(
                     )
                 ) {
                     immediateEnterTransition(playerTransitionDurationMillis)
+                } else if (isImmersiveContentLayoutTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    deferredEnterTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(targetState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
                 } else {
@@ -134,7 +182,22 @@ internal fun RootNavHost(
                     )
                 ) {
                     immediateExitTransition(playerTransitionDurationMillis)
-                } else if (isImmersivePlayerRoute(targetState.destination.route)) {
+                } else if (shouldDeferImmersiveContentExit(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    deferredExitTransition(playerTransitionDurationMillis)
+                } else if (shouldUseSharedArtworkExitTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    sharedArtworkExitTransition(playerTransitionDurationMillis)
+                } else if (
+                    isImmersivePlayerRoute(initialState.destination.route) ||
+                        isImmersivePlayerRoute(targetState.destination.route)
+                ) {
                     immediateExitTransition(playerTransitionDurationMillis)
                 } else {
                     slideOut(
@@ -150,6 +213,12 @@ internal fun RootNavHost(
                     )
                 ) {
                     immediateEnterTransition(playerTransitionDurationMillis)
+                } else if (isImmersiveContentLayoutTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    deferredEnterTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(initialState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
                 } else {
@@ -166,7 +235,22 @@ internal fun RootNavHost(
                     )
                 ) {
                     immediateExitTransition(playerTransitionDurationMillis)
-                } else if (isImmersivePlayerRoute(initialState.destination.route)) {
+                } else if (shouldDeferImmersiveContentExit(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    deferredExitTransition(playerTransitionDurationMillis)
+                } else if (shouldUseSharedArtworkExitTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    sharedArtworkExitTransition(playerTransitionDurationMillis)
+                } else if (
+                    isImmersivePlayerRoute(initialState.destination.route) ||
+                        isImmersivePlayerRoute(targetState.destination.route)
+                ) {
                     immediateExitTransition(playerTransitionDurationMillis)
                 } else {
                     slideOut(
@@ -278,7 +362,7 @@ internal fun RootNavHost(
         searchGraph(navController)
         downloadsGraph()
         playerGraph(
-            onNavigateBack = { navController.popBackStack() },
+            onNavigateBack = onNavigateBackFromNowPlaying,
             onNavigateToLyrics = { trackId -> navController.navigate(MusicGraph.Lyrics(trackId)) },
             onOpenQueue = args.onOpenQueue,
             onNavigateToLyricImport = {
@@ -305,6 +389,7 @@ internal fun RootNavHost(
         val sharedTransitionScope = this
         CompositionLocalProvider(
             LocalPlayerArtworkSharedTransitionScope provides sharedTransitionScope,
+            LocalPlayerArtworkExitInProgress provides playerArtworkExitInProgress,
             LocalDetailArtworkSharedTransitionScope provides sharedTransitionScope,
         ) {
             SecondaryRootNavigationLayout(
@@ -324,7 +409,9 @@ internal fun RootNavHost(
                 onOpenNowPlaying = { navController.navigate(MusicGraph.NowPlaying) },
                 onOpenQueue = { showQueue = true },
                 captureStickyHeader = shouldCaptureSecondaryStickyHeader(currentRoute),
-                showChrome = showRootNavigationChrome,
+                showChrome = showRootNavigationChrome || precomposingPlayerArtworkTarget,
+                contentUsesNavigationChrome = contentUsesNavigationChrome,
+                chromeAlpha = if (showRootNavigationChrome) 1f else PlayerArtworkTargetPrecomposeAlpha,
                 transitionDurationMillis = playerTransitionDurationMillis,
                 content = navigationContent,
             )
@@ -366,6 +453,29 @@ private fun immediateExitTransition(durationMillis: Int) = fadeOut(
     },
 )
 
+private fun deferredEnterTransition(durationMillis: Int) = fadeIn(
+    initialAlpha = 0f,
+    animationSpec = keyframes {
+        this.durationMillis = durationMillis
+        0f at ImmersiveContentLayoutDelayMillis
+        1f at (ImmersiveContentLayoutDelayMillis + 1)
+    },
+)
+
+private fun deferredExitTransition(durationMillis: Int) = fadeOut(
+    targetAlpha = 0f,
+    animationSpec = keyframes {
+        this.durationMillis = durationMillis
+        1f at ImmersiveContentLayoutDelayMillis
+        0f at (ImmersiveContentLayoutDelayMillis + 1)
+    },
+)
+
+private fun sharedArtworkExitTransition(durationMillis: Int) = fadeOut(
+    targetAlpha = 0f,
+    animationSpec = tween(durationMillis = durationMillis),
+)
+
 internal fun shouldShowPersistentMiniPlayer(route: String?): Boolean =
     !isRouteHome(route) && !isImmersivePlayerRoute(route)
 
@@ -374,6 +484,23 @@ internal fun shouldReturnToHome(route: String?): Boolean =
 
 internal fun isImmersivePlayerRoute(route: String?): Boolean =
     isRouteNowPlaying(route) || isRouteLyrics(route)
+
+internal fun isImmersiveContentLayoutTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean = isImmersivePlayerRoute(initialRoute) != isImmersivePlayerRoute(targetRoute)
+
+internal fun shouldDeferImmersiveContentExit(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean = isImmersiveContentLayoutTransition(initialRoute, targetRoute) &&
+    !isImmersivePlayerRoute(initialRoute)
+
+internal fun shouldUseSharedArtworkExitTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean = isImmersiveContentLayoutTransition(initialRoute, targetRoute) &&
+    isImmersivePlayerRoute(initialRoute)
 
 internal fun isArtworkDetailRoute(route: String?): Boolean {
     val routeName = route?.substringBefore('/') ?: return false
@@ -409,6 +536,8 @@ private fun SecondaryRootNavigationLayout(
     onOpenQueue: () -> Unit,
     captureStickyHeader: Boolean,
     showChrome: Boolean,
+    contentUsesNavigationChrome: Boolean,
+    chromeAlpha: Float,
     transitionDurationMillis: Int,
     content: @Composable (Modifier) -> Unit,
 ) {
@@ -445,7 +574,7 @@ private fun SecondaryRootNavigationLayout(
             WindowSizeClass.Large,
             WindowSizeClass.XL -> getSidebarWidth(windowSizeClass)
         }
-        val contentModifier = if (showChrome) {
+        val contentModifier = if (contentUsesNavigationChrome) {
             Modifier
                 .fillMaxSize()
                 .background(MiuixTheme.colorScheme.background)
@@ -460,9 +589,9 @@ private fun SecondaryRootNavigationLayout(
 
         DesignGlassOverlayScene(
             modifier = Modifier.fillMaxSize(),
-            captureBackdrop = showChrome,
+            captureBackdrop = contentUsesNavigationChrome,
             contentBottomInset = when {
-                !showChrome -> 0.dp
+                !contentUsesNavigationChrome -> 0.dp
                 windowSizeClass == WindowSizeClass.Compact ->
                     getBottomBarSpace(hasPlaybackItem, scaffoldPadding)
                 hasPlaybackItem ->
@@ -482,7 +611,9 @@ private fun SecondaryRootNavigationLayout(
             overlayContent = {
                 AnimatedVisibility(
                     visible = showChrome,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = chromeAlpha },
                     enter = immediateEnterTransition(transitionDurationMillis),
                     exit = immediateExitTransition(transitionDurationMillis),
                 ) {

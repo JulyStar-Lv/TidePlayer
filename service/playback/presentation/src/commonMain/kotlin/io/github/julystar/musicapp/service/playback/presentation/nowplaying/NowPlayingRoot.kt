@@ -13,6 +13,7 @@ import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
 import io.github.julystar.musicapp.service.playback.presentation.sleep.SleepModeVM
 import io.github.julystar.musicapp.core.presentation.platform.KeepScreenOnEffect
+import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandler
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode
 import kotlinx.coroutines.launch
@@ -37,6 +38,7 @@ fun NowPlayingRoot(
     val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
     val coroutineScope = rememberCoroutineScope()
     KeepScreenOnEffect(enabled = settings.keepScreenOnInPlayer)
+    PlatformBackHandler(onBack = onNavigateBack)
 
     val playbackPosition by playerViewModel.playbackPosition.collectAsState()
 

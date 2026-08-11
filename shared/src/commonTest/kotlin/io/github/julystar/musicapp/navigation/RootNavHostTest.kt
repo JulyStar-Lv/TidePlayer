@@ -88,6 +88,66 @@ class RootNavHostTest {
     }
 
     @Test
+    fun `only transitions across immersive content layouts are deferred`() {
+        assertTrue(
+            isImmersiveContentLayoutTransition(
+                initialRoute = "Home",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+            ),
+        )
+        assertTrue(
+            isImmersiveContentLayoutTransition(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+                targetRoute = "Home",
+            ),
+        )
+        assertFalse(
+            isImmersiveContentLayoutTransition(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.Lyrics/{id}",
+            ),
+        )
+        assertFalse(
+            isImmersiveContentLayoutTransition(
+                initialRoute = "Home",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.Album/{id}",
+            ),
+        )
+    }
+
+    @Test
+    fun `only entering immersive layouts defers the outgoing content`() {
+        assertTrue(
+            shouldDeferImmersiveContentExit(
+                initialRoute = "Home",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+            ),
+        )
+        assertFalse(
+            shouldDeferImmersiveContentExit(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+                targetRoute = "Home",
+            ),
+        )
+    }
+
+    @Test
+    fun `leaving an immersive layout keeps shared artwork alive for the exit transition`() {
+        assertTrue(
+            shouldUseSharedArtworkExitTransition(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+                targetRoute = "Home",
+            ),
+        )
+        assertFalse(
+            shouldUseSharedArtworkExitTransition(
+                initialRoute = "Home",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+            ),
+        )
+    }
+
+    @Test
     fun `album playlist and favorites routes use artwork-only detail transitions`() {
         listOf(
             "Album/{id}",

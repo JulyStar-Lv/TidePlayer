@@ -1,8 +1,10 @@
 package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,13 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -64,9 +61,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
@@ -96,6 +91,7 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.utils.toMusicDurationMs
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
+import io.github.julystar.musicapp.service.playback.presentation.transition.PlayerArtworkTransitionShape
 import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkSharedElement
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -161,6 +157,7 @@ private val DesktopPlayerBreakpoint = 860.dp
 private const val NowPlayingDismissDistanceFraction = 0.5f
 private val NowPlayingDismissVelocityThreshold = 900.dp
 private const val LandscapeControlsAutoHideDelayMs = 5_000L
+private const val CompactPlayerChromePrecomposeDelayMillis = 16L
 
 @Composable
 private fun NowPlayingDismissGestureArea(
@@ -500,7 +497,8 @@ private fun CoverImage(
 ) {
     val compactCornerRadius = DesignTokens.shapes.sm
     val artworkShape = remember(maxArtworkSize, cornerRadius, compactCornerRadius) {
-        PlayerArtworkShape(
+        PlayerArtworkTransitionShape(
+            compactSize = CompactArtworkTransitionSize,
             expandedSize = maxArtworkSize,
             compactCornerRadius = compactCornerRadius,
             expandedCornerRadius = cornerRadius,
@@ -550,39 +548,6 @@ private fun CoverImage(
                 smoothTransition = true,
             )
         }
-    }
-}
-
-private data class PlayerArtworkShape(
-    val expandedSize: Dp,
-    val compactCornerRadius: Dp,
-    val expandedCornerRadius: Dp,
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density,
-    ): Outline {
-        val compactSizePx = with(density) { CompactArtworkTransitionSize.toPx() }
-        val expandedSizePx = with(density) { expandedSize.toPx() }
-        val compactRadiusPx = with(density) { compactCornerRadius.toPx() }
-        val expandedRadiusPx = with(density) { expandedCornerRadius.toPx() }
-        val currentSizePx = minOf(size.width, size.height)
-        val fraction = if (expandedSizePx <= compactSizePx) {
-            1f
-        } else {
-            ((currentSizePx - compactSizePx) / (expandedSizePx - compactSizePx)).coerceIn(0f, 1f)
-        }
-        val radiusPx = compactRadiusPx + (expandedRadiusPx - compactRadiusPx) * fraction
-        return Outline.Rounded(
-            RoundRect(
-                left = 0f,
-                top = 0f,
-                right = size.width,
-                bottom = size.height,
-                cornerRadius = CornerRadius(radiusPx),
-            ),
-        )
     }
 }
 
@@ -1031,10 +996,11 @@ private fun CompactArtworkArea(
     onSwipeNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val artworkScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else 0.96f,
+    val targetArtworkSize = compactArtworkTargetSize(isPlaying)
+    val artworkSize by animateDpAsState(
+        targetValue = targetArtworkSize,
         animationSpec = spring(stiffness = 180f),
-        label = "compactArtworkScale",
+        label = "compactArtworkSize",
     )
     Box(
         modifier = modifier.aspectRatio(1f),
@@ -1042,13 +1008,8 @@ private fun CompactArtworkArea(
     ) {
         CoverImage(
             artwork = artwork,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = artworkScale
-                    scaleY = artworkScale
-                },
-            maxArtworkSize = 356.dp,
+            modifier = Modifier.fillMaxSize(),
+            maxArtworkSize = artworkSize,
             cornerRadius = 28.dp,
             shadowOffsetY = 20.dp,
             shadowBlurRadius = 44.dp,
@@ -1060,6 +1021,12 @@ private fun CompactArtworkArea(
         )
     }
 }
+
+internal fun compactArtworkTargetSize(isPlaying: Boolean): Dp =
+    CompactArtworkExpandedSize * if (isPlaying) 1f else CompactArtworkPausedScale
+
+private val CompactArtworkExpandedSize = 356.dp
+private const val CompactArtworkPausedScale = 0.96f
 
 @Composable
 private fun TrackRow(
@@ -1268,6 +1235,8 @@ private fun CompactClassicNowPlayingLayout(
     isSeeking: Boolean,
     liked: Boolean,
     onLikedChange: (Boolean) -> Unit,
+    composeChrome: Boolean,
+    chromeAlpha: Float,
     progressContent: @Composable (Long?) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
 ) {
@@ -1298,43 +1267,57 @@ private fun CompactClassicNowPlayingLayout(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            TrackRow(
-                state = state,
-                lyricDisplaySettings = lyricDisplaySettings,
-                showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
-                liked = liked,
-                onLikedChange = onLikedChange,
-                onAction = onAction,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, top = 20.dp, end = 8.dp),
-            )
-
-            CompactLyricsSurface(
-                track = track,
-                lyricDisplaySettings = lyricDisplaySettings,
-                currentPositionMs = currentPositionMs,
-                isPlaying = state.controls.isPlaying && !isSeeking,
-                onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(top = 12.dp, bottom = 16.dp),
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .fillMaxWidth(),
             ) {
-                Box(modifier = Modifier.offset(y = (-8).dp)) {
-                    progressContent(track?.durationMs)
+                if (composeChrome) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = chromeAlpha },
+                    ) {
+                        TrackRow(
+                            state = state,
+                            lyricDisplaySettings = lyricDisplaySettings,
+                            showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                            liked = liked,
+                            onLikedChange = onLikedChange,
+                            onAction = onAction,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, top = 20.dp, end = 8.dp),
+                        )
+
+                        CompactLyricsSurface(
+                            track = track,
+                            lyricDisplaySettings = lyricDisplaySettings,
+                            currentPositionMs = currentPositionMs,
+                            isPlaying = state.controls.isPlaying && !isSeeking,
+                            onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = 12.dp, bottom = 16.dp),
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                        ) {
+                            Box(modifier = Modifier.offset(y = (-8).dp)) {
+                                progressContent(track?.durationMs)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            CompactTransportPanel(
+                                nowPlayingState = state,
+                                onAction = onAction,
+                                dense = false,
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                CompactTransportPanel(
-                    nowPlayingState = state,
-                    onAction = onAction,
-                    dense = false,
-                )
             }
         }
     }
@@ -1349,6 +1332,8 @@ private fun CompactLandscapeNowPlayingLayout(
     isSeeking: Boolean,
     liked: Boolean,
     onLikedChange: (Boolean) -> Unit,
+    composeChrome: Boolean,
+    chromeAlpha: Float,
     progressContent: @Composable (Long?) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
 ) {
@@ -1403,68 +1388,76 @@ private fun CompactLandscapeNowPlayingLayout(
                 )
             }
 
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(stageHeight)
                     .align(Alignment.CenterVertically)
                     .padding(start = 8.dp, end = 40.dp),
             ) {
-                TrackRow(
-                    state = state,
-                    lyricDisplaySettings = lyricDisplaySettings,
-                    showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
-                    liked = liked,
-                    onLikedChange = onLikedChange,
-                    onAction = onAction,
-                    dense = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                ) {
-                    CompactLyricsSurface(
-                        track = track,
-                        lyricDisplaySettings = lyricDisplaySettings,
-                        currentPositionMs = currentPositionMs,
-                        isPlaying = state.controls.isPlaying && !isSeeking,
-                        onLineClick = toggleControls,
-                        onSurfaceClick = toggleControls,
-                        dense = true,
+                if (composeChrome) {
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 8.dp, bottom = 12.dp)
-                            .drawWithContent {
-                                val drawLyrics = { drawContent() }
-                                if (controlsVisible && controlsHeightPx > 0) {
-                                    val controlsTop = (
-                                        size.height - controlsHeightPx.toFloat() - 8.dp.toPx()
-                                    ).coerceAtLeast(0f)
-                                    clipRect(bottom = controlsTop) {
-                                        drawLyrics()
-                                    }
-                                } else {
-                                    drawLyrics()
-                                }
-                            },
-                    )
-                    if (controlsVisible) {
-                        Column(
+                            .graphicsLayer { alpha = chromeAlpha },
+                    ) {
+                        TrackRow(
+                            state = state,
+                            lyricDisplaySettings = lyricDisplaySettings,
+                            showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                            liked = liked,
+                            onLikedChange = onLikedChange,
+                            onAction = onAction,
+                            dense = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Box(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .onSizeChanged { controlsHeightPx = it.height },
+                                .weight(1f)
+                                .fillMaxWidth(),
                         ) {
-                            Box(modifier = Modifier.offset(y = (-8).dp)) {
-                                progressContent(track?.durationMs)
-                            }
-                            CompactTransportPanel(
-                                nowPlayingState = state,
-                                onAction = onAction,
+                            CompactLyricsSurface(
+                                track = track,
+                                lyricDisplaySettings = lyricDisplaySettings,
+                                currentPositionMs = currentPositionMs,
+                                isPlaying = state.controls.isPlaying && !isSeeking,
+                                onLineClick = toggleControls,
+                                onSurfaceClick = toggleControls,
                                 dense = true,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 8.dp, bottom = 12.dp)
+                                    .drawWithContent {
+                                        val drawLyrics = { drawContent() }
+                                        if (controlsVisible && controlsHeightPx > 0) {
+                                            val controlsTop = (
+                                                size.height - controlsHeightPx.toFloat() - 8.dp.toPx()
+                                            ).coerceAtLeast(0f)
+                                            clipRect(bottom = controlsTop) {
+                                                drawLyrics()
+                                            }
+                                        } else {
+                                            drawLyrics()
+                                        }
+                                    },
                             )
+                            if (controlsVisible) {
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .onSizeChanged { controlsHeightPx = it.height },
+                                ) {
+                                    Box(modifier = Modifier.offset(y = (-8).dp)) {
+                                        progressContent(track?.durationMs)
+                                    }
+                                    CompactTransportPanel(
+                                        nowPlayingState = state,
+                                        onAction = onAction,
+                                        dense = true,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -1486,6 +1479,22 @@ private fun CompactNowPlayingLayout(
     onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
 ) {
+    val motion = DesignTokens.motion
+    var composeChrome by remember { mutableStateOf(false) }
+    var revealChrome by remember { mutableStateOf(false) }
+    val chromeAlpha by animateFloatAsState(
+        targetValue = if (revealChrome) 1f else 0f,
+        animationSpec = tween(durationMillis = motion.standardMillis),
+        label = "compactPlayerChromeAlpha",
+    )
+
+    LaunchedEffect(Unit) {
+        delay(motion.playerExpandMillis.toLong())
+        composeChrome = true
+        delay(CompactPlayerChromePrecomposeDelayMillis)
+        revealChrome = true
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isShortLandscape = maxWidth >= 640.dp && maxWidth > maxHeight && maxHeight < 520.dp
         if (isShortLandscape) {
@@ -1497,6 +1506,8 @@ private fun CompactNowPlayingLayout(
                 isSeeking = isSeeking,
                 liked = liked,
                 onLikedChange = onLikedChange,
+                composeChrome = composeChrome,
+                chromeAlpha = chromeAlpha,
                 progressContent = compactProgressContent,
                 onAction = onAction,
             )
@@ -1509,6 +1520,8 @@ private fun CompactNowPlayingLayout(
                 isSeeking = isSeeking,
                 liked = liked,
                 onLikedChange = onLikedChange,
+                composeChrome = composeChrome,
+                chromeAlpha = chromeAlpha,
                 progressContent = progressContent,
                 onAction = onAction,
             )
