@@ -1587,7 +1587,7 @@ mod tests {
 
     fn vorbis_comment(entries: &[(&str, &str)]) -> Vec<u8> {
         let mut data = Vec::new();
-        let vendor = b"MelodyTrove";
+        let vendor = b"TidePlayer";
         data.extend_from_slice(&(vendor.len() as u32).to_le_bytes());
         data.extend_from_slice(vendor);
         data.extend_from_slice(&(entries.len() as u32).to_le_bytes());

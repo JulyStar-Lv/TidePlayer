@@ -64,7 +64,7 @@ object NeteaseYrcParser : ILyricsParser {
             }
         }
 
-        // MelodyTrove adaptation: YRC providers use either absolute timestamps or offsets relative
+        // TidePlayer adaptation: YRC providers use either absolute timestamps or offsets relative
         // to the line timestamp. Treat a complete set inside the line duration as relative.
         val usesRelativeTiming = rawSyllables.all { (start, _, _) -> start in 0..lineDuration }
         val syllables = rawSyllables.map { (rawStart, duration, text) ->

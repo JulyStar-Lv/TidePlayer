@@ -2,7 +2,7 @@
 // https://github.com/QFDY-GZC/RawS-Music
 //
 // Original project license: Apache-2.0.
-// This implementation has been rewritten and modified for MelodyTrove's
+// This implementation has been rewritten and modified for TidePlayer's
 // cross-platform Rust DSP pipeline.
 
 use std::f32::consts::PI;

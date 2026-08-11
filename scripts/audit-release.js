@@ -1,6 +1,6 @@
 /**
  * Release audit: scans the repository and build artifacts for forbidden third-party plugin content.
- * MelodyTrove must never bundle, recommend, or automatically enable any specific music platform plugin.
+ * TidePlayer must never bundle, recommend, or automatically enable any specific music platform plugin.
  */
 const fs = require("fs");
 const path = require("path");

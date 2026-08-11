@@ -24,7 +24,7 @@ static RUNTIME: OnceLock<Arc<DiagnosticsRuntime>> = OnceLock::new();
 static INITIALIZE_LOCK: Mutex<()> = Mutex::new(());
 static PANIC_HOOK: Once = Once::new();
 #[cfg(any(target_os = "android", test))]
-const ANDROID_TRACING_TAG: &str = "MelodyTrove";
+const ANDROID_TRACING_TAG: &str = "TidePlayer";
 
 pub fn logs_dir(dir: &str) -> std::path::PathBuf {
     std::path::Path::new(dir).join("diagnostics/logs/sessions")
@@ -41,7 +41,7 @@ pub(crate) fn init_infra_compat(dir: &str) -> BResult<DiagnosticsRuntimeState> {
         app_version: "unknown".to_string(),
         build_info: "legacy create_backend initialization".to_string(),
         git_commit_sha: String::new(),
-        process_name: "MelodyTrove".to_string(),
+        process_name: "TidePlayer".to_string(),
         user_forced_safe_mode: false,
         last_user_requested_exit_at_epoch_ms: None,
     })
@@ -301,7 +301,7 @@ pub fn debug_trigger_rust_panic() -> BResult<()> {
             message: "fault injection is disabled in release builds".to_string(),
         });
     }
-    panic!("MelodyTrove debug Rust panic fault injection");
+    panic!("TidePlayer debug Rust panic fault injection");
 }
 
 #[uniffi::export]

@@ -104,7 +104,7 @@ jobs:
         run: pnpm run audit:release
       - uses: actions/upload-artifact@v4
         with:
-          name: melodytrove-android-${{ github.ref_name }}
+          name: tideplayer-android-${{ github.ref_name }}
           path: artifacts/apk/*.apk
           if-no-files-found: error
       - name: Upload APK to GitHub release
@@ -165,7 +165,7 @@ jobs:
         run: node scripts/audit-release.js
       - uses: actions/upload-artifact@v4
         with:
-          name: melodytrove-${{ matrix.platform }}-${{ github.ref_name }}
+          name: tideplayer-${{ matrix.platform }}-${{ github.ref_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
       - name: Upload desktop package to GitHub release

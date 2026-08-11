@@ -110,7 +110,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: melodytrove-android-debug-${{ github.run_number }}
+          name: tideplayer-android-debug-${{ github.run_number }}
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
@@ -132,3 +132,32 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends libasound2-dev pkg-config
       - name: Compile Desktop and run shared tests
         run: ./gradlew --no-daemon --stacktrace :desktopApp:compileKotlinDesktop :shared:desktopTest
+
+  ios:
+    name: iOS Simulator
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - name: Compile Kotlin and UniFFI for iOS Simulator
+        run: ./gradlew --no-daemon --stacktrace :shared:compileKotlinIosSimulatorArm64
+      - name: Build unsigned iOS Simulator app
+        run: |
+          xcodebuild \
+            -project iosApp/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            build

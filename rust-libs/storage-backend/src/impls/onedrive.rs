@@ -858,7 +858,7 @@ mod tests {
                         "name": "Documents",
                         "driveType": "business",
                         "owner": {
-                            "user": { "displayName": "MelodyTrove Tester" }
+                            "user": { "displayName": "TidePlayer Tester" }
                         }
                     }
                 ],
@@ -870,7 +870,7 @@ mod tests {
         assert_eq!(drives.len(), 1);
         assert_eq!(drives[0].id, "drive-1");
         assert_eq!(drives[0].drive_type.as_deref(), Some("business"));
-        assert_eq!(drives[0].owner_name.as_deref(), Some("MelodyTrove Tester"));
+        assert_eq!(drives[0].owner_name.as_deref(), Some("TidePlayer Tester"));
         assert!(next_link.is_some());
     }
 }

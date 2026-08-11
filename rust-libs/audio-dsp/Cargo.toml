@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0"
 publish = false
-description = "Platform-independent realtime audio DSP core for MelodyTrove"
+description = "Platform-independent realtime audio DSP core for TidePlayer"
 
 [dependencies]
 thiserror = { workspace = true }
