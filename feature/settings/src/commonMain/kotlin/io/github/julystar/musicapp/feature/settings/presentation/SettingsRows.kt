@@ -104,10 +104,12 @@ internal fun SettingsPageLayout(
     title: String,
     onBack: (() -> Unit)? = null,
     compactHorizontalPadding: Dp? = null,
+    scrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val spacing = DesignTokens.spacing
     val bottomContentInset = LocalDesignBottomContentInset.current
+    val pageScrollState = rememberScrollState()
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val pageWidth = minOf(maxWidth, 800.dp)
         val pagePadding = if (maxWidth <= DesignTokens.adaptive.compactMaxWidth) {
@@ -126,7 +128,13 @@ internal fun SettingsPageLayout(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .let { modifier ->
+                        if (scrollable) {
+                            modifier.verticalScroll(pageScrollState)
+                        } else {
+                            modifier
+                        }
+                    }
                     .padding(
                         start = pagePadding,
                         top = if (showTopBar) {

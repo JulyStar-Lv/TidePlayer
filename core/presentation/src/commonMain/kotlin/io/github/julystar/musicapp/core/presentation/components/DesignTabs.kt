@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +44,7 @@ enum class DesignTabsVariant {
     Line,
     Pill,
     Segmented,
+    Filled,
 }
 
 @Immutable
@@ -87,6 +89,66 @@ fun DesignTabs(
             modifier = modifier,
             enabled = enabled,
         )
+        DesignTabsVariant.Filled -> DesignFilledTabs(
+            items = items,
+            selectedIndex = safeSelectedIndex,
+            onSelectedIndexChange = onSelectedIndexChange,
+            modifier = modifier,
+            enabled = enabled,
+        )
+    }
+}
+
+@Composable
+private fun DesignFilledTabs(
+    items: List<DesignTabItem>,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    modifier: Modifier,
+    enabled: Boolean,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(shape)
+            .border(1.dp, MiuixTheme.colorScheme.outline, shape)
+            .background(MiuixTheme.colorScheme.surface)
+            .padding(4.dp)
+            .selectableGroup(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        items.forEachIndexed { index, item ->
+            val selected = index == selectedIndex
+            val itemEnabled = enabled && item.enabled
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (selected) MiuixTheme.colorScheme.primary else Color.Transparent,
+                    )
+                    .selectable(
+                        selected = selected,
+                        enabled = itemEnabled,
+                        role = Role.Tab,
+                        onClick = { onSelectedIndexChange(index) },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                DesignTabLabel(
+                    item = item,
+                    selected = selected,
+                    enabled = itemEnabled,
+                    compact = true,
+                    selectedContentColor = MiuixTheme.colorScheme.onPrimary,
+                    labelStyle = MiuixTheme.textStyles.footnote1,
+                )
+            }
+        }
     }
 }
 
@@ -328,6 +390,7 @@ private fun DesignTabLabel(
     enabled: Boolean,
     compact: Boolean,
     selectedContentColor: Color? = null,
+    labelStyle: TextStyle? = null,
 ) {
     val contentColor = if (enabled && selected && selectedContentColor != null) {
         selectedContentColor
@@ -342,7 +405,11 @@ private fun DesignTabLabel(
         Text(
             text = item.label,
             color = contentColor,
-            style = if (compact) MiuixTheme.textStyles.body2 else MiuixTheme.textStyles.title4,
+            style = labelStyle ?: if (compact) {
+                MiuixTheme.textStyles.body2
+            } else {
+                MiuixTheme.textStyles.title4
+            },
             fontWeight = if (compact || selected) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

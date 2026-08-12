@@ -1,12 +1,20 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
@@ -22,8 +30,10 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
 import io.github.julystar.musicapp.core.presentation.components.DesignTabs
 import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
 import musicapp.feature.settings.generated.resources.*
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun EqualizerSettingsScreen(
     state: SettingsUiState,
@@ -33,11 +43,17 @@ internal fun EqualizerSettingsScreen(
     val effects = state.settings.audioEffects
     val profile = effects.profile
     val capabilities = state.capabilities.audioDsp
-    val equalizerEnabled = when (profile.equalizerMode) {
+    val pagerState = rememberPagerState(
+        initialPage = profile.equalizerMode.ordinal,
+        pageCount = { EqualizerMode.entries.size },
+    )
+    val pagerScope = rememberCoroutineScope()
+    val visibleMode = EqualizerMode.entries[pagerState.currentPage]
+    val equalizerEnabled = when (visibleMode) {
         EqualizerMode.Graphic -> profile.graphicEqualizer.enabled
         EqualizerMode.Parametric -> profile.parametricEqualizer.enabled
     }
-    val selectedModeSupported = when (profile.equalizerMode) {
+    val selectedModeSupported = when (visibleMode) {
         EqualizerMode.Graphic -> capabilities.graphicEqualizer
         EqualizerMode.Parametric -> capabilities.parametricEqualizer
     }
@@ -50,10 +66,39 @@ internal fun EqualizerSettingsScreen(
         )
     }
 
+    LaunchedEffect(pagerState.settledPage) {
+        val settledMode = EqualizerMode.entries[pagerState.settledPage]
+        val supported = when (settledMode) {
+            EqualizerMode.Graphic -> capabilities.graphicEqualizer
+            EqualizerMode.Parametric -> capabilities.parametricEqualizer
+        }
+        if (supported && profile.equalizerMode != settledMode) {
+            updateProfile(profile.selectEqualizerMode(settledMode))
+        }
+    }
+    LaunchedEffect(profile.equalizerMode) {
+        val targetPage = profile.equalizerMode.ordinal
+        if (!pagerState.isScrollInProgress && pagerState.settledPage != targetPage) {
+            pagerState.scrollToPage(targetPage)
+        }
+    }
+
+    fun selectMode(index: Int) {
+        val mode = EqualizerMode.entries[index]
+        val supported = when (mode) {
+            EqualizerMode.Graphic -> capabilities.graphicEqualizer
+            EqualizerMode.Parametric -> capabilities.parametricEqualizer
+        }
+        if (supported && pagerState.currentPage != index) {
+            pagerScope.launch { pagerState.animateScrollToPage(index) }
+        }
+    }
+
     SettingsPageLayout(
         title = stringResource(Res.string.settings_equalizer_section),
         onBack = onBack,
         compactHorizontalPadding = 12.dp,
+        scrollable = false,
     ) {
         SettingsSection(title = stringResource(Res.string.settings_equalizer_section)) {
             SettingsSwitchRow(
@@ -63,11 +108,13 @@ internal fun EqualizerSettingsScreen(
                 enabled = selectedModeSupported,
                 onCheckedChange = { enabled ->
                     updateProfile(
-                        when (profile.equalizerMode) {
+                        when (visibleMode) {
                             EqualizerMode.Graphic -> profile.copy(
+                                equalizerMode = visibleMode,
                                 graphicEqualizer = profile.graphicEqualizer.copy(enabled = enabled),
                             )
                             EqualizerMode.Parametric -> profile.copy(
+                                equalizerMode = visibleMode,
                                 parametricEqualizer =
                                     profile.parametricEqualizer.copy(enabled = enabled),
                             )
@@ -77,46 +124,94 @@ internal fun EqualizerSettingsScreen(
             )
         }
 
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val expanded = maxWidth >= 660.dp
-            if (expanded) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1.45f),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        EqualizerResponseSection(state)
-                        EqualizerEditorSection(
-                            profile = profile,
-                            enabled = equalizerEnabled && selectedModeSupported,
-                            maxParametricBands = capabilities.maxParametricBands,
-                            onUpdate = ::updateProfile,
-                        )
+        EqualizerModeSection(
+            selectedMode = visibleMode,
+            capabilities = capabilities,
+            onModeSelected = ::selectMode,
+        )
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            key = { EqualizerMode.entries[it] },
+            userScrollEnabled = capabilities.graphicEqualizer && capabilities.parametricEqualizer,
+        ) { page ->
+            val pageMode = EqualizerMode.entries[page]
+            val pageProfile = profile.copy(equalizerMode = pageMode)
+            val pageEnabled = when (pageMode) {
+                EqualizerMode.Graphic -> pageProfile.graphicEqualizer.enabled
+                EqualizerMode.Parametric -> pageProfile.parametricEqualizer.enabled
+            }
+            val pageSupported = when (pageMode) {
+                EqualizerMode.Graphic -> capabilities.graphicEqualizer
+                EqualizerMode.Parametric -> capabilities.parametricEqualizer
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    if (maxWidth >= 660.dp) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1.45f),
+                                verticalArrangement = Arrangement.spacedBy(20.dp),
+                            ) {
+                                EqualizerResponseSection(state)
+                                EqualizerEditorSection(
+                                    profile = pageProfile,
+                                    enabled = pageEnabled && pageSupported,
+                                    maxParametricBands = capabilities.maxParametricBands,
+                                    onUpdate = ::updateProfile,
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(20.dp),
+                            ) {
+                                EqualizerPresetSection(
+                                    pageProfile,
+                                    capabilities.graphicEqualizer,
+                                    ::updateProfile,
+                                )
+                                EqualizerAdvancedSection(
+                                    state,
+                                    pageProfile,
+                                    pageSupported,
+                                    ::updateProfile,
+                                )
+                            }
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                            EqualizerPresetSection(
+                                pageProfile,
+                                capabilities.graphicEqualizer,
+                                ::updateProfile,
+                            )
+                            EqualizerResponseSection(state)
+                            EqualizerEditorSection(
+                                profile = pageProfile,
+                                enabled = pageEnabled && pageSupported,
+                                maxParametricBands = capabilities.maxParametricBands,
+                                onUpdate = ::updateProfile,
+                            )
+                            EqualizerAdvancedSection(
+                                state,
+                                pageProfile,
+                                pageSupported,
+                                ::updateProfile,
+                            )
+                        }
                     }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        EqualizerModeSection(profile, capabilities, ::updateProfile)
-                        EqualizerPresetSection(profile, capabilities.graphicEqualizer, ::updateProfile)
-                        EqualizerAdvancedSection(state, profile, selectedModeSupported, ::updateProfile)
-                    }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    EqualizerModeSection(profile, capabilities, ::updateProfile)
-                    EqualizerPresetSection(profile, capabilities.graphicEqualizer, ::updateProfile)
-                    EqualizerResponseSection(state)
-                    EqualizerEditorSection(
-                        profile = profile,
-                        enabled = equalizerEnabled && selectedModeSupported,
-                        maxParametricBands = capabilities.maxParametricBands,
-                        onUpdate = ::updateProfile,
-                    )
-                    EqualizerAdvancedSection(state, profile, selectedModeSupported, ::updateProfile)
                 }
             }
         }
@@ -125,9 +220,9 @@ internal fun EqualizerSettingsScreen(
 
 @Composable
 private fun EqualizerModeSection(
-    profile: AudioEffectProfile,
+    selectedMode: EqualizerMode,
     capabilities: io.github.julystar.musicapp.core.domain.model.AudioDspCapabilities,
-    onUpdate: (AudioEffectProfile) -> Unit,
+    onModeSelected: (Int) -> Unit,
 ) {
     SettingsSection(title = stringResource(Res.string.settings_equalizer_mode)) {
         DesignTabs(
@@ -141,26 +236,19 @@ private fun EqualizerModeSection(
                     enabled = capabilities.parametricEqualizer,
                 ),
             ),
-            selectedIndex = profile.equalizerMode.ordinal,
-            onSelectedIndexChange = { index ->
-                val mode = EqualizerMode.entries[index]
-                onUpdate(
-                    profile.copy(
-                        equalizerMode = mode,
-                        graphicEqualizer = profile.graphicEqualizer.copy(
-                            enabled = mode == EqualizerMode.Graphic,
-                        ),
-                        parametricEqualizer = profile.parametricEqualizer.copy(
-                            enabled = mode == EqualizerMode.Parametric,
-                        ),
-                    ),
-                )
-            },
-            variant = DesignTabsVariant.Pill,
+            selectedIndex = selectedMode.ordinal,
+            onSelectedIndexChange = onModeSelected,
+            variant = DesignTabsVariant.Filled,
             modifier = Modifier.padding(12.dp),
         )
     }
 }
+
+private fun AudioEffectProfile.selectEqualizerMode(mode: EqualizerMode): AudioEffectProfile = copy(
+    equalizerMode = mode,
+    graphicEqualizer = graphicEqualizer.copy(enabled = mode == EqualizerMode.Graphic),
+    parametricEqualizer = parametricEqualizer.copy(enabled = mode == EqualizerMode.Parametric),
+)
 
 @Composable
 private fun EqualizerPresetSection(

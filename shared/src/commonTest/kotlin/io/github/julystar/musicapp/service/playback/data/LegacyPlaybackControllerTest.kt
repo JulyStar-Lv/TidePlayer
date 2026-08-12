@@ -105,6 +105,26 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
+    fun restoredPreviewDoesNotCountAsPlaybackReadyForResume() {
+        assertEquals(
+            false,
+            playbackReadyForResume(
+                expectedTrackId = 7L,
+                currentTrackId = 7L,
+                playing = false,
+            ),
+        )
+        assertEquals(
+            true,
+            playbackReadyForResume(
+                expectedTrackId = 7L,
+                currentTrackId = 7L,
+                playing = true,
+            ),
+        )
+    }
+
+    @Test
     fun mapsLegacyStateToSeparatedPlayerState() {
         val state = legacyPlayerState(
             music = music(id = 7, title = "Moon"),

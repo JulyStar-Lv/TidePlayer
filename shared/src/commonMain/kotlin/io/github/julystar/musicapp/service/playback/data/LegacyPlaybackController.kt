@@ -458,7 +458,16 @@ class LegacyPlaybackController(
 
     private suspend fun seekAfterTrackLoads(trackId: Long, positionMs: Long) {
         withTimeoutOrNull(5_000) {
-            playerRepository.music.filter { music -> music?.meta?.id?.value == trackId }.first()
+            combine(
+                playerRepository.music,
+                playerRepository.playing,
+            ) { music, playing ->
+                playbackReadyForResume(
+                    expectedTrackId = trackId,
+                    currentTrackId = music?.meta?.id?.value,
+                    playing = playing,
+                )
+            }.filter { ready -> ready }.first()
         } ?: return
         val targetPositionMs = positionMs.coerceAtLeast(0L)
         legacyController.seek(targetPositionMs.toULong())
@@ -534,6 +543,12 @@ internal fun restoredPlaybackPosition(positionMs: Long, durationMs: Long?): Long
     val maximum = durationMs?.takeIf { it > 0L } ?: Long.MAX_VALUE
     return positionMs.coerceIn(0L, maximum)
 }
+
+internal fun playbackReadyForResume(
+    expectedTrackId: Long,
+    currentTrackId: Long?,
+    playing: Boolean,
+): Boolean = playing && currentTrackId == expectedTrackId
 
 internal fun PlaybackPosition.withRestoredPlaybackPreview(
     positionMs: Long,

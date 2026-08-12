@@ -74,6 +74,9 @@ import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
+import io.github.julystar.musicapp.core.presentation.components.DesignTabs
+import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
 import io.github.julystar.musicapp.core.presentation.components.designListDivider
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
@@ -396,43 +399,14 @@ private fun LibraryMobileTabs(
     selected: LibraryDesignCategory,
     onSelect: (LibraryDesignCategory) -> Unit,
 ) {
-    val shape = RoundedCornerShape(16.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(shape)
-            .border(1.dp, MiuixTheme.colorScheme.outline, shape)
-            .background(MiuixTheme.colorScheme.surface)
-            .padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        primaryLibraryCategories.forEach { category ->
-            val isSelected = selected == category
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isSelected) MiuixTheme.colorScheme.primary else Color.Transparent)
-                    .clickable { onSelect(category) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = localizedLibraryText(category.label),
-                    color = if (isSelected) {
-                        MiuixTheme.colorScheme.onPrimary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
-                    style = MiuixTheme.textStyles.footnote1,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
+    DesignTabs(
+        items = primaryLibraryCategories.map { category ->
+            DesignTabItem(label = localizedLibraryText(category.label))
+        },
+        selectedIndex = primaryLibraryCategories.indexOf(selected).coerceAtLeast(0),
+        onSelectedIndexChange = { index -> onSelect(primaryLibraryCategories[index]) },
+        variant = DesignTabsVariant.Filled,
+    )
 }
 
 @Composable
