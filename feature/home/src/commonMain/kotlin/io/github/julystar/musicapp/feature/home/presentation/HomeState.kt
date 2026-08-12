@@ -40,6 +40,7 @@ data class HomeFeaturedAlbum(
 
 @Immutable
 data class HomeArtist(
+    val id: Long,
     val name: String,
     val followers: String,
     val initials: String,
@@ -100,6 +101,7 @@ sealed interface HomeAction {
     ) : HomeAction
     data object PlayDailyPicks : HomeAction
     data class NavigateToAlbum(val albumId: Long) : HomeAction
+    data class NavigateToArtist(val artistId: Long) : HomeAction
     data class NavigateToPlaylist(val playlistId: Long) : HomeAction
     data object NavigateToDownloads : HomeAction
     data object NavigateToLibrary : HomeAction
@@ -111,6 +113,7 @@ sealed interface HomeAction {
 
 sealed interface HomeEvent {
     data class NavigateToAlbum(val albumId: Long) : HomeEvent
+    data class NavigateToArtist(val artistId: Long) : HomeEvent
     data class NavigateToPlaylist(val playlistId: Long) : HomeEvent
     data object NavigateToDownloads : HomeEvent
     data object NavigateToLibrary : HomeEvent

@@ -129,7 +129,12 @@ fun HomeOverviewScreen(
                     title = stringResource(Res.string.home_recommended_artists),
                     action = seeAll,
                 ) {
-                    ArtistRow(artists = state.artists)
+                    ArtistRow(
+                        artists = state.artists,
+                        onClick = { artist ->
+                            onAction(HomeAction.NavigateToArtist(artist.id))
+                        },
+                    )
                 }
             }
             item {
@@ -412,7 +417,10 @@ private fun AlbumCard(
 }
 
 @Composable
-private fun ArtistRow(artists: List<HomeArtist>) {
+private fun ArtistRow(
+    artists: List<HomeArtist>,
+    onClick: (HomeArtist) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -421,7 +429,9 @@ private fun ArtistRow(artists: List<HomeArtist>) {
     ) {
         artists.forEach { artist ->
             Column(
-                modifier = Modifier.width(128.dp),
+                modifier = Modifier
+                    .width(128.dp)
+                    .clickable { onClick(artist) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(

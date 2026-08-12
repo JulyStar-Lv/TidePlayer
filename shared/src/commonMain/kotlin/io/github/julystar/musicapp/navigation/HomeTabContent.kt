@@ -77,6 +77,7 @@ internal fun HomeTabContent(
                         rootNavController.navigate(MusicGraph.Listening)
                     },
                     onNavigateToAlbum = onNavigateToAlbum,
+                    onNavigateToArtist = onNavigateToArtist,
                     onNavigateToPlaylist = onNavigateToPlaylist,
                     onOpenSleepTimer = { openSleepTimer(SleepModeLeftTime(30 * 60 * 1000L)) },
                 )

@@ -95,6 +95,7 @@ class HomeViewModel(
             is HomeAction.PlayListeningTrack -> return
             HomeAction.PlayDailyPicks -> return
             is HomeAction.NavigateToAlbum -> HomeEvent.NavigateToAlbum(action.albumId)
+            is HomeAction.NavigateToArtist -> HomeEvent.NavigateToArtist(action.artistId)
             is HomeAction.NavigateToPlaylist -> HomeEvent.NavigateToPlaylist(action.playlistId)
             HomeAction.NavigateToDownloads -> HomeEvent.NavigateToDownloads
             HomeAction.NavigateToLibrary -> HomeEvent.NavigateToLibrary
@@ -223,7 +224,8 @@ internal fun LibraryAlbumItem.toHomeAlbum(): HomeFeaturedAlbum = HomeFeaturedAlb
     colors = homeGradient(id),
 )
 
-private fun LibraryArtistItem.toHomeArtist(): HomeArtist = HomeArtist(
+internal fun LibraryArtistItem.toHomeArtist(): HomeArtist = HomeArtist(
+    id = id,
     name = name,
     followers = "",
     initials = name

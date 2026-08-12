@@ -324,7 +324,9 @@ fun HomeDesignScreen(
                                 ArtistRow(
                                     artists = state.artists,
                                     size = artistSize,
-                                    onOpen = { onAction(HomeAction.NavigateToLibrary) },
+                                    onOpen = { artist ->
+                                        onAction(HomeAction.NavigateToArtist(artist.id))
+                                    },
                                 )
                             }
                         }
@@ -1059,7 +1061,7 @@ private fun AlbumRow(
 private fun ArtistRow(
     artists: List<HomeArtist>,
     size: Dp,
-    onOpen: () -> Unit,
+    onOpen: (HomeArtist) -> Unit,
 ) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
@@ -1070,7 +1072,7 @@ private fun ArtistRow(
                 modifier = Modifier
                     .width(size)
                     .clip(RoundedCornerShape(18.dp))
-                    .clickable(onClick = onOpen),
+                    .clickable { onOpen(artist) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(

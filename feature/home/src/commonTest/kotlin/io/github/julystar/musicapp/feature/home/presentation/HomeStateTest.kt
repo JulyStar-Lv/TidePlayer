@@ -3,6 +3,7 @@ package io.github.julystar.musicapp.feature.home.presentation
 import androidx.compose.ui.graphics.Color
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
+import io.github.julystar.musicapp.core.domain.model.LibraryArtistItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.feature.home.domain.ListeningHistoryEntry
 import io.github.julystar.musicapp.feature.home.domain.ListeningStatisticsSnapshot
@@ -85,10 +86,20 @@ class HomeStateTest {
     @Test
     fun `collection navigation actions identify the selected item`() {
         val albumAction = HomeAction.NavigateToAlbum(albumId = 7L)
+        val artistAction = HomeAction.NavigateToArtist(artistId = 8L)
         val playlistAction = HomeAction.NavigateToPlaylist(playlistId = 9L)
 
         assertEquals(7L, albumAction.albumId)
+        assertEquals(8L, artistAction.artistId)
         assertEquals(9L, playlistAction.playlistId)
+    }
+
+    @Test
+    fun `home artists retain their library id for detail navigation`() {
+        val artist = LibraryArtistItem(id = 8L, name = "Artist").toHomeArtist()
+
+        assertEquals(8L, artist.id)
+        assertEquals("Artist", artist.name)
     }
 
     @Test

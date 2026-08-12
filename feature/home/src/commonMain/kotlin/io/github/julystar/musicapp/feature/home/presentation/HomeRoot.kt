@@ -25,6 +25,7 @@ fun HomeRoot(
     onNavigateToSearch: () -> Unit,
     onNavigateToListening: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
+    onNavigateToArtist: (Long) -> Unit,
     onNavigateToPlaylist: (Long) -> Unit,
     onOpenSleepTimer: () -> Unit,
     viewModel: HomeViewModel? = null,
@@ -39,6 +40,7 @@ fun HomeRoot(
         activeViewModel.events.collect { event ->
             when (event) {
                 is HomeEvent.NavigateToAlbum -> onNavigateToAlbum(event.albumId)
+                is HomeEvent.NavigateToArtist -> onNavigateToArtist(event.artistId)
                 is HomeEvent.NavigateToPlaylist -> onNavigateToPlaylist(event.playlistId)
                 HomeEvent.NavigateToDownloads -> onNavigateToDownloads()
                 HomeEvent.NavigateToLibrary -> onNavigateToLibrary()
