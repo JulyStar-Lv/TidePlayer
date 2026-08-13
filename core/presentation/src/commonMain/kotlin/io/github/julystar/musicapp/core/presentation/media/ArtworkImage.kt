@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
@@ -30,6 +31,48 @@ fun ArtworkImage(
     smoothTransition: Boolean = false,
     loader: ArtworkImageLoader = koinInject(),
     fallback: @Composable () -> Unit = { DefaultArtworkImage() },
+) {
+    ArtworkImageInternal(
+        modifier = modifier,
+        artwork = artwork,
+        contentScale = contentScale,
+        smoothTransition = smoothTransition,
+        preparePlayerBackground = false,
+        loader = loader,
+        fallback = fallback,
+    )
+}
+
+@Composable
+fun PlayerBackgroundArtworkImage(
+    modifier: Modifier,
+    artwork: Artwork?,
+    blurRadius: Dp,
+    contentScale: ContentScale = ContentScale.FillWidth,
+    smoothTransition: Boolean = false,
+    loader: ArtworkImageLoader = koinInject(),
+    fallback: @Composable () -> Unit = { DefaultArtworkImage() },
+) {
+    ArtworkImageInternal(
+        modifier = modifier.platformPlayerBackgroundBlur(blurRadius),
+        artwork = artwork,
+        contentScale = contentScale,
+        smoothTransition = smoothTransition,
+        preparePlayerBackground = true,
+        loader = loader,
+        fallback = fallback,
+    )
+}
+
+@Composable
+private fun ArtworkImageInternal(
+    modifier: Modifier,
+    artwork: Artwork?,
+    contentScale: ContentScale,
+    smoothTransition: Boolean,
+    preparePlayerBackground: Boolean,
+    loader: ArtworkImageLoader,
+    fallback: @Composable () -> Unit,
 ) {
     Box(modifier = modifier) {
         var loadedArtwork: LoadedArtwork? by remember {
@@ -55,9 +98,14 @@ fun ArtworkImage(
                 loaded.artwork == artwork || (smoothTransition && artwork != null)
             }
             ?.bitmap
+        val renderedBitmap = if (preparePlayerBackground && displayedBitmap != null) {
+            rememberPlayerBackgroundBitmap(displayedBitmap)
+        } else {
+            displayedBitmap
+        }
         if (smoothTransition) {
             Crossfade(
-                targetState = displayedBitmap,
+                targetState = renderedBitmap,
                 animationSpec = tween(durationMillis = 180),
                 label = "artworkImage",
             ) { bitmap ->
@@ -69,7 +117,7 @@ fun ArtworkImage(
             }
         } else {
             ArtworkImageContent(
-                bitmap = displayedBitmap,
+                bitmap = renderedBitmap,
                 contentScale = contentScale,
                 fallback = fallback,
             )

@@ -32,10 +32,6 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
 import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
-import io.github.julystar.musicapp.service.playback.presentation.transition.PlayerArtworkSharedElementRole
-import io.github.julystar.musicapp.service.playback.presentation.transition.PlayerArtworkTransitionShape
-import io.github.julystar.musicapp.service.playback.presentation.nowplaying.compactArtworkTargetSize
-import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkSharedElement
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -187,16 +183,8 @@ private fun MiniPlayerBar(
         artwork = {
             MusicCover(
                 modifier = Modifier
-                    .playerArtworkSharedElement(PlayerArtworkSharedElementRole.Compact)
                     .size(44.dp)
-                    .clip(
-                        PlayerArtworkTransitionShape(
-                            compactSize = 44.dp,
-                            expandedSize = compactArtworkTargetSize(isPlaying),
-                            compactCornerRadius = shapes.sm,
-                            expandedCornerRadius = 28.dp,
-                        ),
-                    ),
+                    .clip(RoundedCornerShape(shapes.sm)),
                 artwork = cover,
             )
         },
@@ -306,7 +294,6 @@ private fun ExpandedMiniPlayerBar(
         artwork = {
             MusicCover(
                 modifier = Modifier
-                    .playerArtworkSharedElement(PlayerArtworkSharedElementRole.Compact)
                     .size(46.dp)
                     .clip(RoundedCornerShape(shapes.sm)),
                 artwork = cover,
@@ -411,7 +398,6 @@ private fun CompactMiniPlayer(
         artwork = {
             MusicCover(
                 modifier = Modifier
-                    .playerArtworkSharedElement(PlayerArtworkSharedElementRole.Compact)
                     .size(40.dp)
                     .clip(RoundedCornerShape(shapes.md)),
                 artwork = cover,

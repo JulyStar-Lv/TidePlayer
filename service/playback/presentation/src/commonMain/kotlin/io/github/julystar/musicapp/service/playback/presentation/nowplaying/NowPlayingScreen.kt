@@ -2,16 +2,17 @@ package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -53,6 +53,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -86,6 +89,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.dropShadow
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.media.PlayerBackgroundArtworkImage
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -154,21 +158,10 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val DesktopPlayerBreakpoint = 860.dp
-private const val NowPlayingDismissDistanceFraction = 0.5f
-private val NowPlayingDismissVelocityThreshold = 900.dp
+private val NowPlayingDismissDistanceThreshold = 240.dp
+private val NowPlayingDismissVelocityThreshold = 1_250.dp
+private const val NowPlayingDismissSettleDurationMillis = 260
 private const val LandscapeControlsAutoHideDelayMs = 5_000L
-private const val CompactPlayerChromePrecomposeDelayMillis = 16L
-
-@Composable
-private fun NowPlayingDismissGestureArea(
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp),
-    )
-}
 
 @Composable
 private fun MusicPlayerHeader(
@@ -1479,22 +1472,6 @@ private fun CompactNowPlayingLayout(
     onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
 ) {
-    val motion = DesignTokens.motion
-    var composeChrome by remember { mutableStateOf(false) }
-    var revealChrome by remember { mutableStateOf(false) }
-    val chromeAlpha by animateFloatAsState(
-        targetValue = if (revealChrome) 1f else 0f,
-        animationSpec = tween(durationMillis = motion.standardMillis),
-        label = "compactPlayerChromeAlpha",
-    )
-
-    LaunchedEffect(Unit) {
-        delay(motion.playerExpandMillis.toLong())
-        composeChrome = true
-        delay(CompactPlayerChromePrecomposeDelayMillis)
-        revealChrome = true
-    }
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isShortLandscape = maxWidth >= 640.dp && maxWidth > maxHeight && maxHeight < 520.dp
         if (isShortLandscape) {
@@ -1506,8 +1483,8 @@ private fun CompactNowPlayingLayout(
                 isSeeking = isSeeking,
                 liked = liked,
                 onLikedChange = onLikedChange,
-                composeChrome = composeChrome,
-                chromeAlpha = chromeAlpha,
+                composeChrome = true,
+                chromeAlpha = 1f,
                 progressContent = compactProgressContent,
                 onAction = onAction,
             )
@@ -1520,8 +1497,8 @@ private fun CompactNowPlayingLayout(
                 isSeeking = isSeeking,
                 liked = liked,
                 onLikedChange = onLikedChange,
-                composeChrome = composeChrome,
-                chromeAlpha = chromeAlpha,
+                composeChrome = true,
+                chromeAlpha = 1f,
                 progressContent = progressContent,
                 onAction = onAction,
             )
@@ -1550,101 +1527,148 @@ fun NowPlayingScreen(
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     var dragAnimationJob by remember { mutableStateOf<Job?>(null) }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .clipToBounds()
             .fillMaxSize(),
     ) {
-        ImmersivePlayerBackground(artwork = currentTrack?.artwork)
-        BoxWithConstraints(
+        val viewportHeightPx = with(density) { maxHeight.toPx() }
+        val dismissDistanceThresholdPx = with(density) {
+            NowPlayingDismissDistanceThreshold.toPx()
+        }
+        val dismissVelocityPxPerSecond = with(density) { NowPlayingDismissVelocityThreshold.toPx() }
+        val usesCompactLayout = maxWidth < DesktopPlayerBreakpoint || maxHeight < 520.dp
+        val dismissGestureModifier = if (usesCompactLayout) {
+            Modifier.pointerInput(
+                viewportHeightPx,
+                dismissDistanceThresholdPx,
+                dismissVelocityPxPerSecond,
+            ) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(
+                        requireUnconsumed = false,
+                        pass = PointerEventPass.Initial,
+                    )
+                    val velocityTracker = VelocityTracker().apply {
+                        addPosition(down.uptimeMillis, down.position)
+                    }
+                    var accumulatedX = 0f
+                    var accumulatedY = 0f
+                    var dismissDragStarted = false
+                    var pointerPressed = true
+
+                    while (pointerPressed) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        val delta = change.positionChange()
+                        velocityTracker.addPosition(change.uptimeMillis, change.position)
+                        pointerPressed = change.pressed
+
+                        if (!dismissDragStarted) {
+                            accumulatedX += delta.x
+                            accumulatedY += delta.y
+                            if (
+                                accumulatedY > viewConfiguration.touchSlop &&
+                                accumulatedY > kotlin.math.abs(accumulatedX)
+                            ) {
+                                dismissDragStarted = true
+                                dragAnimationJob?.cancel()
+                                dragOffsetPx = (dragOffsetPx + accumulatedY)
+                                    .coerceIn(0f, viewportHeightPx)
+                                change.consume()
+                            }
+                        } else {
+                            val dragDeltaY = if (delta.y > 0f) delta.y else delta.y * 0.36f
+                            dragOffsetPx = (dragOffsetPx + dragDeltaY)
+                                .coerceIn(0f, viewportHeightPx)
+                            change.consume()
+                        }
+                    }
+
+                    if (dismissDragStarted) {
+                        val velocityPxPerSecond = velocityTracker.calculateVelocity().y
+                        val shouldDismiss = shouldDismissNowPlayingScreen(
+                            dragOffsetPx = dragOffsetPx,
+                            dismissThresholdPx = dismissDistanceThresholdPx,
+                            velocityPxPerSecond = velocityPxPerSecond,
+                            velocityThresholdPxPerSecond = dismissVelocityPxPerSecond,
+                        )
+                        dragAnimationJob?.cancel()
+                        dragAnimationJob = dragAnimationScope.launch {
+                            animate(
+                                initialValue = dragOffsetPx,
+                                targetValue = if (shouldDismiss) viewportHeightPx else 0f,
+                                animationSpec = if (shouldDismiss) {
+                                    tween(
+                                        durationMillis = NowPlayingDismissSettleDurationMillis,
+                                        easing = LinearOutSlowInEasing,
+                                    )
+                                } else {
+                                    spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMediumLow,
+                                    )
+                                },
+                            ) { value, _ ->
+                                dragOffsetPx = value
+                            }
+                            if (shouldDismiss) onAction(NowPlayingAction.NavigateBack)
+                        }
+                    }
+                }
+            }
+        } else {
+            Modifier
+        }
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = titleBarInset)
                 .graphicsLayer {
                     translationY = dragOffsetPx
-                },
+                }
+                .then(dismissGestureModifier),
         ) {
-            val viewportHeightPx = with(density) { maxHeight.toPx() }
-            val dismissVelocityPxPerSecond = with(density) { NowPlayingDismissVelocityThreshold.toPx() }
-            val indicatorDraggableState = rememberDraggableState { deltaPx ->
-                dragOffsetPx = (dragOffsetPx + deltaPx).coerceIn(0f, viewportHeightPx)
-            }
-
-            if (maxWidth >= DesktopPlayerBreakpoint && maxHeight >= 520.dp) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding(),
-                ) {
-                    MusicPlayerHeader(onAction = onAction)
-                    DesktopNowPlayingLayout(
+            ImmersivePlayerBackground(artwork = currentTrack?.artwork)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = titleBarInset),
+            ) {
+                if (maxWidth >= DesktopPlayerBreakpoint && maxHeight >= 520.dp) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding(),
+                    ) {
+                        MusicPlayerHeader(onAction = onAction)
+                        DesktopNowPlayingLayout(
+                            state = state,
+                            lyricDisplaySettings = lyricDisplaySettings,
+                            playerInteractionSettings = playerInteractionSettings,
+                            currentPositionMs = currentPositionMs,
+                            isSeeking = isSeeking,
+                            progressContent = progressContent,
+                            liked = isFavorite,
+                            onLikedChange = { onToggleFavorite() },
+                            onAction = onAction,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                } else {
+                    CompactNowPlayingLayout(
                         state = state,
                         lyricDisplaySettings = lyricDisplaySettings,
                         playerInteractionSettings = playerInteractionSettings,
                         currentPositionMs = currentPositionMs,
                         isSeeking = isSeeking,
                         progressContent = progressContent,
+                        compactProgressContent = compactProgressContent,
                         liked = isFavorite,
                         onLikedChange = { onToggleFavorite() },
                         onAction = onAction,
-                        modifier = Modifier.weight(1f),
                     )
                 }
-            } else {
-                CompactNowPlayingLayout(
-                    state = state,
-                    lyricDisplaySettings = lyricDisplaySettings,
-                    playerInteractionSettings = playerInteractionSettings,
-                    currentPositionMs = currentPositionMs,
-                    isSeeking = isSeeking,
-                    progressContent = progressContent,
-                    compactProgressContent = compactProgressContent,
-                    liked = isFavorite,
-                    onLikedChange = { onToggleFavorite() },
-                    onAction = onAction,
-                )
-                NowPlayingDismissGestureArea(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .statusBarsPadding()
-                        .then(
-                            if (maxWidth >= 640.dp && maxWidth > maxHeight && maxHeight < 520.dp) {
-                                Modifier.width(160.dp)
-                            } else {
-                                Modifier.fillMaxWidth()
-                            },
-                        )
-                        .draggable(
-                            state = indicatorDraggableState,
-                            orientation = Orientation.Vertical,
-                            onDragStarted = {
-                                dragAnimationJob?.cancel()
-                            },
-                            onDragStopped = { velocityPxPerSecond ->
-                                if (
-                                    shouldDismissNowPlayingScreen(
-                                        dragOffsetPx = dragOffsetPx,
-                                        viewportHeightPx = viewportHeightPx,
-                                        velocityPxPerSecond = velocityPxPerSecond,
-                                        velocityThresholdPxPerSecond = dismissVelocityPxPerSecond,
-                                    )
-                                ) {
-                                    onAction(NowPlayingAction.NavigateBack)
-                                } else {
-                                    dragAnimationJob?.cancel()
-                                    dragAnimationJob = dragAnimationScope.launch {
-                                        animate(
-                                            initialValue = dragOffsetPx,
-                                            targetValue = 0f,
-                                            animationSpec = spring(),
-                                        ) { value, _ ->
-                                            dragOffsetPx = value
-                                        }
-                                    }
-                                }
-                            },
-                        ),
-                )
             }
         }
     }
@@ -1652,18 +1676,19 @@ fun NowPlayingScreen(
 
 internal fun shouldDismissNowPlayingScreen(
     dragOffsetPx: Float,
-    viewportHeightPx: Float,
+    dismissThresholdPx: Float,
     velocityPxPerSecond: Float,
     velocityThresholdPxPerSecond: Float,
 ): Boolean =
-    viewportHeightPx > 0f &&
+    dismissThresholdPx > 0f &&
         (
-            dragOffsetPx >= viewportHeightPx * NowPlayingDismissDistanceFraction ||
+            dragOffsetPx >= dismissThresholdPx ||
                 velocityPxPerSecond >= velocityThresholdPxPerSecond
         )
 
 @Composable
 fun ImmersivePlayerBackground(artwork: Artwork?) {
+    val blurRadius = 54.dp
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1678,19 +1703,21 @@ fun ImmersivePlayerBackground(artwork: Artwork?) {
                     ),
                 ),
         )
-        ArtworkImage(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = 1.36f
-                    scaleY = 1.36f
-                    alpha = 0.75f
-                }
-                .blur(54.dp),
-            artwork = artwork,
-            contentScale = ContentScale.Crop,
-            smoothTransition = true,
-        )
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            PlayerBackgroundArtworkImage(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(
+                        width = maxWidth * 1.36f + blurRadius * 2,
+                        height = maxHeight * 1.36f + blurRadius * 2,
+                    )
+                    .graphicsLayer { alpha = 0.75f },
+                artwork = artwork,
+                blurRadius = blurRadius,
+                contentScale = ContentScale.Crop,
+                smoothTransition = true,
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()

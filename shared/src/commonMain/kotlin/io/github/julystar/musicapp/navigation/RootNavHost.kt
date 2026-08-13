@@ -3,12 +3,17 @@ package io.github.julystar.musicapp.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOut
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,7 +33,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -78,11 +82,12 @@ import io.github.julystar.musicapp.feature.sources.presentation.navigation.sourc
 import io.github.julystar.musicapp.plugin.management.PluginSettingsRoot
 import io.github.julystar.musicapp.plugin.management.ManualMetadataSearchDialog
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingRoot
 import io.github.julystar.musicapp.service.playback.presentation.navigation.playerGraph
 import io.github.julystar.musicapp.service.playback.presentation.shell.PlaybackMiniPlayerHost
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberHasPlaybackItem
+import io.github.julystar.musicapp.service.playback.presentation.sleep.TimeToPauseModal
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkAnimatedVisibilityScope
-import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkExitInProgress
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkSharedTransitionScope
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
 import io.github.julystar.musicapp.widgets.appbar.NavigationRailBar
@@ -90,14 +95,14 @@ import io.github.julystar.musicapp.widgets.appbar.SidebarBar
 import io.github.julystar.musicapp.widgets.appbar.getNavigationRailWidth
 import io.github.julystar.musicapp.widgets.appbar.getSidebarWidth
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val ImmersiveContentLayoutDelayMillis = 48
-private const val PlayerArtworkTargetPrecomposeDelayMillis = 32L
-private const val PlayerArtworkExitStartDelayMillis = 32L
-private const val PlayerArtworkTargetPrecomposeAlpha = 0.01f
+private const val PlayerSheetTransitionDurationMillis = 300
+private const val PlayerOverlayOpenDurationMillis = 320
+private const val PlayerOverlayCloseDurationMillis = 260
+private val PlayerSheetEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -107,39 +112,24 @@ internal fun RootNavHost(
 ) {
     var metadataTrack by remember { mutableStateOf<NowPlayingTrackItem?>(null) }
     var showQueue by remember { mutableStateOf(false) }
+    var showNowPlayingOverlay by rememberSaveable { mutableStateOf(false) }
+    var nowPlayingOverlayHostEntryId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedRootTabName by rememberSaveable { mutableStateOf(HomeTab.HOME.name) }
-    var precomposingPlayerArtworkTarget by remember { mutableStateOf(false) }
-    var playerArtworkExitInProgress by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
+    val nowPlayingOverlayVisible = shouldShowNowPlayingOverlay(
+        requested = showNowPlayingOverlay,
+        hostEntryId = nowPlayingOverlayHostEntryId,
+        currentEntryId = currentBackStackEntry?.id,
+    )
     val showRootNavigationChrome = !isImmersivePlayerRoute(currentRoute)
     var contentUsesNavigationChrome by remember { mutableStateOf(showRootNavigationChrome) }
     val onRootTabSelected: (HomeTab) -> Unit = { selectedRootTabName = it.name }
     val playerTransitionDurationMillis = DesignTokens.motion.playerExpandMillis
-    val onNavigateBackFromNowPlaying: () -> Unit = {
-        if (!precomposingPlayerArtworkTarget) {
-            precomposingPlayerArtworkTarget = true
-            coroutineScope.launch {
-                delay(PlayerArtworkTargetPrecomposeDelayMillis)
-                playerArtworkExitInProgress = true
-                delay(PlayerArtworkExitStartDelayMillis)
-                if (!navController.popBackStack()) {
-                    precomposingPlayerArtworkTarget = false
-                    playerArtworkExitInProgress = false
-                } else {
-                    delay(playerTransitionDurationMillis.toLong())
-                    playerArtworkExitInProgress = false
-                }
-            }
-        }
-    }
+    val onNavigateBackFromNowPlaying: () -> Unit = { navController.popBackStack() }
 
     LaunchedEffect(showRootNavigationChrome) {
-        if (precomposingPlayerArtworkTarget && showRootNavigationChrome) {
-            precomposingPlayerArtworkTarget = false
-        }
         if (contentUsesNavigationChrome != showRootNavigationChrome) {
             delay(ImmersiveContentLayoutDelayMillis.toLong())
             contentUsesNavigationChrome = showRootNavigationChrome
@@ -154,7 +144,13 @@ internal fun RootNavHost(
             navController = navController,
             startDestination = MusicGraph.Home,
             enterTransition = {
-                if (isArtworkDetailTransition(
+                if (isOpeningNowPlayingSheet(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    playerSheetEnterTransition(PlayerSheetTransitionDurationMillis)
+                } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
                     )
@@ -176,7 +172,13 @@ internal fun RootNavHost(
                 }
             },
             exitTransition = {
-                if (isArtworkDetailTransition(
+                if (isOpeningNowPlayingSheet(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    holdExitTransition(PlayerSheetTransitionDurationMillis)
+                } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
                     )
@@ -207,7 +209,13 @@ internal fun RootNavHost(
                 }
             },
             popEnterTransition = {
-                if (isArtworkDetailTransition(
+                if (isClosingNowPlayingSheet(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    immediateEnterTransition(playerTransitionDurationMillis)
+                } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
                     )
@@ -229,7 +237,13 @@ internal fun RootNavHost(
                 }
             },
             popExitTransition = {
-                if (isArtworkDetailTransition(
+                if (isClosingNowPlayingSheet(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    playerSheetExitTransition(PlayerSheetTransitionDurationMillis)
+                } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
                     )
@@ -389,7 +403,6 @@ internal fun RootNavHost(
         val sharedTransitionScope = this
         CompositionLocalProvider(
             LocalPlayerArtworkSharedTransitionScope provides sharedTransitionScope,
-            LocalPlayerArtworkExitInProgress provides playerArtworkExitInProgress,
             LocalDetailArtworkSharedTransitionScope provides sharedTransitionScope,
         ) {
             SecondaryRootNavigationLayout(
@@ -406,22 +419,59 @@ internal fun RootNavHost(
                     }
                 },
                 scaffoldPadding = scaffoldPadding,
-                onOpenNowPlaying = { navController.navigate(MusicGraph.NowPlaying) },
+                onOpenNowPlaying = {
+                    nowPlayingOverlayHostEntryId = currentBackStackEntry?.id
+                    showNowPlayingOverlay = true
+                },
                 onOpenQueue = { showQueue = true },
                 captureStickyHeader = shouldCaptureSecondaryStickyHeader(currentRoute),
-                showChrome = showRootNavigationChrome || precomposingPlayerArtworkTarget,
+                showChrome = showRootNavigationChrome,
                 contentUsesNavigationChrome = contentUsesNavigationChrome,
-                chromeAlpha = if (showRootNavigationChrome) 1f else PlayerArtworkTargetPrecomposeAlpha,
+                chromeAlpha = 1f,
                 transitionDurationMillis = playerTransitionDurationMillis,
                 content = navigationContent,
             )
+            AnimatedVisibility(
+                visible = nowPlayingOverlayVisible,
+                modifier = Modifier.fillMaxSize(),
+                enter = slideInVertically(
+                    animationSpec = tween(
+                        durationMillis = PlayerOverlayOpenDurationMillis,
+                        easing = FastOutSlowInEasing,
+                    ),
+                    initialOffsetY = { fullHeight -> fullHeight },
+                ),
+                exit = slideOutVertically(
+                    animationSpec = tween(
+                        durationMillis = PlayerOverlayCloseDurationMillis,
+                        easing = LinearOutSlowInEasing,
+                    ),
+                    targetOffsetY = { fullHeight -> fullHeight },
+                ),
+            ) {
+                NowPlayingRoot(
+                    onNavigateBack = {
+                        showNowPlayingOverlay = false
+                        nowPlayingOverlayHostEntryId = null
+                    },
+                    onNavigateToLyrics = { trackId ->
+                        navController.navigate(MusicGraph.Lyrics(trackId))
+                    },
+                    onOpenQueue = { showQueue = true },
+                    onNavigateToLyricImport = {
+                        navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
+                    },
+                    onSearchMetadata = { track -> metadataTrack = track },
+                )
+                TimeToPauseModal()
+            }
             ManualMetadataSearchDialog(
                 track = metadataTrack,
                 onDismiss = { metadataTrack = null },
             )
             QueueRoot(
                 show = showQueue,
-                coverNowPlayingLyrics = isRouteNowPlaying(currentRoute),
+                coverNowPlayingLyrics = nowPlayingOverlayVisible || isRouteNowPlaying(currentRoute),
                 onDismiss = { showQueue = false },
             )
         }
@@ -476,14 +526,51 @@ private fun sharedArtworkExitTransition(durationMillis: Int) = fadeOut(
     animationSpec = tween(durationMillis = durationMillis),
 )
 
+private fun playerSheetEnterTransition(durationMillis: Int) = slideIn(
+    animationSpec = tween(
+        durationMillis = durationMillis,
+        easing = PlayerSheetEasing,
+    ),
+    initialOffset = { fullSize -> IntOffset(0, fullSize.height) },
+)
+
+private fun playerSheetExitTransition(durationMillis: Int) = slideOut(
+    animationSpec = tween(
+        durationMillis = durationMillis,
+        easing = PlayerSheetEasing,
+    ),
+    targetOffset = { fullSize -> IntOffset(0, fullSize.height) },
+)
+
+private fun holdExitTransition(durationMillis: Int) = fadeOut(
+    targetAlpha = 0f,
+    animationSpec = keyframes {
+        this.durationMillis = durationMillis
+        1f at (durationMillis - 1).coerceAtLeast(0)
+        0f at durationMillis
+    },
+)
+
 internal fun shouldShowPersistentMiniPlayer(route: String?): Boolean =
     !isRouteHome(route) && !isImmersivePlayerRoute(route)
+
+internal fun shouldShowNowPlayingOverlay(
+    requested: Boolean,
+    hostEntryId: String?,
+    currentEntryId: String?,
+): Boolean = requested && hostEntryId != null && hostEntryId == currentEntryId
 
 internal fun shouldReturnToHome(route: String?): Boolean =
     route != null && !isRouteHome(route)
 
 internal fun isImmersivePlayerRoute(route: String?): Boolean =
     isRouteNowPlaying(route) || isRouteLyrics(route)
+
+internal fun isOpeningNowPlayingSheet(initialRoute: String?, targetRoute: String?): Boolean =
+    !isImmersivePlayerRoute(initialRoute) && isRouteNowPlaying(targetRoute)
+
+internal fun isClosingNowPlayingSheet(initialRoute: String?, targetRoute: String?): Boolean =
+    isRouteNowPlaying(initialRoute) && !isImmersivePlayerRoute(targetRoute)
 
 internal fun isImmersiveContentLayoutTransition(
     initialRoute: String?,

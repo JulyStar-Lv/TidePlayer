@@ -27,13 +27,6 @@ val LocalPlayerArtworkSharedTransitionScope =
 val LocalPlayerArtworkAnimatedVisibilityScope =
     staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
-val LocalPlayerArtworkExitInProgress = staticCompositionLocalOf { false }
-
-enum class PlayerArtworkSharedElementRole {
-    Compact,
-    Expanded,
-}
-
 internal data class PlayerArtworkTransitionShape(
     val compactSize: Dp,
     val expandedSize: Dp,
@@ -69,38 +62,22 @@ internal data class PlayerArtworkTransitionShape(
 }
 
 @Composable
-fun Modifier.playerArtworkSharedElement(
-    role: PlayerArtworkSharedElementRole = PlayerArtworkSharedElementRole.Expanded,
-): Modifier {
+fun Modifier.playerArtworkSharedElement(): Modifier {
     val sharedTransitionScope = LocalPlayerArtworkSharedTransitionScope.current ?: return this
+    val animatedVisibilityScope = LocalPlayerArtworkAnimatedVisibilityScope.current ?: return this
     val durationMillis = DesignTokens.motion.playerExpandMillis
 
     return with(sharedTransitionScope) {
-        if (LocalPlayerArtworkExitInProgress.current) {
-            sharedElementWithCallerManagedVisibility(
-                sharedContentState = rememberSharedContentState(PlayerArtworkSharedElementKey),
-                visible = role == PlayerArtworkSharedElementRole.Compact,
-                boundsTransform = BoundsTransform { _, _ ->
-                    tween(
-                        durationMillis = durationMillis,
-                        easing = CubicBezierEasing(0.32f, 0f, 0.15f, 1f),
-                    )
-                },
-            )
-        } else {
-            val animatedVisibilityScope = LocalPlayerArtworkAnimatedVisibilityScope.current
-                ?: return this@playerArtworkSharedElement
-            sharedElement(
-                sharedContentState = rememberSharedContentState(PlayerArtworkSharedElementKey),
-                animatedVisibilityScope = animatedVisibilityScope,
-                boundsTransform = BoundsTransform { _, _ ->
-                    tween(
-                        durationMillis = durationMillis,
-                        easing = CubicBezierEasing(0.32f, 0f, 0.15f, 1f),
-                    )
-                },
-            )
-        }
+        sharedElement(
+            sharedContentState = rememberSharedContentState(PlayerArtworkSharedElementKey),
+            animatedVisibilityScope = animatedVisibilityScope,
+            boundsTransform = BoundsTransform { _, _ ->
+                tween(
+                    durationMillis = durationMillis,
+                    easing = CubicBezierEasing(0.32f, 0f, 0.15f, 1f),
+                )
+            },
+        )
     }
 }
 

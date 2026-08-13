@@ -165,21 +165,21 @@ class NowPlayingStateTest {
     }
 
     @Test
-    fun nowPlayingScreenDismissesAfterHalfScreenDrag() {
+    fun nowPlayingScreenDismissesAfterReferenceDistanceThreshold() {
         assertFalse(
             shouldDismissNowPlayingScreen(
-                dragOffsetPx = 499f,
-                viewportHeightPx = 1000f,
-                velocityPxPerSecond = 899f,
-                velocityThresholdPxPerSecond = 900f,
+                dragOffsetPx = 239f,
+                dismissThresholdPx = 240f,
+                velocityPxPerSecond = 1_249f,
+                velocityThresholdPxPerSecond = 1_250f,
             ),
         )
         assertTrue(
             shouldDismissNowPlayingScreen(
-                dragOffsetPx = 500f,
-                viewportHeightPx = 1000f,
+                dragOffsetPx = 240f,
+                dismissThresholdPx = 240f,
                 velocityPxPerSecond = 0f,
-                velocityThresholdPxPerSecond = 900f,
+                velocityThresholdPxPerSecond = 1_250f,
             ),
         )
     }
@@ -189,17 +189,17 @@ class NowPlayingStateTest {
         assertTrue(
             shouldDismissNowPlayingScreen(
                 dragOffsetPx = 100f,
-                viewportHeightPx = 1000f,
-                velocityPxPerSecond = 900f,
-                velocityThresholdPxPerSecond = 900f,
+                dismissThresholdPx = 240f,
+                velocityPxPerSecond = 1_250f,
+                velocityThresholdPxPerSecond = 1_250f,
             ),
         )
         assertFalse(
             shouldDismissNowPlayingScreen(
                 dragOffsetPx = 100f,
-                viewportHeightPx = 1000f,
-                velocityPxPerSecond = -1200f,
-                velocityThresholdPxPerSecond = 900f,
+                dismissThresholdPx = 240f,
+                velocityPxPerSecond = -1_500f,
+                velocityThresholdPxPerSecond = 1_250f,
             ),
         )
     }

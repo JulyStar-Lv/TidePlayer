@@ -77,6 +77,31 @@ class RootNavHostTest {
     }
 
     @Test
+    fun `now playing overlay remains attached only to the screen that opened it`() {
+        assertTrue(
+            shouldShowNowPlayingOverlay(
+                requested = true,
+                hostEntryId = "home-entry",
+                currentEntryId = "home-entry",
+            ),
+        )
+        assertFalse(
+            shouldShowNowPlayingOverlay(
+                requested = true,
+                hostEntryId = "home-entry",
+                currentEntryId = "lyrics-entry",
+            ),
+        )
+        assertFalse(
+            shouldShowNowPlayingOverlay(
+                requested = false,
+                hostEntryId = "home-entry",
+                currentEntryId = "home-entry",
+            ),
+        )
+    }
+
+    @Test
     fun `now playing and lyrics share immersive player transitions`() {
         assertTrue(isImmersivePlayerRoute("io.github.julystar.musicapp.MusicGraph.NowPlaying"))
         assertTrue(
@@ -85,6 +110,34 @@ class RootNavHostTest {
             ),
         )
         assertFalse(isImmersivePlayerRoute("io.github.julystar.musicapp.MusicGraph.Album/{id}"))
+    }
+
+    @Test
+    fun `now playing uses a vertical sheet transition from persistent mini player routes`() {
+        assertTrue(
+            isOpeningNowPlayingSheet(
+                initialRoute = "Home",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+            ),
+        )
+        assertTrue(
+            isClosingNowPlayingSheet(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+                targetRoute = "Home",
+            ),
+        )
+        assertFalse(
+            isOpeningNowPlayingSheet(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.Lyrics/{id}",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+            ),
+        )
+        assertFalse(
+            isClosingNowPlayingSheet(
+                initialRoute = "io.github.julystar.musicapp.MusicGraph.NowPlaying",
+                targetRoute = "io.github.julystar.musicapp.MusicGraph.Lyrics/{id}",
+            ),
+        )
     }
 
     @Test
