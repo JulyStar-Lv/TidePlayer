@@ -603,6 +603,7 @@ internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
     if (isRouteHome(route)) return true
     val routeName = route?.substringBefore('/') ?: return false
     return routeName == "Album" || routeName.endsWith(".Album") ||
+        routeName == "Artist" || routeName.endsWith(".Artist") ||
         routeName == "Playlist" || routeName.endsWith(".Playlist") ||
         routeName == "Favorites" || routeName.endsWith(".Favorites") ||
         routeName == "Listening" || routeName.endsWith(".Listening") ||

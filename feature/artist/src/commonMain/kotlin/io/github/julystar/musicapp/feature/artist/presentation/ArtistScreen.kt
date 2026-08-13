@@ -24,16 +24,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -62,7 +60,6 @@ import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
-import kotlinx.coroutines.launch
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_play
@@ -99,42 +96,27 @@ fun ArtistScreen(
     val spacing = DesignTokens.spacing
     val bottomContentInset = LocalDesignBottomContentInset.current
     val defaultTitle = stringResource(Res.string.artist_default_title)
-    val initialSection = if (state.albums.isNotEmpty() || state.tracks.isEmpty()) {
-        ArtistSection.Albums
-    } else {
-        ArtistSection.Songs
-    }
-    val pagerState = rememberPagerState(
-        initialPage = initialSection.ordinal,
-        pageCount = { ArtistSection.entries.size },
-    )
-    val listStates = listOf(rememberLazyListState(), rememberLazyListState())
-    val activeListState = listStates[pagerState.currentPage.coerceIn(listStates.indices)]
-    val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     val collapseDistance = with(LocalDensity.current) { 88.dp.roundToPx() }
-    val actionBarProgress by remember(activeListState, collapseDistance) {
+    val actionBarProgress by remember(listState, collapseDistance) {
         derivedStateOf {
-            if (activeListState.firstVisibleItemIndex > 0) {
+            if (listState.firstVisibleItemIndex > 0) {
                 1f
             } else {
-                (activeListState.firstVisibleItemScrollOffset / collapseDistance.toFloat())
+                (listState.firstVisibleItemScrollOffset / collapseDistance.toFloat())
                     .coerceIn(0f, 1f)
             }
         }
     }
     val heroTitleAlpha = (1f - actionBarProgress / 0.70f).coerceIn(0f, 1f)
-
-    LaunchedEffect(state.artistId) {
-        pagerState.scrollToPage(initialSection.ordinal)
-        listStates.forEach { listState -> listState.scrollToItem(0) }
-    }
-
-    fun selectSection(section: ArtistSection) {
-        if (pagerState.currentPage == section.ordinal) return
-        coroutineScope.launch {
-            pagerState.animateScrollToPage(section.ordinal)
-            listStates[section.ordinal].animateScrollToItem(ARTIST_SECTION_TABS_INDEX)
-        }
+    var selectedSection by remember(state.artistId) {
+        mutableStateOf(
+            if (state.albums.isNotEmpty() || state.tracks.isEmpty()) {
+                ArtistSection.Albums
+            } else {
+                ArtistSection.Songs
+            },
+        )
     }
 
     BoxWithConstraints(
@@ -174,95 +156,90 @@ fun ArtistScreen(
                     onAction = { onAction(ArtistAction.Retry) },
                 )
 
-                else -> HorizontalPager(
-                    state = pagerState,
+                else -> LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    key = { ArtistSection.entries[it] },
-                ) { page ->
-                    val section = ArtistSection.entries[page]
-                    LazyColumn(
-                        state = listStates[page],
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            start = horizontalPadding,
-                            top = DesignTokens.adaptive.compactHeaderHeight,
-                            end = horizontalPadding,
-                            bottom = spacing.lg + bottomContentInset,
-                        ),
-                    ) {
-                        item(key = "artist-hero") {
-                            ArtistHero(
-                                name = state.name.ifBlank { defaultTitle },
-                                artwork = state.artwork,
-                                albumCount = state.albums.size,
-                                trackCount = state.tracks.size,
-                                compact = compact,
-                                titleAlpha = heroTitleAlpha,
-                            )
-                        }
-                        stickyHeader(key = "artist-sections") {
-                            ArtistSectionTabs(
-                                selectedSection = ArtistSection.entries[pagerState.currentPage],
-                                albumCount = state.albums.size,
-                                trackCount = state.tracks.size,
-                                onSectionSelected = ::selectSection,
-                            )
-                        }
-                        when (section) {
-                            ArtistSection.Albums -> {
-                                if (state.albums.isEmpty()) {
-                                    item(key = "artist-albums-empty") {
-                                        ArtistEmptyState(
-                                            title = stringResource(Res.string.artist_no_albums),
-                                            message = stringResource(Res.string.artist_no_albums_message),
-                                        )
-                                    }
-                                } else {
-                                    item(key = "artist-album-grid") {
-                                        ArtistAlbumGrid(
-                                            albums = state.albums,
-                                            onAlbumClick = { album ->
-                                                onAction(ArtistAction.NavigateToAlbum(album.id))
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-
-                            ArtistSection.Songs -> {
-                                item(key = "artist-song-actions") {
-                                    ArtistSongsActionBar(
-                                        canPlay = state.tracks.isNotEmpty(),
-                                        onPlayAll = { onAction(ArtistAction.PlayAll) },
+                    contentPadding = PaddingValues(
+                        start = horizontalPadding,
+                        top = DesignTokens.adaptive.compactHeaderHeight,
+                        end = horizontalPadding,
+                        bottom = spacing.lg + bottomContentInset,
+                    ),
+                ) {
+                    item(key = "artist-hero") {
+                        ArtistHero(
+                            name = state.name.ifBlank { defaultTitle },
+                            artwork = state.artwork,
+                            albumCount = state.albums.size,
+                            trackCount = state.tracks.size,
+                            compact = compact,
+                            titleAlpha = heroTitleAlpha,
+                        )
+                    }
+                    stickyHeader(key = "artist-sections") {
+                        ArtistSectionTabs(
+                            selectedSection = selectedSection,
+                            albumCount = state.albums.size,
+                            trackCount = state.tracks.size,
+                            onSectionSelected = { section ->
+                                selectedSection = section
+                            },
+                        )
+                    }
+                    when (selectedSection) {
+                        ArtistSection.Albums -> {
+                            if (state.albums.isEmpty()) {
+                                item(key = "artist-albums-empty") {
+                                    ArtistEmptyState(
+                                        title = stringResource(Res.string.artist_no_albums),
+                                        message = stringResource(Res.string.artist_no_albums_message),
                                     )
                                 }
-                                if (state.tracks.isEmpty()) {
-                                    item(key = "artist-songs-empty") {
-                                        ArtistEmptyState(
-                                            title = stringResource(Res.string.artist_no_songs),
-                                            message = stringResource(Res.string.artist_no_songs_message),
-                                        )
-                                    }
-                                } else {
-                                    itemsIndexed(
-                                        items = state.tracks,
-                                        key = { index, track -> track.lazyListKey(index) },
-                                    ) { index, track ->
-                                        ArtistTrackRow(
-                                            track = track,
-                                            fallbackNumber = index + 1,
-                                            playing = track.id == currentPlayingTrackId,
-                                            onPlay = { onAction(ArtistAction.PlayTrack(track.id)) },
-                                            onAlbumClick = track.albumId?.let { albumId ->
-                                                { onAction(ArtistAction.NavigateToAlbum(albumId)) }
-                                            },
-                                            onDownload = {
-                                                if (track.canDownload) {
-                                                    onAction(ArtistAction.DownloadTrack(track))
-                                                }
-                                            },
-                                        )
-                                    }
+                            } else {
+                                item(key = "artist-album-grid") {
+                                    ArtistAlbumGrid(
+                                        albums = state.albums,
+                                        onAlbumClick = { album ->
+                                            onAction(ArtistAction.NavigateToAlbum(album.id))
+                                        },
+                                    )
+                                }
+                            }
+                        }
+
+                        ArtistSection.Songs -> {
+                            item(key = "artist-song-actions") {
+                                ArtistSongsActionBar(
+                                    canPlay = state.tracks.isNotEmpty(),
+                                    onPlayAll = { onAction(ArtistAction.PlayAll) },
+                                )
+                            }
+                            if (state.tracks.isEmpty()) {
+                                item(key = "artist-songs-empty") {
+                                    ArtistEmptyState(
+                                        title = stringResource(Res.string.artist_no_songs),
+                                        message = stringResource(Res.string.artist_no_songs_message),
+                                    )
+                                }
+                            } else {
+                                itemsIndexed(
+                                    items = state.tracks,
+                                    key = { index, track -> track.lazyListKey(index) },
+                                ) { index, track ->
+                                    ArtistTrackRow(
+                                        track = track,
+                                        fallbackNumber = index + 1,
+                                        playing = track.id == currentPlayingTrackId,
+                                        onPlay = { onAction(ArtistAction.PlayTrack(track.id)) },
+                                        onAlbumClick = track.albumId?.let { albumId ->
+                                            { onAction(ArtistAction.NavigateToAlbum(albumId)) }
+                                        },
+                                        onDownload = {
+                                            if (track.canDownload) {
+                                                onAction(ArtistAction.DownloadTrack(track))
+                                            }
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -285,8 +262,6 @@ fun ArtistScreen(
         }
     }
 }
-
-private const val ARTIST_SECTION_TABS_INDEX = 1
 
 private enum class ArtistSection {
     Albums,

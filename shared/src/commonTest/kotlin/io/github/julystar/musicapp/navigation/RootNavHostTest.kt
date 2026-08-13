@@ -241,6 +241,7 @@ class RootNavHostTest {
         listOf(
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Home",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Album/{id}",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Artist/{id}",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Playlist/{id}",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Favorites",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Listening",
@@ -248,11 +249,6 @@ class RootNavHostTest {
         ).forEach { route ->
             assertTrue(shouldCaptureSecondaryStickyHeader(route), route)
         }
-        assertFalse(
-            shouldCaptureSecondaryStickyHeader(
-                "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Artist/{id}",
-            ),
-        )
     }
 
     @Test
