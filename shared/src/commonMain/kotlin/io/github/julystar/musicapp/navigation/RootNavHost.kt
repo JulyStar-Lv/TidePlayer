@@ -483,7 +483,11 @@ internal fun RootNavHost(
                     } else {
                         immediateEnterTransition(playerTransitionDurationMillis)
                     },
-                    exit = immediateExitTransition(playerTransitionDurationMillis),
+                    exit = if (isRouteLyrics(currentRoute)) {
+                        fadeOut(animationSpec = tween(playerTransitionDurationMillis))
+                    } else {
+                        immediateExitTransition(playerTransitionDurationMillis)
+                    },
                 ) {
                     val playerOverlayVisibilityScope = this
                     CompositionLocalProvider(
