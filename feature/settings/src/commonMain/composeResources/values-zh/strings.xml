@@ -544,10 +544,6 @@
     <string name="settings_lyrics_priority_move_down">下移</string>
     <string name="settings_lyrics_ignore_headers">忽略歌词头标签</string>
     <string name="settings_lyrics_ignore_headers_summary">隐藏歌手、专辑、偏移量和提供方等元数据标签</string>
-    <string name="settings_lyrics_blacklist">歌词行黑名单</string>
-    <string name="settings_lyrics_blacklist_count">已屏蔽 %1$d 行</string>
-    <string name="settings_lyrics_blacklist_summary">每行输入一条完整文本，完全匹配的歌词行不会显示。</string>
-    <string name="settings_lyrics_blacklist_hint">每行一条歌词</string>
     <string name="settings_lyrics_font_section">歌词字体</string>
     <string name="settings_lyrics_western_font">西文字体</string>
     <string name="settings_lyrics_cjk_font">中日韩字体</string>

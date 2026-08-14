@@ -131,7 +131,6 @@ sealed interface SettingsAction {
     data class SetLyricSourceMode(val mode: LyricSourceMode) : SettingsAction
     data class SetLyricSourcePriority(val priority: List<LyricSourceKind>) : SettingsAction
     data class SetIgnoreLyricHeaderTags(val enabled: Boolean) : SettingsAction
-    data class SetLyricLineBlacklist(val lines: List<String>) : SettingsAction
     data class SetLyricFontSettings(val settings: LyricFontSettings) : SettingsAction
     data class SetPlaybackAdvancedSettings(val settings: PlaybackAdvancedSettings) : SettingsAction
     data class SetPlayerInteractionSettings(val settings: PlayerInteractionSettings) : SettingsAction

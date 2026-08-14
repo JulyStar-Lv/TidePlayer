@@ -12,6 +12,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.C.WAKE_MODE_NETWORK
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_PLAY_PAUSE
@@ -88,6 +89,7 @@ class PlaybackService : MediaLibraryService() {
     private var dspAudioProcessor: RustDspAudioProcessor? = null
     private var currentSettings = AppSettings.Default
     private var favoriteTrackIds: Set<Long> = emptySet()
+    private val notificationLyrics = AndroidNotificationLyrics()
     private val previousCommand = SessionCommand(PLAYER_TO_PREV_COMMAND, Bundle.EMPTY)
     private val nextCommand = SessionCommand(PLAYER_TO_NEXT_COMMAND, Bundle.EMPTY)
     private val toggleFavoriteCommand = SessionCommand(PLAYER_TOGGLE_FAVORITE_COMMAND, Bundle.EMPTY)
@@ -103,8 +105,13 @@ class PlaybackService : MediaLibraryService() {
             "Playback service creating",
         )
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider(this).apply {
-                setSmallIcon(R.drawable.notification_small_icon)
+            object : DefaultMediaNotificationProvider(this) {
+                init {
+                    setSmallIcon(R.drawable.notification_small_icon)
+                }
+
+                override fun getNotificationContentTitle(metadata: MediaMetadata): CharSequence? =
+                    notificationLyrics.resolveContentTitle(metadata)
             }
         )
         val context = this
@@ -359,6 +366,8 @@ class PlaybackService : MediaLibraryService() {
             roomLibraryStore = roomLibraryStore,
             scope = serviceScope,
             playerProvider = { _mediaSession?.player },
+            notificationLyrics = notificationLyrics,
+            refreshMediaNotification = ::refreshMediaNotification,
         )
 
         player.addListener(object : Player.Listener {
@@ -486,15 +495,15 @@ class PlaybackService : MediaLibraryService() {
                 val artworkData = withContext(Dispatchers.IO) {
                     artworkRepository.load(music.toPlaybackArtwork())
                 } ?: return@collectLatest
-                val currentItem = player.currentMediaItem ?: return@collectLatest
-                if (currentItem.mediaId != music.meta.id.value.toString()) return@collectLatest
+                val latestItem = player.currentMediaItem ?: return@collectLatest
+                if (latestItem.mediaId != music.meta.id.value.toString()) return@collectLatest
                 if (!player.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
                     return@collectLatest
                 }
                 player.replaceMediaItem(
                     player.currentMediaItemIndex,
-                    currentItem.buildUpon()
-                        .setMediaMetadata(currentItem.mediaMetadata.withArtworkData(artworkData))
+                    latestItem.buildUpon()
+                        .setMediaMetadata(latestItem.mediaMetadata.withArtworkData(artworkData))
                         .build(),
                 )
             }
@@ -551,6 +560,11 @@ class PlaybackService : MediaLibraryService() {
             playerRepository.notifyDurationChanged()
             recenterMedia3QueueIfNeeded(player, playlist, trackId)
         }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun refreshMediaNotification() {
+        triggerNotificationUpdate()
     }
 
     private fun recenterMedia3QueueIfNeeded(

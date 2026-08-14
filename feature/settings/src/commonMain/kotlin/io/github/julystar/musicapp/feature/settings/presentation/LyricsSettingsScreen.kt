@@ -33,10 +33,6 @@ internal fun LyricsSettingsScreen(
     val output = state.settings.lyricOutput
     val capabilities = state.capabilities
     var editingSourcePriority by remember { mutableStateOf(false) }
-    var editingBlacklist by remember { mutableStateOf(false) }
-    var blacklistInput by remember(lyrics.lineBlacklist) {
-        mutableStateOf(lyrics.lineBlacklist.joinToString("\n"))
-    }
 
     SettingsPageLayout(title = stringResource(Res.string.settings_lyrics_title), onBack = onBack) {
         SettingsSection(title = stringResource(Res.string.settings_lyrics_alignment_section)) {
@@ -67,17 +63,6 @@ internal fun LyricsSettingsScreen(
                 summary = stringResource(Res.string.settings_lyrics_ignore_headers_summary),
                 checked = lyrics.ignoreHeaderTags,
                 onCheckedChange = { onAction(SettingsAction.SetIgnoreLyricHeaderTags(it)) },
-            )
-            SettingsInfoRow(
-                title = stringResource(Res.string.settings_lyrics_blacklist),
-                value = stringResource(
-                    Res.string.settings_lyrics_blacklist_count,
-                    lyrics.lineBlacklist.size,
-                ),
-                onClick = {
-                    blacklistInput = lyrics.lineBlacklist.joinToString("\n")
-                    editingBlacklist = true
-                },
             )
         }
 
@@ -326,21 +311,6 @@ internal fun LyricsSettingsScreen(
             onAction(SettingsAction.SetLyricSourcePriority(priority))
         },
         onDismiss = { editingSourcePriority = false },
-    )
-
-    SettingsInputDialog(
-        show = editingBlacklist,
-        title = stringResource(Res.string.settings_lyrics_blacklist),
-        message = stringResource(Res.string.settings_lyrics_blacklist_summary),
-        value = blacklistInput,
-        label = stringResource(Res.string.settings_lyrics_blacklist_hint),
-        singleLine = false,
-        onValueChange = { blacklistInput = it },
-        onConfirm = {
-            onAction(SettingsAction.SetLyricLineBlacklist(blacklistInput.lineSequence().toList()))
-            editingBlacklist = false
-        },
-        onDismiss = { editingBlacklist = false },
     )
 }
 

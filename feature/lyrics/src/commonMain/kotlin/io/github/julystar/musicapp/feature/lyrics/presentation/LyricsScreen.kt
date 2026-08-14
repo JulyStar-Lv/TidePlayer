@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -67,6 +66,7 @@ import io.github.julystar.musicapp.service.playback.presentation.nowplaying.Imme
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.toSyncedLyrics
 import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkSharedElement
+import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkTransitionShape
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.core.presentation.generated.resources.Res as CoreRes
@@ -207,6 +207,7 @@ private fun LyricsTrackHeader(
     modifier: Modifier = Modifier,
 ) {
     var moreMenuExpanded by remember { mutableStateOf(false) }
+    val artworkShape = remember { playerArtworkTransitionShape() }
 
     Row(
         modifier = modifier
@@ -221,7 +222,7 @@ private fun LyricsTrackHeader(
             modifier = Modifier
                 .playerArtworkSharedElement()
                 .size(52.dp)
-                .clip(RoundedCornerShape(13.dp)),
+                .clip(artworkShape),
         ) {
             ArtworkImage(
                 artwork = track?.artwork,

@@ -544,10 +544,6 @@
     <string name="settings_lyrics_priority_move_down">Move down</string>
     <string name="settings_lyrics_ignore_headers">Ignore lyric header tags</string>
     <string name="settings_lyrics_ignore_headers_summary">Hide metadata tags such as artist, album, offset, and provider</string>
-    <string name="settings_lyrics_blacklist">Line blacklist</string>
-    <string name="settings_lyrics_blacklist_count">%1$d blocked lines</string>
-    <string name="settings_lyrics_blacklist_summary">Enter one exact line per row. Matching lyric lines will not be displayed.</string>
-    <string name="settings_lyrics_blacklist_hint">One lyric line per row</string>
     <string name="settings_lyrics_font_section">Lyric fonts</string>
     <string name="settings_lyrics_western_font">Western font</string>
     <string name="settings_lyrics_cjk_font">CJK font</string>

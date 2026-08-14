@@ -73,6 +73,23 @@ import kotlin.test.assertTrue
 
 class DesktopPlayerControllerTest {
     @Test
+    fun restoredPlaybackSeeksBeforeStarting() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),
+    ) { harness ->
+        harness.controller.play(
+            MusicId(TRACK_ID),
+            PlaylistId(PLAYLIST_ID),
+            startPositionMs = 45_000L,
+        )
+
+        awaitUntil { harness.playerRepository.playing.value }
+
+        assertEquals(listOf(45_000L), harness.engine.seekCalls)
+        assertEquals(1, harness.engine.playCalls)
+    }
+
+    @Test
     fun readyEngineStartsPlaybackAndReleasesResourceOnStop() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
         engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),

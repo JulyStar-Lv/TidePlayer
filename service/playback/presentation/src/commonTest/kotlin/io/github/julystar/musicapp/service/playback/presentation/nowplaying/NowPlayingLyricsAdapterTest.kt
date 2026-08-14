@@ -15,18 +15,19 @@ import kotlin.time.Duration.Companion.seconds
 
 class NowPlayingLyricsAdapterTest {
     @Test
-    fun filtersHeaderTagsAndConfiguredBlacklist() {
+    fun filtersHeaderTagsOnly() {
         val lines = listOf(
             LyricLine(0.milliseconds, "[ar:Artist]"),
             LyricLine(1_000.milliseconds, "Instrumental"),
             LyricLine(2_000.milliseconds, "Keep me"),
         )
 
-        val visible = lines.filterVisibleLyrics(
-            LyricDisplaySettings.Default.copy(lineBlacklist = listOf("Instrumental")),
-        )
+        val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
 
-        assertEquals(listOf(LYRIC_HEADER_PLACEHOLDER, "Keep me"), visible.map(LyricLine::text))
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "Instrumental", "Keep me"),
+            visible.map(LyricLine::text),
+        )
     }
 
     @Test

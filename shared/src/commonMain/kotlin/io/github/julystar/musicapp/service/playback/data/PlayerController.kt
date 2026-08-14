@@ -13,7 +13,11 @@ interface PlayerController : SleepController {
     fun getBufferedPosition(): Long
     fun getDuration(): Long
     fun getPendingSeekPosition(): Long? = null
-    fun play(id: MusicId, playlistId: PlaylistId)
+    fun play(
+        id: MusicId,
+        playlistId: PlaylistId,
+        startPositionMs: Long = 0L,
+    )
     fun resume()
     fun pause()
     fun stop()

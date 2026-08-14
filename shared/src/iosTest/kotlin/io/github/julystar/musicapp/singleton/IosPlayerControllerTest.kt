@@ -72,6 +72,23 @@ import kotlin.test.assertNull
 
 class IosPlayerControllerTest {
     @Test
+    fun restoredPlaybackSeeksBeforeStarting() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingIosPlaybackEngine(PlaybackEngineLoadResult.Ready),
+    ) { harness ->
+        harness.controller.play(
+            MusicId(TRACK_ID),
+            PlaylistId(PLAYLIST_ID),
+            startPositionMs = 45_000L,
+        )
+
+        awaitUntil { harness.playerRepository.playing.value }
+
+        assertEquals(listOf(45_000L), harness.engine.seekCalls)
+        assertEquals(1, harness.engine.playCalls)
+    }
+
+    @Test
     fun seekPublishesTargetUntilAvPlayerCompletes() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
         engine = RecordingIosPlaybackEngine(PlaybackEngineLoadResult.Ready),

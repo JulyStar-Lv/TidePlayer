@@ -33,13 +33,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import uniffi.app_backend.Music
 import uniffi.app_backend.MusicAbstract
 import uniffi.app_backend.MusicId
@@ -110,9 +108,10 @@ class LegacyPlaybackController(
         scope.launch {
             while (isActive) {
                 delay(2_000)
+                val position = readPosition()
                 if (restoredSession.value == null) {
                     playerRepository.savePlaybackSession(
-                        positionMs = readPosition().positionMs,
+                        positionMs = position.positionMs,
                         wasPlaying = state.value.status == PlaybackStatus.Playing,
                     )
                 }
@@ -197,15 +196,21 @@ class LegacyPlaybackController(
             restoredSession.value = null
             playerRepository.resetCurrent()
         }
-        legacyController.play(MusicId(musicId), PlaylistId(playlistId))
-        if (
+        val startPositionMs = if (
             settings?.value?.playbackAdvanced?.resumePlaybackPosition != false &&
             saved?.trackId == musicId &&
             saved.playlistId == playlistId &&
             saved.positionMs > 0L
         ) {
-            seekAfterTrackLoads(musicId, saved.positionMs)
+            saved.positionMs
+        } else {
+            0L
         }
+        legacyController.play(
+            MusicId(musicId),
+            PlaylistId(playlistId),
+            startPositionMs,
+        )
     }
 
     override fun play() {
@@ -382,6 +387,18 @@ class LegacyPlaybackController(
         ) {
             return current
         }
+        if (
+            restoredPlaybackReadyForLivePosition(
+                restoredPositionMs = restored.positionMs,
+                livePositionMs = current.positionMs,
+                playing = playerRepository.playing.value,
+            )
+        ) {
+            if (restoredSession.value == restored) {
+                restoredSession.value = null
+            }
+            return current
+        }
         return current.withRestoredPlaybackPreview(
             positionMs = restored.positionMs,
             durationMs = currentMusic.meta.duration?.inWholeMilliseconds,
@@ -449,33 +466,11 @@ class LegacyPlaybackController(
         resumePosition: Boolean,
     ) {
         if (restoredSession.value != session) return
-        restoredSession.value = null
-        legacyController.play(MusicId(session.trackId), PlaylistId(session.playlistId))
-        if (resumePosition && session.positionMs > 0L) {
-            seekAfterTrackLoads(session.trackId, session.positionMs)
-        }
-    }
-
-    private suspend fun seekAfterTrackLoads(trackId: Long, positionMs: Long) {
-        withTimeoutOrNull(5_000) {
-            combine(
-                playerRepository.music,
-                playerRepository.playing,
-            ) { music, playing ->
-                playbackReadyForResume(
-                    expectedTrackId = trackId,
-                    currentTrackId = music?.meta?.id?.value,
-                    playing = playing,
-                )
-            }.filter { ready -> ready }.first()
-        } ?: return
-        val targetPositionMs = positionMs.coerceAtLeast(0L)
-        legacyController.seek(targetPositionMs.toULong())
-        playerRepository.savePlaybackSession(
-            positionMs = targetPositionMs,
-            wasPlaying = playerRepository.playing.value,
+        legacyController.play(
+            MusicId(session.trackId),
+            PlaylistId(session.playlistId),
+            if (resumePosition) session.positionMs else 0L,
         )
-        immediatePositionRefreshes.tryEmit(Unit)
     }
 
     private fun rebuildRequestedNextQueue() {
@@ -544,20 +539,27 @@ internal fun restoredPlaybackPosition(positionMs: Long, durationMs: Long?): Long
     return positionMs.coerceIn(0L, maximum)
 }
 
-internal fun playbackReadyForResume(
-    expectedTrackId: Long,
-    currentTrackId: Long?,
+internal fun restoredPlaybackReadyForLivePosition(
+    restoredPositionMs: Long,
+    livePositionMs: Long,
     playing: Boolean,
-): Boolean = playing && currentTrackId == expectedTrackId
+): Boolean {
+    if (!playing) return false
+    val restored = restoredPositionMs.coerceAtLeast(0L)
+    if (restored == 0L) return true
+    return livePositionMs >= restored
+}
 
 internal fun PlaybackPosition.withRestoredPlaybackPreview(
     positionMs: Long,
     durationMs: Long?,
 ): PlaybackPosition {
-    if (this.durationMs > 0L || this.positionMs > 0L || bufferedMs > 0L || isSeeking) return this
+    val previewDurationMs = this.durationMs.takeIf { it > 0L }
+        ?: durationMs?.coerceAtLeast(0L)
+        ?: 0L
     return copy(
-        positionMs = restoredPlaybackPosition(positionMs, durationMs),
-        durationMs = durationMs?.coerceAtLeast(0L) ?: 0L,
+        positionMs = restoredPlaybackPosition(positionMs, previewDurationMs),
+        durationMs = previewDurationMs,
     )
 }
 

@@ -160,8 +160,18 @@ class DesktopPlayerController(
 
     override fun getDuration(): Long = playbackEngine.readPosition().durationMs
 
-    override fun play(id: MusicId, playlistId: PlaylistId) {
-        play(id, playlistId, forceReload = false, allowTransition = true)
+    override fun play(
+        id: MusicId,
+        playlistId: PlaylistId,
+        startPositionMs: Long,
+    ) {
+        play(
+            id,
+            playlistId,
+            forceReload = false,
+            allowTransition = true,
+            startPositionMs = startPositionMs,
+        )
     }
 
     private fun play(
@@ -169,13 +179,18 @@ class DesktopPlayerController(
         playlistId: PlaylistId,
         forceReload: Boolean,
         allowTransition: Boolean,
+        startPositionMs: Long = 0L,
     ) {
+        val normalizedStartPositionMs = startPositionMs.coerceAtLeast(0L)
         if (
             !forceReload &&
             playerRepository.music.value?.meta?.id == id &&
             playerRepository.playlist.value?.abstr?.meta?.id == playlistId &&
             playbackResource != null
         ) {
+            if (normalizedStartPositionMs > 0L) {
+                playbackEngine.seekTo(normalizedStartPositionMs)
+            }
             resume()
             return
         }
@@ -223,6 +238,9 @@ class DesktopPlayerController(
                             playerRepository.playlist.value?.abstr?.meta?.id != playlistId
                         ) {
                             playerRepository.setCurrent(music, playlist)
+                        }
+                        if (normalizedStartPositionMs > 0L) {
+                            playbackEngine.seekTo(normalizedStartPositionMs)
                         }
                         playbackEngine.play()
                         playerRepository.setIsPlaying(true)

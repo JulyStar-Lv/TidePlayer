@@ -102,6 +102,29 @@ class RootNavHostTest {
     }
 
     @Test
+    fun `now playing overlay stays resident behind lyrics for the shared artwork transition`() {
+        val lyricsRoute =
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Lyrics/{id}"
+
+        assertTrue(
+            shouldKeepNowPlayingOverlayResident(
+                requested = true,
+                hostEntryId = "home-entry",
+                currentEntryId = "lyrics-entry",
+                currentRoute = lyricsRoute,
+            ),
+        )
+        assertFalse(
+            shouldKeepNowPlayingOverlayResident(
+                requested = true,
+                hostEntryId = "home-entry",
+                currentEntryId = "album-entry",
+                currentRoute = "io.github.julystar.musicapp.MusicGraph.Album/{id}",
+            ),
+        )
+    }
+
+    @Test
     fun `now playing and lyrics share immersive player transitions`() {
         assertTrue(isImmersivePlayerRoute("io.github.julystar.musicapp.MusicGraph.NowPlaying"))
         assertTrue(

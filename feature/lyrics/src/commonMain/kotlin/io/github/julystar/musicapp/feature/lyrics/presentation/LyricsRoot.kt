@@ -7,6 +7,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
+import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandler
+import io.github.julystar.musicapp.core.presentation.platform.StatusBarIconsEffect
 import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -20,6 +22,9 @@ fun LyricsRoot(
     settingsRepository: SettingsRepository = koinInject(),
     favoritesRepository: FavoritesRepository = koinInject(),
 ) {
+    PlatformBackHandler(onBack = onNavigateBack)
+    StatusBarIconsEffect(useLightIcons = true)
+
     val state by viewModel.state.collectAsState()
     val nowPlayingState by playerViewModel.nowPlayingState.collectAsState()
     val currentDuration by playerViewModel.currentDuration.collectAsState()

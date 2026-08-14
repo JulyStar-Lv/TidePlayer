@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur as softBlur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -450,87 +449,89 @@ private fun DailyPicksHero(
 @Composable
 private fun DailyPicksBackground(dark: Boolean) {
     val transition = rememberInfiniteTransition(label = "daily-picks-background")
-    val blobOneX by transition.animateFloat(
-        initialValue = -38f,
-        targetValue = 46f,
-        animationSpec = dailyPicksAnimation(durationMillis = 12_000),
-        label = "daily-picks-blob-one-x",
+    val blobOneProgress = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = dailyPicksAnimation(durationMillis = 18_000),
+        label = "daily-picks-blob-one",
     )
-    val blobOneY by transition.animateFloat(
-        initialValue = -92f,
-        targetValue = -42f,
-        animationSpec = dailyPicksAnimation(durationMillis = 12_000),
-        label = "daily-picks-blob-one-y",
+    val blobTwoProgress = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = dailyPicksAnimation(durationMillis = 22_000),
+        label = "daily-picks-blob-two",
     )
-    val blobTwoX by transition.animateFloat(
-        initialValue = 20f,
-        targetValue = -42f,
-        animationSpec = dailyPicksAnimation(durationMillis = 15_000),
-        label = "daily-picks-blob-two-x",
+    val blobThreeProgress = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = dailyPicksAnimation(durationMillis = 26_000),
+        label = "daily-picks-blob-three",
     )
-    val blobTwoY by transition.animateFloat(
-        initialValue = -82f,
-        targetValue = -22f,
-        animationSpec = dailyPicksAnimation(durationMillis = 15_000),
-        label = "daily-picks-blob-two-y",
+    val blobFourProgress = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = dailyPicksAnimation(durationMillis = 30_000),
+        label = "daily-picks-blob-four",
     )
-    val blobThreeX by transition.animateFloat(
-        initialValue = 74f,
-        targetValue = -28f,
-        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
-        label = "daily-picks-blob-three-x",
-    )
-    val blobThreeY by transition.animateFloat(
-        initialValue = 70f,
-        targetValue = 18f,
-        animationSpec = dailyPicksAnimation(durationMillis = 17_000),
-        label = "daily-picks-blob-three-y",
-    )
-    val blobFourX by transition.animateFloat(
-        initialValue = -30f,
-        targetValue = 64f,
-        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
-        label = "daily-picks-blob-four-x",
-    )
-    val blobFourY by transition.animateFloat(
-        initialValue = 52f,
-        targetValue = -18f,
-        animationSpec = dailyPicksAnimation(durationMillis = 20_000),
-        label = "daily-picks-blob-four-y",
-    )
+
+    val surface = if (dark) Color(0xFF0F1026) else Color(0xFFE9DEF6)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (dark) Color(0xFF0F1026) else Color(0xFFE9DEF6)),
+            .background(surface),
     ) {
         DailyPicksBlob(
-            color = if (dark) Color(0xFF1226C9).copy(alpha = 0.88f) else Color(0xFF94BDFF).copy(alpha = 0.95f),
+            color = if (dark) Color(0xFF3157FF).copy(alpha = 0.72f) else Color(0xFF78ADFF).copy(alpha = 0.68f),
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = blobOneX.dp, y = blobOneY.dp)
-                .size(190.dp),
+                .size(260.dp)
+                .graphicsLayer {
+                    val progress = blobOneProgress.value
+                    translationX = (-72 + 88 * progress).dp.toPx()
+                    translationY = (-138 + 54 * progress).dp.toPx()
+                    scaleX = 1f + 0.12f * progress
+                    scaleY = 0.92f + 0.10f * progress
+                },
         )
         DailyPicksBlob(
-            color = if (dark) Color(0xFF9E35AA).copy(alpha = 0.78f) else Color(0xFFFFD6E8).copy(alpha = 0.96f),
+            color = if (dark) Color(0xFFBB4FC7).copy(alpha = 0.58f) else Color(0xFFFFBFD8).copy(alpha = 0.66f),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(x = blobTwoX.dp, y = blobTwoY.dp)
-                .size(180.dp),
+                .size(250.dp)
+                .graphicsLayer {
+                    val progress = blobTwoProgress.value
+                    translationX = (42 - 74 * progress).dp.toPx()
+                    translationY = (-126 + 78 * progress).dp.toPx()
+                    scaleX = 1.08f - 0.14f * progress
+                    scaleY = 0.94f + 0.18f * progress
+                },
         )
         DailyPicksBlob(
-            color = if (dark) Color(0xFF0F3FD6).copy(alpha = 0.82f) else Color(0xFFBDC2FF).copy(alpha = 0.92f),
+            color = if (dark) Color(0xFF395FE0).copy(alpha = 0.64f) else Color(0xFF9DAAFF).copy(alpha = 0.62f),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .offset(x = blobThreeX.dp, y = blobThreeY.dp)
-                .size(210.dp),
+                .size(286.dp)
+                .graphicsLayer {
+                    val progress = blobThreeProgress.value
+                    translationX = (92 - 94 * progress).dp.toPx()
+                    translationY = (122 - 62 * progress).dp.toPx()
+                    scaleX = 0.94f + 0.14f * progress
+                    scaleY = 1.06f - 0.12f * progress
+                },
         )
         DailyPicksBlob(
-            color = if (dark) Color(0xFF4129A6).copy(alpha = 0.72f) else Color(0xFFF7C4D6).copy(alpha = 0.90f),
+            color = if (dark) Color(0xFF7650C9).copy(alpha = 0.52f) else Color(0xFFD8A8E8).copy(alpha = 0.56f),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .offset(x = blobFourX.dp, y = blobFourY.dp)
-                .size(170.dp),
+                .size(238.dp)
+                .graphicsLayer {
+                    val progress = blobFourProgress.value
+                    translationX = (-66 + 86 * progress).dp.toPx()
+                    translationY = (102 - 72 * progress).dp.toPx()
+                    scaleX = 1.04f - 0.10f * progress
+                    scaleY = 0.92f + 0.14f * progress
+                },
         )
         Box(
             modifier = Modifier
@@ -538,11 +539,22 @@ private fun DailyPicksBackground(dark: Boolean) {
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color.White.copy(alpha = if (dark) 0.10f else 0.62f),
+                            Color.White.copy(alpha = if (dark) 0.08f else 0.46f),
                             Color.Transparent,
-                            if (dark) Color(0xFF565BFF).copy(alpha = 0.12f)
-                            else Color(0xFFB4DCFF).copy(alpha = 0.22f),
+                            if (dark) Color(0xFF6D66FF).copy(alpha = 0.14f)
+                            else Color(0xFFB7D8FF).copy(alpha = 0.20f),
                         ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        0f to surface.copy(alpha = if (dark) 0.28f else 0.18f),
+                        0.48f to Color.Transparent,
+                        1f to Color.Transparent,
                     ),
                 ),
         )
@@ -553,9 +565,16 @@ private fun DailyPicksBackground(dark: Boolean) {
 private fun DailyPicksBlob(color: Color, modifier: Modifier) {
     Box(
         modifier = modifier
-            .softBlur(radius = 36.dp)
-            .clip(CircleShape)
-            .background(color),
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        color,
+                        color.copy(alpha = color.alpha * 0.48f),
+                        color.copy(alpha = 0f),
+                    ),
+                ),
+                shape = CircleShape,
+            ),
     )
 }
 

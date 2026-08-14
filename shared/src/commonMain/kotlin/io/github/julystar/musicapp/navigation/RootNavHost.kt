@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -95,6 +96,7 @@ import io.github.julystar.musicapp.widgets.appbar.SidebarBar
 import io.github.julystar.musicapp.widgets.appbar.getNavigationRailWidth
 import io.github.julystar.musicapp.widgets.appbar.getSidebarWidth
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -114,6 +116,7 @@ internal fun RootNavHost(
     var showQueue by remember { mutableStateOf(false) }
     var showNowPlayingOverlay by rememberSaveable { mutableStateOf(false) }
     var nowPlayingOverlayHostEntryId by rememberSaveable { mutableStateOf<String?>(null) }
+    var lyricsReturnInProgress by remember { mutableStateOf(false) }
     var selectedRootTabName by rememberSaveable { mutableStateOf(HomeTab.HOME.name) }
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -123,11 +126,30 @@ internal fun RootNavHost(
         hostEntryId = nowPlayingOverlayHostEntryId,
         currentEntryId = currentBackStackEntry?.id,
     )
+    val nowPlayingOverlayResident = shouldKeepNowPlayingOverlayResident(
+        requested = showNowPlayingOverlay,
+        hostEntryId = nowPlayingOverlayHostEntryId,
+        currentEntryId = currentBackStackEntry?.id,
+        currentRoute = currentRoute,
+    )
     val showRootNavigationChrome = !isImmersivePlayerRoute(currentRoute)
     var contentUsesNavigationChrome by remember { mutableStateOf(showRootNavigationChrome) }
     val onRootTabSelected: (HomeTab) -> Unit = { selectedRootTabName = it.name }
     val playerTransitionDurationMillis = DesignTokens.motion.playerExpandMillis
+    val coroutineScope = rememberCoroutineScope()
     val onNavigateBackFromNowPlaying: () -> Unit = { navController.popBackStack() }
+    val onNavigateBackFromLyrics: () -> Unit = {
+        if (!nowPlayingOverlayResident) {
+            navController.popBackStack()
+        } else if (!lyricsReturnInProgress) {
+            lyricsReturnInProgress = true
+            coroutineScope.launch {
+                delay(playerTransitionDurationMillis.toLong())
+                navController.popBackStack()
+                lyricsReturnInProgress = false
+            }
+        }
+    }
 
     LaunchedEffect(showRootNavigationChrome) {
         if (contentUsesNavigationChrome != showRootNavigationChrome) {
@@ -360,7 +382,10 @@ internal fun RootNavHost(
         composable<MusicGraph.Listening> {
             ListeningRoot(onNavigateBack = { navController.popBackStack() })
         }
-        lyricsGraph(navController)
+        lyricsGraph(
+            navController = navController,
+            onNavigateBack = args.onNavigateBackFromLyrics,
+        )
         sourcesGraph(
             onNavigateBack = { navController.navigateUp() },
             onNavigateToLibraryFolderImport = {
@@ -396,6 +421,7 @@ internal fun RootNavHost(
                 onRootTabSelected = onRootTabSelected,
                 onOpenQueue = { showQueue = true },
                 onSearchMetadata = { track -> metadataTrack = track },
+                onNavigateBackFromLyrics = onNavigateBackFromLyrics,
             ),
         )
     }
@@ -432,7 +458,7 @@ internal fun RootNavHost(
                 content = navigationContent,
             )
             AnimatedVisibility(
-                visible = nowPlayingOverlayVisible,
+                visible = nowPlayingOverlayResident,
                 modifier = Modifier.fillMaxSize(),
                 enter = slideInVertically(
                     animationSpec = tween(
@@ -449,21 +475,37 @@ internal fun RootNavHost(
                     targetOffsetY = { fullHeight -> fullHeight },
                 ),
             ) {
-                NowPlayingRoot(
-                    onNavigateBack = {
-                        showNowPlayingOverlay = false
-                        nowPlayingOverlayHostEntryId = null
+                AnimatedVisibility(
+                    visible = nowPlayingOverlayVisible || lyricsReturnInProgress,
+                    modifier = Modifier.fillMaxSize(),
+                    enter = if (lyricsReturnInProgress) {
+                        fadeIn(animationSpec = tween(playerTransitionDurationMillis))
+                    } else {
+                        immediateEnterTransition(playerTransitionDurationMillis)
                     },
-                    onNavigateToLyrics = { trackId ->
-                        navController.navigate(MusicGraph.Lyrics(trackId))
-                    },
-                    onOpenQueue = { showQueue = true },
-                    onNavigateToLyricImport = {
-                        navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
-                    },
-                    onSearchMetadata = { track -> metadataTrack = track },
-                )
-                TimeToPauseModal()
+                    exit = immediateExitTransition(playerTransitionDurationMillis),
+                ) {
+                    val playerOverlayVisibilityScope = this
+                    CompositionLocalProvider(
+                        LocalPlayerArtworkAnimatedVisibilityScope provides playerOverlayVisibilityScope,
+                    ) {
+                        NowPlayingRoot(
+                            onNavigateBack = {
+                                showNowPlayingOverlay = false
+                                nowPlayingOverlayHostEntryId = null
+                            },
+                            onNavigateToLyrics = { trackId ->
+                                navController.navigate(MusicGraph.Lyrics(trackId))
+                            },
+                            onOpenQueue = { showQueue = true },
+                            onNavigateToLyricImport = {
+                                navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
+                            },
+                            onSearchMetadata = { track -> metadataTrack = track },
+                        )
+                        TimeToPauseModal()
+                    }
+                }
             }
             ManualMetadataSearchDialog(
                 track = metadataTrack,
@@ -485,6 +527,7 @@ private data class RootNavigationContentArgs(
     val onRootTabSelected: (HomeTab) -> Unit,
     val onOpenQueue: () -> Unit,
     val onSearchMetadata: (NowPlayingTrackItem) -> Unit,
+    val onNavigateBackFromLyrics: () -> Unit,
 )
 
 private fun immediateEnterTransition(durationMillis: Int) = fadeIn(
@@ -559,6 +602,14 @@ internal fun shouldShowNowPlayingOverlay(
     hostEntryId: String?,
     currentEntryId: String?,
 ): Boolean = requested && hostEntryId != null && hostEntryId == currentEntryId
+
+internal fun shouldKeepNowPlayingOverlayResident(
+    requested: Boolean,
+    hostEntryId: String?,
+    currentEntryId: String?,
+    currentRoute: String?,
+): Boolean = requested && hostEntryId != null &&
+    (hostEntryId == currentEntryId || isRouteLyrics(currentRoute))
 
 internal fun shouldReturnToHome(route: String?): Boolean =
     route != null && !isRouteHome(route)

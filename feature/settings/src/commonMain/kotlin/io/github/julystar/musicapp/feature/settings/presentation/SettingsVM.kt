@@ -313,9 +313,6 @@ class SettingsVM(
             is SettingsAction.SetIgnoreLyricHeaderTags -> updateSetting {
                 settingsRepository.setIgnoreLyricHeaderTags(action.enabled)
             }
-            is SettingsAction.SetLyricLineBlacklist -> updateSetting {
-                settingsRepository.setLyricLineBlacklist(action.lines)
-            }
             is SettingsAction.SetLyricFontSettings -> updateSetting {
                 settingsRepository.setLyricFontSettings(action.settings)
             }

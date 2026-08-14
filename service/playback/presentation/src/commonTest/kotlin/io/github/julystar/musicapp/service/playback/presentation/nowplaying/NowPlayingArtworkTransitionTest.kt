@@ -16,4 +16,58 @@ class NowPlayingArtworkTransitionTest {
         assertEquals(356.dp * 0.96f, pausedTargetSize)
         assertTrue(pausedTargetSize < playingTargetSize)
     }
+
+    @Test
+    fun `status bar uses light icons only while player covers its top edge`() {
+        assertTrue(
+            doesPlayerCoverStatusBar(
+                playerTopInWindowPx = 0f,
+                dragOffsetPx = 0f,
+                statusBarBottomInWindowPx = 96f,
+            ),
+        )
+        assertTrue(
+            doesPlayerCoverStatusBar(
+                playerTopInWindowPx = -120f,
+                dragOffsetPx = 80f,
+                statusBarBottomInWindowPx = 96f,
+            ),
+        )
+        assertTrue(
+            doesPlayerCoverStatusBar(
+                playerTopInWindowPx = 0f,
+                dragOffsetPx = 95f,
+                statusBarBottomInWindowPx = 96f,
+            ),
+        )
+        assertTrue(
+            !doesPlayerCoverStatusBar(
+                playerTopInWindowPx = 0f,
+                dragOffsetPx = 96f,
+                statusBarBottomInWindowPx = 96f,
+            ),
+        )
+    }
+
+    @Test
+    fun `status bar falls back to the app theme when player does not cover it`() {
+        assertTrue(
+            shouldUseLightStatusBarIcons(
+                playerCoversStatusBar = true,
+                appUsesDarkTheme = false,
+            ),
+        )
+        assertTrue(
+            !shouldUseLightStatusBarIcons(
+                playerCoversStatusBar = false,
+                appUsesDarkTheme = false,
+            ),
+        )
+        assertTrue(
+            shouldUseLightStatusBarIcons(
+                playerCoversStatusBar = false,
+                appUsesDarkTheme = true,
+            ),
+        )
+    }
 }

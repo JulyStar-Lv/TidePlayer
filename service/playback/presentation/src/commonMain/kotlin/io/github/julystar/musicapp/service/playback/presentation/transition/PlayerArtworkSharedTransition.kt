@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 
 val LocalPlayerArtworkSharedTransitionScope =
@@ -43,12 +44,13 @@ internal data class PlayerArtworkTransitionShape(
         val compactRadiusPx = with(density) { compactCornerRadius.toPx() }
         val expandedRadiusPx = with(density) { expandedCornerRadius.toPx() }
         val currentSizePx = minOf(size.width, size.height)
-        val fraction = if (expandedSizePx <= compactSizePx) {
-            1f
-        } else {
-            ((currentSizePx - compactSizePx) / (expandedSizePx - compactSizePx)).coerceIn(0f, 1f)
-        }
-        val radiusPx = compactRadiusPx + (expandedRadiusPx - compactRadiusPx) * fraction
+        val radiusPx = playerArtworkCornerRadius(
+            currentSize = currentSizePx,
+            compactSize = compactSizePx,
+            expandedSize = expandedSizePx,
+            compactRadius = compactRadiusPx,
+            expandedRadius = expandedRadiusPx,
+        )
         return Outline.Rounded(
             RoundRect(
                 left = 0f,
@@ -59,6 +61,31 @@ internal data class PlayerArtworkTransitionShape(
             ),
         )
     }
+}
+
+fun playerArtworkTransitionShape(
+    expandedSize: Dp = 356.dp,
+    expandedCornerRadius: Dp = 28.dp,
+): Shape = PlayerArtworkTransitionShape(
+    compactSize = 52.dp,
+    expandedSize = expandedSize,
+    compactCornerRadius = 13.dp,
+    expandedCornerRadius = expandedCornerRadius,
+)
+
+internal fun playerArtworkCornerRadius(
+    currentSize: Float,
+    compactSize: Float,
+    expandedSize: Float,
+    compactRadius: Float,
+    expandedRadius: Float,
+): Float {
+    val fraction = if (expandedSize <= compactSize) {
+        1f
+    } else {
+        ((currentSize - compactSize) / (expandedSize - compactSize)).coerceIn(0f, 1f)
+    }
+    return compactRadius + (expandedRadius - compactRadius) * fraction
 }
 
 @Composable

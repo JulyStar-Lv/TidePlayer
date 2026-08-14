@@ -82,18 +82,50 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
-    fun restoredPreviewDoesNotOverrideLivePlayerProgress() {
-        val live = PlaybackPosition(
-            positionMs = 46_000L,
-            bufferedMs = 70_000L,
+    fun restoredPreviewDoesNotFlashZeroWhilePlayerIsLoading() {
+        val loading = PlaybackPosition(
+            positionMs = 0L,
+            bufferedMs = 0L,
             durationMs = 180_000L,
         )
 
         assertEquals(
-            live,
-            live.withRestoredPlaybackPreview(
+            PlaybackPosition(
+                positionMs = 45_000L,
+                bufferedMs = 0L,
+                durationMs = 180_000L,
+            ),
+            loading.withRestoredPlaybackPreview(
                 positionMs = 45_000L,
                 durationMs = 180_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun restoredPreviewHandsOffOnlyAfterLivePlaybackReachesSavedPosition() {
+        assertEquals(
+            false,
+            restoredPlaybackReadyForLivePosition(
+                restoredPositionMs = 45_000L,
+                livePositionMs = 0L,
+                playing = true,
+            ),
+        )
+        assertEquals(
+            false,
+            restoredPlaybackReadyForLivePosition(
+                restoredPositionMs = 45_000L,
+                livePositionMs = 45_000L,
+                playing = false,
+            ),
+        )
+        assertEquals(
+            true,
+            restoredPlaybackReadyForLivePosition(
+                restoredPositionMs = 45_000L,
+                livePositionMs = 45_000L,
+                playing = true,
             ),
         )
     }
@@ -102,26 +134,6 @@ class LegacyPlaybackControllerTest {
     fun restoredPreviewClampsStaleProgressToTrackDuration() {
         assertEquals(180_000L, restoredPlaybackPosition(240_000L, 180_000L))
         assertEquals(0L, restoredPlaybackPosition(-1L, 180_000L))
-    }
-
-    @Test
-    fun restoredPreviewDoesNotCountAsPlaybackReadyForResume() {
-        assertEquals(
-            false,
-            playbackReadyForResume(
-                expectedTrackId = 7L,
-                currentTrackId = 7L,
-                playing = false,
-            ),
-        )
-        assertEquals(
-            true,
-            playbackReadyForResume(
-                expectedTrackId = 7L,
-                currentTrackId = 7L,
-                playing = true,
-            ),
-        )
     }
 
     @Test
@@ -252,6 +264,65 @@ class LegacyPlaybackControllerTest {
         assertEquals(PlayMode.SINGLE, playbackModeForQueue(PlayMode.SINGLE, queueSize = 1))
         assertEquals(PlayMode.SINGLE_LOOP, playbackModeForQueue(PlayMode.SINGLE_LOOP, queueSize = 2))
         assertEquals(PlayMode.LIST_LOOP, playbackModeForQueue(PlayMode.LIST_LOOP, queueSize = 2))
+    }
+
+    @Test
+    fun largeQueueReplacementDoesNotReusePreviousQueueIndex() {
+        val currentMusic = music(id = 1_195, title = "Current")
+        val oldQueue = playlist(
+            id = 3,
+            musics = List(1_195) { index ->
+                val trackId = (index + 1).toLong()
+                musicAbstract(id = trackId, title = "Track $trackId")
+            },
+        )
+        val replacementQueue = playlist(
+            id = 3,
+            musics = listOf(musicAbstract(id = 1_195, title = "Current")) +
+                List(49) { index ->
+                    val trackId = (2_000 + index).toLong()
+                    musicAbstract(id = trackId, title = "Track $trackId")
+                },
+        )
+
+        assertEquals(
+            1_195L,
+            playbackQueueNavigation(PlayMode.SINGLE_LOOP, currentMusic, oldQueue)
+                .onComplete
+                ?.meta
+                ?.id
+                ?.value,
+        )
+
+        val replacementNavigation = playbackQueueNavigation(
+            PlayMode.SINGLE_LOOP,
+            currentMusic,
+            replacementQueue,
+        )
+
+        assertEquals(1_195L, replacementNavigation.onComplete?.meta?.id?.value)
+        assertEquals(2_000L, replacementNavigation.next?.meta?.id?.value)
+        assertEquals(2_048L, replacementNavigation.previous?.meta?.id?.value)
+    }
+
+    @Test
+    fun queueReplacementWithoutCurrentTrackClearsNavigation() {
+        val replacementQueue = playlist(
+            id = 3,
+            musics = List(50) { index ->
+                val trackId = (2_000 + index).toLong()
+                musicAbstract(id = trackId, title = "Track $trackId")
+            },
+        )
+
+        assertEquals(
+            PlaybackQueueNavigation.Empty,
+            playbackQueueNavigation(
+                playMode = PlayMode.SINGLE_LOOP,
+                music = music(id = 1_195, title = "Current"),
+                playlist = replacementQueue,
+            ),
+        )
     }
 
     @Test

@@ -45,7 +45,6 @@ import io.github.julystar.musicapp.core.domain.model.normalizeConnectionTimeoutS
 import io.github.julystar.musicapp.core.domain.model.normalizeImageCacheLimitBytes
 import io.github.julystar.musicapp.core.domain.model.normalizeLyricFontScalePercent
 import io.github.julystar.musicapp.core.domain.model.normalizeLyricFontSettings
-import io.github.julystar.musicapp.core.domain.model.normalizeLyricLineBlacklist
 import io.github.julystar.musicapp.core.domain.model.normalizeLyricPerspectiveAngleDegrees
 import io.github.julystar.musicapp.core.domain.model.normalizeLyricPrimaryFontSizeSp
 import io.github.julystar.musicapp.core.domain.model.normalizeLyricSecondaryFontSizeSp
@@ -126,9 +125,6 @@ class DataStoreSettingsRepository(
                     preferences[LYRIC_SOURCE_PRIORITY_KEY].toLyricSourcePriority(),
                 ),
                 ignoreHeaderTags = preferences[LYRIC_IGNORE_HEADER_TAGS_KEY] ?: true,
-                lineBlacklist = normalizeLyricLineBlacklist(
-                    preferences[LYRIC_LINE_BLACKLIST_KEY].toLineList(),
-                ),
                 font = normalizeLyricFontSettings(
                     LyricFontSettings(
                         westernFont = preferences[LYRIC_WESTERN_FONT_KEY]
@@ -353,9 +349,6 @@ class DataStoreSettingsRepository(
     override suspend fun setIgnoreLyricHeaderTags(enabled: Boolean) =
         set(LYRIC_IGNORE_HEADER_TAGS_KEY, enabled)
 
-    override suspend fun setLyricLineBlacklist(lines: List<String>) =
-        set(LYRIC_LINE_BLACKLIST_KEY, normalizeLyricLineBlacklist(lines).joinToString("\n"))
-
     override suspend fun setLyricFontSettings(settings: LyricFontSettings) {
         val normalized = normalizeLyricFontSettings(settings)
         dataStore.edit { preferences ->
@@ -486,7 +479,6 @@ class DataStoreSettingsRepository(
         setLyricSourceMode(settings.lyrics.sourceMode)
         setLyricSourcePriority(settings.lyrics.sourcePriority)
         setIgnoreLyricHeaderTags(settings.lyrics.ignoreHeaderTags)
-        setLyricLineBlacklist(settings.lyrics.lineBlacklist)
         setLyricFontSettings(settings.lyrics.font)
         setPlaybackAdvancedSettings(settings.playbackAdvanced)
         setPlayerInteractionSettings(settings.playerInteraction)
@@ -585,8 +577,6 @@ private fun String?.toLyricSourcePriority(): List<LyricSourceKind> {
         .orEmpty()
 }
 
-private fun String?.toLineList(): List<String> = this?.lineSequence()?.toList().orEmpty()
-
 private fun String?.toIntList(): List<Int> = this
     ?.split(',')
     ?.mapNotNull(String::toIntOrNull)
@@ -648,7 +638,6 @@ internal val LYRIC_SOURCE_MODE_KEY = stringPreferencesKey("settings.lyrics.sourc
 internal val LYRIC_SOURCE_PRIORITY_KEY = stringPreferencesKey("settings.lyrics.sourcePriority")
 internal val LYRIC_IGNORE_HEADER_TAGS_KEY =
     booleanPreferencesKey("settings.lyrics.ignoreHeaderTags")
-internal val LYRIC_LINE_BLACKLIST_KEY = stringPreferencesKey("settings.lyrics.lineBlacklist")
 internal val LYRIC_WESTERN_FONT_KEY = stringPreferencesKey("settings.lyrics.font.western")
 internal val LYRIC_CJK_FONT_KEY = stringPreferencesKey("settings.lyrics.font.cjk")
 internal val LYRIC_FONT_WEIGHT_KEY = intPreferencesKey("settings.lyrics.font.weight")
@@ -771,7 +760,6 @@ private val SETTINGS_KEYS = setOf(
     LYRIC_SOURCE_MODE_KEY,
     LYRIC_SOURCE_PRIORITY_KEY,
     LYRIC_IGNORE_HEADER_TAGS_KEY,
-    LYRIC_LINE_BLACKLIST_KEY,
     LYRIC_WESTERN_FONT_KEY,
     LYRIC_CJK_FONT_KEY,
     LYRIC_FONT_WEIGHT_KEY,

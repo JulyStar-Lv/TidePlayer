@@ -47,7 +47,7 @@ internal fun List<LyricLine>.filterVisibleLyrics(settings: LyricDisplaySettings)
         first().duration.inWholeMilliseconds == 0L
     return flatMap { line ->
         // Unsynchronised lyrics are persisted as one block. Split that block here so
-        // header and blacklist rules behave exactly like they do for timed lyrics.
+        // header rules behave exactly like they do for timed lyrics.
         if (containsUnsynchronisedBlock && ('\n' in line.text || '\r' in line.text)) {
             line.text.lineSequence().map { text -> line.copy(text = text) }.toList()
         } else {

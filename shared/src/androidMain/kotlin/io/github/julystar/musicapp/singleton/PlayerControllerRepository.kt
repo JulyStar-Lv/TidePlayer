@@ -253,14 +253,22 @@ class PlayerControllerRepository internal constructor(
         return playbackEngine?.readPosition()?.durationMs ?: 0
     }
 
-    override fun play(id: MusicId, playlistId: PlaylistId) {
+    override fun play(
+        id: MusicId,
+        playlistId: PlaylistId,
+        startPositionMs: Long,
+    ) {
         val engine = playbackEngine ?: return
+        val normalizedStartPositionMs = startPositionMs.coerceAtLeast(0L)
 
         if (
             _music.value?.meta?.id == id &&
             _playlist.value?.abstr?.meta?.id == playlistId &&
             engine.hasLoadedTrack(id.value)
         ) {
+            if (normalizedStartPositionMs > 0L) {
+                engine.seekTo(normalizedStartPositionMs)
+            }
             resume()
             return
         }
@@ -290,6 +298,7 @@ class PlayerControllerRepository internal constructor(
                         AndroidPlaybackQueueLoadRequest(
                             playlist = playlist,
                             currentTrackId = id.value,
+                            startPositionMs = normalizedStartPositionMs,
                         )
                     )
                 ) {
@@ -311,6 +320,9 @@ class PlayerControllerRepository internal constructor(
                             is PlaybackPreparationResult.Ready -> {
                                 playbackResource = preparation.resource
                                 pendingNetworkRecovery = null
+                                if (normalizedStartPositionMs > 0L) {
+                                    engine.seekTo(normalizedStartPositionMs)
+                                }
                             }
                             PlaybackPreparationResult.NetworkBlocked,
                             PlaybackPreparationResult.Failed -> {

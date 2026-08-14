@@ -98,7 +98,6 @@ data class LyricDisplaySettings(
     val sourceMode: LyricSourceMode = LyricSourceMode.Auto,
     val sourcePriority: List<LyricSourceKind> = DEFAULT_LYRIC_SOURCE_PRIORITY,
     val ignoreHeaderTags: Boolean = true,
-    val lineBlacklist: List<String> = emptyList(),
     val font: LyricFontSettings = LyricFontSettings.Default,
 ) {
     companion object {
@@ -738,7 +737,6 @@ const val MAX_LYRIC_PERSPECTIVE_ANGLE_DEGREES = 45
 const val DEFAULT_LYRIC_FONT_WEIGHT = 700
 const val MIN_LYRIC_FONT_WEIGHT = 100
 const val MAX_LYRIC_FONT_WEIGHT = 900
-const val MAX_LYRIC_LINE_BLACKLIST_SIZE = 256
 const val MAX_CROSSFADE_DURATION_MS = 30_000
 const val MIN_REPLAY_GAIN_PREAMP_TENTHS_DB = -200
 const val MAX_REPLAY_GAIN_PREAMP_TENTHS_DB = 200
@@ -832,14 +830,6 @@ fun normalizeLyricPerspectiveAngleDegrees(value: Int): Int {
 fun normalizeLyricSourcePriority(value: List<LyricSourceKind>): List<LyricSourceKind> {
     val unique = value.distinct()
     return unique + DEFAULT_LYRIC_SOURCE_PRIORITY.filterNot(unique::contains)
-}
-
-fun normalizeLyricLineBlacklist(value: List<String>): List<String> {
-    return value
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .distinct()
-        .take(MAX_LYRIC_LINE_BLACKLIST_SIZE)
 }
 
 fun normalizeLyricFontSettings(value: LyricFontSettings): LyricFontSettings {

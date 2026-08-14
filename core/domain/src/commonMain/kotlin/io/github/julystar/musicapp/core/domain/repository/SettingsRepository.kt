@@ -54,7 +54,6 @@ interface SettingsRepository {
     suspend fun setLyricSourceMode(mode: LyricSourceMode) = Unit
     suspend fun setLyricSourcePriority(priority: List<LyricSourceKind>) = Unit
     suspend fun setIgnoreLyricHeaderTags(enabled: Boolean) = Unit
-    suspend fun setLyricLineBlacklist(lines: List<String>) = Unit
     suspend fun setLyricFontSettings(settings: LyricFontSettings) = Unit
     suspend fun setPlaybackAdvancedSettings(settings: PlaybackAdvancedSettings) = Unit
     suspend fun setPlayerInteractionSettings(settings: PlayerInteractionSettings) = Unit

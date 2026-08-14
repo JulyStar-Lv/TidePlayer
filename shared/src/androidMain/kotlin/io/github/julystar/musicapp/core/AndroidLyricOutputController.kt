@@ -46,6 +46,8 @@ internal class AndroidLyricOutputController(
     private val roomLibraryStore: RoomLibraryStore,
     private val scope: CoroutineScope,
     private val playerProvider: () -> Player?,
+    private val notificationLyrics: AndroidNotificationLyrics,
+    private val refreshMediaNotification: () -> Unit,
 ) {
     private var settings = AppSettings.Default
     private var sourceLyrics = Lyrics()
@@ -67,17 +69,27 @@ internal class AndroidLyricOutputController(
                 settings = appSettings
                 val trackId = music?.meta?.id?.value
                 currentTitle = music?.meta?.title.orEmpty()
-                currentArtist = trackId?.let { roomLibraryStore.getTrackPrimaryArtist(it) }.orEmpty()
-                if (trackId != currentTrackId) {
+                val trackChanged = trackId != currentTrackId
+                if (trackChanged) {
                     currentTrackId = trackId
+                    currentArtist = ""
+                    sourceLyrics = Lyrics()
+                    lyrics = Lyrics()
+                    currentLineIndex = -1
+                    publishSessionLine(null)
+                }
+                currentArtist = trackId?.let { roomLibraryStore.getTrackPrimaryArtist(it) }.orEmpty()
+                if (trackChanged) {
                     sourceLyrics = trackId?.let { roomLibraryStore.getPlaybackLyrics(it) } ?: Lyrics()
                 }
                 lyrics = sourceLyrics.filteredForDisplay(appSettings.lyrics)
-                currentLineIndex = -1
+                val position = playerProvider()?.currentPosition ?: 0L
+                currentLineIndex = lyrics.lines.indexOfLast { line ->
+                    line.duration.inWholeMilliseconds <= position
+                }
                 configureProviders()
                 publishWholeSong()
-                updateOverlay(null)
-                publishSessionLine(null)
+                publishLine(lyrics.lines.getOrNull(currentLineIndex), position)
             }
         }
         scope.launch {
@@ -185,7 +197,6 @@ internal class AndroidLyricOutputController(
                 )
             }
         }
-        publishSessionLine(lyrics.lines.getOrNull(currentLineIndex))
     }
 
     private fun publishLine(line: LyricLine?, positionMs: Long) {
@@ -241,10 +252,24 @@ internal class AndroidLyricOutputController(
     }
 
     private fun publishSessionLine(line: LyricLine?) {
-        val player = playerProvider() ?: return
-        val item = player.currentMediaItem ?: return
         val output = settings.lyricOutput
         val lineText = line?.outputText()?.takeIf(String::isNotBlank)
+        val notificationChanged = notificationLyrics.update(
+            trackTitle = currentTitle,
+            lineText = lineText,
+            enabled = output.notificationLyricsEnabled,
+        )
+
+        val player = playerProvider()
+        if (player == null) {
+            if (notificationChanged) refreshMediaNotification()
+            return
+        }
+        val item = player.currentMediaItem
+        if (item == null || item.mediaId != currentTrackId?.toString()) {
+            if (notificationChanged) refreshMediaNotification()
+            return
+        }
         val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
             if (output.colorOsLockScreenLyricsEnabled) {
                 putString("lyricInfo", colorOsPayload())
@@ -260,19 +285,33 @@ internal class AndroidLyricOutputController(
             } else {
                 remove("ticker_text")
                 remove("lyric")
+                remove("ticker_icon_switch")
             }
         }
-        val exposeCurrentLine = output.notificationLyricsEnabled || output.bluetoothLyricsEnabled
+        val desiredTitle = notificationLyrics.resolveSessionTitle(
+            trackTitle = currentTitle,
+            lineText = lineText,
+            notificationEnabled = output.notificationLyricsEnabled,
+            bluetoothEnabled = output.bluetoothLyricsEnabled,
+        )
+        val existingExtras = item.mediaMetadata.extras ?: Bundle.EMPTY
+        val metadataChanged = item.mediaMetadata.title?.toString() != desiredTitle ||
+            item.mediaMetadata.artist?.toString() != currentArtist ||
+            !existingExtras.hasSameLyricOutput(extras)
+        val index = player.currentMediaItemIndex
+        val canReplaceMediaItem = metadataChanged &&
+            index >= 0 &&
+            player.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+        if (notificationChanged && !canReplaceMediaItem) refreshMediaNotification()
+        if (!canReplaceMediaItem) return
+
         val metadata = item.mediaMetadata.buildUpon()
-            .setTitle(if (exposeCurrentLine) lineText ?: currentTitle else currentTitle)
+            .setTitle(desiredTitle)
             .setArtist(currentArtist)
             .setExtras(extras)
             .build()
         val updated: MediaItem = item.buildUpon().setMediaMetadata(metadata).build()
-        val index = player.currentMediaItemIndex
-        if (index >= 0 && player.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
-            player.replaceMediaItem(index, updated)
-        }
+        player.replaceMediaItem(index, updated)
     }
 
     private fun updateOverlay(line: LyricLine?) {
@@ -390,5 +429,15 @@ internal class AndroidLyricOutputController(
         fun String.escapeJson() = replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
         return "{\"songName\":\"${currentTitle.escapeJson()}\",\"artist\":\"${currentArtist.escapeJson()}\"," +
             "\"songId\":\"${currentTrackId ?: 0L}\",\"lyric\":\"${toLrc().escapeJson()}\"}"
+    }
+
+    private fun Bundle.hasSameLyricOutput(other: Bundle): Boolean {
+        val stringKeys = listOf("lyricInfo", "rawLyric", "ticker_text", "lyric")
+        val stringsMatch = stringKeys.all { key ->
+            containsKey(key) == other.containsKey(key) && getString(key) == other.getString(key)
+        }
+        return stringsMatch &&
+            containsKey("ticker_icon_switch") == other.containsKey("ticker_icon_switch") &&
+            getBoolean("ticker_icon_switch") == other.getBoolean("ticker_icon_switch")
     }
 }

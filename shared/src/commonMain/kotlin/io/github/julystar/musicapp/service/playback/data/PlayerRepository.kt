@@ -59,14 +59,6 @@ class PlayerRepository(
     private val _music = MutableStateFlow(null as Music?)
     private val _playlist = MutableStateFlow(null as Playlist?)
     private val _playing = MutableStateFlow(false)
-    private val _musicIndex = combine(_music, _playlist) {
-            music, playlist ->
-        if (music == null || playlist == null) {
-            -1
-        } else {
-            playlist.musics.indexOfFirst { m -> m.meta.id == music.meta.id }
-        }
-    }
     private val _loading = MutableStateFlow(false)
     private val _durationChanged = MutableSharedFlow<Unit>()
     private val _playMode = MutableStateFlow(PlayMode.SINGLE)
@@ -82,48 +74,27 @@ class PlayerRepository(
     val currentTrackInfo = _currentTrackInfo.asStateFlow()
     private var metadataJob: Job? = null
 
-    val previousMusic = combine(playMode, _musicIndex, _playlist) {
-        playMode, musicIndex, playlist ->
-            if (musicIndex == -1 || playlist == null || playlist.musics.size == 0) {
-                null
-            } else if (musicIndex == 0 && (playMode == PlayMode.SINGLE || playMode == PlayMode.LIST)) {
-                null
-            } else {
-                val i = (musicIndex + playlist.musics.size - 1) % playlist.musics.size
-                playlist.musics[i]
-            }
-    }.stateIn(_scope, SharingStarted.Eagerly, null)
+    private val queueNavigation = combine(playMode, _music, _playlist) {
+            playMode, music, playlist ->
+        playbackQueueNavigation(playMode, music, playlist)
+    }.stateIn(_scope, SharingStarted.Eagerly, PlaybackQueueNavigation.Empty)
 
-    val nextMusic = combine(playMode, _musicIndex, _playlist) {
-            playMode, musicIndex, playlist ->
-        if (musicIndex == -1 || playlist == null || playlist.musics.size == 0) {
-            null
-        } else if (musicIndex == playlist.musics.size - 1 && (playMode == PlayMode.SINGLE || playMode == PlayMode.LIST)) {
-            null
-        } else {
-            val i = (musicIndex + 1) % playlist.musics.size
-            playlist.musics[i]
-        }
-    }.stateIn(_scope, SharingStarted.Eagerly, null)
+    val previousMusic = queueNavigation
+        .map { navigation -> navigation.previous }
+        .stateIn(_scope, SharingStarted.Eagerly, null)
+
+    val nextMusic = queueNavigation
+        .map { navigation -> navigation.next }
+        .stateIn(_scope, SharingStarted.Eagerly, null)
 
     private val _previousArtwork = MutableStateFlow<Artwork?>(null)
     val previousArtwork = _previousArtwork.asStateFlow()
     private val _nextArtwork = MutableStateFlow<Artwork?>(null)
     val nextArtwork = _nextArtwork.asStateFlow()
 
-    val onCompleteMusic = combine(playMode, _musicIndex, _playlist) {
-            playMode, musicIndex, playlist ->
-        if (musicIndex == -1 || playlist == null || playlist.musics.size == 0) {
-            null
-        } else if (playMode == PlayMode.SINGLE || (musicIndex == playlist.musics.size - 1 && playMode == PlayMode.LIST)) {
-            null
-        } else if (playMode == PlayMode.SINGLE_LOOP) {
-            playlist.musics[musicIndex]
-        } else {
-            val i = (musicIndex + 1) % playlist.musics.size
-            playlist.musics[i]
-        }
-    }.stateIn(_scope, SharingStarted.Eagerly, null)
+    val onCompleteMusic = queueNavigation
+        .map { navigation -> navigation.onComplete }
+        .stateIn(_scope, SharingStarted.Eagerly, null)
 
     init {
         _scope.launch {
@@ -399,6 +370,58 @@ class PlayerRepository(
             )
         }
     }
+}
+
+internal data class PlaybackQueueNavigation(
+    val previous: MusicAbstract?,
+    val next: MusicAbstract?,
+    val onComplete: MusicAbstract?,
+) {
+    companion object {
+        val Empty = PlaybackQueueNavigation(
+            previous = null,
+            next = null,
+            onComplete = null,
+        )
+    }
+}
+
+internal fun playbackQueueNavigation(
+    playMode: PlayMode,
+    music: Music?,
+    playlist: Playlist?,
+): PlaybackQueueNavigation {
+    val musics = playlist?.musics.orEmpty()
+    val currentMusicId = music?.meta?.id ?: return PlaybackQueueNavigation.Empty
+    val currentIndex = musics.indexOfFirst { item -> item.meta.id == currentMusicId }
+    if (currentIndex !in musics.indices) return PlaybackQueueNavigation.Empty
+
+    val previous = if (
+        currentIndex == 0 && (playMode == PlayMode.SINGLE || playMode == PlayMode.LIST)
+    ) {
+        null
+    } else {
+        musics[(currentIndex + musics.size - 1) % musics.size]
+    }
+    val next = if (
+        currentIndex == musics.lastIndex &&
+        (playMode == PlayMode.SINGLE || playMode == PlayMode.LIST)
+    ) {
+        null
+    } else {
+        musics[(currentIndex + 1) % musics.size]
+    }
+    val onComplete = when {
+        playMode == PlayMode.SINGLE -> null
+        playMode == PlayMode.LIST && currentIndex == musics.lastIndex -> null
+        playMode == PlayMode.SINGLE_LOOP -> musics[currentIndex]
+        else -> musics[(currentIndex + 1) % musics.size]
+    }
+    return PlaybackQueueNavigation(
+        previous = previous,
+        next = next,
+        onComplete = onComplete,
+    )
 }
 
 private fun Music.toListeningPlaybackTrack(): ListeningPlaybackTrack =

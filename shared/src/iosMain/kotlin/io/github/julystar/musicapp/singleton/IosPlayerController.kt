@@ -165,12 +165,20 @@ class IosPlayerController internal constructor(
 
     override fun getPendingSeekPosition(): Long? = pendingSeekPositionMs
 
-    override fun play(id: MusicId, playlistId: PlaylistId) {
+    override fun play(
+        id: MusicId,
+        playlistId: PlaylistId,
+        startPositionMs: Long,
+    ) {
+        val normalizedStartPositionMs = startPositionMs.coerceAtLeast(0L)
         if (
             playerRepository.music.value?.meta?.id == id &&
             playerRepository.playlist.value?.abstr?.meta?.id == playlistId &&
             playbackResource != null
         ) {
+            if (normalizedStartPositionMs > 0L) {
+                playbackEngine.seekTo(normalizedStartPositionMs)
+            }
             resume()
             return
         }
@@ -224,6 +232,9 @@ class IosPlayerController internal constructor(
                     playerRepository.setCurrent(music, playlist)
                 }
                 updateAudioDsp(currentSettings, music.meta.id.value)
+                if (normalizedStartPositionMs > 0L) {
+                    playbackEngine.seekTo(normalizedStartPositionMs)
+                }
                 playbackEngine.play()
                 playerRepository.setIsPlaying(true)
                 playerRepository.notifyDurationChanged()

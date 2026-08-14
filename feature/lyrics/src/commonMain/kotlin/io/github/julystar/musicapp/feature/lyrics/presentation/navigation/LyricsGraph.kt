@@ -11,6 +11,7 @@ import io.github.julystar.musicapp.feature.lyrics.presentation.LyricsRoot
 
 fun NavGraphBuilder.lyricsGraph(
     navController: NavHostController,
+    onNavigateBack: () -> Unit = { navController.popBackStack() },
 ) {
     composable<MusicGraph.Lyrics> {
         val animatedVisibilityScope = this
@@ -18,7 +19,7 @@ fun NavGraphBuilder.lyricsGraph(
             LocalPlayerArtworkAnimatedVisibilityScope provides animatedVisibilityScope,
         ) {
             LyricsRoot(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = onNavigateBack,
             )
         }
     }

@@ -5595,7 +5595,6 @@ function SettingsPage({ sub, onSubChange, themeMode, isDark, onThemeModeChange }
         <SettingsCard title="Lyric cleanup">
           <SwitchRow label="Ignore lyric header tags" subtitle="Hide artist, album, offset, and provider metadata tags"
             checked={ignoreLyricHeaderTags} onChange={setIgnoreLyricHeaderTags}/>
-          <ValueRow label="Lyric line blacklist" value="0 blocked" onClick={()=>{}}/>
         </SettingsCard>
         <SettingsCard title="Lyrics style">
           <SelectRow label="Alignment" value={lyricsAlignment} onChange={setLyricsAlignment}

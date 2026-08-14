@@ -9,7 +9,6 @@ const val LYRIC_HEADER_PLACEHOLDER = "•••"
 fun LyricDisplaySettings.isLyricLineVisible(rawText: String): Boolean {
     val text = rawText.normalizedLyricText()
     if (text.isEmpty()) return false
-    if (lineBlacklist.any { blocked -> blocked.trim() == text }) return false
     return !ignoreHeaderTags || !isLyricHeaderLine(text)
 }
 
@@ -18,8 +17,7 @@ fun isLyricHeaderTag(rawText: String): Boolean =
 
 fun LyricDisplaySettings.filterLyricTextBlock(content: String): List<String> {
     val visibleLines = content.lineSequence().filter { line ->
-        val text = line.normalizedLyricText()
-        text.isNotEmpty() && lineBlacklist.none { blocked -> blocked.trim() == text }
+        line.normalizedLyricText().isNotEmpty()
     }.toList()
     if (!ignoreHeaderTags) return visibleLines
 
@@ -32,8 +30,7 @@ fun LyricDisplaySettings.filterLyricTextBlock(content: String): List<String> {
 fun List<LyricLine>.filterLyricLinesForDisplay(settings: LyricDisplaySettings): List<LyricLine> {
     val visibleLines = filter { line ->
         val primary = line.text.lineSequence().firstOrNull(String::isNotBlank).orEmpty()
-        val text = primary.normalizedLyricText()
-        text.isNotEmpty() && settings.lineBlacklist.none { blocked -> blocked.trim() == text }
+        primary.normalizedLyricText().isNotEmpty()
     }
     if (!settings.ignoreHeaderTags) return visibleLines
 

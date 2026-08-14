@@ -180,6 +180,26 @@ class PlayerControllerRepositoryTest {
     }
 
     @Test
+    fun restoredPlaybackPassesSavedPositionIntoQueueLoad() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingAndroidPlaybackEngine(
+            loadResult = PlaybackEngineLoadResult.Ready,
+            queueLoadResult = PlaybackEngineLoadResult.Ready,
+        ),
+    ) { harness ->
+        harness.controller.play(
+            MusicId(TRACK_ID),
+            PlaylistId(PLAYLIST_ID),
+            startPositionMs = 45_000L,
+        )
+
+        awaitUntil { harness.playerState.playing.value }
+
+        assertEquals(45_000L, harness.engine.queueLoadRequests.single().startPositionMs)
+        assertEquals(emptyList(), harness.engine.seekCalls)
+    }
+
+    @Test
     fun currentTrackRemainsVisibleWhileNextTrackIsLoading() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
         engine = RecordingAndroidPlaybackEngine(PlaybackEngineLoadResult.Ready),
@@ -458,6 +478,7 @@ private class RecordingAndroidPlaybackEngine(
         private set
     var queueLoadCalls = 0
         private set
+    val queueLoadRequests = mutableListOf<AndroidPlaybackQueueLoadRequest>()
     private var loadedTrackId: Long? = null
 
     override fun load(request: PlaybackEngineLoadRequest): PlaybackEngineLoadResult {
@@ -470,6 +491,7 @@ private class RecordingAndroidPlaybackEngine(
 
     override fun loadQueue(request: AndroidPlaybackQueueLoadRequest): PlaybackEngineLoadResult {
         queueLoadCalls += 1
+        queueLoadRequests += request
         if (queueLoadResult == PlaybackEngineLoadResult.Ready) {
             loadedTrackId = request.currentTrackId
         }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -57,7 +59,9 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -95,8 +99,8 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.utils.toMusicDurationMs
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
-import io.github.julystar.musicapp.service.playback.presentation.transition.PlayerArtworkTransitionShape
 import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkSharedElement
+import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkTransitionShape
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -162,6 +166,12 @@ private val NowPlayingDismissDistanceThreshold = 240.dp
 private val NowPlayingDismissVelocityThreshold = 1_250.dp
 private const val NowPlayingDismissSettleDurationMillis = 260
 private const val LandscapeControlsAutoHideDelayMs = 5_000L
+
+internal fun doesPlayerCoverStatusBar(
+    playerTopInWindowPx: Float,
+    dragOffsetPx: Float,
+    statusBarBottomInWindowPx: Float,
+): Boolean = playerTopInWindowPx + dragOffsetPx < statusBarBottomInWindowPx
 
 @Composable
 private fun MusicPlayerHeader(
@@ -488,12 +498,9 @@ private fun CoverImage(
     onSwipePrevious: () -> Unit = {},
     onSwipeNext: () -> Unit = {},
 ) {
-    val compactCornerRadius = DesignTokens.shapes.sm
-    val artworkShape = remember(maxArtworkSize, cornerRadius, compactCornerRadius) {
-        PlayerArtworkTransitionShape(
-            compactSize = CompactArtworkTransitionSize,
+    val artworkShape = remember(maxArtworkSize, cornerRadius) {
+        playerArtworkTransitionShape(
             expandedSize = maxArtworkSize,
-            compactCornerRadius = compactCornerRadius,
             expandedCornerRadius = cornerRadius,
         )
     }
@@ -543,8 +550,6 @@ private fun CoverImage(
         }
     }
 }
-
-private val CompactArtworkTransitionSize = 44.dp
 
 @Composable
 private fun TrackInformation(
@@ -1518,6 +1523,7 @@ fun NowPlayingScreen(
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onAction: (NowPlayingAction) -> Unit,
+    onStatusBarCoverageChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val currentTrack = state.currentTrack
@@ -1526,9 +1532,23 @@ fun NowPlayingScreen(
     val dragAnimationScope = rememberCoroutineScope()
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     var dragAnimationJob by remember { mutableStateOf<Job?>(null) }
+    var playerTopInWindowPx by remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
+    val statusBarBottomInWindowPx = WindowInsets.statusBars.getTop(density).toFloat()
+    val coversStatusBar = doesPlayerCoverStatusBar(
+        playerTopInWindowPx = playerTopInWindowPx,
+        dragOffsetPx = dragOffsetPx,
+        statusBarBottomInWindowPx = statusBarBottomInWindowPx,
+    )
+
+    LaunchedEffect(coversStatusBar) {
+        onStatusBarCoverageChanged(coversStatusBar)
+    }
 
     BoxWithConstraints(
         modifier = modifier
+            .onGloballyPositioned { coordinates ->
+                playerTopInWindowPx = coordinates.positionInWindow().y
+            }
             .clipToBounds()
             .fillMaxSize(),
     ) {
