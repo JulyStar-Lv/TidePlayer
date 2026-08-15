@@ -74,6 +74,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
+import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
+import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
 import io.github.julystar.musicapp.core.domain.model.LyricFontChoice
@@ -1209,6 +1212,7 @@ private fun CompactLyricsSurface(
     dense: Boolean = false,
     lineHorizontalPadding: Dp = if (dense) 0.dp else CompactPlayerLyricsLineHorizontalPadding,
     onSurfaceClick: (() -> Unit)? = null,
+    isPortrait: Boolean = false,
 ) {
     val loadState = track?.lyrics?.loadState ?: LyricsLoadState.Loading
     val lyricLines = track?.lyrics?.lines.orEmpty()
@@ -1219,6 +1223,11 @@ private fun CompactLyricsSurface(
             settings = lyricDisplaySettings,
         )
     }
+    val contextLinesBeforeActive = nowPlayingLyricsContextLinesBeforeActive(
+        isPortrait = isPortrait,
+        showTranslation = lyricDisplaySettings.showTranslation,
+        hasTranslation = syncedLyrics.hasTranslation(),
+    )
     val lyricTextAlign = when (lyricDisplaySettings.textAlignment) {
         LyricTextAlignment.Left -> TextAlign.Start
         LyricTextAlignment.Center -> TextAlign.Center
@@ -1296,10 +1305,25 @@ private fun CompactLyricsSurface(
                     verticalContentPaddingFraction = 0.04f,
                     lineHorizontalPadding = lineHorizontalPadding,
                     lineVerticalPadding = if (dense) 1.dp else 2.dp,
+                    contextLinesBeforeActive = contextLinesBeforeActive,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
         }
+    }
+}
+
+internal fun nowPlayingLyricsContextLinesBeforeActive(
+    isPortrait: Boolean,
+    showTranslation: Boolean,
+    hasTranslation: Boolean,
+): Int = if (isPortrait && showTranslation && hasTranslation) 0 else 1
+
+private fun SyncedLyrics.hasTranslation(): Boolean = lines.any { line ->
+    when (line) {
+        is KaraokeLine -> !line.translation.isNullOrBlank()
+        is SyncedLine -> !line.translation.isNullOrBlank()
+        else -> false
     }
 }
 
@@ -1336,6 +1360,7 @@ private fun CompactClassicNowPlayingLayout(
     chromeAlpha: Float,
     progressContent: @Composable (Long?) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
+    isPortrait: Boolean,
 ) {
     val track = state.currentTrack
 
@@ -1396,6 +1421,7 @@ private fun CompactClassicNowPlayingLayout(
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(top = 12.dp, bottom = 16.dp),
+                            isPortrait = isPortrait,
                         )
 
                         Column(
@@ -1431,6 +1457,7 @@ private fun CompactImmersiveNowPlayingLayout(
     onLikedChange: (Boolean) -> Unit,
     progressContent: @Composable (Long?) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
+    isPortrait: Boolean,
 ) {
     val track = state.currentTrack
     val palette = rememberArtworkPalette(track?.artwork)
@@ -1503,6 +1530,7 @@ private fun CompactImmersiveNowPlayingLayout(
                         .weight(1f)
                         .padding(top = 6.dp, bottom = 10.dp),
                     lineHorizontalPadding = lyricsLineHorizontalPadding,
+                    isPortrait = isPortrait,
                 )
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(modifier = Modifier.offset(y = (-8).dp)) {
@@ -1678,6 +1706,7 @@ private fun CompactNowPlayingLayout(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isShortLandscape = maxWidth >= 640.dp && maxWidth > maxHeight && maxHeight < 520.dp
+        val isPortrait = maxHeight >= maxWidth
         if (isShortLandscape) {
             CompactLandscapeNowPlayingLayout(
                 state = state,
@@ -1703,6 +1732,7 @@ private fun CompactNowPlayingLayout(
                 onLikedChange = onLikedChange,
                 progressContent = progressContent,
                 onAction = onAction,
+                isPortrait = isPortrait,
             )
         } else {
             CompactClassicNowPlayingLayout(
@@ -1717,6 +1747,7 @@ private fun CompactNowPlayingLayout(
                 chromeAlpha = 1f,
                 progressContent = progressContent,
                 onAction = onAction,
+                isPortrait = isPortrait,
             )
         }
     }
