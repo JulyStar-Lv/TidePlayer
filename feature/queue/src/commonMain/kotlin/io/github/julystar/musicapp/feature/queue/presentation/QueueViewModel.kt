@@ -38,7 +38,6 @@ class QueueViewModel(
                     index = index,
                     title = item.title,
                     artist = item.artist,
-                    isCurrent = index == queue.currentIndex,
                     album = item.album,
                     trackId = item.libraryTrackId,
                     isFavorite = item.libraryTrackId?.let { it in favoriteTrackIds } == true,

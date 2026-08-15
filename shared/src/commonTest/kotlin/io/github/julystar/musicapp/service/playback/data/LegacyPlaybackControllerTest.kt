@@ -259,6 +259,32 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun currentIndexChangeKeepsEnrichedMetadataWithoutRepublishingBaseItems() = runTest {
+        val initialQueue = playbackQueue(size = 2, firstTrackId = 1L)
+        val source = MutableStateFlow(initialQueue)
+        val metadataLookups = mutableListOf<Long>()
+        val emissions = mutableListOf<PlaybackQueue>()
+        val collector = launch(start = CoroutineStart.UNDISPATCHED) {
+            source.withPlaybackItemMetadata { trackId ->
+                metadataLookups += trackId
+                PlaybackItemMetadata(artist = "Artist $trackId", album = "Album $trackId")
+            }.collect(emissions::add)
+        }
+
+        runCurrent()
+        emissions.clear()
+        source.value = initialQueue.copy(currentIndex = 1)
+        runCurrent()
+
+        assertEquals(1, emissions.size)
+        assertEquals(1, emissions.single().currentIndex)
+        assertEquals(listOf("Artist 1", "Artist 2"), emissions.single().items.map { it.artist })
+        assertEquals(listOf(1L, 2L), metadataLookups)
+        collector.cancelAndJoin()
+    }
+
+    @Test
     fun multiTrackQueuePromotesDefaultSingleModeToList() {
         assertEquals(PlayMode.LIST, playbackModeForQueue(PlayMode.SINGLE, queueSize = 2))
         assertEquals(PlayMode.SINGLE, playbackModeForQueue(PlayMode.SINGLE, queueSize = 1))

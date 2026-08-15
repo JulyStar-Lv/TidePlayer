@@ -184,6 +184,10 @@ class LegacyPlaybackController(
             ?.forPlaybackItems(items)
             ?.takeIf { queue -> queue.musics.any { it.meta.id.value == musicId } }
             ?: return
+        if (restoredSession.value != null) {
+            restoredSession.value = null
+            playerRepository.resetCurrent()
+        }
         playerRepository.setPlaybackQueue(playlist)
         val playMode = playbackModeForQueue(
             current = playerRepository.playMode.value,
@@ -191,10 +195,6 @@ class LegacyPlaybackController(
         )
         if (playMode != playerRepository.playMode.value) {
             playerRepository.setPlayMode(playMode)
-        }
-        if (restoredSession.value != null) {
-            restoredSession.value = null
-            playerRepository.resetCurrent()
         }
         val startPositionMs = if (
             settings?.value?.playbackAdvanced?.resumePlaybackPosition != false &&
@@ -605,20 +605,44 @@ internal fun legacyPlaybackQueue(
 @OptIn(ExperimentalCoroutinesApi::class)
 internal fun Flow<PlaybackQueue>.withPlaybackItemMetadata(
     metadataForTrack: suspend (Long) -> PlaybackItemMetadata,
-): Flow<PlaybackQueue> = transformLatest { queue ->
-    emit(queue)
-    val enrichedItems = queue.items.map { item ->
-        val trackId = item.libraryTrackId ?: return@map item
-        val metadata = metadataForTrack(trackId)
-        item.copy(
-            artist = metadata.artist,
-            album = metadata.album,
-        )
-    }
-    if (enrichedItems != queue.items) {
-        emit(queue.copy(items = enrichedItems))
-    }
+): Flow<PlaybackQueue> = flow {
+    val metadataCache = mutableMapOf<Long, PlaybackItemMetadata>()
+    var previousQueue: PlaybackQueue? = null
+
+    this@withPlaybackItemMetadata.transformLatest { queue ->
+        val selectionOnlyUpdate = previousQueue?.let { previous ->
+            previous.items == queue.items && previous.currentIndex != queue.currentIndex
+        } == true
+        previousQueue = queue
+        val queuedTrackIds = queue.items.mapNotNull(PlayableItem::libraryTrackId).toSet()
+        metadataCache.keys.retainAll(queuedTrackIds)
+
+        val cachedItems = queue.items.map { item ->
+            val trackId = item.libraryTrackId ?: return@map item
+            val metadata = metadataCache[trackId] ?: return@map item
+            item.withMetadata(metadata)
+        }
+        emit(queue.copy(items = cachedItems))
+
+        val enrichedItems = queue.items.map { item ->
+            val trackId = item.libraryTrackId ?: return@map item
+            val metadata = if (selectionOnlyUpdate && metadataCache.containsKey(trackId)) {
+                metadataCache.getValue(trackId)
+            } else {
+                metadataForTrack(trackId).also { metadataCache[trackId] = it }
+            }
+            item.withMetadata(metadata)
+        }
+        if (enrichedItems != cachedItems) {
+            emit(queue.copy(items = enrichedItems))
+        }
+    }.collect { queue -> emit(queue) }
 }
+
+private fun PlayableItem.withMetadata(metadata: PlaybackItemMetadata): PlayableItem = copy(
+    artist = metadata.artist,
+    album = metadata.album,
+)
 
 private fun PlayMode.toRepeatMode(): RepeatMode {
     return when (this) {

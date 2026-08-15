@@ -378,7 +378,7 @@ fun QueueDialog(
                                 QueueTrackRow(
                                     item = item,
                                     position = visualIndex + 1,
-                                    active = item.isCurrent && state.isPlaying,
+                                    active = item.index == state.currentIndex && state.isPlaying,
                                     interactionsEnabled = activeDrag == null,
                                     isDragged = activeDrag?.originalIndex == item.index,
                                     dragOffsetY = activeDrag?.takeIf {

@@ -23,8 +23,8 @@ class QueueStateTest {
     @Test
     fun `populated state preserves item data`() {
         val items = persistentListOf(
-            QueueItemUi(index = 0, title = "Track 1", artist = "Artist A", isCurrent = true),
-            QueueItemUi(index = 1, title = "Track 2", artist = null, isCurrent = false),
+            QueueItemUi(index = 0, title = "Track 1", artist = "Artist A"),
+            QueueItemUi(index = 1, title = "Track 2", artist = null),
         )
         val state = QueueState(items = items, currentIndex = 0, isPlaying = true)
 
@@ -32,8 +32,8 @@ class QueueStateTest {
         assertEquals(0, state.currentIndex)
         assertTrue(state.isPlaying)
         assertEquals("Track 1", state.items[0].title)
-        assertTrue(state.items[0].isCurrent)
-        assertFalse(state.items[1].isCurrent)
+        assertTrue(state.items[0].index == state.currentIndex)
+        assertFalse(state.items[1].index == state.currentIndex)
     }
 
     @Test
@@ -49,7 +49,6 @@ class QueueStateTest {
             title = "Midnight Cascade",
             artist = "Luna Waves",
             album = "Tidal Drift",
-            isCurrent = true,
         )
 
         assertEquals("Luna Waves · Tidal Drift", item.subtitle())
@@ -69,7 +68,7 @@ class QueueStateTest {
 
     @Test
     fun `row key follows the queue entry rather than its visual position`() {
-        val item = QueueItemUi(index = 3, title = "T", artist = null, isCurrent = false)
+        val item = QueueItemUi(index = 3, title = "T", artist = null)
 
         assertEquals(item.lazyListKey(), item.copy(title = "T2").lazyListKey())
         assertNotEquals(item.lazyListKey(), item.copy(index = 4).lazyListKey())

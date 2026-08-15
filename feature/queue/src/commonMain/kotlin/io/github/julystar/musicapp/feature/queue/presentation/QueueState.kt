@@ -16,7 +16,6 @@ data class QueueItemUi(
     val index: Int,
     val title: String,
     val artist: String?,
-    val isCurrent: Boolean,
     val album: String? = null,
     val trackId: Long? = null,
     val isFavorite: Boolean = false,

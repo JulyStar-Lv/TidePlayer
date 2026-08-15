@@ -28,11 +28,14 @@ import io.github.julystar.musicapp.database.TrackSourcePlaybackCandidate
 import io.github.julystar.musicapp.database.TrackSourceRefDao
 import io.github.julystar.musicapp.database.TrackSourceRefEntity
 import io.github.julystar.musicapp.core.data.datastore.AppPreferencesRepository
+import io.github.julystar.musicapp.core.data.datastore.PersistedPlaybackSession
 import io.github.julystar.musicapp.core.data.datastore.createAppDataStore
+import io.github.julystar.musicapp.service.playback.data.LegacyPlaybackController
 import io.github.julystar.musicapp.service.playback.data.PlaybackResourceResolver
 import io.github.julystar.musicapp.service.playback.domain.PlaybackEngineLoadRequest
 import io.github.julystar.musicapp.service.playback.domain.PlaybackEngineLoadResult
 import io.github.julystar.musicapp.service.playback.domain.PlaybackPosition
+import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.source.api.BuiltInSourceIds
 import io.github.julystar.musicapp.source.api.LegacyStorageKind
 import io.github.julystar.musicapp.source.api.LegacyStoragePlaybackResolver
@@ -53,7 +56,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -72,6 +75,49 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DesktopPlayerControllerTest {
+    @Test
+    fun selectingTrackAfterSessionRestoreKeepsRestoredQueueSubset() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),
+    ) { harness ->
+        harness.appPreferencesRepository.savePlaybackSession(
+            PersistedPlaybackSession(
+                trackId = SECOND_TRACK_ID,
+                playlistId = PLAYLIST_ID,
+                positionMs = 0L,
+                wasPlaying = false,
+                queueTrackIds = listOf(SECOND_TRACK_ID),
+            )
+        )
+        val playbackController = LegacyPlaybackController(
+            playerRepository = harness.playerRepository,
+            legacyController = harness.controller,
+            roomLibraryStore = harness.roomLibraryStore,
+            scope = harness.scope,
+        )
+        awaitUntil {
+            harness.playerRepository.playlist.value?.musics?.map { it.meta.id.value } ==
+                listOf(SECOND_TRACK_ID)
+        }
+
+        playbackController.play(
+            items = listOf(
+                PlayableItem(
+                    title = SECOND_TRACK_TITLE,
+                    libraryTrackId = SECOND_TRACK_ID,
+                    libraryPlaylistId = PLAYLIST_ID,
+                )
+            ),
+            startIndex = 0,
+        )
+
+        awaitUntil { harness.playerRepository.playing.value }
+        assertEquals(
+            listOf(SECOND_TRACK_ID),
+            harness.playerRepository.playlist.value?.musics?.map { it.meta.id.value },
+        )
+    }
+
     @Test
     fun restoredPlaybackSeeksBeforeStarting() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
@@ -293,7 +339,8 @@ class DesktopPlayerControllerTest {
         engine: RecordingDesktopPlaybackEngine,
         block: suspend (DesktopPlaybackHarness) -> Unit,
     ) = runBlocking {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scopeJob = SupervisorJob()
+        val scope = CoroutineScope(scopeJob + Dispatchers.Default)
         val preferencesFile = File.createTempFile("musicapp-player-", ".preferences_pb").apply {
             delete()
         }
@@ -324,11 +371,12 @@ class DesktopPlayerControllerTest {
                 sourceAccountDao = database.sourceAccountDao(),
                 credentialStore = InMemoryCredentialStore(),
             )
+            val appPreferencesRepository = AppPreferencesRepository(
+                createAppDataStore { preferencesFile.absolutePath.toPath() }
+            )
             val playerRepository = PlayerRepository(
                 roomLibraryStore = roomLibraryStore,
-                appPreferencesRepository = AppPreferencesRepository(
-                    createAppDataStore { preferencesFile.absolutePath.toPath() }
-                ),
+                appPreferencesRepository = appPreferencesRepository,
                 _scope = scope,
                 storageLookup = LegacyStorageLookup {
                     storage(id = STORAGE_ID, type = StorageType.WEBDAV)
@@ -368,13 +416,16 @@ class DesktopPlayerControllerTest {
                     controller = controller,
                     playerRepository = playerRepository,
                     database = database,
+                    roomLibraryStore = roomLibraryStore,
+                    appPreferencesRepository = appPreferencesRepository,
+                    scope = scope,
                     source = source,
                     engine = engine,
                     playbackResolver = playbackResolver,
                 )
             )
         } finally {
-            scope.cancel()
+            scopeJob.cancelAndJoin()
             database.close()
             preferencesFile.delete()
         }
@@ -554,6 +605,9 @@ private data class DesktopPlaybackHarness(
     val controller: DesktopPlayerController,
     val playerRepository: PlayerRepository,
     val database: AppDatabase,
+    val roomLibraryStore: RoomLibraryStore,
+    val appPreferencesRepository: AppPreferencesRepository,
+    val scope: CoroutineScope,
     val source: RecordingMusicSource,
     val engine: RecordingDesktopPlaybackEngine,
     val playbackResolver: RecordingLegacyPlaybackResolver,
