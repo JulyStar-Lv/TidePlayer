@@ -55,6 +55,7 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
+import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import kotlinx.coroutines.launch
@@ -443,7 +444,7 @@ private fun AlbumTrackRow(
                         if (favorite) Res.string.album_remove_favorite else Res.string.album_add_favorite,
                         track.title,
                     ),
-                    tint = if (favorite) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    tint = if (favorite) DesignPalette.FavoriteRed else MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.size(17.dp),
                 )
             }

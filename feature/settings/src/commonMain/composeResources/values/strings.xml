@@ -598,10 +598,10 @@
     <string name="settings_open_player_on_play">Open player when playback starts</string>
     <string name="settings_now_playing_entry">Now Playing entry</string>
     <string name="settings_now_playing_entry_summary">Open Now Playing from the persistent Mini Player</string>
+    <string name="settings_player_immersive_album_cover">Immersive album cover</string>
+    <string name="settings_player_immersive_album_cover_summary">Extend artwork edge to edge and blend it into the player</string>
     <string name="settings_player_cover_swipe">Swipe the cover to change tracks</string>
-    <string name="settings_player_tap_progress">Tap the progress bar to seek</string>
     <string name="settings_player_total_duration">Show total duration</string>
-    <string name="settings_player_song_annotation">Show song annotation</string>
     <string name="settings_player_audio_technical_info">Show audio technical information</string>
     <string name="settings_player_audio_technical_info_summary">Show audio details below the artist</string>
     <string name="settings_desktop_shortcuts">Desktop playback shortcuts</string>

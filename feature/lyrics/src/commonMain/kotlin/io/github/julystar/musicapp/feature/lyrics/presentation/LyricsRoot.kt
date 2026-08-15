@@ -17,6 +17,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun LyricsRoot(
     onNavigateBack: () -> Unit,
+    drawBackground: Boolean = true,
     viewModel: LyricsViewModel = koinViewModel(),
     playerViewModel: PlayerVM = koinViewModel(),
     settingsRepository: SettingsRepository = koinInject(),
@@ -53,5 +54,50 @@ fun LyricsRoot(
             }
         },
         onPlayerAction = playerViewModel::onNowPlayingAction,
+        drawBackground = drawBackground,
+    )
+}
+
+@Composable
+fun NowPlayingLyricsRoot(
+    onNavigateBack: () -> Unit,
+    drawBackground: Boolean = true,
+    playerViewModel: PlayerVM = koinViewModel(),
+    settingsRepository: SettingsRepository = koinInject(),
+    favoritesRepository: FavoritesRepository = koinInject(),
+) {
+    PlatformBackHandler(onBack = onNavigateBack)
+    StatusBarIconsEffect(useLightIcons = true)
+
+    val nowPlayingState by playerViewModel.nowPlayingState.collectAsState()
+    val currentDuration by playerViewModel.currentDuration.collectAsState()
+    val settings by settingsRepository.settings.collectAsState(AppSettings.Default)
+    val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
+    val coroutineScope = rememberCoroutineScope()
+    val track = nowPlayingState.currentTrack
+    val trackId = track?.id
+
+    LyricsScreen(
+        state = LyricsState(
+            trackId = trackId,
+            isLoading = false,
+            trackTitle = track?.title.orEmpty(),
+            trackArtist = track?.artist,
+        ),
+        nowPlayingTrack = track,
+        currentPositionMs = currentDuration.inWholeMilliseconds,
+        isPlaying = nowPlayingState.controls.isPlaying,
+        lyricDisplaySettings = settings.lyrics,
+        isFavorite = trackId?.let(favoriteTrackIds::contains) == true,
+        onToggleFavorite = {
+            trackId?.let { id ->
+                coroutineScope.launch { favoritesRepository.toggleFavorite(id) }
+            }
+        },
+        onAction = { action ->
+            if (action == LyricsAction.NavigateBack) onNavigateBack()
+        },
+        onPlayerAction = playerViewModel::onNowPlayingAction,
+        drawBackground = drawBackground,
     )
 }

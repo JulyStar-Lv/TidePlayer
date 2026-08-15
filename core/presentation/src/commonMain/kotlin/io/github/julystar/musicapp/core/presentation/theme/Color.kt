@@ -16,6 +16,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 object DesignPalette {
     val BrandPink = Color(0xFFFF5B8A)
+    val FavoriteRed = Color(0xFFFA233B)
     val DefaultManualThemeSeed = BrandPink
     val BrandButtonLight = Color(0xFFFA233B)
     val BrandButtonDark = Color(0xFFFA2E48)

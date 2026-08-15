@@ -29,6 +29,7 @@ kotlin {
             implementation(libs.foundation)
             implementation(libs.backdrop)
             implementation(libs.components.resources)
+            implementation(libs.miuix.shader)
             implementation(libs.miuix.ui)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)

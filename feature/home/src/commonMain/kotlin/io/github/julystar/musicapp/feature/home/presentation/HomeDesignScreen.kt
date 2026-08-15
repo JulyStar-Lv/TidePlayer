@@ -1,13 +1,6 @@
 package io.github.julystar.musicapp.feature.home.presentation
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -47,7 +41,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -61,14 +54,11 @@ import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.designLiquidGlass
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -371,40 +361,34 @@ private fun DailyPicksHero(
     onPlay: (() -> Unit)?,
 ) {
     val dark = MiuixTheme.colorScheme.background.luminance() < 0.5f
-    val shape = RoundedCornerShape(if (compact) 22.dp else 30.dp)
+    val shape = RoundedCornerShape(18.dp)
     val foreground = if (dark) Color.White else Color(0xFF15151A)
     val muted = foreground.copy(alpha = if (dark) 0.74f else 0.62f)
-    val backgroundBackdrop = rememberLayerBackdrop()
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (compact) 152.dp else 260.dp)
+            .height(DailyPicksCardHeight)
             .shadow(DesignTokens.elevation.card, shape, clip = false)
             .clip(shape)
-            .background(if (dark) Color(0xFF0F1026) else Color(0xFFE9DEF6))
-            .border(0.5.dp, MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f), shape),
+            .background(MiuixTheme.colorScheme.surface),
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .layerBackdrop(backgroundBackdrop),
-        ) {
-            DailyPicksBackground(dark = dark)
-        }
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .designLiquidGlass(
-                    backdrop = backgroundBackdrop,
-                    shape = shape,
-                ),
+        DailyPicksEffectBackground(
+            dark = dark,
+            modifier = Modifier.matchParentSize(),
         )
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .width(if (compact) 190.dp else 280.dp)
-                .padding(start = if (compact) 20.dp else 28.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .fillMaxHeight()
+                .padding(
+                    start = if (compact) 20.dp else 28.dp,
+                    bottom = DailyPicksContentBottomInset,
+                ),
+            verticalArrangement = Arrangement.spacedBy(
+                space = 4.dp,
+                alignment = Alignment.Bottom,
+            ),
         ) {
             Text(
                 text = stringResource(Res.string.home_daily_picks),
@@ -438,150 +422,10 @@ private fun DailyPicksHero(
         }
         DailyPicksArtwork(
             tracks = tracks,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = if (compact) 14.dp else 32.dp)
-                .size(width = if (compact) 140.dp else 210.dp, height = if (compact) 112.dp else 174.dp),
+            modifier = Modifier.matchParentSize(),
         )
     }
 }
-
-@Composable
-private fun DailyPicksBackground(dark: Boolean) {
-    val transition = rememberInfiniteTransition(label = "daily-picks-background")
-    val blobOneProgress = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = dailyPicksAnimation(durationMillis = 18_000),
-        label = "daily-picks-blob-one",
-    )
-    val blobTwoProgress = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = dailyPicksAnimation(durationMillis = 22_000),
-        label = "daily-picks-blob-two",
-    )
-    val blobThreeProgress = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = dailyPicksAnimation(durationMillis = 26_000),
-        label = "daily-picks-blob-three",
-    )
-    val blobFourProgress = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = dailyPicksAnimation(durationMillis = 30_000),
-        label = "daily-picks-blob-four",
-    )
-
-    val surface = if (dark) Color(0xFF0F1026) else Color(0xFFE9DEF6)
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(surface),
-    ) {
-        DailyPicksBlob(
-            color = if (dark) Color(0xFF3157FF).copy(alpha = 0.72f) else Color(0xFF78ADFF).copy(alpha = 0.68f),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .size(260.dp)
-                .graphicsLayer {
-                    val progress = blobOneProgress.value
-                    translationX = (-72 + 88 * progress).dp.toPx()
-                    translationY = (-138 + 54 * progress).dp.toPx()
-                    scaleX = 1f + 0.12f * progress
-                    scaleY = 0.92f + 0.10f * progress
-                },
-        )
-        DailyPicksBlob(
-            color = if (dark) Color(0xFFBB4FC7).copy(alpha = 0.58f) else Color(0xFFFFBFD8).copy(alpha = 0.66f),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .size(250.dp)
-                .graphicsLayer {
-                    val progress = blobTwoProgress.value
-                    translationX = (42 - 74 * progress).dp.toPx()
-                    translationY = (-126 + 78 * progress).dp.toPx()
-                    scaleX = 1.08f - 0.14f * progress
-                    scaleY = 0.94f + 0.18f * progress
-                },
-        )
-        DailyPicksBlob(
-            color = if (dark) Color(0xFF395FE0).copy(alpha = 0.64f) else Color(0xFF9DAAFF).copy(alpha = 0.62f),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .size(286.dp)
-                .graphicsLayer {
-                    val progress = blobThreeProgress.value
-                    translationX = (92 - 94 * progress).dp.toPx()
-                    translationY = (122 - 62 * progress).dp.toPx()
-                    scaleX = 0.94f + 0.14f * progress
-                    scaleY = 1.06f - 0.12f * progress
-                },
-        )
-        DailyPicksBlob(
-            color = if (dark) Color(0xFF7650C9).copy(alpha = 0.52f) else Color(0xFFD8A8E8).copy(alpha = 0.56f),
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .size(238.dp)
-                .graphicsLayer {
-                    val progress = blobFourProgress.value
-                    translationX = (-66 + 86 * progress).dp.toPx()
-                    translationY = (102 - 72 * progress).dp.toPx()
-                    scaleX = 1.04f - 0.10f * progress
-                    scaleY = 0.92f + 0.14f * progress
-                },
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color.White.copy(alpha = if (dark) 0.08f else 0.46f),
-                            Color.Transparent,
-                            if (dark) Color(0xFF6D66FF).copy(alpha = 0.14f)
-                            else Color(0xFFB7D8FF).copy(alpha = 0.20f),
-                        ),
-                    ),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        0f to surface.copy(alpha = if (dark) 0.28f else 0.18f),
-                        0.48f to Color.Transparent,
-                        1f to Color.Transparent,
-                    ),
-                ),
-        )
-    }
-}
-
-@Composable
-private fun DailyPicksBlob(color: Color, modifier: Modifier) {
-    Box(
-        modifier = modifier
-            .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        color,
-                        color.copy(alpha = color.alpha * 0.48f),
-                        color.copy(alpha = 0f),
-                    ),
-                ),
-                shape = CircleShape,
-            ),
-    )
-}
-
-private fun dailyPicksAnimation(durationMillis: Int) = infiniteRepeatable<Float>(
-    animation = tween(durationMillis = durationMillis, easing = FastOutSlowInEasing),
-    repeatMode = RepeatMode.Reverse,
-)
 
 @Composable
 private fun DailyPicksArtwork(
@@ -591,43 +435,33 @@ private fun DailyPicksArtwork(
     Box(
         modifier = modifier,
     ) {
-        tracks.getOrNull(0)?.let { track ->
+        val coverSizes = listOf(72.dp, 60.dp, 50.dp)
+        val coverShapes = listOf(CircleShape, DailyPicksCookieShape, DailyPicksPebbleShape)
+        val firstCoverTop = 16.dp
+        val thirdCoverTop = DailyPicksCardHeight -
+            DailyPicksContentBottomInset -
+            coverSizes.last()
+        tracks.take(3).forEachIndexed { index, track ->
+            val coverTop = firstCoverTop +
+                (thirdCoverTop - firstCoverTop) * (index / 2f)
             DailyPicksCover(
                 artwork = track.artwork,
-                demoIndex = track.artworkIndex + 3,
+                demoIndex = track.artworkIndex + 3 + index * 2,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .size(72.dp)
-                    .graphicsLayer(rotationZ = -6f),
-                shape = CircleShape,
-            )
-        }
-        tracks.getOrNull(1)?.let { track ->
-            DailyPicksCover(
-                artwork = track.artwork,
-                demoIndex = track.artworkIndex + 5,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp)
-                    .size(65.dp)
-                    .graphicsLayer(rotationZ = 8f),
-                shape = RoundedCornerShape(32.dp, 20.dp, 28.dp, 24.dp),
-            )
-        }
-        tracks.getOrNull(2)?.let { track ->
-            DailyPicksCover(
-                artwork = track.artwork,
-                demoIndex = track.artworkIndex + 7,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(top = 22.dp)
-                    .size(60.dp)
-                    .graphicsLayer(rotationZ = 14f),
-                shape = RoundedCornerShape(50),
+                    .offset(
+                        x = (-14 - index * 30).dp,
+                        y = coverTop,
+                    )
+                    .size(coverSizes[index]),
+                shape = coverShapes[index],
             )
         }
     }
 }
+
+private val DailyPicksCardHeight = 160.dp
+private val DailyPicksContentBottomInset = 12.dp
 
 @Composable
 private fun DailyPicksCover(
@@ -638,7 +472,6 @@ private fun DailyPicksCover(
 ) {
     Box(
         modifier = modifier
-            .border(2.5.dp, Color.White.copy(alpha = 0.72f), shape)
             .clip(shape),
     ) {
         HomeArtworkImage(

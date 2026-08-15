@@ -6,6 +6,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +50,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.julystar.musicapp.core.isRouteHome
 import io.github.julystar.musicapp.core.isRouteLyrics
 import io.github.julystar.musicapp.core.isRouteNowPlaying
+import io.github.julystar.musicapp.core.domain.model.AppSettings
+import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
@@ -67,6 +71,7 @@ import io.github.julystar.musicapp.feature.downloads.presentation.navigation.dow
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.importGraph
 import io.github.julystar.musicapp.feature.home.presentation.ListeningRoot
+import io.github.julystar.musicapp.feature.lyrics.presentation.NowPlayingLyricsRoot
 import io.github.julystar.musicapp.feature.lyrics.presentation.navigation.lyricsGraph
 import io.github.julystar.musicapp.feature.playlist.presentation.CreatePlaylistRoot
 import io.github.julystar.musicapp.feature.playlist.presentation.CreatePlaylistVM
@@ -82,6 +87,8 @@ import io.github.julystar.musicapp.feature.search.presentation.navigation.search
 import io.github.julystar.musicapp.feature.sources.presentation.navigation.sourcesGraph
 import io.github.julystar.musicapp.plugin.management.PluginSettingsRoot
 import io.github.julystar.musicapp.plugin.management.ManualMetadataSearchDialog
+import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.ImmersivePlayerBackground
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingRoot
 import io.github.julystar.musicapp.service.playback.presentation.navigation.playerGraph
@@ -97,6 +104,7 @@ import io.github.julystar.musicapp.widgets.appbar.getNavigationRailWidth
 import io.github.julystar.musicapp.widgets.appbar.getSidebarWidth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -116,6 +124,7 @@ internal fun RootNavHost(
     var showQueue by remember { mutableStateOf(false) }
     var showNowPlayingOverlay by rememberSaveable { mutableStateOf(false) }
     var nowPlayingOverlayHostEntryId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showImmersiveLyrics by rememberSaveable { mutableStateOf(false) }
     var lyricsReturnInProgress by remember { mutableStateOf(false) }
     var selectedRootTabName by rememberSaveable { mutableStateOf(HomeTab.HOME.name) }
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
@@ -132,6 +141,14 @@ internal fun RootNavHost(
         currentEntryId = currentBackStackEntry?.id,
         currentRoute = currentRoute,
     )
+    val nowPlayingOverlayVisibilityState = remember { MutableTransitionState(false) }
+    nowPlayingOverlayVisibilityState.targetState = nowPlayingOverlayResident
+    val playerViewModel: PlayerVM = koinViewModel()
+    val settingsRepository: SettingsRepository = koinInject()
+    val nowPlayingState by playerViewModel.nowPlayingState.collectAsState()
+    val settings by settingsRepository.settings.collectAsState(AppSettings.Default)
+    val usesResidentImmersiveLyrics = settings.playerInteraction.immersiveAlbumCoverEnabled &&
+        nowPlayingOverlayResident
     val showRootNavigationChrome = !isImmersivePlayerRoute(currentRoute)
     var contentUsesNavigationChrome by remember { mutableStateOf(showRootNavigationChrome) }
     val onRootTabSelected: (HomeTab) -> Unit = { selectedRootTabName = it.name }
@@ -149,6 +166,10 @@ internal fun RootNavHost(
                 lyricsReturnInProgress = false
             }
         }
+    }
+
+    LaunchedEffect(usesResidentImmersiveLyrics) {
+        if (!usesResidentImmersiveLyrics) showImmersiveLyrics = false
     }
 
     LaunchedEffect(showRootNavigationChrome) {
@@ -458,7 +479,7 @@ internal fun RootNavHost(
                 content = navigationContent,
             )
             AnimatedVisibility(
-                visible = nowPlayingOverlayResident,
+                visibleState = nowPlayingOverlayVisibilityState,
                 modifier = Modifier.fillMaxSize(),
                 enter = slideInVertically(
                     animationSpec = tween(
@@ -475,39 +496,74 @@ internal fun RootNavHost(
                     targetOffsetY = { fullHeight -> fullHeight },
                 ),
             ) {
-                AnimatedVisibility(
-                    visible = nowPlayingOverlayVisible || lyricsReturnInProgress,
-                    modifier = Modifier.fillMaxSize(),
-                    enter = if (lyricsReturnInProgress) {
-                        fadeIn(animationSpec = tween(playerTransitionDurationMillis))
-                    } else {
-                        immediateEnterTransition(playerTransitionDurationMillis)
-                    },
-                    exit = if (isRouteLyrics(currentRoute)) {
-                        fadeOut(animationSpec = tween(playerTransitionDurationMillis))
-                    } else {
-                        immediateExitTransition(playerTransitionDurationMillis)
-                    },
-                ) {
-                    val playerOverlayVisibilityScope = this
-                    CompositionLocalProvider(
-                        LocalPlayerArtworkAnimatedVisibilityScope provides playerOverlayVisibilityScope,
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (usesResidentImmersiveLyrics && showImmersiveLyrics) {
+                        ImmersivePlayerBackground(artwork = nowPlayingState.currentTrack?.artwork)
+                    }
+                    AnimatedVisibility(
+                        visible = shouldShowNowPlayingOverlayContent(
+                            overlayVisible = nowPlayingOverlayVisible,
+                            lyricsReturnInProgress = lyricsReturnInProgress,
+                            sheetCurrentState = nowPlayingOverlayVisibilityState.currentState,
+                            sheetTargetState = nowPlayingOverlayVisibilityState.targetState,
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                        enter = if (lyricsReturnInProgress) {
+                            fadeIn(animationSpec = tween(playerTransitionDurationMillis))
+                        } else {
+                            immediateEnterTransition(playerTransitionDurationMillis)
+                        },
+                        exit = if (isRouteLyrics(currentRoute)) {
+                            fadeOut(animationSpec = tween(playerTransitionDurationMillis))
+                        } else {
+                            immediateExitTransition(playerTransitionDurationMillis)
+                        },
                     ) {
-                        NowPlayingRoot(
-                            onNavigateBack = {
-                                showNowPlayingOverlay = false
-                                nowPlayingOverlayHostEntryId = null
-                            },
-                            onNavigateToLyrics = { trackId ->
-                                navController.navigate(MusicGraph.Lyrics(trackId))
-                            },
-                            onOpenQueue = { showQueue = true },
-                            onNavigateToLyricImport = {
-                                navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
-                            },
-                            onSearchMetadata = { track -> metadataTrack = track },
-                        )
-                        TimeToPauseModal()
+                        val playerOverlayVisibilityScope = this
+                        CompositionLocalProvider(
+                            LocalPlayerArtworkAnimatedVisibilityScope provides playerOverlayVisibilityScope,
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            alpha = if (showImmersiveLyrics) 0f else 1f
+                                        },
+                                ) {
+                                    NowPlayingRoot(
+                                        onNavigateBack = {
+                                            showNowPlayingOverlay = false
+                                            nowPlayingOverlayHostEntryId = null
+                                        },
+                                        onNavigateToLyrics = { trackId ->
+                                            if (usesResidentImmersiveLyrics) {
+                                                showImmersiveLyrics = true
+                                            } else {
+                                                navController.navigate(MusicGraph.Lyrics(trackId))
+                                            }
+                                        },
+                                        onOpenQueue = { showQueue = true },
+                                        onNavigateToLyricImport = {
+                                            navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
+                                        },
+                                        onSearchMetadata = { track -> metadataTrack = track },
+                                        backEnabled = !showImmersiveLyrics,
+                                    )
+                                }
+                                if (showImmersiveLyrics && usesResidentImmersiveLyrics) {
+                                    CompositionLocalProvider(
+                                        LocalPlayerArtworkAnimatedVisibilityScope provides null,
+                                    ) {
+                                        NowPlayingLyricsRoot(
+                                            onNavigateBack = { showImmersiveLyrics = false },
+                                            drawBackground = false,
+                                        )
+                                    }
+                                }
+                                TimeToPauseModal()
+                            }
+                        }
                     }
                 }
             }
@@ -614,6 +670,14 @@ internal fun shouldKeepNowPlayingOverlayResident(
     currentRoute: String?,
 ): Boolean = requested && hostEntryId != null &&
     (hostEntryId == currentEntryId || isRouteLyrics(currentRoute))
+
+internal fun shouldShowNowPlayingOverlayContent(
+    overlayVisible: Boolean,
+    lyricsReturnInProgress: Boolean,
+    sheetCurrentState: Boolean,
+    sheetTargetState: Boolean,
+): Boolean = overlayVisible || lyricsReturnInProgress ||
+    (sheetCurrentState && !sheetTargetState)
 
 internal fun shouldReturnToHome(route: String?): Boolean =
     route != null && !isRouteHome(route)

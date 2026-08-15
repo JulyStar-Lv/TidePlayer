@@ -33,6 +33,8 @@ fun NowPlayingRoot(
     onOpenQueue: () -> Unit,
     onNavigateToLyricImport: () -> Unit,
     onSearchMetadata: (NowPlayingTrackItem) -> Unit,
+    drawBackground: Boolean = true,
+    backEnabled: Boolean = true,
     playerViewModel: PlayerVM = koinViewModel(),
     sleepModeViewModel: SleepModeVM = koinViewModel(),
     settingsRepository: SettingsRepository = koinInject(),
@@ -55,7 +57,7 @@ fun NowPlayingRoot(
         onNavigateBack()
     }
     KeepScreenOnEffect(enabled = settings.keepScreenOnInPlayer)
-    PlatformBackHandler(onBack = exitNowPlaying)
+    PlatformBackHandler(enabled = backEnabled, onBack = exitNowPlaying)
     StatusBarIconsEffect(
         useLightIcons = shouldUseLightStatusBarIcons(
             playerCoversStatusBar = playerCoversStatusBar,
@@ -123,6 +125,7 @@ fun NowPlayingRoot(
                     onAction = ::onAction,
                 )
             },
+            drawBackground = drawBackground,
             onAction = ::onAction,
             onStatusBarCoverageChanged = { playerCoversStatusBar = it },
         )

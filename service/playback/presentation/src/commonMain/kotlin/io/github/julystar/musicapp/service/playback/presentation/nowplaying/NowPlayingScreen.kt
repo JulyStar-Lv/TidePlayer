@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -69,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
@@ -94,8 +97,10 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.dropShadow
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.PlayerBackgroundArtworkImage
+import io.github.julystar.musicapp.core.presentation.media.rememberArtworkPalette
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
+import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.utils.toMusicDurationMs
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
@@ -105,6 +110,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -513,20 +519,11 @@ private fun CoverImage(
             modifier = Modifier
                 .playerArtworkSharedElement()
                 .size(artworkSize)
-                .pointerInput(swipeEnabled) {
-                    if (swipeEnabled) {
-                        var accumulatedDrag = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { accumulatedDrag = 0f },
-                            onHorizontalDrag = { _, dragAmount -> accumulatedDrag += dragAmount },
-                            onDragEnd = {
-                                if (abs(accumulatedDrag) >= 72f) {
-                                    if (accumulatedDrag > 0f) onSwipePrevious() else onSwipeNext()
-                                }
-                            },
-                        )
-                    }
-                }
+                .playerCoverSwipe(
+                    enabled = swipeEnabled,
+                    onSwipePrevious = onSwipePrevious,
+                    onSwipeNext = onSwipeNext,
+                )
                 .dropShadow(
                     color = Color.Black.copy(alpha = 0.32f),
                     offsetX = 0.dp,
@@ -548,6 +545,25 @@ private fun CoverImage(
                 smoothTransition = true,
             )
         }
+    }
+}
+
+private fun Modifier.playerCoverSwipe(
+    enabled: Boolean,
+    onSwipePrevious: () -> Unit,
+    onSwipeNext: () -> Unit,
+): Modifier = pointerInput(enabled) {
+    if (enabled) {
+        var accumulatedDrag = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { accumulatedDrag = 0f },
+            onHorizontalDrag = { _, dragAmount -> accumulatedDrag += dragAmount },
+            onDragEnd = {
+                if (abs(accumulatedDrag) >= 72f) {
+                    if (accumulatedDrag > 0f) onSwipePrevious() else onSwipeNext()
+                }
+            },
+        )
     }
 }
 
@@ -1020,11 +1036,80 @@ private fun CompactArtworkArea(
     }
 }
 
+@Composable
+private fun ImmersiveArtworkArea(
+    artwork: Artwork?,
+    surfaceColor: Color,
+    coverSwipeEnabled: Boolean,
+    onSwipePrevious: () -> Unit,
+    onSwipeNext: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val artworkExpandedSize = minOf(maxWidth, maxHeight)
+        val artworkShape = remember(artworkExpandedSize) {
+            playerArtworkTransitionShape(
+                expandedSize = artworkExpandedSize,
+                expandedCornerRadius = 0.dp,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .playerArtworkSharedElement()
+                .fillMaxSize()
+                .playerCoverSwipe(
+                    enabled = coverSwipeEnabled,
+                    onSwipePrevious = onSwipePrevious,
+                    onSwipeNext = onSwipeNext,
+                )
+                .clip(artworkShape)
+                .background(Color.Black),
+        ) {
+            ArtworkImage(
+                modifier = Modifier.fillMaxSize(),
+                artwork = artwork,
+                contentScale = ContentScale.Fit,
+                smoothTransition = true,
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.28f),
+                                Color.Black.copy(alpha = 0.26f),
+                                Color.Black.copy(alpha = 0.54f),
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(280.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Transparent,
+                                0.40f to surfaceColor.copy(alpha = 0.30f),
+                                0.72f to surfaceColor.copy(alpha = 0.82f),
+                                1f to surfaceColor,
+                            ),
+                        ),
+                    ),
+            )
+        }
+    }
+}
+
 internal fun compactArtworkTargetSize(isPlaying: Boolean): Dp =
     CompactArtworkExpandedSize * if (isPlaying) 1f else CompactArtworkPausedScale
 
 private val CompactArtworkExpandedSize = 356.dp
 private const val CompactArtworkPausedScale = 0.96f
+private val CompactPlayerControlsBottomInset = 44.dp
 
 @Composable
 private fun TrackRow(
@@ -1065,7 +1150,7 @@ private fun TrackRow(
                     contentDescription = stringResource(
                         if (liked) Res.string.player_remove_favorite else Res.string.player_add_favorite,
                     ),
-                    tint = if (liked) MiuixTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
+                    tint = if (liked) DesignPalette.FavoriteRed else Color.White.copy(alpha = 0.72f),
                     modifier = Modifier.size(if (dense) 20.dp else 24.dp),
                 )
             }
@@ -1243,7 +1328,7 @@ private fun CompactClassicNowPlayingLayout(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 90.dp, bottom = 44.dp),
+            .padding(top = 90.dp, bottom = CompactPlayerControlsBottomInset),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(
@@ -1315,6 +1400,101 @@ private fun CompactClassicNowPlayingLayout(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactImmersiveNowPlayingLayout(
+    state: NowPlayingState,
+    lyricDisplaySettings: LyricDisplaySettings,
+    playerInteractionSettings: PlayerInteractionSettings,
+    currentPositionMs: Long,
+    isSeeking: Boolean,
+    liked: Boolean,
+    onLikedChange: (Boolean) -> Unit,
+    progressContent: @Composable (Long?) -> Unit,
+    onAction: (NowPlayingAction) -> Unit,
+) {
+    val track = state.currentTrack
+    val palette = rememberArtworkPalette(track?.artwork)
+    val surfaceColor by animateColorAsState(
+        targetValue = palette.muted.copy(alpha = 1f),
+        animationSpec = tween(durationMillis = 700),
+        label = "immersiveSurfaceColor",
+    )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val coverHeight = minOf(
+            maxWidth,
+            maxHeight * 0.47f,
+        )
+        Column(modifier = Modifier.fillMaxSize()) {
+            ImmersiveArtworkArea(
+                artwork = track?.artwork,
+                surfaceColor = surfaceColor,
+                coverSwipeEnabled = playerInteractionSettings.coverSwipeEnabled,
+                onSwipePrevious = {
+                    if (state.queue.canPlayPrevious) onAction(NowPlayingAction.PlayPrevious)
+                },
+                onSwipeNext = {
+                    if (state.queue.canPlayNext) onAction(NowPlayingAction.PlayNext)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(coverHeight),
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0f to surfaceColor,
+                                0.16f to surfaceColor.copy(alpha = 0.94f),
+                                1f to surfaceColor.copy(alpha = 0.90f),
+                            ),
+                        ),
+                    )
+                    .padding(
+                        start = 28.dp,
+                        end = 28.dp,
+                        bottom = CompactPlayerControlsBottomInset,
+                    ),
+            ) {
+                TrackRow(
+                    state = state,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                    liked = liked,
+                    onLikedChange = onLikedChange,
+                    onAction = onAction,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                )
+                CompactLyricsSurface(
+                    track = track,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    currentPositionMs = currentPositionMs,
+                    isPlaying = state.controls.isPlaying && !isSeeking,
+                    onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 6.dp, bottom = 10.dp),
+                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.offset(y = (-8).dp)) {
+                        progressContent(track?.durationMs)
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    CompactTransportPanel(
+                        nowPlayingState = state,
+                        onAction = onAction,
+                        dense = false,
+                    )
                 }
             }
         }
@@ -1493,6 +1673,18 @@ private fun CompactNowPlayingLayout(
                 progressContent = compactProgressContent,
                 onAction = onAction,
             )
+        } else if (playerInteractionSettings.immersiveAlbumCoverEnabled) {
+            CompactImmersiveNowPlayingLayout(
+                state = state,
+                lyricDisplaySettings = lyricDisplaySettings,
+                playerInteractionSettings = playerInteractionSettings,
+                currentPositionMs = currentPositionMs,
+                isSeeking = isSeeking,
+                liked = liked,
+                onLikedChange = onLikedChange,
+                progressContent = progressContent,
+                onAction = onAction,
+            )
         } else {
             CompactClassicNowPlayingLayout(
                 state = state,
@@ -1522,6 +1714,7 @@ fun NowPlayingScreen(
     compactProgressContent: @Composable (Long?) -> Unit,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
+    drawBackground: Boolean = true,
     onAction: (NowPlayingAction) -> Unit,
     onStatusBarCoverageChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -1644,12 +1837,13 @@ fun NowPlayingScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    translationY = dragOffsetPx
-                }
+                .offset { IntOffset(x = 0, y = dragOffsetPx.roundToInt()) }
+                .clipToBounds()
                 .then(dismissGestureModifier),
         ) {
-            ImmersivePlayerBackground(artwork = currentTrack?.artwork)
+            if (drawBackground) {
+                ImmersivePlayerBackground(artwork = currentTrack?.artwork)
+            }
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1708,40 +1902,60 @@ internal fun shouldDismissNowPlayingScreen(
 
 @Composable
 fun ImmersivePlayerBackground(artwork: Artwork?) {
-    val blurRadius = 54.dp
+    val blurRadius = 48.dp
+    val movingScale = 2.90f
+    val movingOffset = 0f
+    val palette = rememberArtworkPalette(artwork)
+    val topColor by animateColorAsState(
+        targetValue = palette.darkMuted.copy(alpha = 1f),
+        animationSpec = tween(durationMillis = 700),
+        label = "playerBackgroundTopColor",
+    )
+    val middleColor by animateColorAsState(
+        targetValue = palette.muted.copy(alpha = 1f),
+        animationSpec = tween(durationMillis = 700),
+        label = "playerBackgroundMiddleColor",
+    )
+    val accentColor by animateColorAsState(
+        targetValue = palette.vibrant.copy(alpha = 1f),
+        animationSpec = tween(durationMillis = 700),
+        label = "playerBackgroundAccentColor",
+    )
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF08060E)),
+            .background(middleColor),
     ) {
+        PlayerBackgroundArtworkImage(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = movingScale
+                    scaleY = movingScale
+                    translationX = movingOffset
+                    translationY = -movingOffset * 0.65f
+                    alpha = 0.78f
+                },
+            artwork = artwork,
+            blurRadius = blurRadius,
+            contentScale = ContentScale.Crop,
+            smoothTransition = true,
+            fallback = {},
+        )
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(Color(0xFFFF5B8A), Color(0xFF7A6CFF)),
+                        colors = listOf(
+                            accentColor.copy(alpha = 0.28f),
+                            topColor.copy(alpha = 0.42f),
+                            Color.Black.copy(alpha = 0.34f),
+                        ),
+                        start = Offset.Zero,
+                        end = Offset.Infinite,
                     ),
                 ),
-        )
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            PlayerBackgroundArtworkImage(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(
-                        width = maxWidth * 1.36f + blurRadius * 2,
-                        height = maxHeight * 1.36f + blurRadius * 2,
-                    )
-                    .graphicsLayer { alpha = 0.75f },
-                artwork = artwork,
-                blurRadius = blurRadius,
-                contentScale = ContentScale.Crop,
-                smoothTransition = true,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.10f)),
         )
         Box(
             modifier = Modifier
@@ -1749,9 +1963,9 @@ fun ImmersivePlayerBackground(artwork: Artwork?) {
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0f to Color(0xFF08060E).copy(alpha = 0.28f),
-                            0.52f to Color(0xFF08060E).copy(alpha = 0.46f),
-                            1f to Color(0xFF08060E).copy(alpha = 0.72f),
+                            0f to Color.White.copy(alpha = 0.06f),
+                            0.5f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.32f),
                         ),
                     ),
                 ),
@@ -1777,7 +1991,7 @@ fun NowPlayingProgressPanel(
         bufferDurationMs = progressState.bufferDuration.inWholeMilliseconds.coerceAtLeast(0).toULong(),
         totalDuration = formatPlayerDuration(totalDurationMs.milliseconds),
         totalDurationMs = totalDurationMs.coerceAtLeast(0).toULong(),
-        tapToSeekEnabled = playerInteractionSettings.tapProgressToSeekEnabled,
+        tapToSeekEnabled = true,
         showTotalDuration = playerInteractionSettings.showTotalDuration,
         onChangeMusicPosition = { nextMs -> onAction(NowPlayingAction.SeekTo(nextMs)) },
         lightTheme = lightTheme,

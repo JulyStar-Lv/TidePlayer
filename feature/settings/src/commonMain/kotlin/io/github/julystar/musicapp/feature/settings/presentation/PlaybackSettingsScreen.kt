@@ -255,6 +255,18 @@ fun PlaybackSettingsSection(
                 onCheckedChange = {},
             )
             SettingsSwitchRow(
+                title = stringResource(Res.string.settings_player_immersive_album_cover),
+                summary = stringResource(Res.string.settings_player_immersive_album_cover_summary),
+                checked = interaction.immersiveAlbumCoverEnabled,
+                onCheckedChange = {
+                    onAction(
+                        SettingsAction.SetPlayerInteractionSettings(
+                            interaction.copy(immersiveAlbumCoverEnabled = it)
+                        )
+                    )
+                },
+            )
+            SettingsSwitchRow(
                 title = stringResource(Res.string.settings_player_cover_swipe),
                 checked = interaction.coverSwipeEnabled,
                 onCheckedChange = {
@@ -266,34 +278,12 @@ fun PlaybackSettingsSection(
                 },
             )
             SettingsSwitchRow(
-                title = stringResource(Res.string.settings_player_tap_progress),
-                checked = interaction.tapProgressToSeekEnabled,
-                onCheckedChange = {
-                    onAction(
-                        SettingsAction.SetPlayerInteractionSettings(
-                            interaction.copy(tapProgressToSeekEnabled = it)
-                        )
-                    )
-                },
-            )
-            SettingsSwitchRow(
                 title = stringResource(Res.string.settings_player_total_duration),
                 checked = interaction.showTotalDuration,
                 onCheckedChange = {
                     onAction(
                         SettingsAction.SetPlayerInteractionSettings(
                             interaction.copy(showTotalDuration = it)
-                        )
-                    )
-                },
-            )
-            SettingsSwitchRow(
-                title = stringResource(Res.string.settings_player_song_annotation),
-                checked = interaction.showSongAnnotation,
-                onCheckedChange = {
-                    onAction(
-                        SettingsAction.SetPlayerInteractionSettings(
-                            interaction.copy(showSongAnnotation = it)
                         )
                     )
                 },

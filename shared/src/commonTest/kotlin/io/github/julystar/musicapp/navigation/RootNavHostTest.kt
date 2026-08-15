@@ -125,6 +125,34 @@ class RootNavHostTest {
     }
 
     @Test
+    fun `now playing content remains visible until the sheet exit finishes`() {
+        assertTrue(
+            shouldShowNowPlayingOverlayContent(
+                overlayVisible = false,
+                lyricsReturnInProgress = false,
+                sheetCurrentState = true,
+                sheetTargetState = false,
+            ),
+        )
+        assertFalse(
+            shouldShowNowPlayingOverlayContent(
+                overlayVisible = false,
+                lyricsReturnInProgress = false,
+                sheetCurrentState = false,
+                sheetTargetState = false,
+            ),
+        )
+        assertFalse(
+            shouldShowNowPlayingOverlayContent(
+                overlayVisible = false,
+                lyricsReturnInProgress = false,
+                sheetCurrentState = true,
+                sheetTargetState = true,
+            ),
+        )
+    }
+
+    @Test
     fun `now playing and lyrics share immersive player transitions`() {
         assertTrue(isImmersivePlayerRoute("io.github.julystar.musicapp.MusicGraph.NowPlaying"))
         assertTrue(

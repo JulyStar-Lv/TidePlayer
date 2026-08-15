@@ -40,7 +40,10 @@ class DataStoreSettingsRepositoryTest {
         repository.setResumePlaybackAfterNetworkRecovery(false)
         repository.setKeepScreenOnInPlayer(true)
         repository.setPlayerInteractionSettings(
-            PlayerInteractionSettings.Default.copy(showAudioTechnicalInfo = true)
+            PlayerInteractionSettings.Default.copy(
+                immersiveAlbumCoverEnabled = true,
+                showAudioTechnicalInfo = true,
+            )
         )
         repository.setLyricTextAlignment(LyricTextAlignment.Right)
         repository.setLyricPrimaryFontScalePercent(125)
@@ -78,6 +81,7 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.retryPlaybackOnFailure)
         assertFalse(settings.resumePlaybackAfterNetworkRecovery)
         assertTrue(settings.keepScreenOnInPlayer)
+        assertTrue(settings.playerInteraction.immersiveAlbumCoverEnabled)
         assertTrue(settings.playerInteraction.showAudioTechnicalInfo)
         assertEquals(LyricTextAlignment.Right, settings.lyrics.textAlignment)
         assertEquals(125, settings.lyrics.primaryFontScalePercent)

@@ -1139,7 +1139,7 @@ private fun LibrarySongRow(
                     ),
                     contentDescription = localizedLibraryText(if (isFavorite) "Remove from favorites" else "Add to favorites"),
                     tint = if (isFavorite) {
-                        MiuixTheme.colorScheme.primary
+                        DesignPalette.FavoriteRed
                     } else {
                         MiuixTheme.colorScheme.onSurfaceVariantSummary
                     },

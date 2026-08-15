@@ -30,6 +30,24 @@ data class ArtworkPalette(
     }
 }
 
+internal class ArtworkPaletteCache(
+    private val maxEntries: Int = 48,
+) {
+    private val values = LinkedHashMap<Artwork, ArtworkPalette>()
+
+    fun get(artwork: Artwork): ArtworkPalette? = values[artwork]
+
+    fun put(artwork: Artwork, palette: ArtworkPalette) {
+        values.remove(artwork)
+        values[artwork] = palette
+        while (values.size > maxEntries) {
+            values.remove(values.keys.first())
+        }
+    }
+}
+
+private val artworkPaletteCache = ArtworkPaletteCache()
+
 /**
  * Extracts a simple color palette from an artwork bitmap by sampling key regions.
  *
@@ -121,20 +139,30 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
 @Composable
 fun rememberArtworkPalette(artwork: Artwork?): ArtworkPalette {
     val loader = koinInject<ArtworkImageLoader>()
-    var palette by remember { mutableStateOf(ArtworkPalette.Default) }
+    var palette by remember(artwork) {
+        mutableStateOf(
+            artwork?.let(artworkPaletteCache::get) ?: ArtworkPalette.Default,
+        )
+    }
 
     LaunchedEffect(artwork) {
         if (artwork == null) {
             palette = ArtworkPalette.Default
             return@LaunchedEffect
         }
+        artworkPaletteCache.get(artwork)?.let { cachedPalette ->
+            palette = cachedPalette
+            return@LaunchedEffect
+        }
         val bitmap = withContext(Dispatchers.Default) {
             loader.cachedBitmap(artwork) ?: loader.loadBitmap(artwork)
         }
-        palette = if (bitmap != null) {
-            extractPaletteFromBitmap(bitmap)
+        if (bitmap != null) {
+            val extractedPalette = extractPaletteFromBitmap(bitmap)
+            artworkPaletteCache.put(artwork, extractedPalette)
+            palette = extractedPalette
         } else {
-            ArtworkPalette.Default
+            palette = ArtworkPalette.Default
         }
     }
 

@@ -598,10 +598,10 @@
     <string name="settings_open_player_on_play">开始播放时打开播放器</string>
     <string name="settings_now_playing_entry">正在播放入口</string>
     <string name="settings_now_playing_entry_summary">请从常驻迷你播放器打开正在播放</string>
+    <string name="settings_player_immersive_album_cover">沉浸专辑封面</string>
+    <string name="settings_player_immersive_album_cover_summary">让封面贴边铺满，并自然融入播放器背景</string>
     <string name="settings_player_cover_swipe">滑动封面切歌</string>
-    <string name="settings_player_tap_progress">点击进度条跳转</string>
     <string name="settings_player_total_duration">显示总时长</string>
-    <string name="settings_player_song_annotation">显示歌曲注释</string>
     <string name="settings_player_audio_technical_info">显示音频技术信息</string>
     <string name="settings_player_audio_technical_info_summary">在歌手下方显示音频参数</string>
     <string name="settings_desktop_shortcuts">桌面播放快捷键</string>

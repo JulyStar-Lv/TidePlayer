@@ -28,6 +28,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
 import io.github.julystar.musicapp.core.presentation.components.DesignMiniPlayerBar
 import io.github.julystar.musicapp.core.presentation.components.DesignPlayerControlSize
 import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
+import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
@@ -201,7 +202,7 @@ private fun MiniPlayerBar(
                     contentDescription = stringResource(
                         if (isFavorite) Res.string.player_remove_favorite else Res.string.player_add_favorite,
                     ),
-                    tint = if (isFavorite) MiuixTheme.colorScheme.primary else actionTint,
+                    tint = if (isFavorite) DesignPalette.FavoriteRed else actionTint,
                     enabled = playbackAvailable,
                     onClick = onToggleFavorite,
                 )
@@ -311,7 +312,7 @@ private fun ExpandedMiniPlayerBar(
                 contentDescription = stringResource(
                     if (isFavorite) Res.string.player_remove_favorite else Res.string.player_add_favorite,
                 ),
-                tint = if (isFavorite) MiuixTheme.colorScheme.primary else actionTint,
+                tint = if (isFavorite) DesignPalette.FavoriteRed else actionTint,
                 enabled = playbackAvailable,
                 onClick = onToggleFavorite,
             )

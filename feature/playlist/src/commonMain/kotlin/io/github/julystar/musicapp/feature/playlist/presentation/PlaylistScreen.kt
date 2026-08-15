@@ -57,6 +57,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlas
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
+import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
 import kotlinx.coroutines.launch
@@ -518,7 +519,7 @@ private fun PlaylistTrackRow(
                         if (favorite) Res.string.playlist_remove_favorite else Res.string.playlist_add_favorite,
                         item.title,
                     ),
-                    tint = if (favorite) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    tint = if (favorite) DesignPalette.FavoriteRed else MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.size(17.dp),
                 )
             }

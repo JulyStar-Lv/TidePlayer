@@ -2,6 +2,7 @@ package io.github.julystar.musicapp.feature.lyrics.presentation
 
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -14,11 +15,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -50,10 +53,6 @@ import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
 import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
 import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
 import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
@@ -61,6 +60,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
+import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingAction
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.ImmersivePlayerBackground
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
@@ -74,18 +74,20 @@ import musicapp.core.presentation.generated.resources.icon_deleteseep
 import musicapp.service.playback.presentation.generated.resources.Res
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact_filled
+import musicapp.service.playback.presentation.generated.resources.icon_more_compact
 import musicapp.feature.lyrics.generated.resources.Res as LyricsRes
 import musicapp.feature.lyrics.generated.resources.lyrics_loading
 import musicapp.feature.lyrics.generated.resources.lyrics_not_available
 import musicapp.feature.lyrics.generated.resources.lyrics_retry
-import musicapp.service.playback.presentation.generated.resources.icon_vertialcal_more
 import musicapp.service.playback.presentation.generated.resources.music_lyric_remove
 import musicapp.service.playback.presentation.generated.resources.player_add_favorite
 import musicapp.service.playback.presentation.generated.resources.player_loading_lyrics
+import musicapp.service.playback.presentation.generated.resources.player_more_options
 import musicapp.service.playback.presentation.generated.resources.player_remove_favorite
 import musicapp.service.playback.presentation.generated.resources.player_unknown_artist
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -103,6 +105,7 @@ fun LyricsScreen(
     onToggleFavorite: () -> Unit,
     onAction: (LyricsAction) -> Unit,
     onPlayerAction: (NowPlayingAction) -> Unit,
+    drawBackground: Boolean = true,
 ) {
     val trackTitle = nowPlayingTrack?.title ?: state.trackTitle
     val trackArtist = nowPlayingTrack?.artist ?: state.trackArtist
@@ -124,7 +127,9 @@ fun LyricsScreen(
             dragOffsetPx = (dragOffsetPx + deltaPx).coerceIn(0f, viewportHeightPx)
         }
 
-        ImmersivePlayerBackground(artwork = artwork)
+        if (drawBackground) {
+            ImmersivePlayerBackground(artwork = artwork)
+        }
 
         Column(
             modifier = Modifier
@@ -215,7 +220,6 @@ private fun LyricsTrackHeader(
             .statusBarsPadding()
             .height(84.dp)
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -233,7 +237,7 @@ private fun LyricsTrackHeader(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 4.dp),
+                .padding(start = 10.dp),
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
@@ -253,57 +257,67 @@ private fun LyricsTrackHeader(
             )
         }
         if (track != null) {
-            DesignIconButton(
-                size = DesignIconButtonSize.Touch,
-                variant = DesignIconButtonVariant.Default,
-                painter = painterResource(
-                    if (isFavorite) {
-                        Res.drawable.icon_heart_compact_filled
-                    } else {
-                        Res.drawable.icon_heart_compact
-                    },
-                ),
-                contentDescription = stringResource(
-                    if (isFavorite) Res.string.player_remove_favorite else Res.string.player_add_favorite,
-                ),
-                colors = lyricsHeaderButtonColors(
-                    iconTint = if (isFavorite) MiuixTheme.colorScheme.primary else Color.White,
-                ),
-                onClick = onToggleFavorite,
-            )
-            Box {
-                DesignIconButton(
-                    size = DesignIconButtonSize.Touch,
-                    variant = DesignIconButtonVariant.Default,
-                    painter = painterResource(Res.drawable.icon_vertialcal_more),
-                    contentDescription = null,
-                    colors = lyricsHeaderButtonColors(),
-                    onClick = { moreMenuExpanded = true },
-                )
-                DesignContextMenu(
-                    expanded = moreMenuExpanded,
-                    onDismissRequest = { moreMenuExpanded = false },
-                    items = listOf(
-                        DesignContextMenuItem(
-                            label = Res.string.music_lyric_remove,
-                            icon = CoreRes.drawable.icon_deleteseep,
-                            onClick = {
-                                moreMenuExpanded = false
-                                onPlayerAction(NowPlayingAction.RemoveLyric)
-                            },
-                        ),
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleFavorite),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (isFavorite) {
+                            Res.drawable.icon_heart_compact_filled
+                        } else {
+                            Res.drawable.icon_heart_compact
+                        },
                     ),
+                    contentDescription = stringResource(
+                        if (isFavorite) Res.string.player_remove_favorite else Res.string.player_add_favorite,
+                    ),
+                    tint = if (isFavorite) DesignPalette.FavoriteRed else Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(24.dp),
                 )
+            }
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .clickable { moreMenuExpanded = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_more_compact),
+                        contentDescription = stringResource(Res.string.player_more_options),
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Box(
+                    contentAlignment = Alignment.TopEnd,
+                    modifier = Modifier.offset(20.dp, 20.dp),
+                ) {
+                    DesignContextMenu(
+                        expanded = moreMenuExpanded,
+                        onDismissRequest = { moreMenuExpanded = false },
+                        compact = true,
+                        items = listOf(
+                            DesignContextMenuItem(
+                                label = Res.string.music_lyric_remove,
+                                icon = CoreRes.drawable.icon_deleteseep,
+                                onClick = {
+                                    moreMenuExpanded = false
+                                    onPlayerAction(NowPlayingAction.RemoveLyric)
+                                },
+                            ),
+                        ),
+                    )
+                }
             }
         }
     }
 }
-
-private fun lyricsHeaderButtonColors(iconTint: Color = Color.White): DesignIconButtonColors =
-    DesignIconButtonColors(
-        buttonBg = Color.White.copy(alpha = 0.10f),
-        iconTint = iconTint,
-    )
 
 internal fun shouldDismissLyricsScreen(
     dragOffsetPx: Float,
