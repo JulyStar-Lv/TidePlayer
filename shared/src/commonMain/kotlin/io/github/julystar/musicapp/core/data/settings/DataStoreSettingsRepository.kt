@@ -157,7 +157,6 @@ class DataStoreSettingsRepository(
                 )
             ),
             playerInteraction = PlayerInteractionSettings(
-                openPlayerOnPlay = preferences[OPEN_PLAYER_ON_PLAY_KEY] ?: false,
                 immersiveAlbumCoverEnabled = preferences[PLAYER_IMMERSIVE_ALBUM_COVER_KEY] ?: false,
                 coverSwipeEnabled = preferences[PLAYER_COVER_SWIPE_KEY] ?: true,
                 showTotalDuration = preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] ?: false,
@@ -376,7 +375,6 @@ class DataStoreSettingsRepository(
 
     override suspend fun setPlayerInteractionSettings(settings: PlayerInteractionSettings) {
         dataStore.edit { preferences ->
-            preferences[OPEN_PLAYER_ON_PLAY_KEY] = settings.openPlayerOnPlay
             preferences[PLAYER_IMMERSIVE_ALBUM_COVER_KEY] = settings.immersiveAlbumCoverEnabled
             preferences[PLAYER_COVER_SWIPE_KEY] = settings.coverSwipeEnabled
             preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] = settings.showTotalDuration
@@ -656,7 +654,6 @@ internal val PREVIOUS_BUTTON_BEHAVIOR_KEY =
     stringPreferencesKey("settings.playback.previousButtonBehavior")
 internal val PLAY_NEXT_MODE_KEY = stringPreferencesKey("settings.playback.playNextMode")
 internal val SHUFFLE_STRATEGY_KEY = stringPreferencesKey("settings.playback.shuffleStrategy")
-internal val OPEN_PLAYER_ON_PLAY_KEY = booleanPreferencesKey("settings.player.openOnPlay")
 internal val PLAYER_IMMERSIVE_ALBUM_COVER_KEY =
     booleanPreferencesKey("settings.player.immersiveAlbumCover")
 internal val PLAYER_COVER_SWIPE_KEY = booleanPreferencesKey("settings.player.coverSwipe")
@@ -772,7 +769,6 @@ private val SETTINGS_KEYS = setOf(
     PREVIOUS_BUTTON_BEHAVIOR_KEY,
     PLAY_NEXT_MODE_KEY,
     SHUFFLE_STRATEGY_KEY,
-    OPEN_PLAYER_ON_PLAY_KEY,
     PLAYER_IMMERSIVE_ALBUM_COVER_KEY,
     PLAYER_COVER_SWIPE_KEY,
     PLAYER_SHOW_TOTAL_DURATION_KEY,

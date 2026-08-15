@@ -1109,7 +1109,17 @@ internal fun compactArtworkTargetSize(isPlaying: Boolean): Dp =
 
 private val CompactArtworkExpandedSize = 356.dp
 private const val CompactArtworkPausedScale = 0.96f
+private const val CompactPlayerContentWidthFraction = 0.88f
+private val CompactPlayerLyricsLineHorizontalPadding = 8.dp
+private val CompactImmersiveContentHorizontalPadding = 28.dp
 private val CompactPlayerControlsBottomInset = 44.dp
+
+internal fun immersiveLyricsLineHorizontalPadding(viewportWidth: Dp): Dp =
+    (
+        viewportWidth * ((1f - CompactPlayerContentWidthFraction) / 2f) +
+            CompactPlayerLyricsLineHorizontalPadding -
+            CompactImmersiveContentHorizontalPadding
+        ).coerceAtLeast(0.dp)
 
 @Composable
 private fun TrackRow(
@@ -1197,6 +1207,7 @@ private fun CompactLyricsSurface(
     onLineClick: () -> Unit,
     modifier: Modifier = Modifier,
     dense: Boolean = false,
+    lineHorizontalPadding: Dp = if (dense) 0.dp else CompactPlayerLyricsLineHorizontalPadding,
     onSurfaceClick: (() -> Unit)? = null,
 ) {
     val loadState = track?.lyrics?.loadState ?: LyricsLoadState.Loading
@@ -1235,6 +1246,7 @@ private fun CompactLyricsSurface(
                 CompactLyricsStatus(
                     text = stringResource(Res.string.player_loading_lyrics),
                     dense = dense,
+                    horizontalPadding = lineHorizontalPadding,
                 )
             }
             loadState == LyricsLoadState.Missing ||
@@ -1243,6 +1255,7 @@ private fun CompactLyricsSurface(
                 CompactLyricsStatus(
                     text = stringResource(Res.string.player_lyrics_unavailable),
                     dense = dense,
+                    horizontalPadding = lineHorizontalPadding,
                 )
             }
             else -> {
@@ -1281,7 +1294,7 @@ private fun CompactLyricsSurface(
                     useBlurEffect = lyricDisplaySettings.blurEffectEnabled,
                     tapToSeekEnabled = true,
                     verticalContentPaddingFraction = 0.04f,
-                    lineHorizontalPadding = if (dense) 0.dp else 8.dp,
+                    lineHorizontalPadding = lineHorizontalPadding,
                     lineVerticalPadding = if (dense) 1.dp else 2.dp,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -1294,6 +1307,7 @@ private fun CompactLyricsSurface(
 private fun CompactLyricsStatus(
     text: String,
     dense: Boolean,
+    horizontalPadding: Dp,
 ) {
     Text(
         text = text,
@@ -1303,7 +1317,7 @@ private fun CompactLyricsStatus(
             lineHeight = if (dense) 22.sp else 24.sp,
         ),
         modifier = Modifier.padding(
-            horizontal = if (dense) 0.dp else 8.dp,
+            horizontal = horizontalPadding,
             vertical = if (dense) 4.dp else 12.dp,
         ),
     )
@@ -1334,7 +1348,7 @@ private fun CompactClassicNowPlayingLayout(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(0.88f)
+                .fillMaxWidth(CompactPlayerContentWidthFraction)
                 .widthIn(max = 356.dp),
         ) {
             CompactArtworkArea(
@@ -1430,6 +1444,7 @@ private fun CompactImmersiveNowPlayingLayout(
             maxWidth,
             maxHeight * 0.47f,
         )
+        val lyricsLineHorizontalPadding = immersiveLyricsLineHorizontalPadding(maxWidth)
         Column(modifier = Modifier.fillMaxSize()) {
             ImmersiveArtworkArea(
                 artwork = track?.artwork,
@@ -1459,8 +1474,8 @@ private fun CompactImmersiveNowPlayingLayout(
                         ),
                     )
                     .padding(
-                        start = 28.dp,
-                        end = 28.dp,
+                        start = CompactImmersiveContentHorizontalPadding,
+                        end = CompactImmersiveContentHorizontalPadding,
                         bottom = CompactPlayerControlsBottomInset,
                     ),
             ) {
@@ -1473,7 +1488,10 @@ private fun CompactImmersiveNowPlayingLayout(
                     onAction = onAction,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
+                        .padding(
+                            start = lyricsLineHorizontalPadding,
+                            top = 4.dp,
+                        ),
                 )
                 CompactLyricsSurface(
                     track = track,
@@ -1484,6 +1502,7 @@ private fun CompactImmersiveNowPlayingLayout(
                     modifier = Modifier
                         .weight(1f)
                         .padding(top = 6.dp, bottom = 10.dp),
+                    lineHorizontalPadding = lyricsLineHorizontalPadding,
                 )
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(modifier = Modifier.offset(y = (-8).dp)) {

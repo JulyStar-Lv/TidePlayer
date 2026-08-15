@@ -28,7 +28,6 @@
 - Search 的专辑/艺术家结果以及 Library 的流派、文件夹列表、收藏、历史、最近、无损/Hi-Res、下载集合也缺少真实来源；本轮保留可用导入/管理入口，并用明确空状态替代设计稿样例。若产品要展示它们，需要先扩展领域契约，而不是在 UI 层推断或切片伪造。
 - Search 聚合器当前会把 `StorageSearchSourceAccountProvider` 返回的全部账户交给 `awaitAll()`，未过滤禁用账户也没有单源超时；正式桌面库因此可持续停留在加载态。隔离 QA 数据中让账户 sourceId 不可解析后，本地 Room 真实结果可立即渲染，证明 UI 状态映射正常。建议在独立业务任务中明确禁用账户语义及超时/部分失败策略。
 - Room 搜索结果通过 `LegacyStorageLookup` 映射不到 `mediaId` 时，`SearchViewModel` 不会调用播放，只发送当前页面未呈现的 `ShowMessage`。本轮没有伪造 mediaId 或修改播放契约；建议后续统一 Library Track → PlayableItem 映射，并为不可播放结果提供用户可见反馈。
-- 旧 `openPlayerOnPlay` 设置与“只能由 Mini Player 进入”冲突。本轮以设计入口规则优先：不修改其序列化字段、Repository 或历史值，但不再读取该值导航，并以禁用说明项替代可切换开关。若要恢复该偏好，需要放宽 Mini Player-only 规则。
 - 当前工作树已安装到独立的 iPhone 14 模拟器（390×844@3x），首装数据库为空；所有移动截图均来自该构建，不使用旧模拟器中的设计演示数据。
 - 根导航现显式导出名称、`Role.Tab` 和选中状态，Mini Player 主体导出 `Role.Button` 及本地化标签；自动化宿主无法可靠执行 VoiceOver/TalkBack 朗读，焦点顺序、朗读文本和动态状态仍需人工设备验收。
 

@@ -595,9 +595,6 @@
     <string name="settings_replay_gain_auto">Automatic gain selection</string>
     <string name="settings_replay_gain_preamp">ReplayGain preamp</string>
     <string name="settings_player_interaction_section">Player interaction</string>
-    <string name="settings_open_player_on_play">Open player when playback starts</string>
-    <string name="settings_now_playing_entry">Now Playing entry</string>
-    <string name="settings_now_playing_entry_summary">Open Now Playing from the persistent Mini Player</string>
     <string name="settings_player_immersive_album_cover">Immersive album cover</string>
     <string name="settings_player_immersive_album_cover_summary">Extend artwork edge to edge and blend it into the player</string>
     <string name="settings_player_cover_swipe">Swipe the cover to change tracks</string>
