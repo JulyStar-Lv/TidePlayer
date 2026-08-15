@@ -9,4 +9,6 @@ interface AudioDspRuntimeRepository {
     val status: StateFlow<AudioDspRuntimeStatus>
     val meter: StateFlow<AudioDspMeterSnapshot>
     val performance: StateFlow<AudioDspPerformanceSnapshot>
+
+    fun setMonitoringEnabled(enabled: Boolean)
 }

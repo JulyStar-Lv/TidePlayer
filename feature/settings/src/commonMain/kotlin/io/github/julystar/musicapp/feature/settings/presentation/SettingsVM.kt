@@ -88,7 +88,7 @@ class SettingsVM(
     private val capabilities: SettingsCapabilities,
     private val textProvider: SettingsTextProvider,
     private val backupService: SettingsBackupService? = null,
-    audioDspRuntimeRepository: AudioDspRuntimeRepository? = null,
+    private val audioDspRuntimeRepository: AudioDspRuntimeRepository? = null,
 ) : ViewModel() {
     private val storageUsage = MutableStateFlow(StorageUsage.Unknown)
     private val storageRefreshing = MutableStateFlow(false)
@@ -130,6 +130,10 @@ class SettingsVM(
         )
 
     val eventFlow = events.receiveAsFlow()
+
+    fun setAudioDspRuntimeMonitoringEnabled(enabled: Boolean) {
+        audioDspRuntimeRepository?.setMonitoringEnabled(enabled)
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val failureDetails = failureDialogTaskId

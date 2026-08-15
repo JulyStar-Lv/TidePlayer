@@ -149,12 +149,16 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(WAKE_MODE_NETWORK)
             .setMediaSourceFactory(ProgressiveMediaSource.Factory(resolvingDataSourceFactory))
             .build()
-        serviceScope.launch {
-            while (isActive) {
-                dspAudioProcessor?.runtimeSnapshot()?.let { snapshot ->
-                    AudioDspRuntimeMonitor.publish(snapshot.toDomainAudioDspRuntimeSnapshot())
+        serviceScope.launch(Dispatchers.Default) {
+            AudioDspRuntimeMonitor.monitoringEnabled.collectLatest { monitoringEnabled ->
+                if (monitoringEnabled) {
+                    while (isActive) {
+                        dspAudioProcessor?.runtimeSnapshot()?.let { snapshot ->
+                            AudioDspRuntimeMonitor.publish(snapshot.toDomainAudioDspRuntimeSnapshot())
+                        }
+                        delay(150)
+                    }
                 }
-                delay(150)
             }
         }
         val sessionPlayer = TidePlayerSessionPlayer(

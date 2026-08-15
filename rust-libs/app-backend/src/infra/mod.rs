@@ -13,6 +13,7 @@ mod startup_journal;
 use std::sync::{Arc, Mutex, Once, OnceLock};
 
 use tracing::subscriber::set_global_default;
+use tracing_subscriber::filter::{LevelFilter, Targets};
 use tracing_subscriber::prelude::*;
 
 use crate::error::{BError, BResult};
@@ -25,6 +26,12 @@ static INITIALIZE_LOCK: Mutex<()> = Mutex::new(());
 static PANIC_HOOK: Once = Once::new();
 #[cfg(any(target_os = "android", test))]
 const ANDROID_TRACING_TAG: &str = "TidePlayer";
+
+fn diagnostics_filter() -> Targets {
+    Targets::new()
+        .with_default(LevelFilter::TRACE)
+        .with_target("hyper", LevelFilter::WARN)
+}
 
 pub fn logs_dir(dir: &str) -> std::path::PathBuf {
     std::path::Path::new(dir).join("diagnostics/logs/sessions")
@@ -69,13 +76,20 @@ pub fn initialize_diagnostics_runtime(
     }
 
     let runtime = DiagnosticsRuntime::start(init)?;
-    let subscriber = tracing_subscriber::registry().with(runtime.log_store().layer());
+    let subscriber = tracing_subscriber::registry().with(
+        runtime
+            .log_store()
+            .layer()
+            .with_filter(diagnostics_filter()),
+    );
     #[cfg(target_os = "android")]
-    let subscriber = subscriber.with(tracing_android::layer(ANDROID_TRACING_TAG).map_err(
-        |error| BError::CustomError {
-            message: format!("failed to initialize Android tracing layer: {error}"),
-        },
-    )?);
+    let subscriber = subscriber.with(
+        tracing_android::layer(ANDROID_TRACING_TAG)
+            .map_err(|error| BError::CustomError {
+                message: format!("failed to initialize Android tracing layer: {error}"),
+            })?
+            .with_filter(diagnostics_filter()),
+    );
     set_global_default(subscriber).map_err(|error| BError::CustomError {
         message: format!("failed to initialize diagnostics tracing subscriber: {error}"),
     })?;

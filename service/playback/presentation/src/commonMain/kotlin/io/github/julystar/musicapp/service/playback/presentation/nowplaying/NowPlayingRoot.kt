@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode as DomainAppThemeMode
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
@@ -65,7 +66,7 @@ fun NowPlayingRoot(
         ),
     )
 
-    val playbackPosition by playerViewModel.playbackPosition.collectAsState()
+    val playbackPosition by playerViewModel.playbackPosition.collectAsStateWithLifecycle()
 
     LaunchedEffect(playerViewModel) {
         playerViewModel.nowPlayingEvents.collect { event ->
@@ -145,9 +146,9 @@ private fun NowPlayingProgressRoot(
     compact: Boolean = false,
     onAction: (NowPlayingAction) -> Unit,
 ) {
-    val currentDuration by playerViewModel.currentDuration.collectAsState()
-    val bufferDuration by playerViewModel.bufferDuration.collectAsState()
-    val playerDuration by playerViewModel.playerDuration.collectAsState()
+    val currentDuration by playerViewModel.currentDuration.collectAsStateWithLifecycle()
+    val bufferDuration by playerViewModel.bufferDuration.collectAsStateWithLifecycle()
+    val playerDuration by playerViewModel.playerDuration.collectAsStateWithLifecycle()
 
     NowPlayingProgressPanel(
         progressState = NowPlayingProgressState(

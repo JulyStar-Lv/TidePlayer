@@ -9,8 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -45,8 +46,8 @@ fun SettingsRoot(
     settingsVM: SettingsVM = koinViewModel(),
 ) {
     val advancedPlaybackController = koinInject<AdvancedPlaybackController>()
-    val audioOutputState by advancedPlaybackController.outputState.collectAsState()
-    val state by settingsVM.state.collectAsState()
+    val audioOutputState by advancedPlaybackController.outputState.collectAsStateWithLifecycle()
+    val state by settingsVM.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val directoryPicker = rememberDirectoryPickerLauncher { directory ->
         val path = directory?.path ?: return@rememberDirectoryPickerLauncher
@@ -58,6 +59,13 @@ fun SettingsRoot(
                 SettingsAction.AddLocalDirectory(localPath)
             },
         )
+    }
+
+    LifecycleStartEffect(page, settingsVM) {
+        settingsVM.setAudioDspRuntimeMonitoringEnabled(page == SettingsPage.AudioEffects)
+        onStopOrDispose {
+            settingsVM.setAudioDspRuntimeMonitoringEnabled(false)
+        }
     }
 
     LaunchedEffect(settingsVM) {

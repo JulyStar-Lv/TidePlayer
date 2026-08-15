@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -437,9 +438,9 @@ fun MiniPlayer(
     playerVM: PlayerVM = koinViewModel(),
     favoritesRepository: FavoritesRepository = koinInject(),
 ) {
-    val playbackState by playerVM.playbackState.collectAsState()
-    val playbackPosition by playerVM.playbackPosition.collectAsState()
-    val nowPlayingState by playerVM.nowPlayingState.collectAsState()
+    val playbackState by playerVM.playbackState.collectAsStateWithLifecycle()
+    val playbackPosition by playerVM.playbackPosition.collectAsStateWithLifecycle()
+    val nowPlayingState by playerVM.nowPlayingState.collectAsStateWithLifecycle()
     val currentTrack = nowPlayingState.currentTrack
     val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
     val coroutineScope = rememberCoroutineScope()

@@ -5,13 +5,27 @@ import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeState
 import io.github.julystar.musicapp.core.domain.model.AudioSampleFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import uniffi.app_backend.DspRuntimeBypassReason
 import uniffi.app_backend.DspRuntimeState
 import uniffi.app_backend.DspSampleFormat
 import uniffi.app_backend.NativeDspRuntimeSnapshot
 
 class AudioDspRuntimeMonitorTest {
+    @Test
+    fun monitoringFollowsUiVisibilityRequest() {
+        try {
+            AudioDspRuntimeMonitor.setMonitoringEnabled(true)
+            assertTrue(AudioDspRuntimeMonitor.monitoringEnabled.value)
+        } finally {
+            AudioDspRuntimeMonitor.setMonitoringEnabled(false)
+        }
+
+        assertFalse(AudioDspRuntimeMonitor.monitoringEnabled.value)
+    }
+
     @Test
     fun mapsNativeStatusMeterAndTimingWithoutLosingUnits() {
         val snapshot = nativeSnapshot(

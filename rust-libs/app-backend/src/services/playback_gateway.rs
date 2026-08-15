@@ -171,12 +171,6 @@ impl PlaybackSource {
         self.remote_requests.fetch_add(1, Ordering::Relaxed);
         self.remote_bytes
             .fetch_add(response.bytes.len() as u64, Ordering::Relaxed);
-        tracing::info!(
-            start = block_start,
-            end = block_end,
-            bytes = response.bytes.len(),
-            "playback remote range"
-        );
         self.cache
             .lock()
             .unwrap()
@@ -884,8 +878,6 @@ async fn get_media(
             return response;
         }
     };
-    tracing::info!(start, end = end_inclusive, partial, "playback client range");
-
     let stream_source = source.clone();
     let stream = async_stream::stream! {
         let mut current = start;

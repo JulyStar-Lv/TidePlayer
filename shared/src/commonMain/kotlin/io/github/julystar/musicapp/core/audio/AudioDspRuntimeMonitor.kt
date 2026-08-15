@@ -21,10 +21,16 @@ object AudioDspRuntimeMonitor : AudioDspRuntimeRepository {
     private val mutableStatus = MutableStateFlow(AudioDspRuntimeStatus())
     private val mutableMeter = MutableStateFlow(AudioDspMeterSnapshot())
     private val mutablePerformance = MutableStateFlow(AudioDspPerformanceSnapshot())
+    private val mutableMonitoringEnabled = MutableStateFlow(false)
 
     override val status = mutableStatus.asStateFlow()
     override val meter = mutableMeter.asStateFlow()
     override val performance = mutablePerformance.asStateFlow()
+    internal val monitoringEnabled = mutableMonitoringEnabled.asStateFlow()
+
+    override fun setMonitoringEnabled(enabled: Boolean) {
+        mutableMonitoringEnabled.value = enabled
+    }
 
     fun publish(snapshot: AudioDspRuntimeSnapshot) {
         val previous = mutableStatus.value
