@@ -19,8 +19,8 @@ import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode as DomainAppThemeMode
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
-import io.github.julystar.musicapp.core.domain.repository.emitText
-import io.github.julystar.musicapp.core.domain.recovery.StartupMode
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode as PresentationAppThemeMode
 import io.github.julystar.musicapp.core.presentation.theme.ArtworkThemeSeedStatus
@@ -109,11 +109,10 @@ fun Root(
                 }
             }
         }
-        LaunchedEffect(diagnosticsState?.startupPlan) {
-            diagnosticsState?.startupPlan
-                ?.takeIf { it.mode != StartupMode.NormalStartup }
-                ?.reason
-                ?.let(toastRepository::emitText)
+        LaunchedEffect(diagnosticsState?.snapshot?.startupAttempt?.attemptId) {
+            if (diagnosticsState?.consumeRecoveryAttention() != null) {
+                toastRepository.emit(UiMessageKey.PreviousAbnormalExitDetected)
+            }
         }
         StartupLifecycleEffect(onReady, onStartupStable)
     }

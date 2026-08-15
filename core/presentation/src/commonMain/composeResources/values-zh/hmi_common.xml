@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="ui_message_previous_abnormal_exit_detected">发现上次异常退出记录，可在“诊断”中查看。</string>
     <string name="app_display_name">Tide Player</string>
     <string name="common_retry">重试</string>
     <string name="ui_message_added_to_downloads">已添加到下载。</string>

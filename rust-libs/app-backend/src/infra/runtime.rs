@@ -64,7 +64,7 @@ impl DiagnosticsRuntime {
             Path::new(&init.app_document_dir),
             Path::new(&init.app_cache_dir),
         );
-        let pending = incident_store.pending_recovery();
+        let pending = incident_store.reconcile_pending_recovery()?;
         let safe_mode = init.user_forced_safe_mode || pending.is_some();
         let safe_mode_reason = if init.user_forced_safe_mode {
             Some("User requested safe mode".to_string())
@@ -668,6 +668,91 @@ mod tests {
             incidents[0].incident_type,
             IncidentType::UnknownAbnormalExit
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn stable_startup_is_not_reclassified_when_shutdown_was_not_yet_recorded() {
+        let root = temporary_test_directory("stable-startup");
+        let init = DiagnosticsRuntimeInit {
+            app_document_dir: root.to_string_lossy().into_owned(),
+            app_cache_dir: root.join("cache").to_string_lossy().into_owned(),
+            platform: "test".into(),
+            app_version: "1".into(),
+            build_info: "debug".into(),
+            git_commit_sha: "abc".into(),
+            process_name: "test".into(),
+            user_forced_safe_mode: false,
+            last_user_requested_exit_at_epoch_ms: None,
+        };
+        let first = DiagnosticsRuntime::start(init.clone()).unwrap();
+        first
+            .update_startup_stage(StartupStage::FirstFrameRendered)
+            .unwrap();
+        first
+            .update_startup_stage(StartupStage::StartupStable)
+            .unwrap();
+        assert!(!first.state().startup_attempt.graceful_shutdown);
+        drop(first);
+
+        let second = DiagnosticsRuntime::start(init).unwrap();
+        assert!(second
+            .incident_store
+            .list(&IncidentFilter::default())
+            .unwrap()
+            .incidents
+            .is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn exporting_non_recovery_incident_consumes_attention_and_keeps_history() {
+        let root = temporary_test_directory("exported-history");
+        let runtime = DiagnosticsRuntime::start(DiagnosticsRuntimeInit {
+            app_document_dir: root.to_string_lossy().into_owned(),
+            app_cache_dir: root.join("cache").to_string_lossy().into_owned(),
+            platform: "test".into(),
+            app_version: "1".into(),
+            build_info: "debug".into(),
+            git_commit_sha: "abc".into(),
+            process_name: "test".into(),
+            user_forced_safe_mode: false,
+            last_user_requested_exit_at_epoch_ms: None,
+        })
+        .unwrap();
+        let incident = runtime
+            .record_incident(IncidentDraft {
+                incident_type: IncidentType::UnknownAbnormalExit,
+                severity: IncidentSeverity::Warning,
+                summary: "Previous startup attempt did not complete".into(),
+                detail: None,
+                fingerprint_material: Some("UNKNOWN_ABNORMAL_EXIT|FIRST_FRAME_RENDERED".into()),
+                requires_recovery: false,
+            })
+            .unwrap();
+
+        runtime
+            .export(&DiagnosticExportRequest {
+                summary: "test".into(),
+                environment_json: "{}".into(),
+                playback_summary_json: "{}".into(),
+                scan_summary_json: "{}".into(),
+                plugin_summary_json: "{}".into(),
+                source_summary_json: "{}".into(),
+                storage_summary_json: "{}".into(),
+                include_resolved_incidents: true,
+                incident_ids: vec![incident.id.clone()],
+            })
+            .unwrap();
+
+        let retained = runtime
+            .list_incidents(&IncidentFilter::default())
+            .unwrap()
+            .incidents;
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].state, IncidentState::Exported);
+        assert!(!retained[0].requires_recovery);
+        assert!(runtime.pending_recovery().is_none());
         fs::remove_dir_all(root).unwrap();
     }
 }

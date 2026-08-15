@@ -38,6 +38,15 @@ has an independent `incident.json`, and can have synchronized artifacts such as
 does not use Room. Normalized, redacted fingerprint material is SHA-256 hashed; repeated fingerprints
 increment `occurrenceCount` rather than creating unlimited duplicate directories.
 
+Incident existence, recovery requirement, and user attention are independent. Only a `DETECTED` or
+`PENDING_REVIEW` incident with `requiresRecovery=true` can produce the one-time startup notice; the
+notice atomically acknowledges that incident before it is queued. `ACKNOWLEDGED`, `EXPORTED`,
+`RESOLVED`, and `IGNORED` records remain available in Diagnostics without repeating the notice.
+An exported incident is historical startup evidence and does not participate in safe mode planning;
+an independent `requiresRecovery=true` value remains available to recovery UI until recovery is
+completed. Legacy pending markers that point to a missing, resolved, ignored, or non-recovery incident
+are reconciled when the diagnostics runtime starts.
+
 The on-disk layout is:
 
 ```text

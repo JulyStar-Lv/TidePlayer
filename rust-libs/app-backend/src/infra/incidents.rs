@@ -230,7 +230,18 @@ impl IncidentStore {
             .read_incident_locked(incident_id)?
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "incident not found"))?;
         incident.state = state;
+        if matches!(state, IncidentState::Resolved | IncidentState::Ignored) {
+            incident.requires_recovery = false;
+        }
         self.write_incident_locked(&incident)?;
+        if !incident.requires_recovery
+            || matches!(
+                incident.state,
+                IncidentState::Resolved | IncidentState::Ignored
+            )
+        {
+            self.clear_pending_recovery_locked(Some(incident_id))?;
+        }
         Ok(incident)
     }
 
@@ -339,6 +350,28 @@ impl IncidentStore {
     pub(crate) fn pending_recovery(&self) -> Option<PendingRecovery> {
         let _guard = self.guard().ok()?;
         self.pending_recovery_locked()
+    }
+
+    pub(crate) fn reconcile_pending_recovery(&self) -> io::Result<Option<PendingRecovery>> {
+        let _guard = self.guard()?;
+        let Some(pending) = self.pending_recovery_locked() else {
+            return Ok(None);
+        };
+        let remains_actionable = self
+            .read_incident_locked(&pending.incident_id)?
+            .is_some_and(|incident| {
+                incident.requires_recovery
+                    && !matches!(
+                        incident.state,
+                        IncidentState::Resolved | IncidentState::Ignored
+                    )
+            });
+        if remains_actionable {
+            Ok(Some(pending))
+        } else {
+            self.clear_pending_recovery_locked(Some(&pending.incident_id))?;
+            Ok(None)
+        }
     }
 
     pub(crate) fn protected_log_sessions(&self) -> HashSet<String> {
@@ -545,6 +578,21 @@ impl IncidentStore {
         }
     }
 
+    fn clear_pending_recovery_locked(&self, incident_id: Option<&str>) -> io::Result<()> {
+        let path = self.state_dir.join(PENDING_RECOVERY_FILE_NAME);
+        if !path.exists() {
+            return Ok(());
+        }
+        if incident_id.is_some_and(|id| {
+            self.pending_recovery_locked()
+                .is_some_and(|pending| pending.incident_id != id)
+        }) {
+            return Ok(());
+        }
+        fs::remove_file(path)?;
+        sync_directory(&self.state_dir)
+    }
+
     fn read_processed_exits_locked(&self) -> HashSet<String> {
         let path = self.state_dir.join(PROCESSED_EXITS_FILE_NAME);
         let state: ProcessedPlatformExits = match read_json(&path) {
@@ -732,6 +780,65 @@ mod tests {
             .import_platform_exit(exit, &context())
             .unwrap()
             .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_exported_non_recovery_incident_clears_stale_pending_marker() {
+        let (root, store) = store();
+        let mut incident = store.create(draft("secret"), &context(), None).unwrap();
+        incident.state = IncidentState::Exported;
+        incident.requires_recovery = false;
+        store.write_incident_locked(&incident).unwrap();
+        assert!(store.pending_recovery().is_some());
+
+        assert!(store.reconcile_pending_recovery().unwrap().is_none());
+        assert!(store.pending_recovery().is_none());
+        let retained = store.list(&IncidentFilter::default()).unwrap().incidents;
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].state, IncidentState::Exported);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn acknowledged_incident_is_persisted_and_reopened_only_after_a_new_occurrence() {
+        let (root, store) = store();
+        let first = store.create(draft("secret"), &context(), None).unwrap();
+        store
+            .update_state(&first.id, IncidentState::Acknowledged)
+            .unwrap();
+
+        let reopened_store =
+            IncidentStore::new(&root.join("diagnostics"), &root, &root.join("cache"));
+        let acknowledged = reopened_store
+            .list(&IncidentFilter::default())
+            .unwrap()
+            .incidents;
+        assert_eq!(acknowledged[0].state, IncidentState::Acknowledged);
+
+        let repeated = reopened_store
+            .create(draft("different-secret"), &context(), None)
+            .unwrap();
+        assert_eq!(repeated.id, first.id);
+        assert_eq!(repeated.state, IncidentState::PendingReview);
+        assert_eq!(repeated.occurrence_count, 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ignored_incident_clears_recovery_without_deleting_history() {
+        let (root, store) = store();
+        let incident = store.create(draft("secret"), &context(), None).unwrap();
+
+        let ignored = store
+            .update_state(&incident.id, IncidentState::Ignored)
+            .unwrap();
+
+        assert!(!ignored.requires_recovery);
+        assert!(store.pending_recovery().is_none());
+        let retained = store.list(&IncidentFilter::default()).unwrap().incidents;
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].state, IncidentState::Ignored);
         fs::remove_dir_all(root).unwrap();
     }
 }

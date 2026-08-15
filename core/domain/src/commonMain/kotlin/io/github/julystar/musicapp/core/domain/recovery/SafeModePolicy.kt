@@ -52,12 +52,28 @@ class SafeModePolicy {
         if (input.userForcedSafeMode) {
             return safeMode("Safe mode was requested by the user", null)
         }
-        if (input.previousRecoveryFailedAtSameStage) {
-            return safeMode("The previous recovery attempt failed at the same startup stage", firstId(input))
+        val relevantIncidents = input.pendingIncidents
+            .filter(DiagnosticIncident::isRelevantToStartupSafety)
+        val relevantFingerprints = relevantIncidents
+            .asSequence()
+            .mapNotNull(DiagnosticIncident::fingerprint)
+            .toSet()
+        val relevantInput = input.copy(
+            pendingIncidents = relevantIncidents,
+            occurrences = input.occurrences.filter { it.fingerprint in relevantFingerprints },
+        )
+        if (
+            relevantInput.previousRecoveryFailedAtSameStage &&
+            relevantInput.pendingIncidents.isNotEmpty()
+        ) {
+            return safeMode(
+                "The previous recovery attempt failed at the same startup stage",
+                firstId(relevantInput),
+            )
         }
 
-        val primary = input.pendingIncidents.maxByOrNull(DiagnosticIncident::lastSeenAtEpochMs)
-        val databaseFailure = input.pendingIncidents.firstOrNull {
+        val primary = relevantInput.pendingIncidents.maxByOrNull(DiagnosticIncident::lastSeenAtEpochMs)
+        val databaseFailure = relevantInput.pendingIncidents.firstOrNull {
             it.type == DiagnosticIncidentType.DatabaseOpenFailure ||
                 it.type == DiagnosticIncidentType.DatabaseMigrationFailure
         }
@@ -65,7 +81,7 @@ class SafeModePolicy {
             return safeMode("The database could not be opened or migrated", databaseFailure.id)
         }
 
-        val startupOrRepeatedAnr = input.pendingIncidents.firstOrNull {
+        val startupOrRepeatedAnr = relevantInput.pendingIncidents.firstOrNull {
             it.type == DiagnosticIncidentType.AndroidAnr &&
                 (
                     it.requiresRecovery ||
@@ -80,7 +96,7 @@ class SafeModePolicy {
             )
         }
 
-        val pluginFailure = input.pendingIncidents.firstOrNull {
+        val pluginFailure = relevantInput.pendingIncidents.firstOrNull {
             it.type == DiagnosticIncidentType.PluginBootFailure ||
                 it.startupStage == DiagnosticStartupStage.PluginsLoading
         }
@@ -93,7 +109,7 @@ class SafeModePolicy {
             )
         }
 
-        val scanFailure = input.pendingIncidents.firstOrNull {
+        val scanFailure = relevantInput.pendingIncidents.firstOrNull {
             it.startupStage == DiagnosticStartupStage.SourceTasksScheduling
         }
         if (scanFailure != null) {
@@ -105,7 +121,7 @@ class SafeModePolicy {
             )
         }
 
-        val playbackRestoreFailure = input.pendingIncidents.firstOrNull {
+        val playbackRestoreFailure = relevantInput.pendingIncidents.firstOrNull {
             it.startupStage == DiagnosticStartupStage.PlaybackRestoring
         }
         if (playbackRestoreFailure != null) {
@@ -117,7 +133,7 @@ class SafeModePolicy {
             )
         }
 
-        val repeatedUnknownStartupExit = input.pendingIncidents.firstOrNull {
+        val repeatedUnknownStartupExit = relevantInput.pendingIncidents.firstOrNull {
             it.type == DiagnosticIncidentType.UnknownAbnormalExit &&
                 it.startupStage?.isBeforeStable == true &&
                 it.occurrenceCount >= REPEATED_UNKNOWN_STARTUP_EXIT_COUNT
@@ -129,7 +145,7 @@ class SafeModePolicy {
             )
         }
 
-        val startupFatal = input.pendingIncidents.firstOrNull { incident ->
+        val startupFatal = relevantInput.pendingIncidents.firstOrNull { incident ->
             incident.startupStage?.isBeforeStable == true && when (incident.type) {
                 DiagnosticIncidentType.KotlinUncaught,
                 DiagnosticIncidentType.RustPanic,
@@ -143,16 +159,22 @@ class SafeModePolicy {
             return safeMode("A fatal failure occurred before startup became stable", startupFatal.id)
         }
 
-        repeatedFatal(input, REPEATED_FATAL_SHORT_WINDOW_MS, REPEATED_FATAL_SHORT_WINDOW_COUNT)
+        repeatedFatal(relevantInput, REPEATED_FATAL_SHORT_WINDOW_MS, REPEATED_FATAL_SHORT_WINDOW_COUNT)
             ?.let { fingerprint ->
-                return safeMode("The same fatal failure repeated within 10 minutes", incidentId(input, fingerprint))
+                return safeMode(
+                    "The same fatal failure repeated within 10 minutes",
+                    incidentId(relevantInput, fingerprint),
+                )
             }
-        repeatedFatal(input, REPEATED_FATAL_LONG_WINDOW_MS, REPEATED_FATAL_LONG_WINDOW_COUNT)
+        repeatedFatal(relevantInput, REPEATED_FATAL_LONG_WINDOW_MS, REPEATED_FATAL_LONG_WINDOW_COUNT)
             ?.let { fingerprint ->
-                return safeMode("The same fatal failure repeated within 24 hours", incidentId(input, fingerprint))
+                return safeMode(
+                    "The same fatal failure repeated within 24 hours",
+                    incidentId(relevantInput, fingerprint),
+                )
             }
 
-        val stableAnr = input.pendingIncidents.firstOrNull {
+        val stableAnr = relevantInput.pendingIncidents.firstOrNull {
             it.type == DiagnosticIncidentType.AndroidAnr &&
                 it.startupStage?.isBeforeStable != true &&
                 it.occurrenceCount < REPEATED_FATAL_SHORT_WINDOW_COUNT
@@ -161,16 +183,16 @@ class SafeModePolicy {
             return warning("Android reported a single ANR after stable startup", stableAnr.id)
         }
 
-        val warningOnly = input.pendingIncidents.firstOrNull {
+        val warningOnly = relevantInput.pendingIncidents.firstOrNull {
             it.type in warningOnlyTypes ||
                 it.type == DiagnosticIncidentType.PlaybackBackendFailure ||
                 it.severity != DiagnosticIncidentSeverity.Fatal
         }
         if (warningOnly != null) {
-            return warning("A previous fault is available for review", warningOnly.id)
+            return warning("A previous abnormal exit was detected", warningOnly.id)
         }
         return if (primary != null) {
-            warning("A recovery report is pending review", primary.id)
+            warning("A previous incident requires recovery", primary.id)
         } else {
             StartupPlan(StartupMode.NormalStartup)
         }

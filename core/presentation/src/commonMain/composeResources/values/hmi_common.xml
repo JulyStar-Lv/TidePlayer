@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="ui_message_previous_abnormal_exit_detected">A previous abnormal exit was detected.</string>
     <string name="app_display_name">Tide Player</string>
     <string name="common_retry">Retry</string>
     <string name="ui_message_added_to_downloads">Added to Downloads.</string>

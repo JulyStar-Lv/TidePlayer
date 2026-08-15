@@ -195,6 +195,53 @@ class SafeModePolicyTest {
     }
 
     @Test
+    fun exportedUnknownExitWithoutRecoveryDoesNotEnterSafeMode() {
+        val exported = incident(
+            type = DiagnosticIncidentType.UnknownAbnormalExit,
+            severity = DiagnosticIncidentSeverity.Warning,
+            stage = DiagnosticStartupStage.FirstFrameRendered,
+            requiresRecovery = false,
+        ).copy(
+            state = DiagnosticIncidentState.Exported,
+            occurrenceCount = 7,
+        )
+
+        assertEquals(StartupMode.NormalStartup, policy.decide(input(exported)).mode)
+    }
+
+    @Test
+    fun exportedIncidentWithSeparateRecoveryNeedDoesNotEnterSafeModeByItself() {
+        val exported = incident(
+            type = DiagnosticIncidentType.DatabaseOpenFailure,
+            requiresRecovery = true,
+        ).copy(state = DiagnosticIncidentState.Exported)
+
+        assertEquals(StartupMode.NormalStartup, policy.decide(input(exported)).mode)
+    }
+
+    @Test
+    fun exportedIncidentDoesNotReuseHistoricalFailedRecoverySignal() {
+        val exported = incident(
+            type = DiagnosticIncidentType.DatabaseOpenFailure,
+            requiresRecovery = true,
+        ).copy(state = DiagnosticIncidentState.Exported)
+        val result = policy.decide(
+            input(exported).copy(previousRecoveryFailedAtSameStage = true),
+        )
+
+        assertEquals(StartupMode.NormalStartup, result.mode)
+    }
+
+    @Test
+    fun resolvedIncidentDoesNotEnterSafeMode() {
+        val resolved = incident(
+            type = DiagnosticIncidentType.DatabaseOpenFailure,
+        ).copy(state = DiagnosticIncidentState.Resolved, requiresRecovery = false)
+
+        assertEquals(StartupMode.NormalStartup, policy.decide(input(resolved)).mode)
+    }
+
+    @Test
     fun databaseFailureAlwaysEntersSafeMode() {
         val result = policy.decide(
             input(incident(type = DiagnosticIncidentType.DatabaseOpenFailure)),

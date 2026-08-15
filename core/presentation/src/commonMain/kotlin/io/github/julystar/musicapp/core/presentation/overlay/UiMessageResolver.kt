@@ -51,4 +51,6 @@ private fun UiMessageKey.resource(): StringResource = when (this) {
     UiMessageKey.SourceResultMustBeImported -> Res.string.ui_message_source_result_import_required
     UiMessageKey.PlayHistoryClearFailed -> Res.string.ui_message_play_history_clear_failed
     UiMessageKey.DownloadRemoveFailed -> Res.string.ui_message_download_remove_failed
+    UiMessageKey.PreviousAbnormalExitDetected ->
+        Res.string.ui_message_previous_abnormal_exit_detected
 }

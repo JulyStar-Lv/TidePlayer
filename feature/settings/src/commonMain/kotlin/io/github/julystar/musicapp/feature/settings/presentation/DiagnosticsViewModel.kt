@@ -22,6 +22,7 @@ import io.github.julystar.musicapp.core.domain.model.DiagnosticsExportResult
 import io.github.julystar.musicapp.core.domain.repository.DiagnosticExportPresenter
 import io.github.julystar.musicapp.core.domain.repository.DiagnosticsRepository
 import io.github.julystar.musicapp.core.domain.repository.DiagnosticsService
+import io.github.julystar.musicapp.core.domain.recovery.requiresUserAttention
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -256,12 +257,34 @@ class DiagnosticsViewModel(
 
     fun readArtifact(incidentId: String, artifactPath: String) {
         viewModelScope.launch {
+            val shouldAcknowledge = mutableState.value.incidents
+                .firstOrNull { it.id == incidentId }
+                ?.requiresUserAttention() == true
             runCatching {
                 withContext(Dispatchers.Default) {
+                    if (shouldAcknowledge) {
+                        repository.setIncidentState(
+                            incidentId,
+                            DiagnosticIncidentState.Acknowledged,
+                        )
+                    }
                     repository.readIncidentArtifact(incidentId, artifactPath)
                 }
             }.onSuccess { text ->
-                mutableState.value = mutableState.value.copy(artifactText = text)
+                mutableState.value = mutableState.value.copy(
+                    artifactText = text,
+                    incidents = if (shouldAcknowledge) {
+                        mutableState.value.incidents.map { incident ->
+                            if (incident.id == incidentId) {
+                                incident.copy(state = DiagnosticIncidentState.Acknowledged)
+                            } else {
+                                incident
+                            }
+                        }
+                    } else {
+                        mutableState.value.incidents
+                    },
+                )
             }.onFailure { error ->
                 mutableState.value = mutableState.value.copy(error = error.message)
             }

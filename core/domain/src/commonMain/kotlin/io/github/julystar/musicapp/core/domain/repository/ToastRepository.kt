@@ -48,6 +48,7 @@ enum class UiMessageKey {
     SourceResultMustBeImported,
     PlayHistoryClearFailed,
     DownloadRemoveFailed,
+    PreviousAbnormalExitDetected,
 }
 
 interface ToastRepository {
