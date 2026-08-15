@@ -543,7 +543,7 @@
     <string name="settings_lyrics_priority_move_up">Move up</string>
     <string name="settings_lyrics_priority_move_down">Move down</string>
     <string name="settings_lyrics_ignore_headers">Ignore lyric header tags</string>
-    <string name="settings_lyrics_ignore_headers_summary">Hide metadata tags such as artist, album, offset, and provider</string>
+    <string name="settings_lyrics_ignore_headers_summary">Keep lyric body only; hide titles, credits, separators, and metadata tags</string>
     <string name="settings_lyrics_font_section">Lyric fonts</string>
     <string name="settings_lyrics_western_font">Western font</string>
     <string name="settings_lyrics_cjk_font">CJK font</string>

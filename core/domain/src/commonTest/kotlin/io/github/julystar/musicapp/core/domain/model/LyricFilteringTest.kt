@@ -72,4 +72,42 @@ class LyricFilteringTest {
             LyricDisplaySettings.Default.filterLyricTextBlock(content),
         )
     }
+
+    @Test
+    fun keepsOnlyBodyLinesWhenHeaderFilteringIsEnabled() {
+        val content = """
+            [ti:Song]
+            First line
+            [by:Provider]
+            //
+            Lyrics by: Someone
+            Second line
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "First line", "Second line"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun removesInstrumentPublishingAndRightsCreditsFromCurrentLyricShape() {
+        val content = """
+            [00:00.00]Song title - Artist
+            [00:01.51]词：Writer
+            [00:03.03]曲：Composer
+            [00:04.54]编曲：Arranger
+            [00:06.06]弦乐：Orchestra
+            [00:07.57]录音：Engineer
+            [00:09.09]混音：Mixer
+            [00:10.60]OP：Publisher [SP:Sub-publisher]
+            [00:12.12]（本着作之使用经著作权人授权）
+            [00:35.59]第一句歌词
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "[00:35.59]第一句歌词"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
 }

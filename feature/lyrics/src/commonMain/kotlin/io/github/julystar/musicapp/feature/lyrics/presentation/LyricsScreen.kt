@@ -407,6 +407,8 @@ private fun NowPlayingLyricsContent(
                 perspectiveEffectEnabled = lyricDisplaySettings.perspectiveEffectEnabled,
                 perspectiveAngleDegrees = lyricDisplaySettings.perspectiveAngleDegrees.toFloat(),
                 tapToSeekEnabled = lyricDisplaySettings.tapToSeekEnabled,
+                verticalContentPaddingFraction = 0f,
+                contextLinesBeforeActive = 1,
                 modifier = modifier.fillMaxWidth(),
             )
         }

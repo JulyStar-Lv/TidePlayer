@@ -62,6 +62,49 @@ class NowPlayingLyricsAdapterTest {
     }
 
     @Test
+    fun removesNonBodyLinesAfterTimedLyricsBegin() {
+        val lines = listOf(
+            LyricLine(0.milliseconds, "[ti:Song]"),
+            LyricLine(1_000.milliseconds, "First line"),
+            LyricLine(2_000.milliseconds, "[by:Provider]"),
+            LyricLine(3_000.milliseconds, "//"),
+            LyricLine(4_000.milliseconds, "Lyrics by: Someone"),
+            LyricLine(5_000.milliseconds, "Second line"),
+        )
+
+        val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "First line", "Second line"),
+            visible.map(LyricLine::text),
+        )
+    }
+
+    @Test
+    fun collapsesCurrentTrackProductionAndRightsBlockIntoPlaceholder() {
+        val lines = listOf(
+            LyricLine(0.milliseconds, "Song title - Artist"),
+            LyricLine(1_510.milliseconds, "词：Writer"),
+            LyricLine(3_030.milliseconds, "曲：Composer"),
+            LyricLine(4_540.milliseconds, "编曲：Arranger"),
+            LyricLine(6_060.milliseconds, "弦乐：Orchestra"),
+            LyricLine(7_570.milliseconds, "录音：Engineer"),
+            LyricLine(9_090.milliseconds, "混音：Mixer"),
+            LyricLine(10_600.milliseconds, "OP：Publisher [SP:Sub-publisher]"),
+            LyricLine(12_120.milliseconds, "（本着作之使用经著作权人授权）"),
+            LyricLine(35_590.milliseconds, "第一句歌词"),
+        )
+
+        val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "第一句歌词"),
+            visible.map(LyricLine::text),
+        )
+        assertEquals(0, visible.first().duration.inWholeMilliseconds)
+    }
+
+    @Test
     fun convertsTimestampLinesIntoContinuousTimeline() {
         val lyrics = listOf(
             LyricLine(duration = 1.seconds, text = "First"),

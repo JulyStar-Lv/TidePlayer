@@ -56,7 +56,10 @@ import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import kotlinx.coroutines.isActive
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 private const val PlaybackResyncThresholdMs = 220.0
@@ -66,6 +69,9 @@ private const val LyricHeaderPlaceholder = "•••"
 private const val PlaceholderDotCount = 3
 private const val PlaceholderDotSizeEm = 0.62f
 private const val PlaceholderDotSpacingEm = 0.48f
+private const val PlaceholderBreathingCycleDurationMs = 1_800
+private const val PlaceholderBreathingScaleMidpoint = 0.91f
+private const val PlaceholderBreathingScaleAmplitude = 0.09f
 
 /**
  * A desktop-friendly lyrics surface adapted from accompanist-lyrics-ui.
@@ -109,7 +115,7 @@ fun LyricsView(
     verticalContentPaddingFraction: Float = 0.34f,
     lineHorizontalPadding: Dp = 20.dp,
     lineVerticalPadding: Dp = 6.dp,
-    contextLinesBeforeActive: Int = if (lineHorizontalPadding == 0.dp) 1 else 0,
+    contextLinesBeforeActive: Int = 1,
 ) {
     val listState = rememberLazyListState()
     val renderPositionProvider = rememberInterpolatedPlaybackPositionProvider(
@@ -122,7 +128,7 @@ fun LyricsView(
             .coerceAtMost((lyrics.lines.size - 1).coerceAtLeast(0))
     }
     val scrollTargetIndex = remember(currentIndex, contextLinesBeforeActive) {
-        (currentIndex - contextLinesBeforeActive.coerceAtLeast(0)).coerceAtLeast(0)
+        lyricsScrollTargetIndex(currentIndex, contextLinesBeforeActive)
     }
     var displayedIndex by remember(lyrics.lines) { mutableIntStateOf(-1) }
     val perspectiveCameraDistance = with(LocalDensity.current) { 18.dp.toPx() }
@@ -165,7 +171,10 @@ fun LyricsView(
                         cameraDistance = perspectiveCameraDistance
                     }
                 },
-            contentPadding = PaddingValues(vertical = verticalPadding),
+            contentPadding = PaddingValues(
+                top = verticalPadding,
+                bottom = maxHeight,
+            ),
             verticalArrangement = Arrangement.spacedBy(lineSpacing),
         ) {
             itemsIndexed(
@@ -191,7 +200,15 @@ fun LyricsView(
                     tapToSeekEnabled = tapToSeekEnabled,
                     horizontalPadding = lineHorizontalPadding,
                     verticalPadding = lineVerticalPadding,
-                    topInset = if (contextLinesBeforeActive > 0 && index == scrollTargetIndex) 12.dp else 0.dp,
+                    topInset = if (
+                        contextLinesBeforeActive > 0 &&
+                        index == scrollTargetIndex &&
+                        lineHorizontalPadding == 0.dp
+                    ) {
+                        12.dp
+                    } else {
+                        0.dp
+                    },
                     onClick = { onLineClick(line) },
                 )
             }
@@ -414,6 +431,11 @@ private fun TimelinePlaceholder(
     val lineHeight = with(density) { textStyle.lineHeight.toDp() }
     val dotSize = fontSize * PlaceholderDotSizeEm
     val dotSpacing = fontSize * PlaceholderDotSpacingEm
+    val breathingScale = lyricPlaceholderBreathingScale(
+        positionMs = positionMs,
+        startMs = line.start,
+        endMs = line.end,
+    )
     val horizontalAlignment = when (textAlign) {
         TextAlign.Center -> Alignment.CenterHorizontally
         TextAlign.End, TextAlign.Right -> Alignment.End
@@ -440,6 +462,10 @@ private fun TimelinePlaceholder(
             Box(
                 modifier = Modifier
                     .size(dotSize)
+                    .graphicsLayer {
+                        scaleX = breathingScale
+                        scaleY = breathingScale
+                    }
                     .background(
                         color = lerp(inactiveColor, activeColor, progress),
                         shape = CircleShape,
@@ -460,6 +486,26 @@ internal fun lyricPlaceholderDotProgress(
 
     val timelineProgress = (positionMs - startMs).toFloat() / (endMs - startMs)
     return (timelineProgress * PlaceholderDotCount - dotIndex).coerceIn(0f, 1f)
+}
+
+internal fun lyricPlaceholderBreathingScale(
+    positionMs: Int,
+    startMs: Int,
+    endMs: Int,
+): Float {
+    if (endMs <= startMs || positionMs < startMs || positionMs >= endMs) return 1f
+    val durationMs = (endMs - startMs).toFloat()
+    val desiredHalfCycles = durationMs / (PlaceholderBreathingCycleDurationMs / 2f)
+    val roundedHalfCycles = desiredHalfCycles.roundToInt().coerceAtLeast(1)
+    val alignedHalfCycles = when {
+        roundedHalfCycles % 2 == 1 -> roundedHalfCycles
+        desiredHalfCycles - (roundedHalfCycles - 1) <= (roundedHalfCycles + 1) - desiredHalfCycles ->
+            (roundedHalfCycles - 1).coerceAtLeast(1)
+        else -> roundedHalfCycles + 1
+    }
+    val progress = (positionMs - startMs) / durationMs
+    val angle = progress * alignedHalfCycles * PI.toFloat()
+    return PlaceholderBreathingScaleMidpoint - PlaceholderBreathingScaleAmplitude * cos(angle)
 }
 
 private fun ISyncedLine.translationOrNull(): String? = when (this) {
@@ -540,3 +586,8 @@ internal fun shouldSnapLyricsScroll(
 ): Boolean {
     return previousIndex < 0 || abs(currentIndex - previousIndex) > 1
 }
+
+internal fun lyricsScrollTargetIndex(
+    currentIndex: Int,
+    contextLinesBeforeActive: Int,
+): Int = (currentIndex - contextLinesBeforeActive.coerceAtLeast(0)).coerceAtLeast(0)

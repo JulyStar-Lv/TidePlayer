@@ -2,6 +2,7 @@ package io.github.julystar.musicapp.core.lyrics.ui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class InterpolatedPlaybackPositionTest {
     @Test
@@ -60,6 +61,13 @@ class InterpolatedPlaybackPositionTest {
     }
 
     @Test
+    fun keepsPreviousLineAsTheActiveLyricScrollAnchor() {
+        assertEquals(0, lyricsScrollTargetIndex(currentIndex = 0, contextLinesBeforeActive = 1))
+        assertEquals(0, lyricsScrollTargetIndex(currentIndex = 1, contextLinesBeforeActive = 1))
+        assertEquals(8, lyricsScrollTargetIndex(currentIndex = 9, contextLinesBeforeActive = 1))
+    }
+
+    @Test
     fun lightsPlaceholderDotsSequentiallyAcrossTimeline() {
         assertEquals(listOf(0f, 0f, 0f), placeholderProgress(positionMs = 1_000))
         assertEquals(listOf(1f, 0f, 0f), placeholderProgress(positionMs = 2_000))
@@ -73,6 +81,16 @@ class InterpolatedPlaybackPositionTest {
         assertEquals(listOf(1f, 1f, 1f), placeholderProgress(positionMs = 5_000))
     }
 
+    @Test
+    fun breathesPlaceholderDotsOnlyDuringTheirTimeline() {
+        assertEquals(1f, placeholderBreathingScale(positionMs = 0))
+        assertEquals(1f, placeholderBreathingScale(positionMs = 4_000))
+
+        val activeScales = (1_000 until 4_000 step 250).map(::placeholderBreathingScale)
+        assertTrue(activeScales.all { scale -> scale in 0.82f..1f })
+        assertTrue(activeScales.min() < activeScales.max())
+    }
+
     private fun placeholderProgress(positionMs: Int): List<Float> =
         List(3) { dotIndex ->
             lyricPlaceholderDotProgress(
@@ -82,4 +100,11 @@ class InterpolatedPlaybackPositionTest {
                 dotIndex = dotIndex,
             )
         }
+
+    private fun placeholderBreathingScale(positionMs: Int): Float =
+        lyricPlaceholderBreathingScale(
+            positionMs = positionMs,
+            startMs = 1_000,
+            endMs = 4_000,
+        )
 }
