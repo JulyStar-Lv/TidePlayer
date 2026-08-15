@@ -32,14 +32,41 @@ class NowPlayingLyricsAdapterTest {
 
     @Test
     fun splitsUnsynchronisedBlocksBeforeFiltering() {
-        val lines = listOf(LyricLine(0.milliseconds, "[ti:Song]\nFirst\nSecond"))
+        val lines = listOf(LyricLine(0.milliseconds, "制作人：A\n作词：B\n第一句\n第二句"))
 
         val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
 
         assertEquals(
-            listOf(LYRIC_HEADER_PLACEHOLDER, "First", "Second"),
+            listOf(LYRIC_HEADER_PLACEHOLDER, "第一句", "第二句"),
             visible.map(LyricLine::text),
         )
+    }
+
+    @Test
+    fun filtersTimedKrcCreditsAndPreservesBodyTiming() {
+        val body = LyricLine(
+            duration = 8_000.milliseconds,
+            text = "How long",
+            words = persistentListOf(
+                LyricWord("How", 0.milliseconds, 300.milliseconds),
+                LyricWord("long", 350.milliseconds, 450.milliseconds),
+            ),
+        )
+        val lines = listOf(
+            LyricLine(729.milliseconds, "制作人：雷声"),
+            LyricLine(1_200.milliseconds, "作词：Philip Strand/雷声"),
+            LyricLine(1_800.milliseconds, "作曲：Philip Strand/雷声"),
+            LyricLine(2_400.milliseconds, "编曲：雷声"),
+            LyricLine(3_000.milliseconds, "吉他贝斯鼓：因可"),
+            LyricLine(3_600.milliseconds, "混音：郑仕伟"),
+            LyricLine(4_200.milliseconds, "母带：郑仕伟"),
+            body,
+        )
+
+        val visible = lines.filterVisibleLyrics(LyricDisplaySettings.Default)
+
+        assertEquals(listOf(LYRIC_HEADER_PLACEHOLDER, "How long"), visible.map(LyricLine::text))
+        assertEquals(body, visible.last())
     }
 
     @Test

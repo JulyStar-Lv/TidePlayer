@@ -7,6 +7,41 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class LyricFilteringTest {
     @Test
+    fun filtersKugouMetadataTagsFromWhitelist() {
+        val content = """
+            [id:abc]
+            [hash:123]
+            [sign:]
+            [qq:]
+            [total:0]
+            [offset:0]
+            第一句歌词
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "第一句歌词"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersCommonQrcMetadataTags() {
+        val content = """
+            [ti:Song]
+            [ar:Artist]
+            [al:Album]
+            [by:]
+            [offset:0]
+            正文
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "正文"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
     fun ignoresCommonHeaderVariantsWhenEnabled() {
         val content = """
             ﻿[ar:Artist]
@@ -23,12 +58,188 @@ class LyricFilteringTest {
     }
 
     @Test
+    fun keepsBackgroundLyricTagsEvenNextToMetadata() {
+        val content = """
+            [bg:Backing vocal]
+            [ar:Artist]
+            [x-bg:Background lyric]
+            Keep me
+        """.trimIndent()
+
+        assertEquals(
+            listOf("[bg:Backing vocal]", "[x-bg:Background lyric]", "Keep me"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun keepsUnknownAndTtmlLikeTags() {
+        val content = """
+            [custom:value]
+            [songwriters:Someone]
+            [itunes:key:C]
+            [ttm:title:Section]
+            Keep me
+        """.trimIndent()
+
+        assertEquals(
+            content.lines(),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersKrcTimingTagsForDetectionWithoutChangingBodyText() {
+        val content = """
+            [729,364]<0,60,0>制<60,60,0>作<120,60,0>人<180,60,0>：<240,60,0>雷<300,60,0>声
+            [1200,500]<0,200,0>H<200,150,0>o<350,150,0>w
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "[1200,500]<0,200,0>H<200,150,0>o<350,150,0>w"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersEnglishCreditsCaseInsensitively() {
+        val content = """
+            Lyricist: A
+            Composer: B
+            ARRANGER: C
+            Vocal Producer: D
+            Executive Producer: E
+            Recording Engineer: F
+            Mixed by: G
+            Mastered by: H
+            Real lyric line
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "Real lyric line"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersExtendedChineseCredits() {
+        val content = """
+            配唱制作人：A
+            制作统筹：B
+            录音师：C
+            混音工程师：D
+            母带工程师：E
+            和声编写：F
+            出品公司：G
+            发行方：H
+            正文
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "正文"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersControlledCompoundCredits() {
+        val content = """
+            吉他贝斯鼓：A
+            吉他/贝斯/鼓：A
+            混音/母带：A
+            作词/作曲：A
+            正文
+        """.trimIndent()
+
+        assertEquals(
+            listOf(LYRIC_HEADER_PLACEHOLDER, "正文"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun keepsRoleWordsUsedAsLyricSentences() {
+        val content = """
+            吉他贝斯鼓声响起
+            我把作词作曲写进青春
+            混音像夜色一样模糊
+            这是我们的和声
+            我要和你一起发行梦想
+            制作一个新的世界
+        """.trimIndent()
+
+        assertEquals(
+            content.lines(),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersHeaderOnlyCreditsOnlyAtBeginning() {
+        val content = """
+            策划：A
+            统筹：B
+            正文第一句
+            特别鸣谢那些陪我走过的人
+            正文第三句
+        """.trimIndent()
+
+        assertEquals(
+            listOf(
+                LYRIC_HEADER_PLACEHOLDER,
+                "正文第一句",
+                "特别鸣谢那些陪我走过的人",
+                "正文第三句",
+            ),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun keepsHeaderOnlyCreditFormatAfterLyricsBegin() {
+        val content = """
+            正文第一句
+            正文第二句
+            特别鸣谢：陪伴我的人
+            正文第三句
+        """.trimIndent()
+
+        assertEquals(
+            content.lines(),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
+    fun filtersStrongMetadataAfterLyricsBegin() {
+        val content = """
+            正文第一句
+            正文第二句
+            [ar:Should not display]
+            正文第三句
+        """.trimIndent()
+
+        assertEquals(
+            listOf("正文第一句", "正文第二句", "正文第三句"),
+            LyricDisplaySettings.Default.filterLyricTextBlock(content),
+        )
+    }
+
+    @Test
     fun keepsHeaderTagsWhenFilteringIsDisabled() {
         val settings = LyricDisplaySettings.Default.copy(ignoreHeaderTags = false)
 
+        val content = """
+            [hash:123]
+            制作人：A
+            策划：B
+            //
+            Keep me
+        """.trimIndent()
+
         assertEquals(
-            listOf("[ar:Artist]", "Keep me"),
-            settings.filterLyricTextBlock("[ar:Artist]\nKeep me"),
+            content.lines(),
+            settings.filterLyricTextBlock(content),
         )
     }
 
@@ -50,8 +261,29 @@ class LyricFilteringTest {
     fun doesNotCreatePlaceholderWhenHeadersAreTheOnlyContent() {
         assertEquals(
             emptyList(),
-            LyricDisplaySettings.Default.filterLyricTextBlock("[ar:Artist]\n[ti:Song]"),
+            LyricDisplaySettings.Default.filterLyricTextBlock("制作人：A\n作词：B\n作曲：C"),
         )
+    }
+
+    @Test
+    fun preservesTimedBodyLineAndWordTiming() {
+        val body = LyricLine(
+            duration = 3_400.milliseconds,
+            text = "How long",
+            words = persistentListOf(
+                LyricWord("How", 0.milliseconds, 300.milliseconds),
+                LyricWord("long", 350.milliseconds, 450.milliseconds),
+            ),
+        )
+        val lines = listOf(
+            LyricLine(729.milliseconds, "制作人：雷声"),
+            body,
+        )
+
+        val filtered = lines.filterLyricLinesForDisplay(LyricDisplaySettings.Default)
+
+        assertEquals(listOf(LYRIC_HEADER_PLACEHOLDER, "How long"), filtered.map(LyricLine::text))
+        assertEquals(body, filtered.last())
     }
 
     @Test

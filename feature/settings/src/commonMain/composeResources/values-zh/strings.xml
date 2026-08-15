@@ -542,8 +542,8 @@
     <string name="settings_lyrics_priority_drag">拖动%1$s调整顺序</string>
     <string name="settings_lyrics_priority_move_up">上移</string>
     <string name="settings_lyrics_priority_move_down">下移</string>
-    <string name="settings_lyrics_ignore_headers">忽略歌词头标签</string>
-    <string name="settings_lyrics_ignore_headers_summary">只保留歌词正文，隐藏标题、制作信息、分隔符和元数据标签</string>
+    <string name="settings_lyrics_ignore_headers">隐藏歌词头信息</string>
+    <string name="settings_lyrics_ignore_headers_summary">自动隐藏歌曲信息、制作人员、版权声明等非正文内容</string>
     <string name="settings_lyrics_font_section">歌词字体</string>
     <string name="settings_lyrics_western_font">西文字体</string>
     <string name="settings_lyrics_cjk_font">中日韩字体</string>

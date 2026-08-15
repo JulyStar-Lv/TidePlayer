@@ -542,8 +542,8 @@
     <string name="settings_lyrics_priority_drag">Drag %1$s to reorder</string>
     <string name="settings_lyrics_priority_move_up">Move up</string>
     <string name="settings_lyrics_priority_move_down">Move down</string>
-    <string name="settings_lyrics_ignore_headers">Ignore lyric header tags</string>
-    <string name="settings_lyrics_ignore_headers_summary">Keep lyric body only; hide titles, credits, separators, and metadata tags</string>
+    <string name="settings_lyrics_ignore_headers">Hide lyric header info</string>
+    <string name="settings_lyrics_ignore_headers_summary">Automatically hides song metadata, credits, copyright notices, and other non-lyric header content.</string>
     <string name="settings_lyrics_font_section">Lyric fonts</string>
     <string name="settings_lyrics_western_font">Western font</string>
     <string name="settings_lyrics_cjk_font">CJK font</string>
