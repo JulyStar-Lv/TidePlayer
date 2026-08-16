@@ -2013,9 +2013,9 @@ fun ImmersivePlayerBackground(artwork: Artwork?) {
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0f to Color.White.copy(alpha = 0.06f),
-                            0.5f to Color.Transparent,
-                            1f to Color.Black.copy(alpha = 0.32f),
+                            0f to Color.Black.copy(alpha = 0.42f),
+                            0.5f to Color.Black.copy(alpha = 0.18f),
+                            1f to Color.Black.copy(alpha = 0.42f),
                         ),
                     ),
                 ),
