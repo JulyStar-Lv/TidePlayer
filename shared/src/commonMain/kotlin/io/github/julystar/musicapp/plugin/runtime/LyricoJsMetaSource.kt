@@ -2,9 +2,11 @@ package io.github.julystar.musicapp.plugin.runtime
 
 import io.github.julystar.musicapp.source.api.MetaCoverCandidate
 import io.github.julystar.musicapp.source.api.MetaLyrics
+import io.github.julystar.musicapp.source.api.MetaLyricsCandidate
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
 import io.github.julystar.musicapp.source.api.MetaSource
+import io.github.julystar.musicapp.source.api.MetaSourceCapability
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -17,6 +19,17 @@ class LyricoJsMetaSource(
 ) : MetaSource {
     override val id: String = plugin.descriptor.pluginId
     override val displayName: String = plugin.descriptor.pluginName
+    val apiVersion: Int = plugin.descriptor.apiVersion
+    override val capabilities: Set<MetaSourceCapability> = plugin.capabilities.mapNotNullTo(
+        mutableSetOf(),
+    ) { capability ->
+        when (capability) {
+            "searchSongs" -> MetaSourceCapability.SEARCH_SONGS
+            "getLyrics" -> MetaSourceCapability.GET_LYRICS
+            "searchCovers" -> MetaSourceCapability.SEARCH_COVERS
+            else -> null
+        }
+    }
 
     override suspend fun searchSongs(query: MetaSongQuery): List<MetaSongCandidate> =
         searchSongs(query, PluginLookupMode.MANUAL)
@@ -44,32 +57,58 @@ class LyricoJsMetaSource(
     override suspend fun getLyrics(
         candidate: MetaSongCandidate,
         config: Map<String, String>,
-    ): MetaLyrics? = getLyrics(candidate, config, PluginLookupMode.MANUAL)
+    ): MetaLyrics? = getLyricsCandidates(
+        candidate = candidate,
+        config = config,
+        mode = PluginLookupMode.MANUAL,
+    ).firstOrNull()?.lyrics
 
     suspend fun getLyrics(
         candidate: MetaSongCandidate,
         config: Map<String, String>,
         mode: PluginLookupMode,
-    ): MetaLyrics? {
+    ): MetaLyrics? = getLyricsCandidates(
+        candidate = candidate,
+        config = config,
+        mode = mode,
+    ).firstOrNull()?.lyrics
+
+    override suspend fun getLyricsCandidates(
+        candidate: MetaSongCandidate,
+        page: Int,
+        pageSize: Int,
+        config: Map<String, String>,
+    ): List<MetaLyricsCandidate> = getLyricsCandidates(
+        candidate = candidate,
+        page = page,
+        pageSize = pageSize,
+        config = config,
+        mode = PluginLookupMode.MANUAL,
+    )
+
+    suspend fun getLyricsCandidates(
+        candidate: MetaSongCandidate,
+        page: Int = 1,
+        pageSize: Int = 20,
+        config: Map<String, String> = emptyMap(),
+        mode: PluginLookupMode,
+    ): List<MetaLyricsCandidate> {
         requireUsable("getLyrics", mode)
-        val internal = resultParser.internal(id, candidate.contextToken) ?: JsonObject(emptyMap())
+        val requestSong = songJson(candidate)
         val request = buildJsonObject {
-            put("song", buildJsonObject {
-                put("id", candidate.id)
-                put("title", candidate.title)
-                candidate.artist?.let { put("artist", it) }
-                candidate.album?.let { put("album", it) }
-                candidate.durationMs?.let { put("duration", it) }
-                put("sourceId", id)
-                put("pluginId", id)
-                put("fields", buildJsonObject {
-                    candidate.fields.forEach { (key, value) -> put(key, value) }
-                })
-                put("internal", internal)
-            })
+            put("song", requestSong)
+            if (plugin.descriptor.apiVersion >= 4) {
+                put("page", page.coerceAtLeast(1))
+                put("pageSize", pageSize.coerceAtLeast(1))
+            }
             put("config", configJson(config))
         }
-        return resultParser.lyrics(call("getLyrics", request))
+        return resultParser.lyricsCandidates(
+            pluginId = id,
+            apiVersion = plugin.descriptor.apiVersion,
+            raw = call("getLyrics", request),
+            fallbackSong = candidate,
+        )
     }
 
     override suspend fun searchCovers(query: MetaSongQuery): List<MetaCoverCandidate> =
@@ -80,12 +119,32 @@ class LyricoJsMetaSource(
         mode: PluginLookupMode,
     ): List<MetaCoverCandidate> {
         requireUsable("searchCovers", mode)
+        val requestSong = if (plugin.descriptor.apiVersion >= 4) {
+            query.song?.let { song ->
+                val sourceSong = if (song.sourceId == null || song.sourceId == id) {
+                    song
+                } else {
+                    song.copy(id = LOCAL_SONG_ID, contextToken = null, sourceId = id)
+                }
+                songJson(sourceSong)
+            }
+        } else {
+            null
+        }
         val request = buildJsonObject {
             put("keyword", query.keyword ?: query.defaultKeyword())
             put("pageSize", if (query.pageSize == 20) 5 else query.pageSize.coerceAtLeast(1))
+            if (plugin.descriptor.apiVersion >= 4) {
+                put("page", query.page.coerceAtLeast(1))
+                requestSong?.let { put("song", it) }
+            }
             put("config", configJson(query.config))
         }
-        return resultParser.covers(id, call("searchCovers", request))
+        return resultParser.covers(
+            pluginId = id,
+            apiVersion = plugin.descriptor.apiVersion,
+            raw = call("searchCovers", request),
+        )
     }
 
     suspend fun clearPrivateContexts() {
@@ -111,6 +170,28 @@ class LyricoJsMetaSource(
     private suspend fun configJson(overrides: Map<String, String>): JsonObject = buildJsonObject {
         (configProvider.config(id) + overrides).forEach { (key, value) ->
             put(key, value)
+        }
+    }
+
+    private suspend fun songJson(candidate: MetaSongCandidate): JsonObject {
+        val internal = if (candidate.sourceId == null || candidate.sourceId == id) {
+            resultParser.internal(id, candidate.contextToken)
+        } else {
+            null
+        } ?: JsonObject(emptyMap())
+        return buildJsonObject {
+            put("id", candidate.id)
+            put("title", candidate.title)
+            candidate.artist?.let { put("artist", it) }
+            candidate.album?.let { put("album", it) }
+            candidate.date?.let { put("date", it) }
+            candidate.durationMs?.let { put("duration", it) }
+            put("sourceId", id)
+            put("pluginId", id)
+            put("fields", buildJsonObject {
+                candidate.fields.forEach { (key, value) -> put(key, value) }
+            })
+            put("internal", internal)
         }
     }
 
@@ -143,4 +224,8 @@ class LyricoJsMetaSource(
         artist?.takeIf(String::isNotBlank),
         album?.takeIf(String::isNotBlank),
     ).joinToString(" ")
+
+    private companion object {
+        const val LOCAL_SONG_ID = "local-song"
+    }
 }

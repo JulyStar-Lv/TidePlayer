@@ -80,7 +80,7 @@ class PluginInstaller(
 ) {
     companion object {
         const val MIN_SUPPORTED_API_VERSION = 1
-        const val MAX_SUPPORTED_API_VERSION = 3
+        const val MAX_SUPPORTED_API_VERSION = 4
         const val HOST_API_VERSION = 3
 
         private const val MAX_ARCHIVE_FILES = 512L
@@ -204,13 +204,12 @@ class PluginInstaller(
             "plugin id must be reverse-domain format"
         }
         require(manifest.apiVersion in MIN_SUPPORTED_API_VERSION..MAX_SUPPORTED_API_VERSION) {
-            "unsupported apiVersion: ${manifest.apiVersion}, supported range is " +
+            "unsupported plugin protocol ${manifest.apiVersion}: supported range is " +
                 "$MIN_SUPPORTED_API_VERSION..$MAX_SUPPORTED_API_VERSION"
         }
-        require(manifest.minHostApiVersion <= HOST_API_VERSION) {
-            "plugin requires host API ${manifest.minHostApiVersion}"
+        require(manifest.minHostApiVersion in 1..HOST_API_VERSION) {
+            "unsupported host API ${manifest.minHostApiVersion}: supported range is 1..$HOST_API_VERSION"
         }
-        require(manifest.minHostApiVersion >= 1) { "minHostApiVersion must be >= 1" }
         require(manifest.versionCode >= 1) { "versionCode must be >= 1" }
         require(manifest.versionName.isNotBlank()) { "versionName is required" }
         require(manifest.name.isNotBlank()) { "plugin name is required" }
@@ -229,9 +228,6 @@ class PluginInstaller(
         }
         require(manifest.capabilities.all { it in SUPPORTED_CAPABILITIES }) {
             "capabilities contains an unsupported value"
-        }
-        require(manifest.capabilities.isEmpty() || "searchSongs" in manifest.capabilities) {
-            "a source plugin must declare searchSongs when capabilities are provided"
         }
         manifest.icon?.let { icon ->
             require(icon.substringAfterLast('.', "").lowercase() in SUPPORTED_ICON_EXTENSIONS) {

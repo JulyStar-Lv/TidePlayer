@@ -64,6 +64,9 @@ pub const SUPPORTED_HOST_APIS: &[&str] = &[
     "log.error",
 ];
 
+pub const PLUGIN_PROTOCOL_VERSION: u8 = 4;
+pub const HOST_API_VERSION: u8 = 3;
+
 #[derive(Clone)]
 pub struct HostApiOptions {
     pub plugin_id: String,
@@ -148,7 +151,11 @@ impl HostApi {
             "runtime.info" => Ok(serde_json::json!({
                 "name": "QuickJS",
                 "version": "2025-09-13",
-                "hostApiVersion": 3,
+                "pluginApiVersion": PLUGIN_PROTOCOL_VERSION,
+                "hostApiVersion": HOST_API_VERSION,
+                "engine": "quickjs",
+                "engineVersion": "2025-09-13",
+                "supportedHostApis": SUPPORTED_HOST_APIS,
                 "os": std::env::consts::OS,
                 "arch": std::env::consts::ARCH,
             })),
@@ -433,12 +440,14 @@ impl HostApi {
             }
             return if structured {
                 Ok(serde_json::json!({
+                    "code": status.as_u16(),
                     "status": status.as_u16(),
+                    "message": status.canonical_reason().unwrap_or(""),
                     "url": url.as_str(),
                     "headers": response_headers,
                     "contentType": content_type,
-                    "body": if bytes_response { serde_json::Value::Null } else { serde_json::Value::String(String::from_utf8(data.clone()).map_err(host_error)?) },
-                    "bodyBase64": if bytes_response { serde_json::Value::String(general_purpose::STANDARD.encode(data)) } else { serde_json::Value::Null },
+                    "body": if bytes_response { String::new() } else { String::from_utf8(data.clone()).map_err(host_error)? },
+                    "bodyBase64": if bytes_response { general_purpose::STANDARD.encode(data) } else { String::new() },
                 }))
             } else if bytes_response {
                 Ok(serde_json::Value::String(
@@ -688,14 +697,16 @@ fn request_body(
     Ok(bytes)
 }
 
-fn response_headers(headers: &HeaderMap) -> BTreeMap<String, String> {
+fn response_headers(headers: &HeaderMap) -> BTreeMap<String, Vec<String>> {
     headers
-        .iter()
-        .filter_map(|(name, value)| {
-            value
-                .to_str()
-                .ok()
-                .map(|value| (name.as_str().to_owned(), value.to_owned()))
+        .keys()
+        .map(|name| {
+            let values = headers
+                .get_all(name)
+                .iter()
+                .filter_map(|value| value.to_str().ok().map(str::to_owned))
+                .collect();
+            (name.as_str().to_owned(), values)
         })
         .collect()
 }
@@ -857,7 +868,6 @@ impl CacheIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest::StatusCode;
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::thread;
@@ -877,6 +887,34 @@ mod tests {
     fn call(host: &mut HostApi, name: &str, payload: serde_json::Value) -> serde_json::Value {
         let control = OperationControl::default();
         host.execute(name, payload, &control).unwrap()
+    }
+
+    fn structured_http_response(status: &str, body: &str) -> serde_json::Value {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let status = status.to_owned();
+        let body = body.to_owned();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request);
+            write!(
+                stream,
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len(),
+            )
+            .unwrap();
+        });
+        let mut host = host();
+        host.options.allow_http = true;
+        host.options.allow_private_network = true;
+        let result = call(
+            &mut host,
+            "http.get",
+            serde_json::json!({"url":format!("http://{address}/response")}),
+        );
+        handle.join().unwrap();
+        result
     }
 
     #[test]
@@ -1076,6 +1114,21 @@ mod tests {
     }
 
     #[test]
+    fn runtime_info_reports_current_plugin_and_host_contract() {
+        let info = call(&mut host(), "runtime.info", serde_json::json!({}));
+        assert_eq!(info["pluginApiVersion"], PLUGIN_PROTOCOL_VERSION);
+        assert_eq!(info["hostApiVersion"], HOST_API_VERSION);
+        assert_eq!(info["engine"], "quickjs");
+        assert!(info["engineVersion"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()));
+        let supported = info["supportedHostApis"].as_array().unwrap();
+        assert!(supported.iter().any(|value| value == "http.get"));
+        assert!(info["os"].as_str().is_some_and(|value| !value.is_empty()));
+        assert!(info["arch"].as_str().is_some_and(|value| !value.is_empty()));
+    }
+
+    #[test]
     fn xml_host_calls_follow_lyrico_value_contract() {
         let mut host = host();
         let xml = r#"<tt xml:lang="en"><translation key="a">Hello</translation><translation key="b">Bye</translation></tt>"#;
@@ -1120,8 +1173,57 @@ mod tests {
     }
 
     #[test]
-    fn structured_http_status_type_is_numeric() {
-        let status = StatusCode::OK;
-        assert_eq!(status.as_u16(), 200);
+    fn structured_http_returns_code_and_body_for_success_errors_and_empty_body() {
+        for (status, expected_code, body) in [
+            ("200 OK", 200, r#"{"ok":true}"#),
+            ("403 Forbidden", 403, r#"{"error":"forbidden"}"#),
+            ("429 Too Many Requests", 429, r#"{"error":"rate-limited"}"#),
+            ("204 No Content", 204, ""),
+        ] {
+            let response = structured_http_response(status, body);
+            assert_eq!(response["code"], expected_code);
+            assert_eq!(response["status"], expected_code);
+            assert_eq!(response["body"], body);
+            assert_eq!(response["bodyBase64"], "");
+            assert_eq!(response["headers"]["content-type"][0], "application/json");
+        }
+    }
+
+    #[test]
+    fn structured_http_follows_redirect_and_reports_final_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let handle = thread::spawn(move || {
+            for index in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 1024];
+                let _ = stream.read(&mut request);
+                if index == 0 {
+                    write!(
+                        stream,
+                        "HTTP/1.1 302 Found\r\nLocation: http://{address}/final\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    )
+                    .unwrap();
+                } else {
+                    stream
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nfinal",
+                        )
+                        .unwrap();
+                }
+            }
+        });
+        let mut host = host();
+        host.options.allow_http = true;
+        host.options.allow_private_network = true;
+        let response = call(
+            &mut host,
+            "http.get",
+            serde_json::json!({"url":format!("http://{address}/redirect")}),
+        );
+        assert_eq!(response["code"], 200);
+        assert_eq!(response["body"], "final");
+        assert!(response["url"].as_str().unwrap().ends_with("/final"));
+        handle.join().unwrap();
     }
 }

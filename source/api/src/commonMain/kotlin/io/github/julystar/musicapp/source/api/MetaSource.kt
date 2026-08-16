@@ -8,12 +8,14 @@ data class MetaSongQuery(
     val title: String,
     val artist: String? = null,
     val album: String? = null,
+    val date: String? = null,
     val durationMs: Long? = null,
     val config: Map<String, String> = emptyMap(),
     val keyword: String? = null,
     val page: Int = 1,
     val pageSize: Int = 20,
     val separator: String = "/",
+    val song: MetaSongCandidate? = null,
 )
 
 data class MetaSongCandidate(
@@ -32,6 +34,11 @@ data class MetaSongCandidate(
 
 data class MetaCoverCandidate(
     val url: String,
+    val id: String? = null,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val date: String? = null,
     val width: Int? = null,
     val height: Int? = null,
     val sourceId: String? = null,
@@ -64,9 +71,27 @@ data class MetaLyrics(
     val romanization: String? = null,
 )
 
+data class MetaLyricsCandidate(
+    val id: String,
+    val title: String,
+    val artist: String? = null,
+    val album: String? = null,
+    val date: String? = null,
+    val lyrics: MetaLyrics,
+    val sourceId: String,
+)
+
+enum class MetaSourceCapability {
+    SEARCH_SONGS,
+    GET_LYRICS,
+    SEARCH_COVERS,
+}
+
 interface MetaSource {
     val id: String
     val displayName: String
+    val capabilities: Set<MetaSourceCapability>
+        get() = MetaSourceCapability.entries.toSet()
 
     suspend fun searchSongs(query: MetaSongQuery): List<MetaSongCandidate>
 
@@ -74,6 +99,25 @@ interface MetaSource {
         candidate: MetaSongCandidate,
         config: Map<String, String> = emptyMap(),
     ): MetaLyrics?
+
+    suspend fun getLyricsCandidates(
+        candidate: MetaSongCandidate,
+        page: Int = 1,
+        pageSize: Int = 20,
+        config: Map<String, String> = emptyMap(),
+    ): List<MetaLyricsCandidate> = getLyrics(candidate, config)?.let { lyrics ->
+        listOf(
+            MetaLyricsCandidate(
+                id = candidate.id,
+                title = candidate.title,
+                artist = candidate.artist,
+                album = candidate.album,
+                date = candidate.date,
+                lyrics = lyrics,
+                sourceId = candidate.sourceId ?: id,
+            ),
+        )
+    }.orEmpty()
 
     suspend fun searchCovers(query: MetaSongQuery): List<MetaCoverCandidate>
 }

@@ -19,11 +19,13 @@ import io.github.julystar.musicapp.source.api.MetaLyrics
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
 import io.github.julystar.musicapp.source.api.MetaSource
+import io.github.julystar.musicapp.source.api.MetaSourceCapability
 import io.github.julystar.musicapp.source.api.MetaSourceRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -166,6 +168,92 @@ class PluginProductionAssemblyTest {
         assertEquals("MissingSourceId", result.failures.single().errorType)
     }
 
+    @Test
+    fun lookupRoutesOnlyToDeclaredCapabilitiesAndUsesLocalSongForIndependentLyrics() = runTest {
+        val metadata = FakeMetaSource(
+            id = "metadata",
+            capabilities = setOf(MetaSourceCapability.SEARCH_SONGS),
+            songs = listOf(MetaSongCandidate(id = "remote", title = "Song")),
+        )
+        val lyrics = FakeMetaSource(
+            id = "lyrics",
+            capabilities = setOf(MetaSourceCapability.GET_LYRICS),
+            lyrics = MetaLyrics(rawPlainLrc = "[00:00]Lyrics"),
+        )
+        val covers = FakeMetaSource(
+            id = "covers",
+            capabilities = setOf(MetaSourceCapability.SEARCH_COVERS),
+            covers = listOf(MetaCoverCandidate("https://example.test/cover.jpg")),
+        )
+        val useCase = MetadataLookupUseCase(
+            registry = MetaSourceRegistry(listOf(metadata, lyrics, covers)),
+            pluginRepository = PluginRepository(FakePluginDao(), "/plugins".toPath()),
+        )
+
+        val songsResult = useCase.searchSongs(MetaSongQuery("Song"), PluginLookupMode.MANUAL)
+        val lyricsResult = useCase.searchIndependentLyricsCandidates(
+            MetaSongQuery("Song", artist = "Artist"),
+            PluginLookupMode.MANUAL,
+        )
+        val coversResult = useCase.searchCovers(MetaSongQuery("Song"), PluginLookupMode.MANUAL)
+
+        assertEquals(listOf("metadata"), songsResult.items.mapNotNull { it.sourceId })
+        assertEquals("local-song", lyrics.lastLyricsCandidateId)
+        assertEquals("[00:00]Lyrics", lyricsResult.items.single().lyrics.rawPlainLrc)
+        assertEquals("covers", coversResult.items.single().sourceId)
+        assertEquals(1, metadata.songSearchCalls)
+        assertEquals(0, lyrics.songSearchCalls)
+        assertEquals(0, covers.songSearchCalls)
+        assertEquals(0, metadata.lyricsCalls)
+        assertEquals(1, lyrics.lyricsCalls)
+        assertEquals(0, covers.lyricsCalls)
+        assertEquals(0, metadata.coverSearchCalls)
+        assertEquals(0, lyrics.coverSearchCalls)
+        assertEquals(1, covers.coverSearchCalls)
+        assertTrue(songsResult.failures.isEmpty())
+        assertTrue(lyricsResult.failures.isEmpty())
+        assertTrue(coversResult.failures.isEmpty())
+    }
+
+    @Test
+    fun skippedPluginCapabilitiesDoNotCreateLastError() = runTest {
+        val dao = FakePluginDao()
+        dao.upsert(
+            pluginEntity(enabled = true).copy(
+                id = 1,
+                pluginId = "com.example.lyrics-only",
+                capabilitiesJson = "[\"getLyrics\"]",
+            ),
+        )
+        dao.upsert(
+            pluginEntity(enabled = true).copy(
+                id = 2,
+                pluginId = "com.example.covers-only",
+                capabilitiesJson = "[\"searchCovers\"]",
+            ),
+        )
+        val repository = PluginRepository(dao, "/plugins".toPath())
+        val runtimeManager = runtimeManager()
+        val metaRegistry = MetaSourceRegistry()
+        val productionRegistry = PluginMetaSourceRegistry(
+            scope = this,
+            repository = repository,
+            runtimeManager = runtimeManager,
+            resultParser = PluginResultParser(PluginCandidateContextStore()),
+            registry = metaRegistry,
+        )
+        productionRegistry.refresh()
+
+        val result = MetadataLookupUseCase(pluginRepository = repository, registry = metaRegistry)
+            .searchSongs(MetaSongQuery("Song"), PluginLookupMode.MANUAL)
+
+        assertEquals(0, result.queriedSourceCount)
+        assertTrue(result.failures.isEmpty())
+        assertNull(dao.findByPluginId("com.example.lyrics-only")?.lastError)
+        assertNull(dao.findByPluginId("com.example.covers-only")?.lastError)
+        productionRegistry.shutdown()
+    }
+
     private fun runtimeManager(): PluginRuntimeManager {
         val settings = PluginRuntimeSettings(
             appVersionName = "test",
@@ -202,16 +290,24 @@ class PluginProductionAssemblyTest {
 
     private class FakeMetaSource(
         override val id: String,
+        override val capabilities: Set<MetaSourceCapability> = MetaSourceCapability.entries.toSet(),
         private val songs: List<MetaSongCandidate> = emptyList(),
         private val covers: List<MetaCoverCandidate> = emptyList(),
         private val lyrics: MetaLyrics? = null,
         private val searchFailure: Throwable? = null,
     ) : MetaSource {
         override val displayName: String = id
+        var songSearchCalls: Int = 0
+            private set
         var lyricsCalls: Int = 0
+            private set
+        var coverSearchCalls: Int = 0
+            private set
+        var lastLyricsCandidateId: String? = null
             private set
 
         override suspend fun searchSongs(query: MetaSongQuery): List<MetaSongCandidate> {
+            songSearchCalls += 1
             searchFailure?.let { throw it }
             return songs
         }
@@ -221,10 +317,12 @@ class PluginProductionAssemblyTest {
             config: Map<String, String>,
         ): MetaLyrics? {
             lyricsCalls += 1
+            lastLyricsCandidateId = candidate.id
             return lyrics
         }
 
         override suspend fun searchCovers(query: MetaSongQuery): List<MetaCoverCandidate> {
+            coverSearchCalls += 1
             searchFailure?.let { throw it }
             return covers
         }

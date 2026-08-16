@@ -65,7 +65,7 @@ internal fun pluginUiText(value: String): String {
         "installed" -> return stringResource(Res.string.plugins_installed_label)
         "enabled" -> return stringResource(Res.string.plugins_enabled_label)
         "No plugins installed" -> return stringResource(Res.string.plugins_empty)
-        "Import a ZIP that follows Lyrico Plugin API v3." -> return stringResource(Res.string.plugins_empty_summary)
+        "Import a ZIP that follows Lyrico Plugin API v1–v4." -> return stringResource(Res.string.plugins_empty_summary)
         "Import" -> return stringResource(Res.string.plugins_import)
         "Import local ZIP" -> return stringResource(Res.string.plugins_import_local_zip)
         "Plugin installed" -> return stringResource(Res.string.plugins_install_success)

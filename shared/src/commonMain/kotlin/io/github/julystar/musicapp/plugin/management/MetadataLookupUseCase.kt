@@ -4,9 +4,11 @@ import io.github.julystar.musicapp.plugin.runtime.LyricoJsMetaSource
 import io.github.julystar.musicapp.plugin.runtime.PluginLookupMode
 import io.github.julystar.musicapp.source.api.MetaCoverCandidate
 import io.github.julystar.musicapp.source.api.MetaLyrics
+import io.github.julystar.musicapp.source.api.MetaLyricsCandidate
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
 import io.github.julystar.musicapp.source.api.MetaSource
+import io.github.julystar.musicapp.source.api.MetaSourceCapability
 import io.github.julystar.musicapp.source.api.MetaSourceRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeout
@@ -49,7 +51,7 @@ class MetadataLookupUseCase(
         mode: PluginLookupMode,
         sourceIds: Set<String>? = null,
     ): MetadataLookupCollection<MetaSongCandidate> = withinModeTimeout(mode) {
-        val sources = selectedSources(sourceIds)
+        val sources = selectedSources(sourceIds, MetaSourceCapability.SEARCH_SONGS)
         val candidates = mutableListOf<MetaSongCandidate>()
         val failures = mutableListOf<MetadataLookupFailure>()
         sources.forEach { source ->
@@ -80,7 +82,25 @@ class MetadataLookupUseCase(
         candidate: MetaSongCandidate,
         mode: PluginLookupMode,
         config: Map<String, String> = emptyMap(),
-    ): MetadataLookupValue<MetaLyrics> = withinModeTimeout(mode) {
+    ): MetadataLookupValue<MetaLyrics> {
+        val result = getLyricsCandidates(
+            candidate = candidate,
+            mode = mode,
+            config = config,
+        )
+        return MetadataLookupValue(
+            value = result.value?.firstOrNull()?.lyrics,
+            failures = result.failures,
+        )
+    }
+
+    suspend fun getLyricsCandidates(
+        candidate: MetaSongCandidate,
+        mode: PluginLookupMode,
+        page: Int = 1,
+        pageSize: Int = 20,
+        config: Map<String, String> = emptyMap(),
+    ): MetadataLookupValue<List<MetaLyricsCandidate>> = withinModeTimeout(mode) {
         val sourceId = candidate.sourceId
             ?: return@withinModeTimeout MetadataLookupValue(
                 value = null,
@@ -106,13 +126,23 @@ class MetadataLookupUseCase(
                 ),
             )
 
+        if (MetaSourceCapability.GET_LYRICS !in source.capabilities) {
+            return@withinModeTimeout MetadataLookupValue(value = emptyList())
+        }
+
         try {
-            val lyrics = when (source) {
-                is LyricoJsMetaSource -> source.getLyrics(candidate, config, mode)
-                else -> source.getLyrics(candidate, config)
+            val candidates = when (source) {
+                is LyricoJsMetaSource -> source.getLyricsCandidates(
+                    candidate = candidate,
+                    page = page,
+                    pageSize = pageSize,
+                    config = config,
+                    mode = mode,
+                )
+                else -> source.getLyricsCandidates(candidate, page, pageSize, config)
             }
             clearPluginError(source)
-            MetadataLookupValue(lyrics)
+            MetadataLookupValue(candidates)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Throwable) {
@@ -124,12 +154,68 @@ class MetadataLookupUseCase(
         }
     }
 
+    suspend fun searchIndependentLyricsCandidates(
+        query: MetaSongQuery,
+        mode: PluginLookupMode,
+        sourceIds: Set<String>? = null,
+    ): MetadataLookupCollection<MetaLyricsCandidate> = withinModeTimeout(mode) {
+        val sources = selectedSources(sourceIds, MetaSourceCapability.GET_LYRICS)
+            .filter { source ->
+                MetaSourceCapability.SEARCH_SONGS !in source.capabilities &&
+                    (source !is LyricoJsMetaSource || source.apiVersion >= 4)
+            }
+        val candidates = mutableListOf<MetaLyricsCandidate>()
+        val failures = mutableListOf<MetadataLookupFailure>()
+        sources.forEach { source ->
+            val localSong = MetaSongCandidate(
+                id = LOCAL_SONG_ID,
+                title = query.title,
+                artist = query.artist,
+                album = query.album,
+                date = query.date,
+                durationMs = query.durationMs,
+                fields = emptyMap(),
+                contextToken = null,
+                sourceId = source.id,
+            )
+            try {
+                val sourceCandidates = when (source) {
+                    is LyricoJsMetaSource -> source.getLyricsCandidates(
+                        candidate = localSong,
+                        page = query.page,
+                        pageSize = query.pageSize,
+                        config = query.config,
+                        mode = mode,
+                    )
+                    else -> source.getLyricsCandidates(
+                        candidate = localSong,
+                        page = query.page,
+                        pageSize = query.pageSize,
+                        config = query.config,
+                    )
+                }
+                candidates += sourceCandidates.map { it.copy(sourceId = source.id) }
+                clearPluginError(source)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                recordPluginError(source, error)
+                failures += error.toFailure(source.id, MetadataLookupOperation.GET_LYRICS)
+            }
+        }
+        MetadataLookupCollection(
+            items = candidates,
+            failures = failures,
+            queriedSourceCount = sources.size,
+        )
+    }
+
     suspend fun searchCovers(
         query: MetaSongQuery,
         mode: PluginLookupMode,
         sourceIds: Set<String>? = null,
     ): MetadataLookupCollection<MetaCoverCandidate> = withinModeTimeout(mode) {
-        val sources = selectedSources(sourceIds)
+        val sources = selectedSources(sourceIds, MetaSourceCapability.SEARCH_COVERS)
         val covers = mutableListOf<MetaCoverCandidate>()
         val failures = mutableListOf<MetadataLookupFailure>()
         sources.forEach { source ->
@@ -138,9 +224,7 @@ class MetadataLookupUseCase(
                     is LyricoJsMetaSource -> source.searchCovers(query, mode)
                     else -> source.searchCovers(query)
                 }
-                covers += sourceCovers.map { cover ->
-                    if (cover.sourceId == null) cover.copy(sourceId = source.id) else cover
-                }
+                covers += sourceCovers.map { cover -> cover.copy(sourceId = source.id) }
                 clearPluginError(source)
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -156,9 +240,13 @@ class MetadataLookupUseCase(
         )
     }
 
-    private fun selectedSources(sourceIds: Set<String>?): List<MetaSource> =
+    private fun selectedSources(
+        sourceIds: Set<String>?,
+        capability: MetaSourceCapability,
+    ): List<MetaSource> =
         registry.sources.filter { candidate ->
-            sourceIds == null || candidate.id in sourceIds
+            capability in candidate.capabilities &&
+                (sourceIds == null || candidate.id in sourceIds)
         }
 
     private suspend fun recordPluginError(
@@ -194,4 +282,8 @@ class MetadataLookupUseCase(
         message = message?.take(2_000).orEmpty().ifBlank { "Plugin metadata lookup failed" },
         errorType = this::class.simpleName ?: "UnknownError",
     )
+
+    private companion object {
+        const val LOCAL_SONG_ID = "local-song"
+    }
 }

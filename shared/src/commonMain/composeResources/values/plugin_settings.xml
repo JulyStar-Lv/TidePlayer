@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="plugins_title">Metadata plugins</string>
-    <string name="plugins_overview">Lyrico Plugin API v3 providers</string>
+    <string name="plugins_overview">Lyrico Plugin API v1–v4 providers</string>
     <string name="plugins_count">%1$d installed · %2$d enabled</string>
     <string name="plugins_installed">Installed plugins</string>
     <string name="plugins_empty">No plugins installed</string>

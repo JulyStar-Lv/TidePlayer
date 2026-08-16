@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="plugins_title">元数据插件</string>
-    <string name="plugins_overview">Lyrico Plugin API v3 提供方</string>
+    <string name="plugins_overview">Lyrico Plugin API v1–v4 提供方</string>
     <string name="plugins_count">已安装 %1$d 个 · 已启用 %2$d 个</string>
     <string name="plugins_installed">已安装插件</string>
     <string name="plugins_empty">尚未安装插件</string>

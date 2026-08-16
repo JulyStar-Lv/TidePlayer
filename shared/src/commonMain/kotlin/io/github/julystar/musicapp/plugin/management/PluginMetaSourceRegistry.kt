@@ -61,6 +61,9 @@ class PluginMetaSourceRegistry(
                 previous.updatedAt != updated.updatedAt -> pluginId
                 previous.entryFile != updated.entryFile -> pluginId
                 previous.includeDirs != updated.includeDirs -> pluginId
+                previous.apiVersion != updated.apiVersion -> pluginId
+                previous.minHostApiVersion != updated.minHostApiVersion -> pluginId
+                previous.capabilities != updated.capabilities -> pluginId
                 else -> null
             }
         }.toSet()

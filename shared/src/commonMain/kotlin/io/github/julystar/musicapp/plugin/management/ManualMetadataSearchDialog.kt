@@ -2,6 +2,7 @@ package io.github.julystar.musicapp.plugin.management
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,11 +28,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
@@ -47,10 +51,15 @@ import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.platform.byteArrayToImageBitmap
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
+import io.github.julystar.musicapp.source.api.MetaCoverCandidate
+import io.github.julystar.musicapp.source.api.MetaLyricsCandidate
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
@@ -62,7 +71,11 @@ import musicapp.shared.generated.resources.manual_metadata_apply
 import musicapp.shared.generated.resources.manual_metadata_apply_failed
 import musicapp.shared.generated.resources.manual_metadata_applying
 import musicapp.shared.generated.resources.manual_metadata_current_track
+import musicapp.shared.generated.resources.manual_metadata_cover_candidates
+import musicapp.shared.generated.resources.manual_metadata_lyrics_candidates
 import musicapp.shared.generated.resources.manual_metadata_keyword
+import musicapp.shared.generated.resources.manual_metadata_loading_candidates
+import musicapp.shared.generated.resources.manual_metadata_no_candidates
 import musicapp.shared.generated.resources.manual_metadata_no_matches
 import musicapp.shared.generated.resources.manual_metadata_no_sources
 import musicapp.shared.generated.resources.manual_metadata_partial_failure
@@ -110,6 +123,11 @@ fun ManualMetadataSearchDialog(
     }
     var candidates by remember(activeTrack.id) { mutableStateOf(emptyList<MetaSongCandidate>()) }
     var selected by remember(activeTrack.id) { mutableStateOf<MetaSongCandidate?>(null) }
+    var lyricsCandidates by remember(activeTrack.id) { mutableStateOf(emptyList<MetaLyricsCandidate>()) }
+    var selectedLyrics by remember(activeTrack.id) { mutableStateOf<MetaLyricsCandidate?>(null) }
+    var coverCandidates by remember(activeTrack.id) { mutableStateOf(emptyList<MetaCoverCandidate>()) }
+    var selectedCover by remember(activeTrack.id) { mutableStateOf<MetaCoverCandidate?>(null) }
+    var loadingCandidates by remember(activeTrack.id) { mutableStateOf(false) }
     var feedback by remember(activeTrack.id) { mutableStateOf<ManualMetadataFeedback?>(null) }
     var searching by remember(activeTrack.id) { mutableStateOf(false) }
     var applying by remember(activeTrack.id) { mutableStateOf(false) }
@@ -121,6 +139,10 @@ fun ManualMetadataSearchDialog(
             searching = true
             candidates = emptyList()
             selected = null
+            lyricsCandidates = emptyList()
+            selectedLyrics = null
+            coverCandidates = emptyList()
+            selectedCover = null
             feedback = null
             try {
                 val result = service.search(activeTrack, keyword)
@@ -149,7 +171,12 @@ fun ManualMetadataSearchDialog(
             applying = true
             feedback = null
             try {
-                val lyricFailures = service.apply(activeTrack.id, candidate)
+                val lyricFailures = service.apply(
+                    trackId = activeTrack.id,
+                    candidate = candidate,
+                    lyricsCandidate = selectedLyrics,
+                    coverCandidate = selectedCover,
+                )
                 if (lyricFailures.isEmpty()) {
                     onDismiss()
                 } else {
@@ -188,6 +215,11 @@ fun ManualMetadataSearchDialog(
             keyword = defaultManualMetadataKeyword(activeTrack)
             candidates = emptyList()
             selected = null
+            lyricsCandidates = emptyList()
+            selectedLyrics = null
+            coverCandidates = emptyList()
+            selectedCover = null
+            loadingCandidates = false
             feedback = null
             searching = false
             applying = false
@@ -198,6 +230,40 @@ fun ManualMetadataSearchDialog(
             searching = false
             applying = false
             resetting = false
+        }
+    }
+
+    LaunchedEffect(activeTrack.id, selected?.sourceId, selected?.id, dialogVisible) {
+        val candidate = selected
+        if (!dialogVisible || candidate == null) {
+            lyricsCandidates = emptyList()
+            selectedLyrics = null
+            coverCandidates = emptyList()
+            selectedCover = null
+            loadingCandidates = false
+            return@LaunchedEffect
+        }
+        loadingCandidates = true
+        lyricsCandidates = emptyList()
+        selectedLyrics = null
+        coverCandidates = emptyList()
+        selectedCover = null
+        try {
+            coroutineScope {
+                val lyrics = async { service.searchLyrics(activeTrack, candidate) }
+                val covers = async { service.searchCovers(activeTrack, candidate, keyword) }
+                lyricsCandidates = lyrics.await().items
+                coverCandidates = covers.await().items
+                selectedLyrics = lyricsCandidates.firstOrNull()
+                selectedCover = coverCandidates.firstOrNull()
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            lyricsCandidates = emptyList()
+            coverCandidates = emptyList()
+        } finally {
+            loadingCandidates = false
         }
     }
 
@@ -317,6 +383,22 @@ fun ManualMetadataSearchDialog(
                     .fillMaxWidth()
                     .weight(1f),
             )
+            if (selected != null) {
+                MetadataEnrichmentCandidates(
+                    lyricsCandidates = lyricsCandidates,
+                    selectedLyrics = selectedLyrics,
+                    coverCandidates = coverCandidates,
+                    selectedCover = selectedCover,
+                    loading = loadingCandidates,
+                    enabled = !applying && !resetting,
+                    service = service,
+                    onSelectLyrics = { selectedLyrics = it },
+                    onSelectCover = { selectedCover = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 220.dp),
+                )
+            }
             feedback
                 ?.takeIf { candidates.isNotEmpty() && it.shouldShowAlongsideResults() }
                 ?.let { value ->
@@ -356,6 +438,216 @@ fun ManualMetadataSearchDialog(
             }
         }
     }
+}
+
+@Composable
+private fun MetadataEnrichmentCandidates(
+    lyricsCandidates: List<MetaLyricsCandidate>,
+    selectedLyrics: MetaLyricsCandidate?,
+    coverCandidates: List<MetaCoverCandidate>,
+    selectedCover: MetaCoverCandidate?,
+    loading: Boolean,
+    enabled: Boolean,
+    service: ManualMetadataService,
+    onSelectLyrics: (MetaLyricsCandidate) -> Unit,
+    onSelectCover: (MetaCoverCandidate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        CandidateColumn(
+            title = stringResource(Res.string.manual_metadata_lyrics_candidates),
+            empty = lyricsCandidates.isEmpty(),
+            emptyText = if (loading) {
+                stringResource(Res.string.manual_metadata_loading_candidates)
+            } else {
+                stringResource(Res.string.manual_metadata_no_candidates)
+            },
+            modifier = Modifier.weight(1f),
+        ) {
+            itemsIndexed(
+                items = lyricsCandidates,
+                key = { index, item -> "${item.sourceId}:${item.id}:$index" },
+            ) { _, item ->
+                EnrichmentCandidateRow(
+                    title = item.title,
+                    subtitle = listOfNotNull(item.artist, item.album, item.date).joinToString(" · "),
+                    sourceId = item.sourceId,
+                    selected = item == selectedLyrics,
+                    enabled = enabled,
+                    onClick = { onSelectLyrics(item) },
+                )
+            }
+        }
+        CandidateColumn(
+            title = stringResource(Res.string.manual_metadata_cover_candidates),
+            empty = coverCandidates.isEmpty(),
+            emptyText = if (loading) {
+                stringResource(Res.string.manual_metadata_loading_candidates)
+            } else {
+                stringResource(Res.string.manual_metadata_no_candidates)
+            },
+            modifier = Modifier.weight(1f),
+        ) {
+            itemsIndexed(
+                items = coverCandidates,
+                key = { index, item -> "${item.sourceId}:${item.id ?: item.url}:$index" },
+            ) { _, item ->
+                CoverCandidateRow(
+                    candidate = item,
+                    selected = item == selectedCover,
+                    enabled = enabled,
+                    service = service,
+                    onClick = { onSelectCover(item) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CandidateColumn(
+    title: String,
+    empty: Boolean,
+    emptyText: String,
+    modifier: Modifier = Modifier,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.footnote1,
+            fontWeight = FontWeight.SemiBold,
+            color = MiuixTheme.colorScheme.onSurface,
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(DesignTokens.shapes.md))
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+            contentPadding = PaddingValues(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            content()
+            if (empty) {
+                item {
+                    Text(
+                        text = emptyText,
+                        modifier = Modifier.padding(8.dp),
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnrichmentCandidateRow(
+    title: String,
+    subtitle: String,
+    sourceId: String?,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    val shape = RoundedCornerShape(DesignTokens.shapes.sm)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.55f)
+            .clip(shape)
+            .background(
+                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else MiuixTheme.colorScheme.surfaceContainer,
+            )
+            .border(
+                1.dp,
+                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.5f)
+                else MiuixTheme.colorScheme.outline.copy(alpha = 0f),
+                shape,
+            )
+            .selectable(
+                selected = selected,
+                enabled = enabled,
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
+            .padding(7.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading?.invoke()
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                text = title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MiuixTheme.textStyles.footnote1,
+                fontWeight = FontWeight.Medium,
+                color = MiuixTheme.colorScheme.onSurface,
+            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+            sourceId?.let {
+                Text(
+                    text = stringResource(
+                        Res.string.manual_metadata_source,
+                        metadataSourceDisplayName(it),
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CoverCandidateRow(
+    candidate: MetaCoverCandidate,
+    selected: Boolean,
+    enabled: Boolean,
+    service: ManualMetadataService,
+    onClick: () -> Unit,
+) {
+    val preview by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, candidate.url) {
+        value = service.loadCoverPreview(candidate)?.let(::byteArrayToImageBitmap)
+    }
+    EnrichmentCandidateRow(
+        title = candidate.title.orEmpty().ifBlank { candidate.album.orEmpty().ifBlank { candidate.id ?: "—" } },
+        subtitle = listOfNotNull(candidate.artist, candidate.album, candidate.date).joinToString(" · "),
+        sourceId = candidate.sourceId,
+        selected = selected,
+        enabled = enabled,
+        onClick = onClick,
+        leading = preview?.let { bitmap ->
+            @Composable {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(DesignTokens.shapes.xs)),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        },
+    )
 }
 
 @Composable

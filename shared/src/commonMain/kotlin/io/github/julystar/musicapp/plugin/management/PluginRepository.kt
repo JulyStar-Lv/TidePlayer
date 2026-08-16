@@ -41,6 +41,8 @@ data class PluginSummary(
     val configFields: List<ManifestConfigField>,
     val lastError: String?,
     val lastErrorAt: Long?,
+    val apiVersion: Int = 1,
+    val minHostApiVersion: Int = 1,
 )
 
 class PluginRepository(
@@ -151,6 +153,8 @@ class PluginRepository(
             entryFile = entryFile,
             includeDirs = includeDirs,
             directory = (pluginsDir / id).toString(),
+            apiVersion = apiVersion,
+            minHostApiVersion = minHostApiVersion,
         ),
         capabilities = capabilities.ifEmpty { listOf("searchSongs") }.toSet(),
         enabled = enabled,
@@ -179,6 +183,8 @@ class PluginRepository(
         configFields = decodeConfigFields(manifestRawJson),
         lastError = lastError,
         lastErrorAt = lastErrorAt,
+        apiVersion = apiVersion,
+        minHostApiVersion = minHostApiVersion,
     )
 
     private fun decodeStringList(raw: String): List<String> = runCatching {

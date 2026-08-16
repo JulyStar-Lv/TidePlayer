@@ -127,7 +127,80 @@ class PluginPipelineTest {
         assertEquals("com.example.plugin", covers[0].sourceId)
         assertEquals(800, covers[1].width)
         assertEquals(600, covers[1].height)
-        assertEquals("song-1", covers[2].sourceId)
+        assertEquals("song-1", covers[2].id)
+        assertEquals("com.example.plugin", covers[2].sourceId)
+    }
+
+    @Test
+    fun api4CoverCandidatesRequireJudgementMetadataAndKeepSourceIdentity() {
+        val covers = PluginResultParser().covers(
+            pluginId = "com.example.cover",
+            apiVersion = 4,
+            raw = """
+                {"results":[
+                  {"title":"Song","artist":"Artist","album":"Album","date":"2026","coverUrl":"https://example.test/a.jpg"},
+                  {"id":"remote-id","title":"Song","artist":"Artist","album":"Album","date":"2025","url":"https://example.test/b.jpg","width":1200,"height":1200},
+                  {"title":"Missing date","artist":"Artist","album":"Album","url":"https://example.test/invalid.jpg"},
+                  "https://example.test/legacy.jpg"
+                ]}
+            """.trimIndent(),
+        )
+
+        assertEquals(2, covers.size)
+        assertNull(covers[0].id)
+        assertEquals("remote-id", covers[1].id)
+        assertEquals("2025", covers[1].date)
+        assertTrue(covers.all { it.sourceId == "com.example.cover" })
+    }
+
+    @Test
+    fun api4LyricsCandidatesPreserveAllResultsAndRequireCanonicalTags() {
+        val parser = PluginResultParser()
+        val candidates = parser.lyricsCandidates(
+            pluginId = "com.example.lyrics",
+            apiVersion = 4,
+            raw = """
+                {"candidates":[
+                  {"id":"one","tags":{"ti":"Song","ar":"Artist","al":"Album","date":"2026"},"type":"rawPlainLrc","raw_plain_lrc":"[00:00]One"},
+                  {"tags":{"ti":"Song (Live)","ar":"Artist","al":"Live","date":"2025"},"type":"rawTtml","raw_ttml":"<tt/>"},
+                  {"tags":{"ti":"Missing date","ar":"Artist","al":"Album"},"type":"rawPlainLrc","lrc":"invalid"},
+                  {"tags":{"ar":"Artist","al":"Album","date":"2024"},"type":"rawPlainLrc","lrc":"missing ti"},
+                  {"tags":{"ti":"Song","al":"Album","date":"2024"},"type":"rawPlainLrc","lrc":"missing ar"},
+                  {"tags":{"ti":"Song","ar":"Artist","date":"2024"},"type":"rawPlainLrc","lrc":"missing al"},
+                  {"tags":{"ti":"Song","ar":"Artist","al":"Album","date":"2024"},"notFound":true}
+                ]}
+            """.trimIndent(),
+            fallbackSong = MetaSongQuery("unused").let {
+                io.github.julystar.musicapp.source.api.MetaSongCandidate("unused", it.title)
+            },
+        )
+
+        assertEquals(2, candidates.size)
+        assertEquals("one", candidates[0].id)
+        assertEquals("[00:00]One", candidates[0].lyrics.rawPlainLrc)
+        assertEquals("Song (Live)", candidates[1].title)
+        assertEquals("<tt/>", candidates[1].lyrics.rawTtml)
+        assertEquals("com.example.lyrics", candidates[1].sourceId)
+    }
+
+    @Test
+    fun api3LyricsRemainSingleResultCompatible() {
+        val fallback = io.github.julystar.musicapp.source.api.MetaSongCandidate(
+            id = "legacy-id",
+            title = "Legacy Song",
+            artist = "Legacy Artist",
+        )
+        val candidates = PluginResultParser().lyricsCandidates(
+            pluginId = "com.example.legacy",
+            apiVersion = 3,
+            raw = """{"type":"rawPlainLrc","original_lrc":"[00:00]Legacy"}""",
+            fallbackSong = fallback,
+        )
+
+        assertEquals(1, candidates.size)
+        assertEquals("legacy-id", candidates.single().id)
+        assertEquals("Legacy Song", candidates.single().title)
+        assertEquals("[00:00]Legacy", candidates.single().lyrics.rawPlainLrc)
     }
 
     @Test

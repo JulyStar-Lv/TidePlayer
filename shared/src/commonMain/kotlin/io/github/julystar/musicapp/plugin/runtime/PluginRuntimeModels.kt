@@ -15,6 +15,8 @@ data class PluginRuntimeDescriptor(
     val entryFile: String,
     val includeDirs: List<String>,
     val directory: String,
+    val apiVersion: Int = 1,
+    val minHostApiVersion: Int = 1,
 )
 
 data class PluginRuntimeSettings(

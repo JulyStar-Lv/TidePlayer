@@ -404,7 +404,7 @@ private fun PluginOverviewCard(installedCount: Int, enabledCount: Int) {
                         style = MiuixTheme.textStyles.body1,
                     )
                     Text(
-                        text = "Lyrico API v3",
+                        text = "Lyrico API v1–v4",
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 10.sp,
@@ -589,7 +589,7 @@ private fun EmptyPluginsRow() {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = pluginUiText("Import a ZIP that follows Lyrico Plugin API v3."),
+                text = pluginUiText("Import a ZIP that follows Lyrico Plugin API v1–v4."),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 fontSize = 12.sp,
             )

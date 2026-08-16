@@ -8,6 +8,7 @@ import io.github.julystar.musicapp.platform.currentTimeMillis
 import io.github.julystar.musicapp.plugin.runtime.PluginLookupMode
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
+import io.github.julystar.musicapp.source.api.MetaLyricsCandidate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -86,31 +87,63 @@ class PlaybackLyricsEnricher(
             durationMs = track.durationMs,
             pageSize = PLAYBACK_LYRICS_RESULTS_PER_SOURCE,
         )
-        val sourceIds = pluginRepository.allSnapshot()
+        val plugins = pluginRepository.allSnapshot()
+        val sourceIds = plugins
             .filter { plugin ->
+                val capabilities = plugin.capabilities.ifEmpty { listOf("searchSongs") }
                 plugin.enabled &&
                     plugin.allowAutomaticLookup &&
-                    "searchSongs" in plugin.capabilities &&
-                    "getLyrics" in plugin.capabilities
+                    "searchSongs" in capabilities &&
+                    "getLyrics" in capabilities
             }
             .mapTo(mutableSetOf(), PluginSummary::id)
-        if (sourceIds.isEmpty()) return false
-        val candidate = findBestLyricsCandidate(query) { searchQuery ->
-            lookup.searchSongs(
-                query = searchQuery,
+        val candidate = sourceIds.takeIf(Set<String>::isNotEmpty)?.let {
+            findBestLyricsCandidate(query) { searchQuery ->
+                lookup.searchSongs(
+                    query = searchQuery,
+                    mode = PluginLookupMode.AUTOMATIC,
+                    sourceIds = sourceIds,
+                ).items
+            }
+        }
+        val matchedLyrics = candidate?.let { song ->
+            lookup.getLyricsCandidates(
+                candidate = song,
                 mode = PluginLookupMode.AUTOMATIC,
-                sourceIds = sourceIds,
-            ).items
-        } ?: return false
-        val lyrics = lookup.getLyrics(
-            candidate = candidate,
+            ).value.orEmpty().bestMatch(query)?.lyrics
+        }
+        val independentSourceIds = plugins
+            .filter { plugin ->
+                val capabilities = plugin.capabilities.ifEmpty { listOf("searchSongs") }
+                plugin.enabled &&
+                    plugin.allowAutomaticLookup &&
+                    plugin.apiVersion >= 4 &&
+                    "getLyrics" in capabilities &&
+                    "searchSongs" !in capabilities
+            }
+            .mapTo(mutableSetOf(), PluginSummary::id)
+        val lyrics = matchedLyrics ?: lookup.searchIndependentLyricsCandidates(
+            query = query,
             mode = PluginLookupMode.AUTOMATIC,
-        ).value ?: return false
+            sourceIds = independentSourceIds,
+        ).items.bestMatch(query)?.lyrics ?: return false
         val entity = lyrics.toEntity(trackId, currentTimeMillis()) ?: return false
         metadataDao.upsertLyrics(listOf(entity))
         return true
     }
 }
+
+private fun List<MetaLyricsCandidate>.bestMatch(query: MetaSongQuery): MetaLyricsCandidate? =
+    mapNotNull { candidate ->
+        MetaSongCandidate(
+            id = candidate.id,
+            title = candidate.title,
+            artist = candidate.artist,
+            album = candidate.album,
+            date = candidate.date,
+            sourceId = candidate.sourceId,
+        ).matchScore(query)?.let { score -> candidate to score }
+    }.maxByOrNull { (_, score) -> score }?.first
 
 internal suspend fun findBestLyricsCandidate(
     query: MetaSongQuery,

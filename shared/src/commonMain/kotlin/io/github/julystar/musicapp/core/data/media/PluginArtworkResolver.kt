@@ -51,6 +51,25 @@ class PluginArtworkResolver(
     private val inFlight = mutableMapOf<String, Deferred<ResolvedPluginArtwork?>>()
     private val attempted = mutableSetOf<String>()
 
+    suspend fun loadPreview(candidate: MetaCoverCandidate): ByteArray? {
+        val url = candidate.url.trim()
+        if (!url.startsWith("https://") && !url.startsWith("http://")) return null
+        return fetchBytes(url, MAX_ARTWORK_BYTES)?.takeIf(ByteArray::isSupportedImage)
+    }
+
+    suspend fun applyManual(trackId: Long, candidate: MetaCoverCandidate): Boolean {
+        val target = resolveTarget(Artwork.LibraryTrack(trackId)) ?: return false
+        val url = candidate.url.trim()
+        val bytes = loadPreview(candidate) ?: return false
+        val cachePath = cacheDirectory / "manual-${url.encodeUtf8().sha256().hex()}.image"
+        val resolved = ResolvedPluginArtwork(
+            bytes = bytes,
+            cachePath = cachePath.takeIf { persist(cachePath, bytes) },
+        )
+        persistMetadata(target, resolved)
+        return resolved.cachePath != null
+    }
+
     suspend fun load(artwork: Artwork): ByteArray? {
         val target = resolveTarget(artwork) ?: return null
         val plugins = artworkPlugins(PluginLookupMode.AUTOMATIC)
@@ -167,8 +186,17 @@ class PluginArtworkResolver(
                 title = track.title,
                 artist = artist,
                 album = album,
+                date = track.date,
                 durationMs = track.durationMs,
                 pageSize = RESULTS_PER_SOURCE,
+                song = MetaSongCandidate(
+                    id = "local-song",
+                    title = track.title,
+                    artist = artist,
+                    album = album,
+                    date = track.date,
+                    durationMs = track.durationMs,
+                ),
             ),
         )
     }
@@ -210,7 +238,7 @@ class PluginArtworkResolver(
                 sourceIds = coverSourceIds,
             ).items
         }
-        val url = songUrl ?: selectPluginCoverArtworkUrl(coverCandidates) ?: return null
+        val url = songUrl ?: selectPluginCoverArtworkUrl(target.query, coverCandidates) ?: return null
         if (!url.startsWith("https://") && !url.startsWith("http://")) return null
         val bytes = fetchBytes(url, MAX_ARTWORK_BYTES)
             ?.takeIf(ByteArray::isSupportedImage)
@@ -344,6 +372,27 @@ internal fun selectPluginCoverArtworkUrl(candidates: List<MetaCoverCandidate>): 
     }
     ?.url
     ?.trim()
+
+internal fun selectPluginCoverArtworkUrl(
+    query: MetaSongQuery,
+    candidates: List<MetaCoverCandidate>,
+): String? = candidates
+    .mapNotNull { candidate ->
+        val url = candidate.url.trim().takeIf(String::isNotEmpty) ?: return@mapNotNull null
+        val metadataScore = candidate.title?.let { title ->
+            MetaSongCandidate(
+                id = candidate.id.orEmpty(),
+                title = title,
+                artist = candidate.artist,
+                album = candidate.album,
+                date = candidate.date,
+            ).artworkMatchScore(query)
+        } ?: 0
+        val resolution = candidate.width?.toLong()?.times(candidate.height?.toLong() ?: 0L) ?: 0L
+        Triple(url, metadataScore, resolution)
+    }
+    .maxWithOrNull(compareBy<Triple<String, Int, Long>> { it.second }.thenBy { it.third })
+    ?.first
 
 private fun MetaSongCandidate.artworkMatchScore(query: MetaSongQuery): Int? {
     if (title.matchKey() != query.title.matchKey()) return null
