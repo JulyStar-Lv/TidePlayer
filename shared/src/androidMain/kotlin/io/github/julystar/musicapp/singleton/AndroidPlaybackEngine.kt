@@ -40,6 +40,11 @@ internal interface AndroidPlaybackEngine : PlaybackEngine {
     }
 }
 
+internal fun androidMediaQueueMatches(
+    existingMediaIds: List<String>,
+    requestedMediaIds: List<String>,
+): Boolean = existingMediaIds == requestedMediaIds
+
 internal class MediaControllerAndroidPlaybackEngine(
     private val mediaController: MediaController,
     private val bridge: Bridge,
@@ -66,14 +71,21 @@ internal class MediaControllerAndroidPlaybackEngine(
 
     override fun loadQueue(request: AndroidPlaybackQueueLoadRequest): PlaybackEngineLoadResult {
         return runOnApplicationThread {
-            val existingIndex = (0 until mediaController.mediaItemCount).firstOrNull { index ->
-                mediaController.getMediaItemAt(index).mediaId == request.currentTrackId.toString()
+            val window = buildAndroidMediaQueueWindow(
+                playlist = request.playlist,
+                currentTrackId = request.currentTrackId,
+            ) ?: return@runOnApplicationThread PlaybackEngineLoadResult.Failure(
+                PlaybackEngineFailureReason.EngineError
+            )
+            val existingMediaIds = (0 until mediaController.mediaItemCount).map { index ->
+                mediaController.getMediaItemAt(index).mediaId
             }
+            val requestedMediaIds = window.mediaItems.map { item -> item.mediaId }
             if (
-                existingIndex != null &&
+                androidMediaQueueMatches(existingMediaIds, requestedMediaIds) &&
                 mediaController.isCommandAvailable(COMMAND_SEEK_TO_MEDIA_ITEM)
             ) {
-                mediaController.seekTo(existingIndex, request.startPositionMs.coerceAtLeast(0L))
+                mediaController.seekTo(window.currentIndex, request.startPositionMs.coerceAtLeast(0L))
                 mediaController.play()
                 return@runOnApplicationThread PlaybackEngineLoadResult.Ready
             }
@@ -83,12 +95,6 @@ internal class MediaControllerAndroidPlaybackEngine(
                     PlaybackEngineUnsupportedReason.MissingPlatformEngine
                 )
             }
-            val window = buildAndroidMediaQueueWindow(
-                playlist = request.playlist,
-                currentTrackId = request.currentTrackId,
-            ) ?: return@runOnApplicationThread PlaybackEngineLoadResult.Failure(
-                PlaybackEngineFailureReason.EngineError
-            )
 
             mediaController.setMediaItems(
                 window.mediaItems,
