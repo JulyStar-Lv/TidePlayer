@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.positionChange
@@ -1080,8 +1081,8 @@ private fun ImmersiveArtworkArea(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.28f),
-                                Color.Black.copy(alpha = 0.26f),
+                                Color.Black.copy(alpha = 0.42f),
+                                Color.Black.copy(alpha = 0.30f),
                                 Color.Black.copy(alpha = 0.54f),
                             ),
                         ),
@@ -1462,7 +1463,7 @@ private fun CompactImmersiveNowPlayingLayout(
     val track = state.currentTrack
     val palette = rememberArtworkPalette(track?.artwork)
     val surfaceColor by animateColorAsState(
-        targetValue = palette.muted.copy(alpha = 1f),
+        targetValue = lerp(palette.muted, Color.Black, 0.66f).copy(alpha = 1f),
         animationSpec = tween(durationMillis = 700),
         label = "immersiveSurfaceColor",
     )
