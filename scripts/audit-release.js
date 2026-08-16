@@ -44,6 +44,18 @@ const ALLOWED_TEST_FIXTURES = [
     "management",
     "ManualMetadataServiceTest.kt",
   ),
+  path.join(
+    "shared",
+    "src",
+    "desktopTest",
+    "kotlin",
+    "io",
+    "github",
+    "julystar",
+    "musicapp",
+    "plugin",
+    "PluginImportRuntimeDesktopTest.kt",
+  ),
 ];
 
 let failures = 0;
