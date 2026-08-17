@@ -175,12 +175,23 @@ class PlaybackService : MediaLibraryService() {
                 .collectLatest { monitoringEnabled ->
                 if (monitoringEnabled) {
                     try {
+                        var reactiveSampleCount = 0
                         while (isActive) {
-                            if (player.isPlaying) {
-                                AudioReactiveMonitor.publish(
-                                    dspAudioProcessor?.audioReactiveSnapshot()
-                                        ?: AudioReactiveSnapshot()
-                                )
+                            if (playerRepository.playing.value) {
+                                val reactiveSnapshot = dspAudioProcessor?.audioReactiveSnapshot()
+                                    ?: AudioReactiveSnapshot()
+                                AudioReactiveMonitor.publish(reactiveSnapshot)
+                                if (reactiveSampleCount++ % 30 == 0) {
+                                    AppLogger.debug(
+                                        category = DiagnosticLogCategory.Dsp,
+                                        target = "PlaybackService",
+                                        message = "Temporary audio reactive sample",
+                                        fields = mapOf(
+                                            "level" to reactiveSnapshot.level.toString(),
+                                            "beat" to reactiveSnapshot.beat.toString(),
+                                        ),
+                                    )
+                                }
                             } else {
                                 AudioReactiveMonitor.reset()
                             }
