@@ -7,6 +7,7 @@
 use thiserror::Error;
 
 use crate::{
+    audio_reactive::{AudioReactiveAnalyzer, AudioReactiveSnapshot},
     biquad::FrequencyResponse,
     compressor::Compressor,
     config::{db_to_linear, AudioDspConfig, SpatialMode, MAX_CHANNELS},
@@ -107,6 +108,7 @@ pub struct AudioDspProcessor {
     limiter: PeakLimiter,
     meter: AudioDspMeterSnapshot,
     meter_release: f32,
+    audio_reactive: AudioReactiveAnalyzer,
 }
 
 impl AudioDspProcessor {
@@ -135,6 +137,7 @@ impl AudioDspProcessor {
             limiter: PeakLimiter::default(),
             meter: AudioDspMeterSnapshot::default(),
             meter_release: 0.9999,
+            audio_reactive: AudioReactiveAnalyzer::default(),
         };
         processor.apply_config(config, false);
         Ok(processor)
@@ -275,12 +278,20 @@ impl AudioDspProcessor {
                 channels: self.channels,
             });
         }
+        let frame_count = samples.len() / self.channels;
+        let mut sum_squares = 0.0;
         for source_frame in samples.chunks_exact_mut(self.channels) {
             let mut frame = [0.0; MAX_CHANNELS];
             frame[..self.channels].copy_from_slice(source_frame);
-            self.process_frame(&mut frame);
+            sum_squares += self.process_frame(&mut frame);
             source_frame.copy_from_slice(&frame[..self.channels]);
         }
+        self.audio_reactive.process_block(
+            sum_squares,
+            frame_count,
+            self.channels,
+            self.sample_rate,
+        );
         Ok(())
     }
 
@@ -294,22 +305,30 @@ impl AudioDspProcessor {
             return Err(DspError::MismatchedPlanarBufferLengths);
         }
         let mut frame_index = 0;
+        let mut sum_squares = 0.0;
         while frame_index < frame_count {
             let mut frame = [0.0; MAX_CHANNELS];
             for channel in 0..self.channels {
                 frame[channel] = channels[channel][frame_index];
             }
-            self.process_frame(&mut frame);
+            sum_squares += self.process_frame(&mut frame);
             for channel in 0..self.channels {
                 channels[channel][frame_index] = frame[channel];
             }
             frame_index += 1;
         }
+        self.audio_reactive.process_block(
+            sum_squares,
+            frame_count,
+            self.channels,
+            self.sample_rate,
+        );
         Ok(())
     }
 
-    fn process_frame(&mut self, frame: &mut [f32; MAX_CHANNELS]) {
+    fn process_frame(&mut self, frame: &mut [f32; MAX_CHANNELS]) -> f32 {
         let mut input_peak = 0.0_f32;
+        let mut sum_squares = 0.0_f32;
         for sample in frame.iter_mut().take(self.channels) {
             if sample.is_finite() {
                 input_peak = input_peak.max(sample.abs());
@@ -318,11 +337,13 @@ impl AudioDspProcessor {
                     self.meter.non_finite_recovery_count.saturating_add(1);
                 *sample = 0.0;
             }
+            let normalized = sample.abs().min(1.0);
+            sum_squares += normalized * normalized;
         }
         self.meter.input_peak = (self.meter.input_peak * self.meter_release).max(input_peak);
         if !self.active {
             self.update_output_peak(frame);
-            return;
+            return sum_squares;
         }
 
         self.input_gain_current += (self.input_gain_target - self.input_gain_current) * 0.005;
@@ -359,6 +380,7 @@ impl AudioDspProcessor {
             };
         }
         self.update_output_peak(frame);
+        sum_squares
     }
 
     fn update_output_peak(&mut self, frame: &[f32; MAX_CHANNELS]) {
@@ -417,6 +439,7 @@ impl AudioDspProcessor {
         self.spatial.reset();
         self.speaker_output.reset();
         self.limiter.reset();
+        self.audio_reactive.reset();
         self.input_gain_current = self.input_gain_target;
         self.meter = AudioDspMeterSnapshot {
             applied_headroom_db: self.headroom.applied_db(),
@@ -443,6 +466,10 @@ impl AudioDspProcessor {
             applied_headroom_db: self.headroom.applied_db(),
             ..self.meter
         }
+    }
+
+    pub fn audio_reactive_snapshot(&self) -> AudioReactiveSnapshot {
+        self.audio_reactive.snapshot()
     }
 
     pub fn has_active_effects(&self) -> bool {
@@ -483,6 +510,9 @@ mod tests {
         let mut samples = [0.25, -0.5, f32::NAN, f32::INFINITY];
         processor.process_interleaved_f32(&mut samples).unwrap();
         assert_eq!(samples, [0.25, -0.5, 0.0, 0.0]);
+        let reactive = processor.audio_reactive_snapshot();
+        assert!(reactive.level.is_finite() && reactive.level > 0.0);
+        assert!(reactive.beat.is_finite());
     }
 
     #[test]
@@ -788,5 +818,21 @@ mod tests {
         assert_eq!(meter.input_peak, 0.0);
         assert_eq!(meter.output_peak, 0.0);
         assert_eq!(meter.clipped_samples, 0);
+        assert_eq!(
+            processor.audio_reactive_snapshot(),
+            AudioReactiveSnapshot::default()
+        );
+    }
+
+    #[test]
+    fn format_change_clears_audio_reactive_history() {
+        let mut processor = configured(AudioDspConfig::default(), 48_000, 2);
+        processor.process_interleaved_f32(&mut [1.0; 960]).unwrap();
+        assert!(processor.audio_reactive_snapshot().level > 0.0);
+        processor.configure_format(96_000, 1).unwrap();
+        assert_eq!(
+            processor.audio_reactive_snapshot(),
+            AudioReactiveSnapshot::default()
+        );
     }
 }

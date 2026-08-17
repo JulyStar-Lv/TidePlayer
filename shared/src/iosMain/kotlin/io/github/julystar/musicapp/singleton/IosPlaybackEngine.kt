@@ -9,11 +9,13 @@ import io.github.julystar.musicapp.core.audio.tap.AudioProcessingTapAttach
 import io.github.julystar.musicapp.core.audio.tap.AudioProcessingTapDetach
 import io.github.julystar.musicapp.core.audio.tap.AudioProcessingTapReset
 import io.github.julystar.musicapp.core.audio.toDomainAudioDspRuntimeSnapshot
+import io.github.julystar.musicapp.core.audio.toDomainAudioReactiveSnapshot
 import io.github.julystar.musicapp.core.audio.toNativeDspConfiguration
 import io.github.julystar.musicapp.core.domain.model.AudioDspBypassReason
 import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeSnapshot
 import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeState
 import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeStatus
+import io.github.julystar.musicapp.core.domain.model.AudioReactiveSnapshot
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
 import io.github.julystar.musicapp.diagnostics.AppLogger
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
@@ -39,6 +41,7 @@ internal interface IosPlaybackEngine : PlaybackEngine {
     fun seekTo(positionMs: Long, completionHandler: (Boolean) -> Unit)
     fun updateAudioDsp(settings: AudioEffectSettings, inputGainDb: Float) = Unit
     fun audioDspRuntimeSnapshot(): AudioDspRuntimeSnapshot? = null
+    fun audioReactiveSnapshot(): AudioReactiveSnapshot = AudioReactiveSnapshot()
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -115,6 +118,13 @@ internal class AvPlayerIosPlaybackEngine : IosPlaybackEngine {
         } else {
             AudioDspRuntimeSnapshot(status = failure)
         }
+    }
+
+    override fun audioReactiveSnapshot(): AudioReactiveSnapshot {
+        if (attachFailureStatus != null) return AudioReactiveSnapshot()
+        return runCatching {
+            nativeDsp.audioReactiveSnapshot().toDomainAudioReactiveSnapshot()
+        }.getOrDefault(AudioReactiveSnapshot())
     }
 
     override fun stop() {

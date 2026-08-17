@@ -2,8 +2,10 @@ package io.github.julystar.musicapp.singleton
 
 import io.github.julystar.musicapp.core.audio.toNativeDspConfiguration
 import io.github.julystar.musicapp.core.audio.toDomainAudioDspRuntimeSnapshot
+import io.github.julystar.musicapp.core.audio.toDomainAudioReactiveSnapshot
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
 import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeSnapshot
+import io.github.julystar.musicapp.core.domain.model.AudioReactiveSnapshot
 import io.github.julystar.musicapp.core.domain.model.PlaybackAdvancedSettings
 import io.github.julystar.musicapp.service.playback.domain.PlaybackEngine
 import io.github.julystar.musicapp.service.playback.domain.PlaybackEngineFailureReason
@@ -22,6 +24,8 @@ interface DesktopPlaybackEngine : PlaybackEngine {
     fun takePlaybackCompleted(): Boolean = false
 
     fun audioDspRuntimeSnapshot(): AudioDspRuntimeSnapshot? = null
+
+    fun audioReactiveSnapshot(): AudioReactiveSnapshot = AudioReactiveSnapshot()
 
     fun configureAudioProcessing(
         effects: AudioEffectSettings,
@@ -79,6 +83,10 @@ class RodioDesktopPlaybackEngine internal constructor(
     override fun audioDspRuntimeSnapshot(): AudioDspRuntimeSnapshot? {
         return runtime.runtimeSnapshot()?.toDomainAudioDspRuntimeSnapshot()
     }
+
+    override fun audioReactiveSnapshot(): AudioReactiveSnapshot = runCatching {
+        runtime.audioReactiveSnapshot()?.toDomainAudioReactiveSnapshot() ?: AudioReactiveSnapshot()
+    }.getOrDefault(AudioReactiveSnapshot())
     override fun configureAudioProcessing(
         effects: AudioEffectSettings,
         playback: PlaybackAdvancedSettings,
@@ -158,6 +166,7 @@ internal interface DesktopRodioRuntime {
     fun durationMs(): Long
     fun takePlaybackCompleted(): Boolean
     fun runtimeSnapshot(): NativeDspRuntimeSnapshot? = null
+    fun audioReactiveSnapshot(): uniffi.app_backend.NativeAudioReactiveSnapshot? = null
     fun configureAudioProcessing(
         config: DspConfiguration,
         crossfadeDurationMs: ULong,
@@ -242,6 +251,8 @@ private class UniffiDesktopRodioRuntime(
         }
 
     override fun runtimeSnapshot(): NativeDspRuntimeSnapshot = player.runtimeSnapshot()
+
+    override fun audioReactiveSnapshot() = player.audioReactiveSnapshot()
 
     override fun configureAudioProcessing(
         config: DspConfiguration,

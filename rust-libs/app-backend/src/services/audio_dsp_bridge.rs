@@ -9,9 +9,9 @@ use std::{
 };
 
 use audio_dsp::{
-    AudioDspConfig, AudioDspProcessor, BiquadFilterType, CompressorConfig, CrossfeedConfig,
-    DspError, DynamicEqConfig, EqMode, GraphicEqualizerConfig, HeadroomConfig, HeadroomMode,
-    LimiterConfig, LoudnessConfig, MonoBassConfig, MoogFilterConfig, MoogFilterMode,
+    AudioDspConfig, AudioDspProcessor, AudioReactiveSnapshot, BiquadFilterType, CompressorConfig,
+    CrossfeedConfig, DspError, DynamicEqConfig, EqMode, GraphicEqualizerConfig, HeadroomConfig,
+    HeadroomMode, LimiterConfig, LoudnessConfig, MonoBassConfig, MoogFilterConfig, MoogFilterMode,
     ParametricEqBand, ParametricEqualizerConfig, ReverbConfig, ReverbPreset, SpatialAudioConfig,
     SpatialMode, SpeakerOutputConfig, SpeakerOutputMode, StereoWidthConfig, ToneControlConfig,
     GRAPHIC_EQ_BAND_COUNT, MAX_PARAMETRIC_EQ_BANDS,
@@ -543,6 +543,12 @@ pub struct NativeDspRuntimeSnapshot {
     pub deadline_utilization: f32,
 }
 
+#[derive(Debug, Clone, Copy, uniffi::Record)]
+pub struct NativeAudioReactiveSnapshot {
+    pub level: f32,
+    pub beat: f32,
+}
+
 #[derive(Debug)]
 pub(crate) struct DspRuntimeTelemetry {
     state: AtomicU8,
@@ -563,6 +569,8 @@ pub(crate) struct DspRuntimeTelemetry {
     total_processing_nanoseconds: AtomicU64,
     max_processing_nanoseconds: AtomicU64,
     buffer_duration_nanoseconds: AtomicU64,
+    audio_reactive_level_bits: AtomicU32,
+    audio_reactive_beat_bits: AtomicU32,
 }
 
 impl Default for DspRuntimeTelemetry {
@@ -586,6 +594,8 @@ impl Default for DspRuntimeTelemetry {
             total_processing_nanoseconds: AtomicU64::new(0),
             max_processing_nanoseconds: AtomicU64::new(0),
             buffer_duration_nanoseconds: AtomicU64::new(0),
+            audio_reactive_level_bits: AtomicU32::new(0.0_f32.to_bits()),
+            audio_reactive_beat_bits: AtomicU32::new(0.0_f32.to_bits()),
         }
     }
 }
@@ -603,6 +613,10 @@ impl DspRuntimeTelemetry {
         self.bypass_reason
             .store(DspRuntimeBypassReason::None as u8, Ordering::Relaxed);
         self.last_error_code.store(0, Ordering::Relaxed);
+        self.audio_reactive_level_bits
+            .store(0.0_f32.to_bits(), Ordering::Relaxed);
+        self.audio_reactive_beat_bits
+            .store(0.0_f32.to_bits(), Ordering::Relaxed);
     }
 
     pub(crate) fn configure_error(&self, error: DspError) {
@@ -640,6 +654,11 @@ impl DspRuntimeTelemetry {
 
         match result {
             Ok(()) => {
+                let AudioReactiveSnapshot { level, beat } = processor.audio_reactive_snapshot();
+                self.audio_reactive_level_bits
+                    .store(level.to_bits(), Ordering::Relaxed);
+                self.audio_reactive_beat_bits
+                    .store(beat.to_bits(), Ordering::Relaxed);
                 let meter = processor.meter_snapshot();
                 self.input_peak_bits
                     .store(linear_to_db(meter.input_peak).to_bits(), Ordering::Relaxed);
@@ -675,6 +694,7 @@ impl DspRuntimeTelemetry {
                 self.last_error_code.store(0, Ordering::Relaxed);
             }
             Err(error) => {
+                self.clear_audio_reactive();
                 self.state
                     .store(DspRuntimeState::Error as u8, Ordering::Release);
                 self.bypass_reason.store(
@@ -688,6 +708,7 @@ impl DspRuntimeTelemetry {
     }
 
     pub(crate) fn mark_bypassed(&self, reason: DspRuntimeBypassReason, error: i32) {
+        self.clear_audio_reactive();
         self.bypass_reason.store(reason as u8, Ordering::Relaxed);
         self.last_error_code.store(error, Ordering::Relaxed);
         self.state
@@ -715,6 +736,25 @@ impl DspRuntimeTelemetry {
             .store(0, Ordering::Relaxed);
         self.max_processing_nanoseconds.store(0, Ordering::Relaxed);
         self.buffer_duration_nanoseconds.store(0, Ordering::Relaxed);
+        self.clear_audio_reactive();
+    }
+
+    fn clear_audio_reactive(&self) {
+        self.audio_reactive_level_bits
+            .store(0.0_f32.to_bits(), Ordering::Relaxed);
+        self.audio_reactive_beat_bits
+            .store(0.0_f32.to_bits(), Ordering::Relaxed);
+    }
+
+    pub(crate) fn audio_reactive_snapshot(&self) -> NativeAudioReactiveSnapshot {
+        NativeAudioReactiveSnapshot {
+            level: finite_unit(f32::from_bits(
+                self.audio_reactive_level_bits.load(Ordering::Relaxed),
+            )),
+            beat: finite_unit(f32::from_bits(
+                self.audio_reactive_beat_bits.load(Ordering::Relaxed),
+            )),
+        }
     }
 
     pub(crate) fn snapshot(&self) -> NativeDspRuntimeSnapshot {
@@ -764,6 +804,14 @@ fn linear_to_db(value: f32) -> f32 {
         (20.0 * value.log10()).max(-120.0)
     } else {
         -120.0
+    }
+}
+
+fn finite_unit(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
     }
 }
 
@@ -881,6 +929,10 @@ impl NativeAudioDsp {
 
     pub fn runtime_snapshot(&self) -> NativeDspRuntimeSnapshot {
         self.telemetry.snapshot()
+    }
+
+    pub fn audio_reactive_snapshot(&self) -> NativeAudioReactiveSnapshot {
+        self.telemetry.audio_reactive_snapshot()
     }
 
     pub fn mark_bypassed(&self, reason: DspRuntimeBypassReason) {
@@ -1294,6 +1346,9 @@ mod tests {
             unsafe { audio_dsp_process_interleaved_f32(handle, float_samples.as_mut_ptr(), 32, 2) },
             0
         );
+        let reactive = processor.audio_reactive_snapshot();
+        assert!(reactive.level.is_finite() && reactive.level > 0.0);
+        assert!(reactive.beat.is_finite());
         let mut integer_samples = [8_192_i16; 64];
         assert_eq!(
             unsafe {
@@ -1324,6 +1379,9 @@ mod tests {
             unsafe { audio_dsp_process_planar_f32(handle, channel_buffers.as_mut_ptr(), 16, 3) },
             -3
         );
+        let error_reactive = processor.audio_reactive_snapshot();
+        assert_eq!(error_reactive.level, 0.0);
+        assert_eq!(error_reactive.beat, 0.0);
 
         let snapshot = processor.runtime_snapshot();
         assert_eq!(snapshot.state, DspRuntimeState::Error);
@@ -1334,6 +1392,11 @@ mod tests {
         assert!(snapshot.process_count >= 3);
         assert!(snapshot.buffer_duration_us > 0.0);
 
+        assert_eq!(
+            unsafe { audio_dsp_process_interleaved_f32(handle, float_samples.as_mut_ptr(), 32, 2) },
+            0
+        );
+        assert!(processor.audio_reactive_snapshot().level > 0.0);
         unsafe {
             audio_dsp_set_runtime_bypass(
                 handle,
@@ -1346,6 +1409,9 @@ mod tests {
             bypassed.bypass_reason,
             DspRuntimeBypassReason::UnsupportedSampleFormat
         );
+        let bypass_reactive = processor.audio_reactive_snapshot();
+        assert_eq!(bypass_reactive.level, 0.0);
+        assert_eq!(bypass_reactive.beat, 0.0);
 
         // The legacy wrappers remain ABI-compatible during the neutral-name migration.
         assert_eq!(
@@ -1357,5 +1423,8 @@ mod tests {
             processor.runtime_snapshot().state,
             DspRuntimeState::Inactive
         );
+        let reset_reactive = processor.audio_reactive_snapshot();
+        assert_eq!(reset_reactive.level, 0.0);
+        assert_eq!(reset_reactive.beat, 0.0);
     }
 }

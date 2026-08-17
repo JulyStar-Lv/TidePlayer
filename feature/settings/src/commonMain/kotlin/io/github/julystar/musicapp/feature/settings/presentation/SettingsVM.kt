@@ -29,6 +29,7 @@ import io.github.julystar.musicapp.core.domain.repository.DiagnosticsService
 import io.github.julystar.musicapp.core.domain.repository.AppDataClearService
 import io.github.julystar.musicapp.core.domain.repository.AudioDspAnalysisRepository
 import io.github.julystar.musicapp.core.domain.repository.AudioDspRuntimeRepository
+import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
 import io.github.julystar.musicapp.core.domain.repository.AudioDspFrequencyResponse
 import io.github.julystar.musicapp.core.domain.repository.LibraryMaintenanceService
 import io.github.julystar.musicapp.core.domain.repository.PermissionChecker
@@ -132,7 +133,13 @@ class SettingsVM(
     val eventFlow = events.receiveAsFlow()
 
     fun setAudioDspRuntimeMonitoringEnabled(enabled: Boolean) {
-        audioDspRuntimeRepository?.setMonitoringEnabled(enabled)
+        audioDspRuntimeRepository?.let { repository ->
+            if (enabled) {
+                repository.requestMonitoring(AudioMonitoringRequester.Diagnostics)
+            } else {
+                repository.releaseMonitoring(AudioMonitoringRequester.Diagnostics)
+            }
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

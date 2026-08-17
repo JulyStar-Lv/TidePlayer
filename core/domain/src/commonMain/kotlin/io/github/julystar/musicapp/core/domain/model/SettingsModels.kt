@@ -157,6 +157,7 @@ data class PlaybackAdvancedSettings(
 @Serializable
 data class PlayerInteractionSettings(
     val immersiveAlbumCoverEnabled: Boolean = false,
+    val audioReactiveBackgroundEnabled: Boolean = false,
     val coverSwipeEnabled: Boolean = true,
     val showTotalDuration: Boolean = false,
     val showAudioTechnicalInfo: Boolean = false,

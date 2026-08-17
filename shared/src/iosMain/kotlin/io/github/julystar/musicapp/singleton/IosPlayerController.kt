@@ -5,6 +5,10 @@ import io.github.julystar.musicapp.core.data.StorageRepositoryImpl
 import io.github.julystar.musicapp.service.playback.data.PlayerController
 import io.github.julystar.musicapp.core.data.ToastRepositoryImpl
 import io.github.julystar.musicapp.core.audio.AudioDspRuntimeMonitor
+import io.github.julystar.musicapp.core.audio.AudioReactiveMonitor
+import io.github.julystar.musicapp.core.audio.AUDIO_DSP_DIAGNOSTICS_INTERVAL_MS
+import io.github.julystar.musicapp.core.audio.AUDIO_REACTIVE_VISUALIZATION_INTERVAL_MS
+import io.github.julystar.musicapp.core.audio.monitoringRequested
 
 import io.github.julystar.musicapp.service.playback.data.PlayerRepository
 import io.github.julystar.musicapp.service.playback.domain.SleepModeState
@@ -15,6 +19,7 @@ import io.github.julystar.musicapp.service.playback.data.preparePlayback
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.model.AppSettings
+import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
 import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.core.domain.repository.emit
@@ -28,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -113,9 +119,36 @@ class IosPlayerController internal constructor(
             }
         }
         scope.launch {
-            while (true) {
-                playbackEngine.audioDspRuntimeSnapshot()?.let(AudioDspRuntimeMonitor::publish)
-                delay(150)
+            AudioDspRuntimeMonitor.monitoringRequesters
+                .monitoringRequested(AudioMonitoringRequester.Diagnostics)
+                .collectLatest { monitoringEnabled ->
+                if (monitoringEnabled) {
+                    while (true) {
+                        playbackEngine.audioDspRuntimeSnapshot()?.let(AudioDspRuntimeMonitor::publish)
+                            ?: AudioDspRuntimeMonitor.reset()
+                        delay(AUDIO_DSP_DIAGNOSTICS_INTERVAL_MS)
+                    }
+                } else AudioDspRuntimeMonitor.reset()
+            }
+        }
+        scope.launch {
+            AudioDspRuntimeMonitor.monitoringRequesters
+                .monitoringRequested(AudioMonitoringRequester.Visualization)
+                .collectLatest { monitoringEnabled ->
+                if (monitoringEnabled) {
+                    try {
+                        while (true) {
+                            if (playerRepository.playing.value) {
+                                AudioReactiveMonitor.publish(playbackEngine.audioReactiveSnapshot())
+                            } else {
+                                AudioReactiveMonitor.reset()
+                            }
+                            delay(AUDIO_REACTIVE_VISUALIZATION_INTERVAL_MS)
+                        }
+                    } finally {
+                        AudioReactiveMonitor.reset()
+                    }
+                } else AudioReactiveMonitor.reset()
             }
         }
         scope.launch {
@@ -269,6 +302,7 @@ class IosPlayerController internal constructor(
     override fun pause() {
         playbackEngine.pause()
         playerRepository.setIsPlaying(false)
+        AudioReactiveMonitor.reset()
     }
 
     override fun stop() {
@@ -277,6 +311,7 @@ class IosPlayerController internal constructor(
         clearPendingSeek()
         playbackEngine.stop()
         AudioDspRuntimeMonitor.reset()
+        AudioReactiveMonitor.reset()
         releasePlaybackResourceAsync()
         playerRepository.setIsPlaying(false)
         playerRepository.resetCurrent()

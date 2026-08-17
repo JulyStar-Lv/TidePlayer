@@ -597,6 +597,8 @@
     <string name="settings_player_interaction_section">Player interaction</string>
     <string name="settings_player_immersive_album_cover">Immersive album cover</string>
     <string name="settings_player_immersive_album_cover_summary">Extend artwork edge to edge and blend it into the player</string>
+    <string name="settings_player_audio_reactive_background">Audio-reactive background</string>
+    <string name="settings_player_audio_reactive_background_summary">Subtly animates the Now Playing background with the music level and beat. Uses a small amount of additional audio and graphics processing.</string>
     <string name="settings_player_cover_swipe">Swipe the cover to change tracks</string>
     <string name="settings_player_total_duration">Show total duration</string>
     <string name="settings_player_audio_technical_info">Show audio technical information</string>

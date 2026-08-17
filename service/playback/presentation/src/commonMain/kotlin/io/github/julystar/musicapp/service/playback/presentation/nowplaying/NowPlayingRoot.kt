@@ -10,10 +10,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode as DomainAppThemeMode
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
+import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
+import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRepository
+import io.github.julystar.musicapp.core.domain.repository.AudioReactiveRepository
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
@@ -39,6 +43,8 @@ fun NowPlayingRoot(
     playerViewModel: PlayerVM = koinViewModel(),
     sleepModeViewModel: SleepModeVM = koinViewModel(),
     settingsRepository: SettingsRepository = koinInject(),
+    audioMonitoringRepository: AudioMonitoringRepository = koinInject(),
+    audioReactiveRepository: AudioReactiveRepository = koinInject(),
     favoritesRepository: FavoritesRepository = koinInject(),
     toastRepository: ToastRepository = koinInject(),
 ) {
@@ -67,6 +73,21 @@ fun NowPlayingRoot(
     )
 
     val playbackPosition by playerViewModel.playbackPosition.collectAsStateWithLifecycle()
+
+    val shouldRequest = shouldRequestVisualization(
+        settingEnabled = settings.playerInteraction.audioReactiveBackgroundEnabled,
+        drawBackground = drawBackground,
+    )
+    LifecycleStartEffect(shouldRequest, audioMonitoringRepository) {
+        if (shouldRequest) {
+            audioMonitoringRepository.requestMonitoring(AudioMonitoringRequester.Visualization)
+        }
+        onStopOrDispose {
+            if (shouldRequest) {
+                audioMonitoringRepository.releaseMonitoring(AudioMonitoringRequester.Visualization)
+            }
+        }
+    }
 
     LaunchedEffect(playerViewModel) {
         playerViewModel.nowPlayingEvents.collect { event ->
@@ -127,11 +148,17 @@ fun NowPlayingRoot(
                 )
             },
             drawBackground = drawBackground,
+            audioReactiveSnapshot = audioReactiveRepository.snapshot,
             onAction = ::onAction,
             onStatusBarCoverageChanged = { playerCoversStatusBar = it },
         )
     }
 }
+
+internal fun shouldRequestVisualization(
+    settingEnabled: Boolean,
+    drawBackground: Boolean,
+): Boolean = settingEnabled && drawBackground
 
 internal fun shouldUseLightStatusBarIcons(
     playerCoversStatusBar: Boolean,

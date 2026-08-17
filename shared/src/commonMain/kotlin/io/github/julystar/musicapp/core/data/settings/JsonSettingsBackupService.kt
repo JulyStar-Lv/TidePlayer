@@ -150,7 +150,7 @@ private data class SettingsBackupEnvelope(
     val settings: AppSettings,
 )
 
-private fun AppSettings.mergeBackup(
+internal fun AppSettings.mergeBackup(
     backup: AppSettings,
     selection: SettingsBackupSelection,
 ): AppSettings {

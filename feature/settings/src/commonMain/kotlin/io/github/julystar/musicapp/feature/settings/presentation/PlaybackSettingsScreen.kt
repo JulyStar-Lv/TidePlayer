@@ -260,6 +260,18 @@ fun PlaybackSettingsSection(
                 },
             )
             SettingsSwitchRow(
+                title = stringResource(Res.string.settings_player_audio_reactive_background),
+                summary = stringResource(Res.string.settings_player_audio_reactive_background_summary),
+                checked = interaction.audioReactiveBackgroundEnabled,
+                onCheckedChange = {
+                    onAction(
+                        SettingsAction.SetPlayerInteractionSettings(
+                            interaction.copy(audioReactiveBackgroundEnabled = it)
+                        )
+                    )
+                },
+            )
+            SettingsSwitchRow(
                 title = stringResource(Res.string.settings_player_cover_swipe),
                 checked = interaction.coverSwipeEnabled,
                 onCheckedChange = {

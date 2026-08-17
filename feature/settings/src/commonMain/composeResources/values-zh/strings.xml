@@ -597,6 +597,8 @@
     <string name="settings_player_interaction_section">播放器交互</string>
     <string name="settings_player_immersive_album_cover">沉浸专辑封面</string>
     <string name="settings_player_immersive_album_cover_summary">让封面贴边铺满，并自然融入播放器背景</string>
+    <string name="settings_player_audio_reactive_background">音频律动背景</string>
+    <string name="settings_player_audio_reactive_background_summary">根据音乐强弱与节拍轻微驱动正在播放页背景。开启后会增加少量图形与音频分析开销。</string>
     <string name="settings_player_cover_swipe">滑动封面切歌</string>
     <string name="settings_player_total_duration">显示总时长</string>
     <string name="settings_player_audio_technical_info">显示音频技术信息</string>

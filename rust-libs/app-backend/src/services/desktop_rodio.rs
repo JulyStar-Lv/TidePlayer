@@ -28,7 +28,8 @@ use rodio::{
 
 use super::{
     audio_dsp_bridge::{
-        DspConfiguration, DspRuntimeBypassReason, DspRuntimeTelemetry, NativeDspRuntimeSnapshot,
+        DspConfiguration, DspRuntimeBypassReason, DspRuntimeTelemetry, NativeAudioReactiveSnapshot,
+        NativeDspRuntimeSnapshot,
     },
     desktop_dsp::{DesktopDspConfigInput, DesktopDspSource},
 };
@@ -351,6 +352,10 @@ impl DesktopRodioPlayer {
 
     pub fn runtime_snapshot(&self) -> NativeDspRuntimeSnapshot {
         self.telemetry.snapshot()
+    }
+
+    pub fn audio_reactive_snapshot(&self) -> NativeAudioReactiveSnapshot {
+        self.telemetry.audio_reactive_snapshot()
     }
 }
 
@@ -1107,6 +1112,15 @@ mod tests {
 
         assert!(player.take_playback_completed());
         assert!(!player.take_playback_completed());
+    }
+
+    #[test]
+    fn exposes_lightweight_reactive_telemetry() {
+        let player =
+            DesktopRodioPlayer::new_with_output_backend(Arc::new(FakeAudioOutputBackend::new()));
+        let snapshot = player.audio_reactive_snapshot();
+        assert_eq!(0.0, snapshot.level);
+        assert_eq!(0.0, snapshot.beat);
     }
 
     #[test]

@@ -42,6 +42,7 @@ class DataStoreSettingsRepositoryTest {
         repository.setPlayerInteractionSettings(
             PlayerInteractionSettings.Default.copy(
                 immersiveAlbumCoverEnabled = true,
+                audioReactiveBackgroundEnabled = true,
                 showAudioTechnicalInfo = true,
             )
         )
@@ -82,6 +83,7 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.resumePlaybackAfterNetworkRecovery)
         assertTrue(settings.keepScreenOnInPlayer)
         assertTrue(settings.playerInteraction.immersiveAlbumCoverEnabled)
+        assertTrue(settings.playerInteraction.audioReactiveBackgroundEnabled)
         assertTrue(settings.playerInteraction.showAudioTechnicalInfo)
         assertEquals(LyricTextAlignment.Right, settings.lyrics.textAlignment)
         assertEquals(125, settings.lyrics.primaryFontScalePercent)
@@ -106,6 +108,11 @@ class DataStoreSettingsRepositoryTest {
         assertFalse(settings.listenAndCacheEnabled)
         assertEquals(512L * 1024L * 1024L, settings.audioCacheLimitBytes)
         assertEquals(128L * 1024L * 1024L, settings.imageCacheLimitBytes)
+    }
+
+    @Test
+    fun missingAudioReactiveBackgroundKeyDefaultsToFalse() = withRepository { _, repository ->
+        assertFalse(repository.settingsValue().playerInteraction.audioReactiveBackgroundEnabled)
     }
 
     @Test

@@ -34,12 +34,18 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.julystar.musicapp.core.audio.RustDspAudioProcessor
 import io.github.julystar.musicapp.core.audio.AudioDspRuntimeMonitor
+import io.github.julystar.musicapp.core.audio.AudioReactiveMonitor
+import io.github.julystar.musicapp.core.audio.AUDIO_DSP_DIAGNOSTICS_INTERVAL_MS
+import io.github.julystar.musicapp.core.audio.AUDIO_REACTIVE_VISUALIZATION_INTERVAL_MS
 import io.github.julystar.musicapp.core.audio.Media3AudioRenderersFactory
+import io.github.julystar.musicapp.core.audio.monitoringRequested
 import io.github.julystar.musicapp.core.audio.toDomainAudioDspRuntimeSnapshot
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
+import io.github.julystar.musicapp.core.domain.model.AudioReactiveSnapshot
+import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
@@ -150,15 +156,40 @@ class PlaybackService : MediaLibraryService() {
             .setMediaSourceFactory(ProgressiveMediaSource.Factory(resolvingDataSourceFactory))
             .build()
         serviceScope.launch(Dispatchers.Default) {
-            AudioDspRuntimeMonitor.monitoringEnabled.collectLatest { monitoringEnabled ->
+            AudioDspRuntimeMonitor.monitoringRequesters
+                .monitoringRequested(AudioMonitoringRequester.Diagnostics)
+                .collectLatest { monitoringEnabled ->
                 if (monitoringEnabled) {
                     while (isActive) {
                         dspAudioProcessor?.runtimeSnapshot()?.let { snapshot ->
                             AudioDspRuntimeMonitor.publish(snapshot.toDomainAudioDspRuntimeSnapshot())
-                        }
-                        delay(150)
+                        } ?: AudioDspRuntimeMonitor.reset()
+                        delay(AUDIO_DSP_DIAGNOSTICS_INTERVAL_MS)
                     }
-                }
+                } else AudioDspRuntimeMonitor.reset()
+            }
+        }
+        serviceScope.launch(Dispatchers.Default) {
+            AudioDspRuntimeMonitor.monitoringRequesters
+                .monitoringRequested(AudioMonitoringRequester.Visualization)
+                .collectLatest { monitoringEnabled ->
+                if (monitoringEnabled) {
+                    try {
+                        while (isActive) {
+                            if (player.isPlaying) {
+                                AudioReactiveMonitor.publish(
+                                    dspAudioProcessor?.audioReactiveSnapshot()
+                                        ?: AudioReactiveSnapshot()
+                                )
+                            } else {
+                                AudioReactiveMonitor.reset()
+                            }
+                            delay(AUDIO_REACTIVE_VISUALIZATION_INTERVAL_MS)
+                        }
+                    } finally {
+                        AudioReactiveMonitor.reset()
+                    }
+                } else AudioReactiveMonitor.reset()
             }
         }
         val sessionPlayer = TidePlayerSessionPlayer(
@@ -525,6 +556,7 @@ class PlaybackService : MediaLibraryService() {
         dspAudioProcessor?.close()
         dspAudioProcessor = null
         AudioDspRuntimeMonitor.reset()
+        AudioReactiveMonitor.reset()
         lyricOutputController?.destroy()
         lyricOutputController = null
         audioFocusController?.release()

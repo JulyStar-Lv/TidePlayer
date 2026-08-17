@@ -19,6 +19,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import uniffi.app_backend.DspConfiguration
 import uniffi.app_backend.DspEqMode
+import uniffi.app_backend.NativeAudioReactiveSnapshot
 
 class DesktopPlaybackEngineTest {
     @Test
@@ -74,6 +75,17 @@ class DesktopPlaybackEngineTest {
 
         assertTrue(engine.takePlaybackCompleted())
         assertFalse(engine.takePlaybackCompleted())
+    }
+
+    @Test
+    fun rodioEnginePassesThroughReactiveSnapshot() {
+        val runtime = RecordingDesktopRodioRuntime(loadResult = true).apply {
+            reactiveSnapshot = NativeAudioReactiveSnapshot(level = 0.75f, beat = 1.2f)
+        }
+        val engine = RodioDesktopPlaybackEngine(runtime)
+
+        assertEquals(0.75f, engine.audioReactiveSnapshot().level)
+        assertEquals(1f, engine.audioReactiveSnapshot().beat)
     }
 
     @Test
@@ -209,6 +221,7 @@ private class RecordingDesktopRodioRuntime(
     var stopCalls = 0
         private set
     var playbackCompleted = false
+    var reactiveSnapshot = NativeAudioReactiveSnapshot(level = 0f, beat = 0f)
     var configuredDsp: DspConfiguration? = null
         private set
     var configuredCrossfadeMs: ULong? = null
@@ -254,6 +267,8 @@ private class RecordingDesktopRodioRuntime(
     override fun takePlaybackCompleted(): Boolean = playbackCompleted.also {
         playbackCompleted = false
     }
+
+    override fun audioReactiveSnapshot(): NativeAudioReactiveSnapshot = reactiveSnapshot
 
     override fun listAudioOutputDevices(): List<DesktopAudioOutputDescriptor> = audioDevices
 

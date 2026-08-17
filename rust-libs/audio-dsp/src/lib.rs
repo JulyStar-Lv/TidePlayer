@@ -9,6 +9,7 @@
 //! Configuration and format changes are control-boundary operations. The
 //! `process_*` methods allocate no memory, acquire no locks, and emit no logs.
 
+mod audio_reactive;
 mod biquad;
 mod compressor;
 mod config;
@@ -27,6 +28,7 @@ mod stereo;
 mod tone;
 mod true_peak;
 
+pub use audio_reactive::AudioReactiveSnapshot;
 pub use biquad::{BiquadCoefficients, FrequencyResponse};
 pub use config::*;
 pub use processor::{AudioDspMeterSnapshot, AudioDspProcessor, DspError, DSP_PIPELINE_ORDER};

@@ -6,6 +6,7 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
+import io.github.julystar.musicapp.core.domain.model.AudioReactiveSnapshot
 import java.nio.ByteBuffer
 import uniffi.app_backend.DspRuntimeBypassReason
 import uniffi.app_backend.NativeAudioDsp
@@ -40,6 +41,10 @@ internal class RustDspAudioProcessor(
     }
 
     fun runtimeSnapshot(): NativeDspRuntimeSnapshot = nativeDsp.runtimeSnapshot()
+
+    fun audioReactiveSnapshot(): AudioReactiveSnapshot = runCatching {
+        nativeDsp.audioReactiveSnapshot().toDomainAudioReactiveSnapshot()
+    }.getOrDefault(AudioReactiveSnapshot())
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val supportedEncoding =

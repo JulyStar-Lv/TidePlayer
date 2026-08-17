@@ -158,6 +158,7 @@ class DataStoreSettingsRepository(
             ),
             playerInteraction = PlayerInteractionSettings(
                 immersiveAlbumCoverEnabled = preferences[PLAYER_IMMERSIVE_ALBUM_COVER_KEY] ?: false,
+                audioReactiveBackgroundEnabled = preferences[PLAYER_AUDIO_REACTIVE_BACKGROUND_KEY] ?: false,
                 coverSwipeEnabled = preferences[PLAYER_COVER_SWIPE_KEY] ?: true,
                 showTotalDuration = preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] ?: false,
                 showAudioTechnicalInfo = preferences[PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY] ?: false,
@@ -376,6 +377,7 @@ class DataStoreSettingsRepository(
     override suspend fun setPlayerInteractionSettings(settings: PlayerInteractionSettings) {
         dataStore.edit { preferences ->
             preferences[PLAYER_IMMERSIVE_ALBUM_COVER_KEY] = settings.immersiveAlbumCoverEnabled
+            preferences[PLAYER_AUDIO_REACTIVE_BACKGROUND_KEY] = settings.audioReactiveBackgroundEnabled
             preferences[PLAYER_COVER_SWIPE_KEY] = settings.coverSwipeEnabled
             preferences[PLAYER_SHOW_TOTAL_DURATION_KEY] = settings.showTotalDuration
             preferences[PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY] = settings.showAudioTechnicalInfo
@@ -656,6 +658,8 @@ internal val PLAY_NEXT_MODE_KEY = stringPreferencesKey("settings.playback.playNe
 internal val SHUFFLE_STRATEGY_KEY = stringPreferencesKey("settings.playback.shuffleStrategy")
 internal val PLAYER_IMMERSIVE_ALBUM_COVER_KEY =
     booleanPreferencesKey("settings.player.immersiveAlbumCover")
+internal val PLAYER_AUDIO_REACTIVE_BACKGROUND_KEY =
+    booleanPreferencesKey("settings.player.audioReactiveBackground")
 internal val PLAYER_COVER_SWIPE_KEY = booleanPreferencesKey("settings.player.coverSwipe")
 internal val PLAYER_SHOW_TOTAL_DURATION_KEY = booleanPreferencesKey("settings.player.showTotalDuration")
 internal val PLAYER_SHOW_AUDIO_TECHNICAL_INFO_KEY =

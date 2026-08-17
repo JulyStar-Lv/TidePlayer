@@ -3,27 +3,98 @@ package io.github.julystar.musicapp.core.audio
 import io.github.julystar.musicapp.core.domain.model.AudioDspBypassReason
 import io.github.julystar.musicapp.core.domain.model.AudioDspRuntimeState
 import io.github.julystar.musicapp.core.domain.model.AudioSampleFormat
+import io.github.julystar.musicapp.core.domain.model.AudioReactiveSnapshot
+import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.runTest
 import uniffi.app_backend.DspRuntimeBypassReason
 import uniffi.app_backend.DspRuntimeState
 import uniffi.app_backend.DspSampleFormat
+import uniffi.app_backend.NativeAudioReactiveSnapshot
 import uniffi.app_backend.NativeDspRuntimeSnapshot
 
 class AudioDspRuntimeMonitorTest {
     @Test
-    fun monitoringFollowsUiVisibilityRequest() {
+    fun requesterFlowSeparatesDiagnosticsAndVisualizationCadence() = runTest {
+        assertEquals(150L, AUDIO_DSP_DIAGNOSTICS_INTERVAL_MS)
+        assertEquals(33L, AUDIO_REACTIVE_VISUALIZATION_INTERVAL_MS)
+        val requesters = flowOf(
+            emptySet(),
+            setOf(AudioMonitoringRequester.Diagnostics),
+            setOf(AudioMonitoringRequester.Visualization),
+        )
+
+        assertEquals(
+            listOf(false, true, false),
+            requesters.monitoringRequested(AudioMonitoringRequester.Diagnostics).toList(),
+        )
+        assertEquals(
+            listOf(false, true),
+            requesters.monitoringRequested(AudioMonitoringRequester.Visualization).toList(),
+        )
+    }
+
+    @Test
+    fun reactiveMapperClampsNonFiniteValuesAndMonitorResets() {
+        val mapped = NativeAudioReactiveSnapshot(
+            level = Float.POSITIVE_INFINITY,
+            beat = -0.5f,
+        ).toDomainAudioReactiveSnapshot()
+
+        assertEquals(0f, mapped.level)
+        assertEquals(0f, mapped.beat)
+
         try {
-            AudioDspRuntimeMonitor.setMonitoringEnabled(true)
-            assertTrue(AudioDspRuntimeMonitor.monitoringEnabled.value)
+            AudioReactiveMonitor.publish(AudioReactiveSnapshot(level = 1.5f, beat = 0.5f))
+            assertEquals(1f, AudioReactiveMonitor.snapshot.value.level)
+            assertEquals(0.5f, AudioReactiveMonitor.snapshot.value.beat)
         } finally {
-            AudioDspRuntimeMonitor.setMonitoringEnabled(false)
+            AudioReactiveMonitor.reset()
+        }
+        assertEquals(AudioReactiveSnapshot(), AudioReactiveMonitor.snapshot.value)
+    }
+
+    @Test
+    fun monitoringRequestersAreIndependentAndIdempotent() {
+        try {
+            AudioDspRuntimeMonitor.requestMonitoring(AudioMonitoringRequester.Diagnostics)
+            assertTrue(AudioDspRuntimeMonitor.monitoringRequesters.value.isNotEmpty())
+            AudioDspRuntimeMonitor.requestMonitoring(AudioMonitoringRequester.Diagnostics)
+            assertEquals(
+                setOf(AudioMonitoringRequester.Diagnostics),
+                AudioDspRuntimeMonitor.monitoringRequesters.value,
+            )
+
+            AudioDspRuntimeMonitor.requestMonitoring(AudioMonitoringRequester.Visualization)
+            assertEquals(
+                setOf(
+                    AudioMonitoringRequester.Diagnostics,
+                    AudioMonitoringRequester.Visualization,
+                ),
+                AudioDspRuntimeMonitor.monitoringRequesters.value,
+            )
+
+            AudioDspRuntimeMonitor.releaseMonitoring(AudioMonitoringRequester.Diagnostics)
+            assertEquals(
+                setOf(AudioMonitoringRequester.Visualization),
+                AudioDspRuntimeMonitor.monitoringRequesters.value,
+            )
+            AudioDspRuntimeMonitor.releaseMonitoring(AudioMonitoringRequester.Diagnostics)
+
+            AudioDspRuntimeMonitor.releaseMonitoring(AudioMonitoringRequester.Visualization)
+            assertTrue(AudioDspRuntimeMonitor.monitoringRequesters.value.isEmpty())
+            AudioDspRuntimeMonitor.releaseMonitoring(AudioMonitoringRequester.Visualization)
+        } finally {
+            AudioDspRuntimeMonitor.releaseMonitoring(AudioMonitoringRequester.Diagnostics)
+            AudioDspRuntimeMonitor.releaseMonitoring(AudioMonitoringRequester.Visualization)
         }
 
-        assertFalse(AudioDspRuntimeMonitor.monitoringEnabled.value)
+        assertTrue(AudioDspRuntimeMonitor.monitoringRequesters.value.isEmpty())
     }
 
     @Test

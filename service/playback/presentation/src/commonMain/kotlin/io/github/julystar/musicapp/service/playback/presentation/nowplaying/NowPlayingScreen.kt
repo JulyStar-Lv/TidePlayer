@@ -2,8 +2,13 @@ package io.github.julystar.musicapp.service.playback.presentation.nowplaying
 
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode as AnimationRepeatMode
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -36,8 +41,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,6 +61,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -79,6 +87,7 @@ import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.domain.model.AudioReactiveSnapshot
 import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
 import io.github.julystar.musicapp.core.domain.model.LyricFontChoice
 import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
@@ -112,9 +121,13 @@ import io.github.julystar.musicapp.service.playback.presentation.transition.play
 import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkTransitionShape
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -176,6 +189,7 @@ private val NowPlayingDismissDistanceThreshold = 240.dp
 private val NowPlayingDismissVelocityThreshold = 1_250.dp
 private const val NowPlayingDismissSettleDurationMillis = 260
 private const val LandscapeControlsAutoHideDelayMs = 5_000L
+private val ZeroAudioReactiveSnapshot = MutableStateFlow(AudioReactiveSnapshot())
 
 internal fun doesPlayerCoverStatusBar(
     playerTopInWindowPx: Float,
@@ -1766,6 +1780,7 @@ fun NowPlayingScreen(
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     drawBackground: Boolean = true,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot> = ZeroAudioReactiveSnapshot,
     onAction: (NowPlayingAction) -> Unit,
     onStatusBarCoverageChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -1893,7 +1908,11 @@ fun NowPlayingScreen(
                 .then(dismissGestureModifier),
         ) {
             if (drawBackground) {
-                ImmersivePlayerBackground(artwork = currentTrack?.artwork)
+                ImmersivePlayerBackground(
+                    artwork = currentTrack?.artwork,
+                    enabled = playerInteractionSettings.audioReactiveBackgroundEnabled,
+                    audioReactiveSnapshot = audioReactiveSnapshot,
+                )
             }
             BoxWithConstraints(
                 modifier = Modifier
@@ -1952,10 +1971,11 @@ internal fun shouldDismissNowPlayingScreen(
         )
 
 @Composable
-fun ImmersivePlayerBackground(artwork: Artwork?) {
-    val blurRadius = 48.dp
-    val movingScale = 2.90f
-    val movingOffset = 0f
+fun ImmersivePlayerBackground(
+    artwork: Artwork?,
+    enabled: Boolean = false,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot> = ZeroAudioReactiveSnapshot,
+) {
     val palette = rememberArtworkPalette(artwork)
     val topColor by animateColorAsState(
         targetValue = palette.darkMuted.copy(alpha = 1f),
@@ -1972,6 +1992,31 @@ fun ImmersivePlayerBackground(artwork: Artwork?) {
         animationSpec = tween(durationMillis = 700),
         label = "playerBackgroundAccentColor",
     )
+    if (enabled) {
+        AudioReactiveBackground(
+            artwork = artwork,
+            audioReactiveSnapshot = audioReactiveSnapshot,
+            topColor = topColor,
+            middleColor = middleColor,
+            accentColor = accentColor,
+        )
+    } else {
+        StaticAudioReactiveBackground(
+            artwork = artwork,
+            topColor = topColor,
+            middleColor = middleColor,
+            accentColor = accentColor,
+        )
+    }
+}
+
+@Composable
+private fun StaticAudioReactiveBackground(
+    artwork: Artwork?,
+    topColor: Color,
+    middleColor: Color,
+    accentColor: Color,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1981,48 +2026,276 @@ fun ImmersivePlayerBackground(artwork: Artwork?) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = movingScale
-                    scaleY = movingScale
-                    translationX = movingOffset
-                    translationY = -movingOffset * 0.65f
-                    alpha = 0.78f
+                    scaleX = PlayerBackgroundBaseScale
+                    scaleY = PlayerBackgroundBaseScale
+                    alpha = PlayerBackgroundArtworkAlpha
                 },
             artwork = artwork,
-            blurRadius = blurRadius,
+            blurRadius = PlayerBackgroundBlurRadius,
             contentScale = ContentScale.Crop,
             smoothTransition = true,
             fallback = {},
         )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = 0.28f),
-                            topColor.copy(alpha = 0.42f),
-                            Color.Black.copy(alpha = 0.34f),
-                        ),
-                        start = Offset.Zero,
-                        end = Offset.Infinite,
-                    ),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0f to Color.Black.copy(alpha = 0.42f),
-                            0.5f to Color.Black.copy(alpha = 0.18f),
-                            1f to Color.Black.copy(alpha = 0.42f),
-                        ),
-                    ),
-                ),
+        PlayerBackgroundOverlays(
+            topColor = topColor,
+            accentColor = accentColor,
         )
     }
 }
+
+@Composable
+private fun AudioReactiveBackground(
+    artwork: Artwork?,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot>,
+    topColor: Color,
+    middleColor: Color,
+    accentColor: Color,
+) {
+    val snapshot by audioReactiveSnapshot.collectAsState()
+    val levelTarget = sanitizeReactiveValue(snapshot.level)
+    val beatTarget = sanitizeReactiveValue(snapshot.beat)
+    val levelAnimation = remember { Animatable(0f) }
+    val beatAnimation = remember { Animatable(0f) }
+    LaunchedEffect(levelTarget) {
+        levelAnimation.animateTo(
+            targetValue = levelTarget,
+            animationSpec = tween(
+                durationMillis = resolveReactiveSmoothingDurationMillis(
+                    currentValue = levelAnimation.value,
+                    targetValue = levelTarget,
+                    attackDurationMillis = ReactiveLevelAttackDurationMillis,
+                    releaseDurationMillis = ReactiveLevelReleaseDurationMillis,
+                ),
+            ),
+        )
+    }
+    LaunchedEffect(beatTarget) {
+        beatAnimation.animateTo(
+            targetValue = beatTarget,
+            animationSpec = tween(
+                durationMillis = resolveReactiveSmoothingDurationMillis(
+                    currentValue = beatAnimation.value,
+                    targetValue = beatTarget,
+                    attackDurationMillis = ReactiveBeatAttackDurationMillis,
+                    releaseDurationMillis = ReactiveBeatReleaseDurationMillis,
+                ),
+            ),
+        )
+    }
+    val level = levelAnimation.value
+    val beat = beatAnimation.value
+    val phaseTransition = rememberInfiniteTransition(label = "audioReactiveBackgroundPhase")
+    val phase by phaseTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = ReactivePhaseRadians,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = ReactivePhaseCycleDurationMillis),
+            repeatMode = AnimationRepeatMode.Restart,
+        ),
+        label = "audioReactiveBackgroundPhase",
+    )
+    val scale = resolveReactiveScale(
+        baseScale = PlayerBackgroundBaseScale,
+        level = level,
+        beat = beat,
+        enabled = true,
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(middleColor),
+    ) {
+        PlayerBackgroundArtworkImage(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = PlayerBackgroundArtworkAlpha
+                },
+            artwork = artwork,
+            blurRadius = PlayerBackgroundBlurRadius,
+            contentScale = ContentScale.Crop,
+            smoothTransition = true,
+            fallback = {},
+        )
+        ReactiveBackgroundBlobs(
+            phase = phase,
+            level = level,
+            beat = beat,
+            vibrantColor = accentColor,
+            mutedColor = middleColor,
+            darkMutedColor = topColor,
+        )
+        PlayerBackgroundOverlays(
+            topColor = topColor,
+            accentColor = accentColor,
+        )
+    }
+}
+
+@Composable
+private fun ReactiveBackgroundBlobs(
+    phase: Float,
+    level: Float,
+    beat: Float,
+    vibrantColor: Color,
+    mutedColor: Color,
+    darkMutedColor: Color,
+) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val movement = phase
+        val expansion = resolveReactiveBlobExpansion(level, beat)
+        val width = size.width
+        val height = size.height
+        val maxDimension = maxOf(width, height)
+        drawReactiveBlob(
+            color = vibrantColor,
+            center = Offset(
+                x = width * (0.22f + 0.04f * sin(movement)),
+                y = height * (0.28f + 0.03f * cos(movement)),
+            ),
+            radius = maxDimension * 0.62f * expansion,
+            alpha = ReactiveVibrantBlobAlpha,
+        )
+        drawReactiveBlob(
+            color = mutedColor,
+            center = Offset(
+                x = width * (0.78f + 0.04f * cos(movement + 2f)),
+                y = height * (0.46f + 0.04f * sin(movement + 2f)),
+            ),
+            radius = maxDimension * 0.70f * expansion,
+            alpha = ReactiveMutedBlobAlpha,
+        )
+        drawReactiveBlob(
+            color = darkMutedColor,
+            center = Offset(
+                x = width * (0.46f + 0.03f * sin(movement + 4f)),
+                y = height * (0.82f + 0.03f * cos(movement + 4f)),
+            ),
+            radius = maxDimension * 0.76f * expansion,
+            alpha = ReactiveDarkMutedBlobAlpha,
+        )
+    }
+}
+
+private fun DrawScope.drawReactiveBlob(
+    color: Color,
+    center: Offset,
+    radius: Float,
+    alpha: Float,
+) {
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                color.copy(alpha = alpha),
+                color.copy(alpha = 0f),
+            ),
+            center = center,
+            radius = radius,
+        ),
+        center = center,
+        radius = radius,
+    )
+}
+
+@Composable
+private fun PlayerBackgroundOverlays(
+    topColor: Color,
+    accentColor: Color,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        accentColor.copy(alpha = 0.28f),
+                        topColor.copy(alpha = 0.42f),
+                        Color.Black.copy(alpha = 0.34f),
+                    ),
+                    start = Offset.Zero,
+                    end = Offset.Infinite,
+                ),
+            ),
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0f to Color.Black.copy(alpha = 0.42f),
+                        0.5f to Color.Black.copy(alpha = 0.18f),
+                        1f to Color.Black.copy(alpha = 0.42f),
+                    ),
+                ),
+            ),
+    )
+}
+
+internal fun sanitizeReactiveValue(value: Float): Float =
+    if (value.isFinite()) value.coerceIn(0f, 1f) else 0f
+
+internal fun resolveReactiveSmoothingDurationMillis(
+    currentValue: Float,
+    targetValue: Float,
+    attackDurationMillis: Int,
+    releaseDurationMillis: Int,
+): Int = if (sanitizeReactiveValue(targetValue) > sanitizeReactiveValue(currentValue)) {
+    attackDurationMillis
+} else {
+    releaseDurationMillis
+}
+
+internal fun resolveReactiveScale(
+    baseScale: Float,
+    level: Float,
+    beat: Float,
+    enabled: Boolean,
+): Float {
+    val safeBaseScale = if (baseScale.isFinite()) {
+        baseScale.coerceIn(0f, ReactiveMaxBaseScale)
+    } else {
+        0f
+    }
+    if (!enabled) return safeBaseScale
+    val multiplier = 1f +
+        sanitizeReactiveValue(level) * ReactiveLevelScaleGain +
+        sanitizeReactiveValue(beat) * ReactiveBeatScaleGain
+    return (safeBaseScale * multiplier).coerceIn(
+        0f,
+        safeBaseScale * ReactiveMaxScaleMultiplier,
+    )
+}
+
+internal fun resolveReactiveBlobExpansion(level: Float, beat: Float): Float =
+    (
+        1f +
+            sanitizeReactiveValue(level) * ReactiveLevelBlobExpansion +
+            sanitizeReactiveValue(beat) * ReactiveBeatBlobExpansion
+        ).coerceIn(1f, ReactiveMaxBlobExpansion)
+
+private const val PlayerBackgroundBaseScale = 2.90f
+private val PlayerBackgroundBlurRadius = 48.dp
+private const val PlayerBackgroundArtworkAlpha = 0.78f
+private const val ReactiveLevelScaleGain = 0.014f
+private const val ReactiveBeatScaleGain = 0.024f
+private const val ReactiveMaxScaleMultiplier = 1.05f
+private const val ReactiveMaxBaseScale = 100f
+private const val ReactiveLevelBlobExpansion = 0.10f
+private const val ReactiveBeatBlobExpansion = 0.14f
+private const val ReactiveMaxBlobExpansion = 1.24f
+private const val ReactiveVibrantBlobAlpha = 0.18f
+private const val ReactiveMutedBlobAlpha = 0.14f
+private const val ReactiveDarkMutedBlobAlpha = 0.12f
+private const val ReactiveLevelAttackDurationMillis = 80
+private const val ReactiveLevelReleaseDurationMillis = 420
+private const val ReactiveBeatAttackDurationMillis = 60
+private const val ReactiveBeatReleaseDurationMillis = 240
+private const val ReactivePhaseCycleDurationMillis = 15_000
+private const val ReactivePhaseRadians = (2f * kotlin.math.PI).toFloat()
 
 @Composable
 fun NowPlayingProgressPanel(
