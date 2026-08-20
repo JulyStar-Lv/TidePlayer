@@ -309,6 +309,7 @@ class RoomLegacyStorageSearchProviderIntegrationTest {
             StorageType.WEBDAV -> ProviderTypes.WebDav
             StorageType.ONE_DRIVE -> ProviderTypes.OneDrive
             StorageType.SMB -> ProviderTypes.Smb
+            StorageType.OPEN_LIST -> ProviderTypes.OpenList
         }
     }
 

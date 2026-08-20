@@ -16,10 +16,44 @@ class LyricsRepositoryImpl(
     private val trackDao: TrackDao,
     private val metadataPrefetcher: TrackMetadataPrefetcher,
     private val settingsRepository: SettingsRepository,
+    private val navidromeLyricsResolver: NavidromeLyricsResolver? = null,
+    private val openSubsonicLyricsResolver: OpenSubsonicLyricsResolver? = null,
 ) : LyricsRepository {
 
     override suspend fun loadLyrics(trackId: Long): DomainLyrics {
         val track = trackDao.findByIds(listOf(trackId)).firstOrNull()
+        val artistNames = metadataDao.artistNamesForTrack(trackId)
+        val settings = settingsRepository.settings.first()
+        val serverLyrics = navidromeLyricsResolver?.load(
+            trackId,
+            track?.title,
+            artistNames.firstOrNull() ?: track?.artist,
+        )
+        if (serverLyrics != null) {
+            val lines = settings.lyrics.filterLyricTextBlock(serverLyrics.content)
+            return DomainLyrics(
+                trackTitle = track?.title.orEmpty(),
+                trackArtist = artistNames.joinToString(", ").ifBlank { track?.artist },
+                lines = lines,
+                format = serverLyrics.format,
+                synchronized = serverLyrics.synchronized,
+            )
+        }
+        val openSubsonicLyrics = openSubsonicLyricsResolver?.load(
+            trackId,
+            track?.title,
+            artistNames.firstOrNull() ?: track?.artist,
+        )
+        if (openSubsonicLyrics != null) {
+            val lines = settings.lyrics.filterLyricTextBlock(openSubsonicLyrics.content)
+            return DomainLyrics(
+                trackTitle = track?.title.orEmpty(),
+                trackArtist = artistNames.joinToString(", ").ifBlank { track?.artist },
+                lines = lines,
+                format = openSubsonicLyrics.format,
+                synchronized = openSubsonicLyrics.synchronized,
+            )
+        }
         var candidates = metadataDao.getLyricsCandidates(trackId)
         if (candidates.isEmpty()) {
             try {
@@ -31,9 +65,7 @@ class LyricsRepositoryImpl(
             }
             candidates = metadataDao.getLyricsCandidates(trackId)
         }
-        val settings = settingsRepository.settings.first()
         val lyrics = candidates.selectLyrics(settings.lyrics)
-        val artistNames = metadataDao.artistNamesForTrack(trackId)
 
         val lines = lyrics?.content
             ?.let(settings.lyrics::filterLyricTextBlock)
@@ -47,4 +79,5 @@ class LyricsRepositoryImpl(
             synchronized = lyrics?.synchronized ?: false,
         )
     }
+
 }

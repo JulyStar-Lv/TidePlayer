@@ -5,6 +5,7 @@
     <string name="sources_storage">Storage: %1$s</string>
     <string name="sources_music">Music: %1$d tracks</string>
     <string name="sources_sync">Sync</string>
+    <string name="sources_syncing">Syncing…</string>
     <string name="sources_logs">Logs</string>
     <string name="sources_settings">Settings</string>
     <string name="sources_default_library">Default library</string>
@@ -23,6 +24,8 @@
     <string name="storage_edit_form_username">Username cannot be empty</string>
     <string name="storage_edit_import_library_action">Choose library folder</string>
     <string name="storage_edit_import_library_label">LIBRARY</string>
+    <string name="storage_edit_sync_library_action">Sync now</string>
+    <string name="storage_edit_sync_library_label">LIBRARY</string>
     <string name="storage_edit_oauth">OAuth</string>
     <string name="storage_edit_onedrive_alias_not_empty">Alias should not be empty</string>
     <string name="storage_edit_onedrive_connect">Connect your account</string>
@@ -32,6 +35,15 @@
     <string name="storage_edit_onedrive_drive_required">Select a drive</string>
     <string name="storage_edit_onedrive_should_auth">Should connect your account</string>
     <string name="storage_edit_password">PASSWORD</string>
+    <string name="storage_edit_secondary_addr">SECONDARY URL</string>
+    <string name="storage_edit_stream_bitrate">STREAM BITRATE (KBPS)</string>
+    <string name="storage_edit_download_bitrate">DOWNLOAD BITRATE (KBPS)</string>
+    <string name="storage_edit_cover_size">COVER SIZE</string>
+    <string name="storage_edit_remote_write">ALLOW REMOTE PLAYLIST MODIFICATION</string>
+    <string name="storage_edit_emby_server_name">VERIFIED SERVER NAME</string>
+    <string name="storage_edit_emby_connected_account">CONNECTED ACCOUNT / USER ID</string>
+    <string name="storage_edit_openlist_guest">GUEST ACCESS</string>
+    <string name="storage_edit_openlist_otp">ONE-TIME PASSWORD</string>
     <string name="storage_edit_username">USERNAME</string>
     <string name="storage_edit_smb_server">SERVER</string>
     <string name="storage_edit_smb_port">PORT</string>
@@ -43,6 +55,7 @@
     <string name="storage_test_testing">Testing connection…</string>
     <string name="storage_test_success">Connection successful</string>
     <string name="storage_test_unauthorized">Username or password is incorrect</string>
+    <string name="storage_test_otp_required">One-time password is required</string>
     <string name="storage_test_timeout">Connection timed out</string>
     <string name="storage_test_permission">Access to this share was denied</string>
     <string name="storage_test_not_found">Share or root path was not found</string>

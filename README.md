@@ -7,7 +7,7 @@ TidePlayer 是一款使用 Kotlin Multiplatform、Compose Multiplatform、Rust �
 ## 项目亮点
 
 - 使用同一套 Kotlin 与 Compose 代码支持 **Android、iOS 和 Desktop**。
-- 支持 **本地、WebDAV 和 SMB2/3 音源**，具备目录浏览、索引搜索、在线播放和下载能力。
+- **本地、WebDAV、SMB2/3、OneDrive、Navidrome、OpenSubsonic、Emby 和 OpenList** 统一接入 `MusicSource`；各音源按自身 capability 提供浏览、搜索、播放和下载。
 - 使用 **Room KMP 统一曲库** 管理曲目、专辑、艺术家、流派、封面、歌词、播放列表、下载和同步状态。
 - 提供 **自适应界面**：手机使用底部导航，中等窗口使用导航栏，大屏和桌面使用侧边栏布局。
 - 使用统一播放抽象，并分别接入 Android Media3、iOS AVPlayer 和 Desktop Rust/rodio 播放引擎。
@@ -37,11 +37,17 @@ TidePlayer 是一款使用 Kotlin Multiplatform、Compose Multiplatform、Rust �
 | WebDAV | 支持 | 支持 | 支持 | 支持 | 支持（RFC 6578 sync-token，安全回退全量扫描） |
 | SMB2/3 | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
 | OneDrive | 支持 | 支持 | 支持 | 支持 | 支持（Delta） |
-| Navidrome | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
-| OpenSubsonic | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
-| Emby | 支持 | 支持 | 支持 | 支持 | 暂不支持 |
+| Navidrome | 支持 | 支持 | 支持 | 支持 | 全量快照（无协议增量） |
+| OpenSubsonic | 支持 | 支持 | 支持 | 不支持 | 全量快照（无协议增量） |
+| Emby | 支持 | 支持 | 支持 | 不支持 | 全量快照（无协议增量） |
+| OpenList | 支持 | 同步后统一 Room 索引搜索 | 支持 | 不支持 | 全量快照（无协议增量） |
 
-音源适配器负责鉴权、浏览、搜索和解析播放资源，不会直接写入规范化音乐表。
+音源适配器按声明的 capability 负责鉴权、浏览、搜索和解析播放资源，不会直接写入规范化音乐表。
+
+- Navidrome 已覆盖鉴权、分页曲库、元数据、封面、歌词和播放；Navidrome/OpenSubsonic 支持远端播放列表读写，但写入默认关闭。OpenSubsonic 还保留扩展能力快照，并提供结构化歌词回退。
+- Emby 持久化非敏感 ServerId/ServerName/UserId 身份，支持 25k 分页、元数据、封面以及 Direct Play/Direct Stream；不支持转码、播放列表、远端写入、独立下载或歌词。
+- 每个服务器账号的 secondary endpoint 仅在单次请求发生 typed timeout/connectivity failure 时尝试一次；401/403、TLS、协议/JSON 错误和取消不会回退。纯 Subsonic 播放、下载或封面 URL 的后续抓取不会获得透明 endpoint failover。
+- OpenList 是独立 `source/openlist` `MusicSource`，不属于 `RemoteServerKind`。它支持 guest/password/OTP、专用目录浏览、原始 canonical path、多 root、完整快照、Range 元数据与播放；密码在 `CredentialStore`，Token/OTP 仅在内存，重启后 `requiresOtp` 账号需重新输入。严格 Range 播放只向平台暴露稳定回环 URL，校验 header/同源重定向，并仅允许一次受限重解析。Provider 自身不宣称搜索、下载或 delta sync，搜索来自同步后的统一 Room 索引。
 
 ### 远程音源元数据扫描模式
 
@@ -61,6 +67,8 @@ Fast/Standard 会把每个来源文件的封面存在状态和内嵌歌词类型
 
 - 统一的播放状态、播放进度、队列、播放模式和正在播放展示契约。
 - 播放 URL、请求头、Cookie 和短期 Token 只在实际播放前解析，不写入 Room。
+- Room 只保存非敏感账号配置、identity 和凭据引用；密码及长期 Token 保存于平台 `CredentialStore`，会话 URL/header/Token 和 OTP 仅在内存。
+- 远程播放统一经过持久化账号候选、`MusicSourceRegistry`、`MusicSource.resolvePlayback` 和内存 `PlaybackResource`，再交给现有平台播放器；不存在 Provider 专用播放器。
 - Android 使用 Media3 和 MediaSession。
 - iOS 使用 AVPlayer、Processing Tap 和共享 Rust DSP；系统音频会话支持 AirPlay，设置页使用原生 `AVRoutePickerView` 并展示 `currentRoute`。锁屏、控制中心、蓝牙和 CarPlay Now Playing 使用 Now Playing/Remote Command；当前不提供完整 CarPlay 曲库浏览应用。
 - Desktop 使用 Rust/rodio 播放后端；cpal 是输出设备列表与系统默认设备的唯一事实来源，切换设备时恢复曲目位置、播放/暂停状态、音量和 DSP。
@@ -124,7 +132,7 @@ flowchart TD
 3. **音源身份单独保存**：音源账号、曲库根目录、来源对象、同步游标、Provider 扩展属性和曲目来源引用单独建模。
 4. **临时播放资源不属于曲目元数据**：签名 URL、HTTP 请求头、Token、Cookie 和临时回环地址在播放时动态解析，不作为曲目字段持久化。
 5. **功能模块依赖契约，而不是平台播放引擎**：commonMain 仅使用播放、下载、同步、音源和 Repository 接口；Media3、AVPlayer、rodio、Room 和 UniFFI 保留在平台层或数据边界。
-6. **元数据插件不是播放音源**：JavaScript 插件通过 `MetaSource` 提供元数据查询；本地、WebDAV 和 SMB 通过 `MusicSource` 提供浏览和播放。
+6. **元数据插件不是播放音源**：JavaScript 插件通过 `MetaSource` 提供元数据查询；当前 8 类来源统一通过 `MusicSource` 提供各自声明的浏览、搜索、播放或下载能力。
 
 详细文档：
 
@@ -156,6 +164,9 @@ TidePlayer/
 ├── source/
 │   ├── api/                     MusicSource 契约和注册表
 │   ├── local/                   本地音源适配器
+│   ├── onedrive/                OneDrive 音源适配器
+│   ├── openlist/                独立 OpenList 音源适配器
+│   ├── server/                  Navidrome/OpenSubsonic/Emby 音源适配器
 │   ├── smb/                     SMB2/3 音源适配器
 │   └── webdav/                  WebDAV 音源适配器
 ├── service/

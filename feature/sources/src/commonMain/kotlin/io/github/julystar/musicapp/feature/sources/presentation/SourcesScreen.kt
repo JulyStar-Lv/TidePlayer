@@ -39,6 +39,7 @@ import musicapp.feature.sources.generated.resources.sources_music
 import musicapp.feature.sources.generated.resources.sources_settings
 import musicapp.feature.sources.generated.resources.sources_storage
 import musicapp.feature.sources.generated.resources.sources_sync
+import musicapp.feature.sources.generated.resources.sources_syncing
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
@@ -66,6 +67,7 @@ fun SourcesScreen(
                 SourceCard(
                     source = source,
                     onClick = { onAction(SourcesAction.OpenSource(source.id)) },
+                    onSync = { onAction(SourcesAction.SyncSource(source.id)) },
                 )
             }
         }
@@ -103,6 +105,7 @@ private fun EmptySourcesCard(onClick: () -> Unit) {
 private fun SourceCard(
     source: SourceAccountUi,
     onClick: () -> Unit,
+    onSync: () -> Unit,
 ) {
     val shapes = DesignTokens.shapes
     DesignCardSurface(
@@ -174,7 +177,7 @@ private fun SourceCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                SourceActionStrip()
+                SourceActionStrip(source = source, onSync = onSync)
             }
             DesignChevron(
                 direction = DesignChevronDirection.Right,
@@ -185,14 +188,21 @@ private fun SourceCard(
 }
 
 @Composable
-private fun SourceActionStrip() {
+private fun SourceActionStrip(
+    source: SourceAccountUi,
+    onSync: () -> Unit,
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         DesignChip(
-            label = stringResource(Res.string.sources_sync),
-            enabled = false,
+            label = stringResource(
+                if (source.isSyncing) Res.string.sources_syncing else Res.string.sources_sync,
+            ),
+            selected = source.isSyncing,
+            enabled = source.syncEnabled && !source.isSyncing,
+            onClick = onSync,
         )
         DesignChip(
             label = stringResource(Res.string.sources_logs),

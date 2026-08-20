@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::file_ops::{atomic_write_json, read_json};
 
-const REDACTION_VERSION: &str = "1";
+const REDACTION_VERSION: &str = "2";
 const REDACTED: &str = "***";
 static MUSIC_ROOTS: Lazy<RwLock<Vec<PathBuf>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
@@ -24,21 +24,35 @@ struct PersistedMusicRoots {
 static URL_CREDENTIALS: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\b(https?://)[^/@\s:]+:[^/@\s]+@").expect("valid credential regex")
 });
+static LOOPBACK_PLAYBACK_URL: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?i)(https?://(?:127\.0\.0\.1|\[::1\]):\d+)/media/[^\s?#"'<>]+(?:\?[^\s#"'<>]+)?"#,
+    )
+    .expect("valid loopback playback URL regex")
+});
+static JSON_SENSITIVE_VALUE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?i)("(?:token|access[_-]?token|refresh[_-]?token|password|passwd|secret|api[_-]?key|otp(?:[_-]?code)?|one[_-]?time[_-]?password|authorization|cookie|set-cookie|x[_-]?emby[_-]?token|webdav[_-]?password|smb[_-]?password|plugin[_-]?(?:config[_-]?)?secret)"\s*:\s*")(?:\\.|[^"\\\r\n])*(")"#,
+    )
+    .expect("valid JSON secret regex")
+});
 static SENSITIVE_ASSIGNMENT: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r"(?i)\b(token|access_token|refresh_token|password|passwd|secret|api_key|apikey|code)\s*=\s*([^&\s]+)",
+        r#"(?i)(\b(?:token|access[_-]?token|refresh[_-]?token|password|passwd|secret|api[_-]?key|otp(?:[_-]?code)?|one[_-]?time[_-]?password|authorization|cookie|set-cookie|x[_-]?emby[_-]?token|webdav[_-]?password|smb[_-]?password|plugin[_-]?(?:config[_-]?)?secret)\b\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^&,\s}\]\r\n]+)"#,
     )
     .expect("valid assignment regex")
 });
-static AUTH_HEADER: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)\b(authorization\s*:?\s*(?:bearer|basic)?|bearer|basic)\s+[^,\s]+")
+static SENSITIVE_HEADER_LINE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?im)^(\s*(?:authorization|cookie|set-cookie|x-emby-token)\s*:)\s*[^\r\n]*")
+        .expect("valid sensitive header regex")
+});
+static AUTH_VALUE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\b(authorization\s*[:=]?\s*(?:bearer|basic)?|bearer|basic)\s+[^,\s]+")
         .expect("valid auth regex")
 });
-static COOKIE_HEADER: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)\b(set-cookie|cookie)\s*:\s*[^\r\n]+").expect("valid cookie regex")
+static URL_QUERY: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"(?i)(https?://[^\s?#"'<>]+)\?[^\s#"'<>]+"#).expect("valid URL regex")
 });
-static URL_QUERY: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)(https?://[^\s?#]+)\?[^\s#]+").expect("valid URL regex"));
 static UUID: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b")
         .expect("valid UUID regex")
@@ -93,23 +107,31 @@ pub(crate) fn redact_text(
     let mut redacted = URL_CREDENTIALS
         .replace_all(value, "$1***:***@")
         .into_owned();
-    redacted = SENSITIVE_ASSIGNMENT
+    redacted = LOOPBACK_PLAYBACK_URL
+        .replace_all(&redacted, "$1/<REDACTED_PLAYBACK_PATH>")
+        .into_owned();
+    redacted = URL_QUERY
+        .replace_all(&redacted, "$1?<REDACTED_QUERY>")
+        .into_owned();
+    redacted = JSON_SENSITIVE_VALUE
         .replace_all(&redacted, |captures: &Captures<'_>| {
-            format!("{}={REDACTED}", &captures[1])
+            format!("{}{REDACTED}{}", &captures[1], &captures[2])
         })
         .into_owned();
-    redacted = AUTH_HEADER
+    redacted = SENSITIVE_HEADER_LINE
         .replace_all(&redacted, |captures: &Captures<'_>| {
             format!("{} {REDACTED}", &captures[1])
         })
         .into_owned();
-    redacted = COOKIE_HEADER
+    redacted = AUTH_VALUE
         .replace_all(&redacted, |captures: &Captures<'_>| {
-            format!("{}: {REDACTED}", &captures[1])
+            format!("{} {REDACTED}", &captures[1])
         })
         .into_owned();
-    redacted = URL_QUERY
-        .replace_all(&redacted, "$1?<REDACTED_QUERY>")
+    redacted = SENSITIVE_ASSIGNMENT
+        .replace_all(&redacted, |captures: &Captures<'_>| {
+            format!("{}{REDACTED}", &captures[1])
+        })
         .into_owned();
 
     if let Some(path) = app_document_dir.and_then(Path::to_str) {
@@ -230,12 +252,69 @@ mod tests {
     fn redacts_credentials_headers_queries_and_paths() {
         let input = "https://user:pass@example.com/a?access_token=abc Authorization: Bearer xyz Cookie: sid=1\n/Users/test/music";
         let output = redact_text(input, Some(Path::new("/Users/test")), None);
-        assert!(!output.contains("pass"));
-        assert!(!output.contains("abc"));
-        assert!(!output.contains("xyz"));
-        assert!(!output.contains("sid=1"));
-        assert!(!output.contains("/Users/test"));
+        for (index, sensitive_value) in ["pass", "abc", "xyz", "sid=1", "/Users/test"]
+            .into_iter()
+            .enumerate()
+        {
+            assert!(
+                !output.contains(sensitive_value),
+                "redaction smoke case {index} failed"
+            );
+        }
         assert!(output.contains("<APP_DOCUMENT_DIR>"));
+    }
+
+    #[test]
+    fn redacts_supported_key_variants_without_redacting_ordinary_code() {
+        let cases = [
+            r#"{"accessToken":"fixture-one","refresh_token":"fixture-two","otpCode":"fixture-three"}"#,
+            "api-key: fixture-four one-time-password=fixture-five",
+            "Authorization: Custom fixture-six\nX-Emby-Token: fixture-seven",
+            "Cookie: sid=fixture-eight\nSet-Cookie: session=fixture-nine",
+            "at call (file.rs:4): PASSWORD=fixture-ten Access_Token:fixture-eleven",
+            "https://user:fixture-twelve@example.test/path",
+            "https://example.test/path?ordinary=value&token=fixture-thirteen",
+            "prefix Authorization: Bearer fixture-fourteen suffix",
+            "prefix Authorization=Basic fixture-fifteen suffix",
+            "Authorization=fixture-sixteen",
+            r#"{"password":"prefix\"fixture-seventeen"}"#,
+            r#"{"webdav_password":"fixture-eighteen"}"#,
+            "smbPassword=fixture-nineteen",
+            "plugin_config_secret: fixture-twenty",
+        ];
+
+        for (index, input) in cases.into_iter().enumerate() {
+            let output = redact_text(input, None, None);
+            assert!(
+                !output.contains("fixture-"),
+                "redaction case {index} failed"
+            );
+        }
+
+        assert_eq!(
+            redact_text("code=42 status: ok", None, None),
+            "code=42 status: ok"
+        );
+    }
+
+    #[test]
+    fn redacts_loopback_playback_capability_from_stack_like_text() {
+        let playback_url = "http://127.0.0.1:45678/media/fixture-capability-token/stream.flac";
+        let output = redact_text(
+            &format!("player failed at {playback_url}\n  at prepare(Player.kt:42)"),
+            None,
+            None,
+        );
+
+        assert!(
+            !output.contains("fixture-capability-token"),
+            "playback capability redaction failed"
+        );
+        assert!(
+            !output.contains(playback_url),
+            "playback URL redaction failed"
+        );
+        assert!(output.contains("http://127.0.0.1:45678/<REDACTED_PLAYBACK_PATH>"));
     }
 
     #[test]

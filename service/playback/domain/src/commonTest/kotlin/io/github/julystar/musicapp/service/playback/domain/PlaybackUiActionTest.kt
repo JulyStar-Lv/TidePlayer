@@ -1,6 +1,8 @@
 package io.github.julystar.musicapp.service.playback.domain
 
 import io.github.julystar.musicapp.core.domain.model.MediaId
+import io.github.julystar.musicapp.core.domain.model.MediaType
+import io.github.julystar.musicapp.core.domain.model.SourceId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -59,7 +61,7 @@ class PlaybackUiActionTest {
     }
 
     private fun playable(id: Long, title: String) = PlayableItem(
-        mediaId = MediaId("library:$id"),
+        mediaId = MediaId(SourceId("library"), MediaType.Track, id.toString()),
         title = title,
         libraryTrackId = id,
     )

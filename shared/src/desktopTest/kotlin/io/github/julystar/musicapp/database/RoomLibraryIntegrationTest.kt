@@ -33,12 +33,149 @@ import uniffi.app_backend.StorageEntryLoc
 import uniffi.app_backend.StorageId
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RoomLibraryIntegrationTest {
+    @Test
+    fun migrationTwentyTwoThroughTwentyFourPreservesLegacyLyricsAndLocalPlaylistData() {
+        val connection = BundledSQLiteDriver().open(":memory:")
+        try {
+            connection.execute(
+                "CREATE TABLE lyrics (id INTEGER PRIMARY KEY NOT NULL, trackId INTEGER NOT NULL, format TEXT NOT NULL, language TEXT, synchronized INTEGER NOT NULL, content TEXT NOT NULL, sourcePath TEXT, updatedAt INTEGER NOT NULL, sourceKind TEXT NOT NULL)"
+            )
+            connection.execute(
+                "CREATE TABLE playlist (id INTEGER NOT NULL PRIMARY KEY, title TEXT NOT NULL, artworkId INTEGER, coverStorageId INTEGER, coverPath TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, sortOrder INTEGER NOT NULL)"
+            )
+            connection.execute(
+                "CREATE TABLE playlist_track (playlistId INTEGER NOT NULL, trackId INTEGER NOT NULL, sortOrder INTEGER NOT NULL, addedAt INTEGER NOT NULL, PRIMARY KEY(playlistId, trackId))"
+            )
+            connection.execute("INSERT INTO lyrics(id, trackId, format, language, synchronized, content, sourcePath, updatedAt, sourceKind) VALUES (1, 2, 'LRC', 'en', 1, '[00:01.00]legacy', 'embedded/song.lrc', 3, 'EmbeddedPlain')")
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder) VALUES (1, 'Legacy Local', NULL, NULL, NULL, 1, 2, 3)")
+            connection.execute("INSERT INTO playlist_track(playlistId, trackId, sortOrder, addedAt) VALUES (1, 9, 0, 4)")
+
+            MIGRATION_22_23.migrate(connection)
+            MIGRATION_23_24.migrate(connection)
+
+            connection.prepare(
+                "SELECT trackId, format, language, synchronized, content, sourcePath, updatedAt, sourceKind, structuredContent FROM lyrics WHERE id = 1"
+            ).use { statement ->
+                assertTrue(statement.step())
+                assertEquals(2L, statement.getLong(0))
+                assertEquals("LRC", statement.getText(1))
+                assertEquals("en", statement.getText(2))
+                assertEquals(1L, statement.getLong(3))
+                assertEquals("[00:01.00]legacy", statement.getText(4))
+                assertEquals("embedded/song.lrc", statement.getText(5))
+                assertEquals(3L, statement.getLong(6))
+                assertEquals("EmbeddedPlain", statement.getText(7))
+                assertTrue(statement.isNull(8))
+            }
+            connection.prepare(
+                "SELECT title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId FROM playlist WHERE id = 1"
+            ).use { statement ->
+                assertTrue(statement.step())
+                assertEquals("Legacy Local", statement.getText(0))
+                assertTrue(statement.isNull(1))
+                assertTrue(statement.isNull(2))
+                assertTrue(statement.isNull(3))
+                assertEquals(1L, statement.getLong(4))
+                assertEquals(2L, statement.getLong(5))
+                assertEquals(3L, statement.getLong(6))
+                assertTrue(statement.isNull(7))
+                assertTrue(statement.isNull(8))
+                assertTrue(statement.isNull(9))
+            }
+            connection.prepare(
+                "SELECT sortOrder, addedAt FROM playlist_track WHERE playlistId = 1 AND trackId = 9"
+            ).use { statement ->
+                assertTrue(statement.step())
+                assertEquals(0L, statement.getLong(0))
+                assertEquals(4L, statement.getLong(1))
+            }
+
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId) VALUES (2, 'Remote A', NULL, NULL, NULL, 1, 2, 0, 'navidrome', 7, 'same-remote-id')")
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId) VALUES (3, 'Remote B', NULL, NULL, NULL, 1, 2, 1, 'navidrome', 8, 'same-remote-id')")
+            assertEquals(
+                "2",
+                singleText(
+                    connection,
+                    "SELECT CAST(COUNT(*) AS TEXT) FROM playlist WHERE remotePlaylistId = 'same-remote-id'",
+                ),
+            )
+        } finally {
+            connection.close()
+        }
+    }
+
+    @Test
+    fun migrationTwentyTwoToTwentyThreePreservesLegacyLyricsAndAddsNullableStructuredPayload() {
+        val connection = BundledSQLiteDriver().open(":memory:")
+        try {
+            connection.execute(
+                "CREATE TABLE lyrics (id INTEGER PRIMARY KEY NOT NULL, trackId INTEGER NOT NULL, format TEXT NOT NULL, language TEXT, synchronized INTEGER NOT NULL, content TEXT NOT NULL, sourcePath TEXT, updatedAt INTEGER NOT NULL, sourceKind TEXT NOT NULL)"
+            )
+            connection.execute("INSERT INTO lyrics(id, trackId, format, language, synchronized, content, sourcePath, updatedAt, sourceKind) VALUES (1, 2, 'LRC', 'en', 1, '[00:01.00]old', 'embedded/song.lrc', 3, 'EmbeddedPlain')")
+
+            MIGRATION_22_23.migrate(connection)
+
+            assertTrue("structuredContent" in columns(connection, "lyrics"))
+            connection.prepare("SELECT language, content, sourcePath, sourceKind, structuredContent FROM lyrics WHERE id = 1").use { statement ->
+                assertTrue(statement.step())
+                assertEquals("en", statement.getText(0))
+                assertEquals("[00:01.00]old", statement.getText(1))
+                assertEquals("embedded/song.lrc", statement.getText(2))
+                assertEquals("EmbeddedPlain", statement.getText(3))
+                assertTrue(statement.isNull(4))
+            }
+        } finally {
+            connection.close()
+        }
+    }
+
+    @Test
+    fun migrationTwentyThreeToTwentyFourAddsRemotePlaylistIdentityWithoutChangingLocalRows() {
+        val connection = BundledSQLiteDriver().open(":memory:")
+        try {
+            connection.execute(
+                "CREATE TABLE playlist (id INTEGER NOT NULL PRIMARY KEY, title TEXT NOT NULL, artworkId INTEGER, coverStorageId INTEGER, coverPath TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, sortOrder INTEGER NOT NULL)"
+            )
+            connection.execute(
+                "CREATE TABLE playlist_track (playlistId INTEGER NOT NULL, trackId INTEGER NOT NULL, sortOrder INTEGER NOT NULL, addedAt INTEGER NOT NULL, PRIMARY KEY(playlistId, trackId))"
+            )
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder) VALUES (1, 'Local', NULL, NULL, NULL, 1, 2, 3)")
+            connection.execute("INSERT INTO playlist_track(playlistId, trackId, sortOrder, addedAt) VALUES (1, 9, 0, 4)")
+
+            MIGRATION_23_24.migrate(connection)
+
+            assertTrue("providerType" in columns(connection, "playlist"))
+            assertTrue("sourceAccountId" in columns(connection, "playlist"))
+            assertTrue("remotePlaylistId" in columns(connection, "playlist"))
+            connection.prepare("SELECT title, sortOrder, providerType, sourceAccountId, remotePlaylistId FROM playlist WHERE id = 1").use { statement ->
+                assertTrue(statement.step())
+                assertEquals("Local", statement.getText(0))
+                assertEquals(3L, statement.getLong(1))
+                assertTrue(statement.isNull(2))
+                assertTrue(statement.isNull(3))
+                assertTrue(statement.isNull(4))
+            }
+            assertEquals("1", singleText(connection, "SELECT CAST(COUNT(*) AS TEXT) FROM playlist_track WHERE playlistId = 1 AND trackId = 9"))
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId) VALUES (2, 'Remote A', NULL, NULL, NULL, 1, 2, 0, 'navidrome', 7, 'same')")
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId) VALUES (3, 'Remote B', NULL, NULL, NULL, 1, 2, 1, 'navidrome', 8, 'same')")
+            connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId) VALUES (4, 'Local 2', NULL, NULL, NULL, 1, 2, 4, NULL, NULL, NULL)")
+            assertEquals("2", singleText(connection, "SELECT CAST(COUNT(*) AS TEXT) FROM playlist WHERE remotePlaylistId = 'same'"))
+            assertEquals("2", singleText(connection, "SELECT CAST(COUNT(*) AS TEXT) FROM playlist WHERE providerType IS NULL"))
+            assertFailsWith<Exception> {
+                connection.execute("INSERT INTO playlist(id, title, artworkId, coverStorageId, coverPath, createdAt, updatedAt, sortOrder, providerType, sourceAccountId, remotePlaylistId) VALUES (5, 'Duplicate', NULL, NULL, NULL, 1, 2, 2, 'navidrome', 7, 'same')")
+            }
+        } finally {
+            connection.close()
+        }
+    }
+
     @Test
     fun migrationTwentyOneToTwentyTwoAddsSourceChannelLayout() {
         val connection = BundledSQLiteDriver().open(":memory:")

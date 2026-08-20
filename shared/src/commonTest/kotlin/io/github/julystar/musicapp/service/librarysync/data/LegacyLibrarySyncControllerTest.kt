@@ -135,6 +135,38 @@ class LegacyLibrarySyncControllerTest {
     }
 
     @Test
+    fun openListStorageDispatchesRawSelectedFolderToLegacyScan() = runBlocking {
+        val importer = FakeLegacyLibrarySyncImporter()
+        val controller = controller(
+            importer = importer,
+            storage = storage(id = 42, typ = StorageType.OPEN_LIST),
+        )
+
+        val result = controller.syncFolder(
+            request(
+                selectedFolderRemoteId = "/音乐/%25 #? 😀",
+                selectedFolderCanonicalPath = "/音乐/%25 #? 😀",
+                selectedFolderDisplayPath = "音乐/%25 #? 😀",
+                scanId = "openlist-scan",
+                metadataScanMode = MetadataScanMode.Fast,
+                metadataConcurrency = 3u,
+                importBatchSize = 17,
+            ),
+        )
+
+        assertEquals(1, importer.scanCalls.size)
+        assertEquals(emptyList(), importer.webDavCalls)
+        assertEquals(emptyList(), importer.oneDriveCalls)
+        assertEquals("/音乐/%25 #? 😀", importer.scanCalls.single().selectedFolderRemoteId)
+        assertEquals("/音乐/%25 #? 😀", importer.scanCalls.single().selectedFolderCanonicalPath)
+        assertEquals("音乐/%25 #? 😀", importer.scanCalls.single().selectedFolderDisplayPath)
+        assertEquals(MetadataScanMode.Fast, importer.scanCalls.single().metadataScanMode)
+        assertEquals(3u, importer.scanCalls.single().metadataConcurrency)
+        assertEquals(17, importer.scanCalls.single().importBatchSize)
+        assertEquals(7L, result.importedCount)
+    }
+
+    @Test
     fun oneDriveStorageUsesLegacyIncrementalSync() = runBlocking {
         val importer = FakeLegacyLibrarySyncImporter()
         val controller = controller(

@@ -17,6 +17,7 @@ class LegacyStorageTrackMappingTest {
             StorageType.WEBDAV to BuiltInSourceIds.WebDav,
             StorageType.ONE_DRIVE to BuiltInSourceIds.OneDrive,
             StorageType.SMB to BuiltInSourceIds.Smb,
+            StorageType.OPEN_LIST to BuiltInSourceIds.OpenList,
         )
 
         cases.forEach { (storageType, sourceId) ->

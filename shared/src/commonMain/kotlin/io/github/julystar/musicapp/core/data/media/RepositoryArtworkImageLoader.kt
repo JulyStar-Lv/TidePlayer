@@ -10,14 +10,21 @@ class RepositoryArtworkImageLoader(
     private val artworkRepository: ArtworkRepository,
 ) : ArtworkImageLoader {
     private val bitmapCache = HashMap<Artwork, ImageBitmap>()
+    private val remoteArtwork = HashSet<Artwork>()
 
     override fun cachedBitmap(artwork: Artwork): ImageBitmap? {
+        if (artwork in remoteArtwork) return null
         bitmapCache[artwork]?.let { return it }
         val bytes = artworkRepository.cached(artwork) ?: return null
         return bytes.toCachedBitmap(artwork)
     }
 
     override suspend fun loadBitmap(artwork: Artwork): ImageBitmap? {
+        if ((artworkRepository as? RemoteArtworkCacheAware)?.isRemoteArtwork(artwork) == true) {
+            remoteArtwork += artwork
+            val bytes = artworkRepository.load(artwork) ?: return null
+            return byteArrayToImageBitmap(bytes)
+        }
         cachedBitmap(artwork)?.let { return it }
         val bytes = artworkRepository.load(artwork) ?: return null
         return bytes.toCachedBitmap(artwork)

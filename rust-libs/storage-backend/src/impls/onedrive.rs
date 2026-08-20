@@ -484,7 +484,7 @@ impl OneDriveBackend {
             let obj: onedrive_types::ListItemResponse = match serde_json::from_str(&text) {
                 Ok(obj) => obj,
                 Err(error) => {
-                    tracing::warn!("onedrive list resp: {text}");
+                    tracing::warn!("could not parse OneDrive list response");
                     return Err(error.into());
                 }
             };

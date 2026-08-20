@@ -272,6 +272,7 @@ object ProviderTypes {
     const val WebDav = "webdav"
     const val Smb = "smb"
     const val OneDrive = "onedrive"
+    const val OpenList = "openlist"
     const val GoogleDrive = "google_drive"
     const val Plex = "plex"
     const val Emby = "emby"

@@ -16,6 +16,7 @@ internal fun TrackSourcePlaybackCandidate.toSourceTrackMediaIdOrNull(): MediaId?
         ProviderTypes.WebDav,
         ProviderTypes.OneDrive,
         ProviderTypes.Smb,
+        ProviderTypes.OpenList,
         -> item.canonicalPath?.takeIf { it.isNotBlank() }?.let { path ->
             legacyStorageTrackMediaId(
                 sourceId = sourceId,
@@ -38,6 +39,7 @@ private fun String.toSourceId(): SourceId = when (this) {
     ProviderTypes.WebDav -> BuiltInSourceIds.WebDav
     ProviderTypes.OneDrive -> BuiltInSourceIds.OneDrive
     ProviderTypes.Smb -> BuiltInSourceIds.Smb
+    ProviderTypes.OpenList -> BuiltInSourceIds.OpenList
     ProviderTypes.Navidrome -> BuiltInSourceIds.Navidrome
     ProviderTypes.OpenSubsonic -> BuiltInSourceIds.OpenSubsonic
     ProviderTypes.Emby -> BuiltInSourceIds.Emby

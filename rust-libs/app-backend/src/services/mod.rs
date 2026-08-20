@@ -4,6 +4,7 @@ mod desktop_dsp;
 mod desktop_rodio;
 mod music;
 // Keep the modulo form compatible with Rust toolchains predating integer::is_multiple_of.
+mod openlist_auth;
 #[allow(clippy::manual_is_multiple_of)]
 mod playback_gateway;
 mod remote_music;

@@ -28,5 +28,6 @@ fun StorageType.toBuiltInSourceId(): SourceId {
         StorageType.WEBDAV -> BuiltInSourceIds.WebDav
         StorageType.ONE_DRIVE -> BuiltInSourceIds.OneDrive
         StorageType.SMB -> BuiltInSourceIds.Smb
+        StorageType.OPEN_LIST -> BuiltInSourceIds.OpenList
     }
 }

@@ -188,7 +188,8 @@ class SettingsVM(
             .filter { account ->
                 (account.sourceId == BuiltInSourceIds.Local && localDirectories.isNotEmpty()) ||
                     account.sourceId == BuiltInSourceIds.WebDav ||
-                    account.sourceId == BuiltInSourceIds.Smb
+                    account.sourceId == BuiltInSourceIds.Smb ||
+                    account.sourceId == BuiltInSourceIds.OpenList
             }
             .map(StorageAccountInfo::toSettingsItem)
         val scanTasks = values[8] as List<LibrarySyncTask>
@@ -511,7 +512,7 @@ class SettingsVM(
     private fun configureSourcePath(accountId: SourceAccountId) {
         val account = state.value.sourceAccounts.firstOrNull { it.accountId == accountId }
             ?: return
-        if (!account.isWebDav && !account.isSmb) return
+        if (!account.isWebDav && !account.isSmb && !account.isOpenList) return
 
         importRepository.prepareCurrentDirectory(accountId) { selection ->
             if (selection.accountId != accountId) return@prepareCurrentDirectory
@@ -575,6 +576,9 @@ class SettingsVM(
         state.value.sourceAccounts
             .filter { item -> item.isSmb && item.enabled && !item.rootPath.isNullOrBlank() }
             .forEach { item -> scanSmbAccount(item.accountId) }
+        state.value.sourceAccounts
+            .filter { item -> item.isOpenList && item.enabled }
+            .forEach { item -> scanOpenListAccount(item.accountId) }
     }
 
     private fun cancelActiveScans() {
@@ -648,6 +652,37 @@ class SettingsVM(
             account.isLocal -> scanLocalMusic()
             account.isWebDav -> scanWebDavAccount(accountId)
             account.isSmb -> scanSmbAccount(accountId)
+            account.isOpenList -> scanOpenListAccount(accountId)
+        }
+    }
+
+    private fun scanOpenListAccount(accountId: SourceAccountId) {
+        viewModelScope.launch {
+            val account = state.value.sourceAccounts.firstOrNull { it.accountId == accountId }
+            if (account?.enabled != true) {
+                emitFeedback(Res.string.settings_feedback_openlist_enable_required)
+                return@launch
+            }
+            val paths = storageRepository.listAccountRootPaths(accountId)
+            if (paths.isEmpty()) {
+                emitFeedback(Res.string.settings_feedback_openlist_path_required)
+                return@launch
+            }
+            paths.forEach { path ->
+                syncFolder(
+                    request = LibrarySyncRequest(
+                        accountId = accountId,
+                        selectedFolderRemoteId = path,
+                        selectedFolderCanonicalPath = path,
+                        selectedFolderDisplayPath = path,
+                        scanRules = state.value.settings.scanRules(),
+                    ),
+                    startMessage = textProvider.get(
+                        Res.string.settings_feedback_scan_start,
+                        path,
+                    ),
+                )
+            }
         }
     }
 
@@ -707,6 +742,7 @@ class SettingsVM(
                             Res.string.settings_feedback_connection_check
                         )
                         SourceConnectionTestStatus.Unauthorized,
+                        SourceConnectionTestStatus.OtpRequired,
                         SourceConnectionTestStatus.Timeout,
                         SourceConnectionTestStatus.PermissionDenied,
                         SourceConnectionTestStatus.NotFound,
@@ -1134,6 +1170,7 @@ class SettingsVM(
         )
         SourceConnectionTestStatus.Error,
         SourceConnectionTestStatus.Unauthorized,
+        SourceConnectionTestStatus.OtpRequired,
         SourceConnectionTestStatus.Timeout,
         SourceConnectionTestStatus.PermissionDenied,
         SourceConnectionTestStatus.NotFound,
@@ -1188,6 +1225,7 @@ private fun StorageAccountInfo.toSettingsItem(): SourceAccountSettingsItem {
         isLocal = sourceId == BuiltInSourceIds.Local,
         isWebDav = sourceId == BuiltInSourceIds.WebDav,
         isSmb = sourceId == BuiltInSourceIds.Smb,
+        isOpenList = sourceId == BuiltInSourceIds.OpenList,
         isRemoteServer = sourceId == BuiltInSourceIds.Navidrome ||
             sourceId == BuiltInSourceIds.OpenSubsonic ||
             sourceId == BuiltInSourceIds.Emby,
@@ -1196,6 +1234,7 @@ private fun StorageAccountInfo.toSettingsItem(): SourceAccountSettingsItem {
             BuiltInSourceIds.WebDav -> "WebDAV"
             BuiltInSourceIds.OneDrive -> "OneDrive"
             BuiltInSourceIds.Smb -> "SMB"
+            BuiltInSourceIds.OpenList -> "OpenList"
             BuiltInSourceIds.Navidrome -> "Navidrome"
             BuiltInSourceIds.OpenSubsonic -> "OpenSubsonic"
             BuiltInSourceIds.Emby -> "Emby"

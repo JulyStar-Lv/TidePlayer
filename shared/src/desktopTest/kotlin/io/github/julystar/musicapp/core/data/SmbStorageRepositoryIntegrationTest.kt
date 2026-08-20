@@ -5,6 +5,12 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import io.github.julystar.musicapp.core.data.security.CredentialStore
 import io.github.julystar.musicapp.core.domain.model.SourceEditorDraft
 import io.github.julystar.musicapp.core.domain.model.SourceEditorType
+import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.source.api.OpenListAuthenticator
+import io.github.julystar.musicapp.source.api.OpenListProviderConfigurationCodec
+import io.github.julystar.musicapp.source.api.SourceAuthResult
+import io.github.julystar.musicapp.source.api.SourceAuthFailureReason
 import io.github.julystar.musicapp.core.domain.model.StoredCredential
 import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.database.ProviderTypes
@@ -26,13 +32,216 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import uniffi.app_backend.ArgUpsertStorage
 import uniffi.app_backend.StorageType
 
 class SmbStorageRepositoryIntegrationTest {
+    @Test
+    fun openListAuthenticationBindsOnlyAfterValidationAndGuestClearsPassword() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }.setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.Default).build()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val credentials = InMemoryCredentialStore()
+        val tempDir = Files.createTempDirectory("musicapp-openlist-auth").toFile()
+        try {
+            val bridge = Bridge(tempDir.absolutePath, tempDir.absolutePath, ToastRepositoryImpl(scope))
+            var calls = 0
+            val repository = StorageRepositoryImpl(
+                bridge = bridge,
+                scope = scope,
+                sourceAccountDao = database.sourceAccountDao(),
+                credentialStore = credentials,
+                openListAuthenticator = OpenListAuthenticator { calls++; SourceAuthResult.Success },
+            )
+            withTimeout(5_000) {
+                while (database.sourceAccountDao().get(1) == null) delay(10)
+            }
+            val id = repository.upsertSource(
+                SourceEditorDraft(
+                    address = "https://openlist.example",
+                    alias = "OpenList",
+                    username = "alice",
+                    secret = "password",
+                    storageType = SourceEditorType.OpenList,
+                ),
+            ).toStorageRouteIdOrNull()!!
+            assertEquals(1, calls)
+            assertEquals("password", credentials.load(id)?.secret)
+            val otpMarked = assertNotNull(database.sourceAccountDao().get(id)).copy(
+                providerConfig = "{\"requiresOtp\":true}",
+            )
+            database.sourceAccountDao().upsert(otpMarked)
+            repository.upsertSource(
+                SourceEditorDraft(
+                    id = id,
+                    address = "https://openlist.example",
+                    alias = "Guest",
+                    isAnonymous = true,
+                    storageType = SourceEditorType.OpenList,
+                ),
+            )
+            val guest = assertNotNull(credentials.load(id))
+            assertTrue(guest.isAnonymous)
+            assertEquals("", guest.username)
+            assertEquals("", guest.secret)
+            val guestEntity = assertNotNull(database.sourceAccountDao().get(id))
+            assertEquals(ProviderTypes.OpenList, guestEntity.providerType)
+            assertFalse(OpenListProviderConfigurationCodec.decode(guestEntity.providerConfig).requiresOtp)
+            assertFalse(guestEntity.toString().contains("password"))
+            assertFalse(guestEntity.providerConfig.orEmpty().contains("password"))
+            assertFalse(guestEntity.providerConfig.orEmpty().contains("token-secret"))
+            assertFalse(guestEntity.providerConfig.orEmpty().contains("otp-secret"))
+            val beforeWrongProvider = calls
+            assertEquals(
+                SourceConnectionTestStatus.Unauthorized,
+                repository.testSource(
+                    SourceEditorDraft(
+                        id = 1,
+                        address = "https://other.example",
+                        alias = "Wrong provider",
+                        username = "intruder",
+                        secret = "wrong-password",
+                        storageType = SourceEditorType.OpenList,
+                    ),
+                ),
+            )
+            assertEquals(beforeWrongProvider, calls)
+            val failing = StorageRepositoryImpl(
+                bridge = bridge,
+                scope = scope,
+                sourceAccountDao = database.sourceAccountDao(),
+                credentialStore = credentials,
+                openListAuthenticator = OpenListAuthenticator {
+                    SourceAuthResult.Failure(SourceAuthFailureReason.Unauthorized)
+                },
+            )
+            kotlin.test.assertFailsWith<io.github.julystar.musicapp.core.domain.model.NeedsReauthenticationException> {
+                failing.upsertSource(
+                    SourceEditorDraft(
+                        id = 99,
+                        address = "https://openlist.example",
+                        alias = "Rejected",
+                        username = "alice",
+                        secret = "bad",
+                        storageType = SourceEditorType.OpenList,
+                    ),
+                )
+            }
+            assertNull(database.sourceAccountDao().get(99))
+            assertNull(credentials.load(99))
+        } finally {
+            scope.cancel()
+            database.close()
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun openListAccountUsesFileCredentialBoundaryAndRootPath() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.Default)
+            .build()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val credentialStore = InMemoryCredentialStore()
+        val tempDir = Files.createTempDirectory("musicapp-openlist-account").toFile()
+        try {
+            val bridge = Bridge(
+                appDocumentDir = tempDir.absolutePath,
+                appCacheDir = tempDir.absolutePath,
+                toastRepository = ToastRepositoryImpl(scope),
+            )
+            val repository = StorageRepositoryImpl(
+                bridge = bridge,
+                scope = scope,
+                sourceAccountDao = database.sourceAccountDao(),
+                credentialStore = credentialStore,
+                libraryRootDao = database.libraryRootDao(),
+            )
+            withTimeout(5_000) {
+                while (database.sourceAccountDao().get(1) == null) delay(10)
+            }
+
+            val storageId = repository.upsertStorage(
+                ArgUpsertStorage(
+                    id = null,
+                    addr = "https://openlist.example",
+                    alias = "OpenList",
+                    username = "alice",
+                    password = "secret-password",
+                    isAnonymous = false,
+                    typ = StorageType.OPEN_LIST,
+                )
+            ).value
+            val entity = assertNotNull(database.sourceAccountDao().get(storageId))
+            val credential = assertNotNull(credentialStore.load(storageId))
+            val rustStorage = assertNotNull(repository.storageForRust(uniffi.app_backend.StorageId(storageId)))
+
+            assertEquals(ProviderTypes.OpenList, entity.providerType)
+            assertEquals("/", entity.rootPath)
+            assertFalse(entity.toString().contains("secret-password"))
+            assertFalse(entity.providerConfig.orEmpty().contains("secret-password"))
+            assertEquals("alice", credential.username)
+            assertEquals("secret-password", credential.secret)
+            assertEquals(StorageType.OPEN_LIST, rustStorage.typ)
+            assertEquals("secret-password", rustStorage.password)
+
+            val accountId = SourceAccountId("storage:$storageId")
+            val rawRoot = "/音乐/%25 #? 😀\\folder"
+            repository.setAccountRootPath(accountId, rawRoot)
+            repository.setAccountRootPath(accountId, "/音乐/第二根")
+            val firstCreatedAt = assertNotNull(
+                database.libraryRootDao().findByPath(storageId, rawRoot),
+            ).createdAt
+            repository.setAccountRootPath(accountId, rawRoot)
+            val roots = database.libraryRootDao().listAll().filter { it.sourceAccountId == storageId }
+            assertEquals(2, roots.size)
+            assertEquals(
+                setOf(rawRoot, "/音乐/第二根"),
+                roots.map { it.canonicalPath }.toSet(),
+            )
+            assertEquals(
+                roots.map { it.canonicalPath }.toSet(),
+                roots.mapNotNull { it.providerRootId }.toSet(),
+            )
+            assertEquals(
+                setOf("%25 #? 😀\\folder", "第二根"),
+                roots.map { it.displayName }.toSet(),
+            )
+            assertEquals(
+                firstCreatedAt,
+                database.libraryRootDao().findByPath(storageId, rawRoot)?.createdAt,
+            )
+            assertTrue(roots.all { it.syncStatus == "PENDING" })
+            assertEquals("/", database.sourceAccountDao().get(storageId)?.rootPath)
+            assertTrue(roots.all { root ->
+                "secret-password" !in root.toString() &&
+                    "token-secret" !in root.toString() &&
+                    "otp-secret" !in root.toString()
+            })
+            repository.setAccountRootPath(accountId, "relative/path")
+            assertNotNull(database.libraryRootDao().findByPath(storageId, "/relative/path"))
+            for (invalid in listOf("/dot/../path", "/double//slash", "/nul\u0000")) {
+                assertFailsWith<IllegalArgumentException> {
+                    repository.setAccountRootPath(accountId, invalid)
+                }
+            }
+            Unit
+        } finally {
+            scope.cancel()
+            database.close()
+            tempDir.deleteRecursively()
+        }
+    }
+
     @Test
     fun smbAccountPersistsStructuredConfigurationAndSecureCredential() = runBlocking {
         val database = Room.inMemoryDatabaseBuilder<AppDatabase> {

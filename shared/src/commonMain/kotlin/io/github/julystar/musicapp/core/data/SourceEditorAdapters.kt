@@ -42,9 +42,12 @@ internal fun SourceEditorType.toStorageType(): StorageType {
         SourceEditorType.WebDav -> StorageType.WEBDAV
         SourceEditorType.OneDrive -> StorageType.ONE_DRIVE
         SourceEditorType.Smb -> StorageType.SMB
+        SourceEditorType.OpenList -> StorageType.OPEN_LIST
         SourceEditorType.Navidrome,
         SourceEditorType.OpenSubsonic,
-        SourceEditorType.Emby -> StorageType.WEBDAV
+        SourceEditorType.Emby -> error(
+            "$this cannot be represented by legacy StorageType; use the remote server path"
+        )
     }
 }
 
@@ -52,6 +55,7 @@ internal fun StorageType.toSourceEditorType(): SourceEditorType {
     return when (this) {
         StorageType.ONE_DRIVE -> SourceEditorType.OneDrive
         StorageType.SMB -> SourceEditorType.Smb
+        StorageType.OPEN_LIST -> SourceEditorType.OpenList
         else -> SourceEditorType.WebDav
     }
 }

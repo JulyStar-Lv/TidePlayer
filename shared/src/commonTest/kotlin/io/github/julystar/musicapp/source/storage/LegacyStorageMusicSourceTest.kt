@@ -388,6 +388,113 @@ class LegacyStorageMusicSourceTest {
     }
 
     @Test
+    fun openListPlaybackUsesSpecializedLoopbackNativeMimeAndOwnsSessionLifetime() = runBlocking {
+        var storageLookups = 0
+        var genericCreates = 0
+        val created = mutableListOf<FakeLegacyPlaybackSession>()
+        val accountId = SourceAccountId("openlist:41")
+        val rawPath = "/音乐/type3 %25 #? \\"
+        val resolver = RetainedLegacyStoragePlaybackResolver(
+            storageLookup = LegacyStorageLookup {
+                storageLookups += 1
+                null
+            },
+            sessionFactory = LegacyPlaybackSessionFactory { _, _ ->
+                genericCreates += 1
+                null
+            },
+            openListPlaybackSessionFactory = OpenListPlaybackSessionFactory { receivedAccount, path ->
+                assertEquals(accountId, receivedAccount)
+                assertEquals(rawPath, path)
+                FakeLegacyPlaybackSession(
+                    url = "http://127.0.0.1:${1234 + created.size}/stream.bin",
+                    mimeType = "audio/flac",
+                ).also(created::add)
+            },
+        )
+
+        val first = resolver.resolve(accountId, rawPath, LegacyStorageKind.OpenList)
+        val firstResource = (first as SourcePlaybackResult.Success).resource
+        assertEquals("http://127.0.0.1:1234/stream.bin", firstResource.uri)
+        assertEquals("audio/flac", firstResource.mimeType)
+        assertFalse(firstResource.isLocal)
+        assertFalse(firstResource.uri.contains("openlist.example"))
+        assertEquals(0, storageLookups)
+        assertEquals(0, genericCreates)
+        assertEquals(0, created.single().shutdownCalls)
+
+        resolver.release(firstResource.uri)
+        assertEquals(1, created.single().shutdownCalls)
+
+        val second = resolver.resolve(accountId, rawPath, LegacyStorageKind.OpenList)
+        val secondResource = (second as SourcePlaybackResult.Success).resource
+        assertEquals("audio/flac", secondResource.mimeType)
+        resolver.releaseAll()
+        assertEquals(1, created[1].shutdownCalls)
+        resolver.release(secondResource.uri)
+        assertEquals(1, created[1].shutdownCalls)
+    }
+
+    @Test
+    fun openListPlaybackMapsReauthenticationWithoutAffectingLegacyFactory() = runBlocking {
+        var genericCreates = 0
+        val resolver = RetainedLegacyStoragePlaybackResolver(
+            storageLookup = LegacyStorageLookup { storage(id = 42, typ = StorageType.WEBDAV) },
+            sessionFactory = LegacyPlaybackSessionFactory { _, _ ->
+                genericCreates += 1
+                FakeLegacyPlaybackSession("http://127.0.0.1:1234/legacy.mp3")
+            },
+            openListPlaybackSessionFactory = OpenListPlaybackSessionFactory { _, _ ->
+                throw io.github.julystar.musicapp.core.domain.model.NeedsReauthenticationException()
+            },
+        )
+
+        assertEquals(
+            SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unauthorized),
+            resolver.resolve(
+                SourceAccountId("openlist:41"),
+                "/track",
+                LegacyStorageKind.OpenList,
+            ),
+        )
+        assertEquals(0, genericCreates)
+        val legacy = resolver.resolve(
+            SourceAccountId("storage:42"),
+            "/legacy.mp3",
+            LegacyStorageKind.WebDav,
+        )
+        assertTrue(legacy is SourcePlaybackResult.Success)
+        assertEquals(1, genericCreates)
+        resolver.releaseAll()
+    }
+
+    @Test
+    fun openListPlaybackMapsTypedTransportFailures() = runBlocking {
+        for ((reason, expected) in listOf(
+            io.github.julystar.musicapp.core.data.OpenListAuthTransportFailureReason.PermissionDenied to
+                SourcePlaybackFailureReason.Unauthorized,
+            io.github.julystar.musicapp.core.data.OpenListAuthTransportFailureReason.RateLimited to
+                SourcePlaybackFailureReason.Unavailable,
+        )) {
+            val resolver = RetainedLegacyStoragePlaybackResolver(
+                storageLookup = LegacyStorageLookup { null },
+                sessionFactory = LegacyPlaybackSessionFactory { _, _ -> null },
+                openListPlaybackSessionFactory = OpenListPlaybackSessionFactory { _, _ ->
+                    throw io.github.julystar.musicapp.core.data.OpenListAuthTransportException(reason)
+                },
+            )
+            assertEquals(
+                SourcePlaybackResult.Failure(expected),
+                resolver.resolve(
+                    SourceAccountId("openlist:41"),
+                    "/track",
+                    LegacyStorageKind.OpenList,
+                ),
+            )
+        }
+    }
+
+    @Test
     fun retainedLegacyPlaybackResolverRejectsWrongStorageTypeBeforeCreatingSession() = runBlocking {
         var createCalls = 0
         val resolver = RetainedLegacyStoragePlaybackResolver(
@@ -517,6 +624,7 @@ class LegacyStorageMusicSourceTest {
 
     private class FakeLegacyPlaybackSession(
         override val url: String,
+        override val mimeType: String? = null,
     ) : LegacyPlaybackSession {
         var shutdownCalls = 0
             private set

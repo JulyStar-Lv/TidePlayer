@@ -468,6 +468,100 @@ class SettingsVMTest {
     }
 
     @Test
+    fun `openlist picker preserves raw roots and scan dispatches each configured root`() = runTest {
+        val accountId = storageSourceAccountId(43L)
+        val storage = FakeStorageRepository().apply {
+            accounts.value = listOf(
+                sourceAccount(43L, BuiltInSourceIds.OpenList, "OpenList", 0),
+            )
+        }
+        val environment = TestEnvironment(storageRepository = storage)
+
+        withStartedViewModel(environment) { viewModel ->
+            assertEquals("OpenList", viewModel.state.value.sourceAccounts.single().sourceLabel)
+            viewModel.onAction(SettingsAction.ConfigureSourcePath(accountId))
+            assertIs<SettingsEvent.OpenSourcePathPicker>(viewModel.eventFlow.first())
+            environment.importRepository.onFinishCurrentDirectory(
+                SourceDirectorySelection(
+                    sourceId = BuiltInSourceIds.OpenList,
+                    accountId = accountId,
+                    path = "/音乐/%25 #? 😀",
+                    remoteId = "/音乐/%25 #? 😀",
+                ),
+            )
+            advanceUntilIdle()
+            viewModel.onAction(SettingsAction.ConfigureSourcePath(accountId))
+            assertIs<SettingsEvent.OpenSourcePathPicker>(viewModel.eventFlow.first())
+            environment.importRepository.onFinishCurrentDirectory(
+                SourceDirectorySelection(
+                    sourceId = BuiltInSourceIds.OpenList,
+                    accountId = accountId,
+                    path = "/第二根/한국어",
+                    remoteId = "/第二根/한국어",
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    accountId to "/音乐/%25 #? 😀",
+                    accountId to "/第二根/한국어",
+                ),
+                storage.rootPathUpdates,
+            )
+            storage.rootPaths[accountId] = listOf("/音乐/%25 #? 😀", "/第二根/한국어")
+            viewModel.onAction(SettingsAction.ScanSourceAccount(accountId))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("/音乐/%25 #? 😀", "/第二根/한국어"),
+                environment.librarySyncController.requests.map { it.selectedFolderCanonicalPath },
+            )
+        }
+    }
+
+    @Test
+    fun `openlist scan does not request without roots or when disabled`() = runTest {
+        val accountId = storageSourceAccountId(44L)
+        val storage = FakeStorageRepository().apply {
+            accounts.value = listOf(sourceAccount(44L, BuiltInSourceIds.OpenList, "OpenList", 0))
+        }
+        val environment = TestEnvironment(storageRepository = storage)
+        withStartedViewModel(environment) { viewModel ->
+            viewModel.onAction(SettingsAction.ScanSourceAccount(accountId))
+            advanceUntilIdle()
+            assertTrue(environment.librarySyncController.requests.isEmpty())
+
+            storage.accounts.value = listOf(
+                sourceAccount(44L, BuiltInSourceIds.OpenList, "OpenList", 0, enabled = false),
+            )
+            storage.rootPaths[accountId] = listOf("/should-not-scan")
+            viewModel.onAction(SettingsAction.ScanSourceAccount(accountId))
+            advanceUntilIdle()
+            assertTrue(environment.librarySyncController.requests.isEmpty())
+        }
+    }
+
+    @Test
+    fun `scan all sources dispatches every enabled openlist raw root`() = runTest {
+        val accountId = storageSourceAccountId(45L)
+        val roots = listOf("/音乐/%25 #? 😀\\folder", "/第二根/한국어 space")
+        val storage = FakeStorageRepository().apply {
+            accounts.value = listOf(sourceAccount(45L, BuiltInSourceIds.OpenList, "OpenList", 0))
+            rootPaths[accountId] = roots
+        }
+        val environment = TestEnvironment(storageRepository = storage)
+
+        withStartedViewModel(environment) { viewModel ->
+            viewModel.onAction(SettingsAction.ScanAllSources)
+            advanceUntilIdle()
+
+            assertEquals(roots, environment.librarySyncController.requests.map { it.selectedFolderRemoteId })
+            assertEquals(roots, environment.librarySyncController.requests.map { it.selectedFolderCanonicalPath })
+            assertEquals(roots, environment.librarySyncController.requests.map { it.selectedFolderDisplayPath })
+        }
+    }
+
+    @Test
     fun `local directory scan waits for storage permission`() = runTest {
         val sync = FakeLibrarySyncController()
         val permissionChecker = FakePermissionChecker(granted = false)
@@ -790,6 +884,8 @@ private class FakeStorageRepository : StorageRepository {
     var credential: StoredCredential? = null
     var upsertedDraft: SourceEditorDraft? = null
     var lastRootPathUpdate: Pair<SourceAccountId, String>? = null
+    val rootPathUpdates = mutableListOf<Pair<SourceAccountId, String>>()
+    val rootPaths = mutableMapOf<SourceAccountId, List<String>>()
 
     override suspend fun reload() = Unit
     override suspend fun startOneDriveOAuth(): String = ""
@@ -805,10 +901,12 @@ private class FakeStorageRepository : StorageRepository {
     override suspend fun loadCredentialByAccountId(accountId: SourceAccountId): StoredCredential? = credential
     override suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String) {
         lastRootPathUpdate = accountId to rootPath
+        rootPathUpdates += accountId to rootPath
         accounts.value = accounts.value.map { account ->
             if (account.accountId == accountId) account.copy(rootPath = rootPath) else account
         }
     }
+    override suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> = rootPaths[accountId].orEmpty()
     override suspend fun removeByAccountId(accountId: SourceAccountId) = Unit
 }
 
@@ -947,6 +1045,7 @@ private fun sourceAccount(
     count: Long,
     lastScanAtEpochMs: Long? = null,
     lastScanStatus: String? = null,
+    enabled: Boolean = true,
 ) = StorageAccountInfo(
     accountId = storageSourceAccountId(id),
     sourceId = sourceId,
@@ -955,6 +1054,7 @@ private fun sourceAccount(
     title = title,
     subtitle = title,
     musicCount = count,
+    enabled = enabled,
     lastScanAtEpochMs = lastScanAtEpochMs,
     lastScanStatus = lastScanStatus,
 )

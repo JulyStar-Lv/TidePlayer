@@ -6,6 +6,8 @@ import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class SettingsActionTest {
 
@@ -54,5 +56,24 @@ class SettingsActionTest {
         assertEquals(SettingsAction.RequestClearAudio, SettingsAction.RequestClearAudio)
         assertEquals(SettingsAction.RequestClearImage, SettingsAction.RequestClearImage)
         assertEquals(SettingsAction.ConfirmPendingAction, SettingsAction.ConfirmPendingAction)
+    }
+
+    @Test
+    fun `connection actions redact passwords`() {
+        val actions = listOf(
+            SettingsAction.TestWebDavConnection(TEST_SECRET),
+            SettingsAction.SaveWebDavAccount(TEST_SECRET),
+            SettingsAction.TestSmbConnection(TEST_SECRET),
+            SettingsAction.SaveSmbAccount(TEST_SECRET),
+        )
+
+        actions.forEach { action ->
+            assertFalse(TEST_SECRET in action.toString())
+            assertTrue("<redacted>" in action.toString())
+        }
+    }
+
+    private companion object {
+        const val TEST_SECRET = "settings-action-fixture-sensitive-value"
     }
 }

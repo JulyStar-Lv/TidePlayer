@@ -1058,6 +1058,9 @@ private fun CompactArtworkArea(
 private fun ImmersiveArtworkArea(
     artwork: Artwork?,
     surfaceColor: Color,
+    accentColor: Color,
+    audioReactiveBackgroundEnabled: Boolean,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot>,
     coverSwipeEnabled: Boolean,
     onSwipePrevious: () -> Unit,
     onSwipeNext: () -> Unit,
@@ -1118,6 +1121,12 @@ private fun ImmersiveArtworkArea(
                         ),
                     ),
             )
+            if (audioReactiveBackgroundEnabled) {
+                ReactiveImmersiveOverlay(
+                    accentColor = accentColor,
+                    audioReactiveSnapshot = audioReactiveSnapshot,
+                )
+            }
         }
     }
 }
@@ -1473,6 +1482,7 @@ private fun CompactImmersiveNowPlayingLayout(
     progressContent: @Composable (Long?) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
     isPortrait: Boolean,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot>,
 ) {
     val track = state.currentTrack
     val palette = rememberArtworkPalette(track?.artwork)
@@ -1491,6 +1501,9 @@ private fun CompactImmersiveNowPlayingLayout(
             ImmersiveArtworkArea(
                 artwork = track?.artwork,
                 surfaceColor = surfaceColor,
+                accentColor = palette.vibrant,
+                audioReactiveBackgroundEnabled = playerInteractionSettings.audioReactiveBackgroundEnabled,
+                audioReactiveSnapshot = audioReactiveSnapshot,
                 coverSwipeEnabled = playerInteractionSettings.coverSwipeEnabled,
                 onSwipePrevious = {
                     if (state.queue.canPlayPrevious) onAction(NowPlayingAction.PlayPrevious)
@@ -1502,61 +1515,76 @@ private fun CompactImmersiveNowPlayingLayout(
                     .fillMaxWidth()
                     .height(coverHeight),
             )
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0f to surfaceColor,
-                                0.16f to surfaceColor.copy(alpha = 0.94f),
-                                1f to surfaceColor.copy(alpha = 0.90f),
+                    .fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0f to surfaceColor,
+                                    0.16f to surfaceColor.copy(alpha = 0.94f),
+                                    1f to surfaceColor.copy(alpha = 0.90f),
+                                ),
                             ),
                         ),
+                )
+                if (playerInteractionSettings.audioReactiveBackgroundEnabled) {
+                    ReactiveImmersiveOverlay(
+                        accentColor = palette.vibrant,
+                        audioReactiveSnapshot = audioReactiveSnapshot,
                     )
-                    .padding(
-                        start = CompactImmersiveContentHorizontalPadding,
-                        end = CompactImmersiveContentHorizontalPadding,
-                        bottom = CompactPlayerControlsBottomInset,
-                    ),
-            ) {
-                TrackRow(
-                    state = state,
-                    lyricDisplaySettings = lyricDisplaySettings,
-                    showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
-                    liked = liked,
-                    onLikedChange = onLikedChange,
-                    onAction = onAction,
+                }
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(
-                            start = lyricsLineHorizontalPadding,
-                            top = 4.dp,
+                            start = CompactImmersiveContentHorizontalPadding,
+                            end = CompactImmersiveContentHorizontalPadding,
+                            bottom = CompactPlayerControlsBottomInset,
                         ),
-                )
-                CompactLyricsSurface(
-                    track = track,
-                    lyricDisplaySettings = lyricDisplaySettings,
-                    currentPositionMs = currentPositionMs,
-                    isPlaying = state.controls.isPlaying && !isSeeking,
-                    onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 6.dp, bottom = 10.dp),
-                    lineHorizontalPadding = lyricsLineHorizontalPadding,
-                    isPortrait = isPortrait,
-                )
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Box(modifier = Modifier.offset(y = (-8).dp)) {
-                        progressContent(track?.durationMs)
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    CompactTransportPanel(
-                        nowPlayingState = state,
+                ) {
+                    TrackRow(
+                        state = state,
+                        lyricDisplaySettings = lyricDisplaySettings,
+                        showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                        liked = liked,
+                        onLikedChange = onLikedChange,
                         onAction = onAction,
-                        dense = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = lyricsLineHorizontalPadding,
+                                top = 4.dp,
+                            ),
                     )
+                    CompactLyricsSurface(
+                        track = track,
+                        lyricDisplaySettings = lyricDisplaySettings,
+                        currentPositionMs = currentPositionMs,
+                        isPlaying = state.controls.isPlaying && !isSeeking,
+                        onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(top = 6.dp, bottom = 10.dp),
+                        lineHorizontalPadding = lyricsLineHorizontalPadding,
+                        isPortrait = isPortrait,
+                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(modifier = Modifier.offset(y = (-8).dp)) {
+                            progressContent(track?.durationMs)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactTransportPanel(
+                            nowPlayingState = state,
+                            onAction = onAction,
+                            dense = false,
+                        )
+                    }
                 }
             }
         }
@@ -1718,6 +1746,7 @@ private fun CompactNowPlayingLayout(
     liked: Boolean,
     onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot>,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isShortLandscape = maxWidth >= 640.dp && maxWidth > maxHeight && maxHeight < 520.dp
@@ -1748,6 +1777,7 @@ private fun CompactNowPlayingLayout(
                 progressContent = progressContent,
                 onAction = onAction,
                 isPortrait = isPortrait,
+                audioReactiveSnapshot = audioReactiveSnapshot,
             )
         } else {
             CompactClassicNowPlayingLayout(
@@ -1951,6 +1981,7 @@ fun NowPlayingScreen(
                         liked = isFavorite,
                         onLikedChange = { onToggleFavorite() },
                         onAction = onAction,
+                        audioReactiveSnapshot = audioReactiveSnapshot,
                     )
                 }
             }
@@ -2051,39 +2082,9 @@ private fun AudioReactiveBackground(
     middleColor: Color,
     accentColor: Color,
 ) {
-    val snapshot by audioReactiveSnapshot.collectAsState()
-    val levelTarget = sanitizeReactiveValue(snapshot.level)
-    val beatTarget = sanitizeReactiveValue(snapshot.beat)
-    val levelAnimation = remember { Animatable(0f) }
-    val beatAnimation = remember { Animatable(0f) }
-    LaunchedEffect(levelTarget) {
-        levelAnimation.animateTo(
-            targetValue = levelTarget,
-            animationSpec = tween(
-                durationMillis = resolveReactiveSmoothingDurationMillis(
-                    currentValue = levelAnimation.value,
-                    targetValue = levelTarget,
-                    attackDurationMillis = ReactiveLevelAttackDurationMillis,
-                    releaseDurationMillis = ReactiveLevelReleaseDurationMillis,
-                ),
-            ),
-        )
-    }
-    LaunchedEffect(beatTarget) {
-        beatAnimation.animateTo(
-            targetValue = beatTarget,
-            animationSpec = tween(
-                durationMillis = resolveReactiveSmoothingDurationMillis(
-                    currentValue = beatAnimation.value,
-                    targetValue = beatTarget,
-                    attackDurationMillis = ReactiveBeatAttackDurationMillis,
-                    releaseDurationMillis = ReactiveBeatReleaseDurationMillis,
-                ),
-            ),
-        )
-    }
-    val level = levelAnimation.value
-    val beat = beatAnimation.value
+    val reactiveValues = audioReactiveValues(audioReactiveSnapshot)
+    val level = reactiveValues.level
+    val beat = reactiveValues.beat
     val phaseTransition = rememberInfiniteTransition(label = "audioReactiveBackgroundPhase")
     val phase by phaseTransition.animateFloat(
         initialValue = 0f,
@@ -2132,7 +2133,58 @@ private fun AudioReactiveBackground(
             topColor = topColor,
             accentColor = accentColor,
         )
+        ReactiveBackgroundGlow(
+            accentColor = accentColor,
+            level = level,
+            beat = beat,
+        )
     }
+}
+
+private data class AudioReactiveValues(
+    val level: Float,
+    val beat: Float,
+)
+
+@Composable
+private fun audioReactiveValues(
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot>,
+): AudioReactiveValues {
+    val snapshot by audioReactiveSnapshot.collectAsState()
+    val levelTarget = sanitizeReactiveValue(snapshot.level)
+    val beatTarget = sanitizeReactiveValue(snapshot.beat)
+    val levelAnimation = remember { Animatable(0f) }
+    val beatAnimation = remember { Animatable(0f) }
+    LaunchedEffect(levelTarget) {
+        levelAnimation.animateTo(
+            targetValue = levelTarget,
+            animationSpec = tween(
+                durationMillis = resolveReactiveSmoothingDurationMillis(
+                    currentValue = levelAnimation.value,
+                    targetValue = levelTarget,
+                    attackDurationMillis = ReactiveLevelAttackDurationMillis,
+                    releaseDurationMillis = ReactiveLevelReleaseDurationMillis,
+                ),
+            ),
+        )
+    }
+    LaunchedEffect(beatTarget) {
+        beatAnimation.animateTo(
+            targetValue = beatTarget,
+            animationSpec = tween(
+                durationMillis = resolveReactiveSmoothingDurationMillis(
+                    currentValue = beatAnimation.value,
+                    targetValue = beatTarget,
+                    attackDurationMillis = ReactiveBeatAttackDurationMillis,
+                    releaseDurationMillis = ReactiveBeatReleaseDurationMillis,
+                ),
+            ),
+        )
+    }
+    return AudioReactiveValues(
+        level = levelAnimation.value,
+        beat = beatAnimation.value,
+    )
 }
 
 @Composable
@@ -2197,6 +2249,35 @@ private fun DrawScope.drawReactiveBlob(
         ),
         center = center,
         radius = radius,
+    )
+}
+
+@Composable
+private fun ReactiveBackgroundGlow(
+    accentColor: Color,
+    level: Float,
+    beat: Float,
+) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        drawRect(
+            color = accentColor.copy(alpha = resolveReactiveGlowAlpha(level, beat)),
+        )
+        drawRect(
+            color = Color.White.copy(alpha = resolveReactiveWhiteGlowAlpha(level, beat)),
+        )
+    }
+}
+
+@Composable
+private fun ReactiveImmersiveOverlay(
+    accentColor: Color,
+    audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot>,
+) {
+    val reactiveValues = audioReactiveValues(audioReactiveSnapshot)
+    ReactiveBackgroundGlow(
+        accentColor = accentColor,
+        level = reactiveValues.level,
+        beat = reactiveValues.beat,
     )
 }
 
@@ -2277,19 +2358,37 @@ internal fun resolveReactiveBlobExpansion(level: Float, beat: Float): Float =
             sanitizeReactiveValue(beat) * ReactiveBeatBlobExpansion
         ).coerceIn(1f, ReactiveMaxBlobExpansion)
 
+internal fun resolveReactiveGlowAlpha(level: Float, beat: Float): Float =
+    (
+        sanitizeReactiveValue(level) * ReactiveLevelGlowAlphaGain +
+            sanitizeReactiveValue(beat) * ReactiveBeatGlowAlphaGain
+        ).coerceIn(0f, ReactiveMaxGlowAlpha)
+
+internal fun resolveReactiveWhiteGlowAlpha(level: Float, beat: Float): Float =
+    (
+        sanitizeReactiveValue(level) * ReactiveLevelWhiteGlowAlphaGain +
+            sanitizeReactiveValue(beat) * ReactiveBeatWhiteGlowAlphaGain
+        ).coerceIn(0f, ReactiveMaxWhiteGlowAlpha)
+
 private const val PlayerBackgroundBaseScale = 2.90f
 private val PlayerBackgroundBlurRadius = 48.dp
 private const val PlayerBackgroundArtworkAlpha = 0.78f
-private const val ReactiveLevelScaleGain = 0.014f
-private const val ReactiveBeatScaleGain = 0.024f
-private const val ReactiveMaxScaleMultiplier = 1.05f
+private const val ReactiveLevelScaleGain = 0.020f
+private const val ReactiveBeatScaleGain = 0.035f
+private const val ReactiveMaxScaleMultiplier = 1.06f
 private const val ReactiveMaxBaseScale = 100f
-private const val ReactiveLevelBlobExpansion = 0.10f
-private const val ReactiveBeatBlobExpansion = 0.14f
-private const val ReactiveMaxBlobExpansion = 1.24f
-private const val ReactiveVibrantBlobAlpha = 0.18f
-private const val ReactiveMutedBlobAlpha = 0.14f
-private const val ReactiveDarkMutedBlobAlpha = 0.12f
+private const val ReactiveLevelBlobExpansion = 0.16f
+private const val ReactiveBeatBlobExpansion = 0.24f
+private const val ReactiveMaxBlobExpansion = 1.38f
+private const val ReactiveVibrantBlobAlpha = 0.24f
+private const val ReactiveMutedBlobAlpha = 0.19f
+private const val ReactiveDarkMutedBlobAlpha = 0.15f
+private const val ReactiveLevelGlowAlphaGain = 0.04f
+private const val ReactiveBeatGlowAlphaGain = 0.08f
+private const val ReactiveMaxGlowAlpha = 0.12f
+private const val ReactiveLevelWhiteGlowAlphaGain = 0.012f
+private const val ReactiveBeatWhiteGlowAlphaGain = 0.028f
+private const val ReactiveMaxWhiteGlowAlpha = 0.04f
 private const val ReactiveLevelAttackDurationMillis = 80
 private const val ReactiveLevelReleaseDurationMillis = 420
 private const val ReactiveBeatAttackDurationMillis = 60

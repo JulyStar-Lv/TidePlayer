@@ -13,7 +13,10 @@ interface PlaybackEngine {
 data class PlaybackEngineLoadRequest(
     val item: PlayableItem,
     val resource: PlaybackEngineResource,
-)
+) {
+    override fun toString(): String =
+        "PlaybackEngineLoadRequest(item=$item, resource=$resource)"
+}
 
 data class PlaybackEngineResource(
     val uri: String,
@@ -35,6 +38,10 @@ data class PlaybackEngineResource(
     fun isExpired(nowEpochMs: Long): Boolean {
         return expiresAtEpochMs?.let { it <= nowEpochMs } ?: false
     }
+
+    override fun toString(): String =
+        "PlaybackEngineResource(uri=<redacted>, headers=<redacted>, mimeType=$mimeType, " +
+            "expiresAtEpochMs=$expiresAtEpochMs, isLocal=$isLocal)"
 }
 
 sealed interface PlaybackEngineLoadResult {

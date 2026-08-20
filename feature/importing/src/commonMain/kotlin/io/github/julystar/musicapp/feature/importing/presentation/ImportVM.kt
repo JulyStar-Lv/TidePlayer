@@ -69,6 +69,12 @@ private fun decodeUrlComponent(value: String): String {
     return decoded.toString()
 }
 
+internal fun sourceBreadcrumbName(
+    path: String,
+    fallbackComponent: String,
+    clickedDirectoryNames: Map<String, String>,
+): String = clickedDirectoryNames[path] ?: decodeUrlComponent(fallbackComponent)
+
 private fun defaultSplitPaths(): List<SplitPathItem> {
     return listOf()
 }
@@ -98,6 +104,8 @@ class ImportVM constructor(
     private val permissionRepository: PermissionChecker,
     private val sourceRegistry: MusicSourceRegistry,
 ) : ViewModel() {
+    private val directoryNames = mutableMapOf<String, String>()
+    private val directoryRemoteIds = mutableMapOf<String, String?>()
     private val _currentPath = MutableStateFlow("/")
     private val _splitPaths = _currentPath.map { path ->
         val components = path.split('/').filter { it.isNotEmpty() }
@@ -110,7 +118,7 @@ class ImportVM constructor(
             } else {
                 "$currentPath/$component"
             }
-            val name = decodeUrlComponent(component)
+            val name = sourceBreadcrumbName(currentPath, component, directoryNames)
             splitPaths.add(SplitPathItem(currentPath, name))
         }
 
@@ -128,8 +136,6 @@ class ImportVM constructor(
     }.stateIn(viewModelScope, SharingStarted.Lazily, true)
     private val _undoStack = MutableStateFlow(persistentListOf<String>())
     private val _events = Channel<ImportEvent>(Channel.BUFFERED)
-    private val directoryRemoteIds = mutableMapOf<String, String?>()
-
     val splitPaths = _splitPaths
     val selectedCount = _selected.combine(_entries) { selected, entries ->
         entries.count { entry -> selected.contains(entry.path) }
@@ -263,6 +269,7 @@ class ImportVM constructor(
     fun clickEntry(entry: SourceNode) {
         if (entry.type == SourceNodeType.Folder) {
             directoryRemoteIds[entry.path] = entry.remoteId
+            directoryNames[entry.path] = entry.name
             navigateDir(entry.path)
         } else if (
             selectionMode.value == ImportSelectionMode.Entries &&
@@ -324,6 +331,7 @@ class ImportVM constructor(
         _selectedStorageAccountId.value = accountId
         _undoStack.value = persistentListOf()
         directoryRemoteIds.clear()
+        directoryNames.clear()
 
         navigateDirImpl("/")
     }

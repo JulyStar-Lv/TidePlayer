@@ -13,6 +13,7 @@ use audio_metadata::{
 };
 use futures_util::{stream, StreamExt};
 use sha2::{Digest, Sha256};
+use storage_backend::StorageBackend;
 
 use crate::{
     ctx::BackendContext,
@@ -36,12 +37,23 @@ pub async fn ct_read_remote_metadata(
     size: u64,
     options: MetadataReadOptions,
 ) -> BResult<RemoteMetadata> {
+    let storage_backend = build_storage_backend(backend.get_context(), storage)?;
+    read_remote_metadata_with_backend(backend.get_context(), storage_backend, entry, size, options)
+        .await
+}
+
+async fn read_remote_metadata_with_backend(
+    cx: &BackendContext,
+    storage_backend: Arc<dyn StorageBackend + Send + Sync>,
+    entry: StorageEntryLoc,
+    size: u64,
+    options: MetadataReadOptions,
+) -> BResult<RemoteMetadata> {
     if size == 0 {
         return Err(BError::CustomError {
             message: "metadata source size must be greater than zero".to_string(),
         });
     }
-    let storage_backend = build_storage_backend(backend.get_context(), storage)?;
     let source = Arc::new(StorageRangeSource::new(storage_backend, entry.path, size));
     let read_result = async_runtime::tokio_runtime()
         .spawn_blocking(move || {
@@ -61,7 +73,7 @@ pub async fn ct_read_remote_metadata(
         })??;
     let metadata = read_result.metadata;
     let (artwork, artwork_cached_bytes) = match metadata.artwork {
-        Some(artwork) => match cache_remote_artwork(backend.get_context(), artwork) {
+        Some(artwork) => match cache_remote_artwork(cx, artwork) {
             Ok(value) => value,
             Err(error) => {
                 tracing::warn!("failed to cache embedded artwork: {error}");
@@ -401,6 +413,64 @@ pub async fn ct_read_remote_metadata_batch(
             .sum::<u64>(),
         "remote metadata batch completed"
     );
+    Ok(results)
+}
+
+/// OpenList-specific metadata seam. The transient bearer token is used only
+/// to construct the in-memory backend and is never represented by Storage.
+#[uniffi::export]
+pub async fn ct_read_openlist_remote_metadata_batch(
+    backend: Arc<Backend>,
+    base_url: String,
+    token: String,
+    requests: Vec<RemoteMetadataRequest>,
+    options: MetadataReadOptions,
+    concurrency: u32,
+) -> BResult<Vec<RemoteMetadataResult>> {
+    if !(1..=16).contains(&concurrency) {
+        return Err(BError::CustomError {
+            message: "metadata concurrency must be between 1 and 16".to_string(),
+        });
+    }
+    let storage_backend = crate::services::build_openlist_backend(
+        base_url,
+        token,
+        std::time::Duration::from_secs(45),
+    )?;
+    let mut results = stream::iter(requests.into_iter().enumerate())
+        .map(|(index, request)| {
+            let backend = Arc::clone(&backend);
+            let storage_backend = Arc::clone(&storage_backend);
+            async move {
+                let entry = request.entry;
+                let result = read_remote_metadata_with_backend(
+                    backend.get_context(),
+                    storage_backend,
+                    entry.clone(),
+                    request.size,
+                    options,
+                )
+                .await;
+                match result {
+                    Ok(metadata) => RemoteMetadataResult {
+                        request_index: index as u64,
+                        entry,
+                        metadata: Some(metadata),
+                        error: None,
+                    },
+                    Err(error) => RemoteMetadataResult {
+                        request_index: index as u64,
+                        entry,
+                        metadata: None,
+                        error: Some(error.to_string()),
+                    },
+                }
+            }
+        })
+        .buffer_unordered(concurrency as usize)
+        .collect::<Vec<_>>()
+        .await;
+    results.sort_by_key(|result| result.request_index);
     Ok(results)
 }
 

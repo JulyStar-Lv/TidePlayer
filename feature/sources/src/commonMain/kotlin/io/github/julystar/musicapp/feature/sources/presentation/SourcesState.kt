@@ -17,12 +17,15 @@ data class SourceAccountUi(
     val subtitle: String,
     val sourceType: String,
     val musicCount: Long,
+    val syncEnabled: Boolean = true,
+    val isSyncing: Boolean = false,
 )
 
 sealed interface SourcesAction {
     data object Refresh : SourcesAction
     data object AddSource : SourcesAction
     data class OpenSource(val id: SourceAccountId) : SourcesAction
+    data class SyncSource(val id: SourceAccountId) : SourcesAction
 }
 
 sealed interface SourcesEvent {

@@ -8,6 +8,7 @@ import io.github.julystar.musicapp.database.ProviderTypes
 import io.github.julystar.musicapp.database.MetadataRefreshCandidate
 import io.github.julystar.musicapp.database.SourceAccountEntity
 import io.github.julystar.musicapp.database.SourceItemEntity
+import io.github.julystar.musicapp.database.SourceItemPropertyEntity
 import io.github.julystar.musicapp.database.SourceItemTypes
 import io.github.julystar.musicapp.database.TrackSourcePlaybackCandidate
 import io.github.julystar.musicapp.database.TrackSourceRefDao
@@ -17,6 +18,9 @@ import io.github.julystar.musicapp.source.api.MusicSource
 import io.github.julystar.musicapp.source.api.MusicSourceDescriptor
 import io.github.julystar.musicapp.source.api.MusicSourceRegistry
 import io.github.julystar.musicapp.source.api.PlaybackResource
+import io.github.julystar.musicapp.source.api.RemoteServerPlaybackTarget
+import io.github.julystar.musicapp.source.api.encodedPlaybackId
+import io.github.julystar.musicapp.source.api.decodeRemoteServerPlaybackTarget
 import io.github.julystar.musicapp.source.api.SourceAuthResult
 import io.github.julystar.musicapp.source.api.SourceCapability
 import io.github.julystar.musicapp.source.api.SourceConfiguration
@@ -26,10 +30,12 @@ import io.github.julystar.musicapp.source.api.SourcePlaybackResult
 import io.github.julystar.musicapp.source.api.LegacyStorageKind
 import io.github.julystar.musicapp.source.api.LegacyStoragePlaybackResolver
 import io.github.julystar.musicapp.source.api.legacyStorageTrackMediaId
+import io.github.julystar.musicapp.source.api.toLegacyStoragePlaybackTarget
 import io.github.julystar.musicapp.source.storage.LegacyStorageLookup
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import uniffi.app_backend.Music
 import uniffi.app_backend.MusicId
 import uniffi.app_backend.MusicMeta
@@ -39,6 +45,285 @@ import uniffi.app_backend.StorageId
 import uniffi.app_backend.StorageType
 
 class PlaybackResourceResolverTest {
+    @Test
+    fun unknownPersistedProviderFailsClosedWithoutCallingWebDav() = runBlocking {
+        var webDavCalls = 0
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(
+                    path = "/must-not-route.flac",
+                    providerType = "corrupt-provider",
+                )
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(
+                    fakeMusicSource(BuiltInSourceIds.WebDav) {
+                        webDavCalls += 1
+                        SourcePlaybackResult.Success(PlaybackResource(uri = "http://127.0.0.1/wrong"))
+                    }
+                )
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+        )
+
+        assertEquals(
+            SourcePlaybackResult.Failure(SourcePlaybackFailureReason.UnsupportedAccount),
+            resolver.resolve(music(storageId = 42, path = "/legacy/ignored.flac")),
+        )
+        assertEquals(0, webDavCalls)
+    }
+
+    @Test
+    fun sevenRemoteProvidersRoutePersistedCandidatesThroughTheRegisteredSource() = runBlocking {
+        val cases = listOf(
+            ProviderPlaybackCase(ProviderTypes.WebDav, BuiltInSourceIds.WebDav, false),
+            ProviderPlaybackCase(ProviderTypes.OneDrive, BuiltInSourceIds.OneDrive, false),
+            ProviderPlaybackCase(ProviderTypes.Smb, BuiltInSourceIds.Smb, false),
+            ProviderPlaybackCase(ProviderTypes.OpenList, BuiltInSourceIds.OpenList, false),
+            ProviderPlaybackCase(ProviderTypes.Navidrome, BuiltInSourceIds.Navidrome, true),
+            ProviderPlaybackCase(ProviderTypes.OpenSubsonic, BuiltInSourceIds.OpenSubsonic, true),
+            ProviderPlaybackCase(ProviderTypes.Emby, BuiltInSourceIds.Emby, true),
+        )
+
+        cases.forEachIndexed { index, playbackCase ->
+            val accountId = 700L + index
+            val opaqueIdentity = "opaque/${playbackCase.providerType}:?#% $index"
+            val expectedResource = PlaybackResource(uri = "http://127.0.0.1/resolved-$index.flac")
+            val calls = mutableListOf<SourceId>()
+            var capturedMediaId: MediaId? = null
+            val sources = cases.map { registeredCase ->
+                fakeMusicSource(registeredCase.sourceId) { mediaId ->
+                    calls += registeredCase.sourceId
+                    capturedMediaId = mediaId
+                    SourcePlaybackResult.Success(expectedResource)
+                }
+            }
+            val resolver = PlaybackResourceResolver(
+                storageLookup = LegacyStorageLookup { null },
+                trackSourceRefDao = fakeTrackSourceRefDao(
+                    candidate(
+                        path = opaqueIdentity.takeUnless { playbackCase.isServer },
+                        providerType = playbackCase.providerType,
+                        sourceAccountId = accountId,
+                        sourceItemId = 800L + index,
+                        providerItemId = opaqueIdentity,
+                    )
+                ),
+                sourceRegistry = MusicSourceRegistry(sources),
+                legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+                sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            )
+
+            assertEquals(
+                SourcePlaybackResult.Success(expectedResource),
+                resolver.resolve(music(storageId = accountId, path = "/legacy/ignored.flac")),
+            )
+            assertEquals(listOf(playbackCase.sourceId), calls)
+            val mediaId = capturedMediaId ?: error("registered source was not called")
+            assertEquals(playbackCase.sourceId, mediaId.sourceId)
+            if (playbackCase.isServer) {
+                assertTrue(mediaId.remoteId.startsWith("v2:"))
+                assertEquals(
+                    RemoteServerPlaybackTarget(
+                        accountId = SourceAccountId("storage:$accountId"),
+                        remoteId = opaqueIdentity,
+                    ),
+                    mediaId.remoteId.decodeRemoteServerPlaybackTarget(),
+                )
+            } else {
+                assertEquals(
+                    SourceAccountId("storage:$accountId"),
+                    mediaId.toLegacyStoragePlaybackTarget()?.accountId,
+                )
+                assertEquals(opaqueIdentity, mediaId.toLegacyStoragePlaybackTarget()?.path)
+            }
+        }
+    }
+
+    @Test
+    fun embySourceMediaIdIsReadOnceAndSharedByTargetAndCacheIdentity() = runBlocking {
+        var propertyReads = 0
+        var capturedMediaId: MediaId? = null
+        val source = fakeMusicSource(BuiltInSourceIds.Emby) { mediaId ->
+            capturedMediaId = mediaId
+            SourcePlaybackResult.Success(PlaybackResource(uri = "https://emby.invalid/audio"))
+        }
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(
+                    path = null,
+                    providerType = ProviderTypes.Emby,
+                    sourceItemId = 321,
+                )
+            ),
+            sourceRegistry = MusicSourceRegistry(listOf(source)),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader { itemId ->
+                propertyReads += 1
+                assertEquals(321L, itemId)
+                listOf(
+                    SourceItemPropertyEntity(
+                        sourceItemId = itemId,
+                        propertyKey = "sourceMediaId",
+                        stringValue = " media:/?#% ",
+                        longValue = null,
+                        doubleValue = null,
+                        booleanValue = null,
+                    )
+                )
+            },
+            playbackAudioCache = fakePlaybackAudioCache(
+                onWrapRemote = { identity, resource ->
+                    assertEquals("media:media:/?#%", identity.version)
+                    resource
+                }
+            ),
+        )
+
+        assertTrue(resolver.resolve(music(42, "/ignored.flac")) is SourcePlaybackResult.Success)
+        assertEquals(1, propertyReads)
+        val encoded = (capturedMediaId ?: error("target not captured")).remoteId
+        val decoded = encoded.decodeRemoteServerPlaybackTarget()
+        assertEquals("media:/?#%", decoded?.sourceMediaId)
+    }
+
+    @Test
+    fun localCandidateSuccessDoesNotReadRemoteProperties() = runBlocking {
+        var propertyReads = 0
+        val local = fakeMusicSource(BuiltInSourceIds.Local) {
+            SourcePlaybackResult.Success(PlaybackResource(uri = "file:///local.flac", isLocal = true))
+        }
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = "/local.flac", providerType = ProviderTypes.Local, sourceAccountId = 7),
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceItemId = 321, isPreferred = false),
+            ),
+            sourceRegistry = MusicSourceRegistry(listOf(local)),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader { propertyReads += 1; emptyList() },
+        )
+
+        assertTrue(resolver.resolve(music(42, "/ignored.flac")) is SourcePlaybackResult.Success)
+        assertEquals(0, propertyReads)
+    }
+
+    @Test
+    fun embyUnauthorizedIsReturnedWhenNoFallbackExists() = runBlocking {
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = null, providerType = ProviderTypes.Emby)
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(fakeMusicSource(BuiltInSourceIds.Emby) {
+                    SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unauthorized)
+                })
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+        )
+
+        assertEquals(
+            SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unauthorized),
+            resolver.resolve(music(42, "/ignored.flac")),
+        )
+    }
+
+    @Test
+    fun unsupportedRemoteCandidateFallsThroughToNextCandidate() = runBlocking {
+        val calls = mutableListOf<String>()
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceAccountId = 42, sourceItemId = 100),
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceAccountId = 43, sourceItemId = 101),
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(fakeMusicSource(BuiltInSourceIds.Emby) { mediaId ->
+                    val target = mediaId.remoteId.decodeRemoteServerPlaybackTarget()
+                    calls += target?.accountId?.value.orEmpty()
+                    if (target?.accountId?.value == "storage:42") {
+                        SourcePlaybackResult.Failure(SourcePlaybackFailureReason.UnsupportedMediaType)
+                    } else {
+                        SourcePlaybackResult.Success(PlaybackResource(uri = "https://server.invalid/ok"))
+                    }
+                })
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+        )
+
+        assertTrue(resolver.resolve(music(42, "/ignored.flac")) is SourcePlaybackResult.Success)
+        assertEquals(listOf("storage:42", "storage:43"), calls)
+    }
+
+    @Test
+    fun proxyFailureFallsThroughToNextRemoteCandidate() = runBlocking {
+        var wrapCalls = 0
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceAccountId = 42, sourceItemId = 100),
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceAccountId = 43, sourceItemId = 101),
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(fakeMusicSource(BuiltInSourceIds.Emby) {
+                    SourcePlaybackResult.Success(PlaybackResource(uri = "https://server.invalid/remote"))
+                })
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            playbackAudioCache = fakePlaybackAudioCache(
+                onWrapRemote = { identity, _ ->
+                    wrapCalls += 1
+                    if (identity.storageId == 42L) throw PlaybackProxyUnavailableException()
+                    PlaybackResource(uri = "http://127.0.0.1/proxy")
+                }
+            ),
+        )
+
+        assertEquals(
+            SourcePlaybackResult.Success(PlaybackResource(uri = "http://127.0.0.1/proxy")),
+            resolver.resolve(music(42, "/ignored.flac")),
+        )
+        assertEquals(2, wrapCalls)
+    }
+
+    @Test
+    fun allProxyFailuresReturnUnavailable() = runBlocking {
+        var wrapCalls = 0
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceAccountId = 42, sourceItemId = 100),
+                candidate(path = null, providerType = ProviderTypes.Emby, sourceAccountId = 43, sourceItemId = 101),
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(fakeMusicSource(BuiltInSourceIds.Emby) {
+                    SourcePlaybackResult.Success(PlaybackResource(uri = "https://server.invalid/remote"))
+                })
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            playbackAudioCache = fakePlaybackAudioCache(
+                onWrapRemote = { _, _ ->
+                    wrapCalls += 1
+                    throw PlaybackProxyUnavailableException()
+                }
+            ),
+        )
+
+        assertEquals(
+            SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unavailable),
+            resolver.resolve(music(42, "/ignored.flac")),
+        )
+        assertEquals(2, wrapCalls)
+    }
+
     @Test
     fun resolvesLegacyMusicLocationThroughMatchingSource() = runBlocking {
         var capturedMediaId: MediaId? = null
@@ -53,6 +338,7 @@ class PlaybackResourceResolverTest {
             trackSourceRefDao = fakeTrackSourceRefDao(),
             sourceRegistry = MusicSourceRegistry(listOf(source)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
         )
 
         val result = resolver.resolve(music(storageId = 42, path = "/Music/Track.flac"))
@@ -85,6 +371,7 @@ class PlaybackResourceResolverTest {
             ),
             sourceRegistry = MusicSourceRegistry(listOf(source)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
         )
 
         val result = resolver.resolve(music(storageId = 1, path = "/Legacy/Track.flac"))
@@ -106,30 +393,41 @@ class PlaybackResourceResolverTest {
     @Test
     fun remoteServerCandidateUsesProviderPlaybackIdWithoutLegacyPathEncoding() = runBlocking {
         var capturedMediaId: MediaId? = null
-        val source = fakeMusicSource(BuiltInSourceIds.Emby) { mediaId ->
+        val source = fakeMusicSource(BuiltInSourceIds.Navidrome) { mediaId ->
             capturedMediaId = mediaId
-            SourcePlaybackResult.Success(PlaybackResource(uri = "http://127.0.0.1/emby-track.flac"))
+            SourcePlaybackResult.Success(PlaybackResource(uri = "http://127.0.0.1/navidrome-track.flac"))
         }
         val resolver = PlaybackResourceResolver(
             storageLookup = LegacyStorageLookup { null },
             trackSourceRefDao = fakeTrackSourceRefDao(
                 candidate(
-                    path = "/Music/Emby Track.flac",
-                    providerType = ProviderTypes.Emby,
+                    path = null,
+                    providerType = ProviderTypes.Navidrome,
                     sourceItemId = 321,
                 ),
             ),
             sourceRegistry = MusicSourceRegistry(listOf(source)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            playbackAudioCache = fakePlaybackAudioCache(
+                onWrapRemote = { identity, resource ->
+                    assertEquals(PlaybackCacheIdentity(42, "remote:42:item-321"), identity)
+                    assertTrue("secret" !in identity.path)
+                    resource
+                }
+            ),
         )
 
         resolver.resolve(music(storageId = 42, path = "/Legacy/Track.flac"))
 
         assertEquals(
             MediaId(
-                sourceId = BuiltInSourceIds.Emby,
+                sourceId = BuiltInSourceIds.Navidrome,
                 mediaType = MediaType.Track,
-                remoteId = "item-321",
+                remoteId = RemoteServerPlaybackTarget(
+                    accountId = SourceAccountId("storage:42"),
+                    remoteId = "item-321",
+                ).encodedPlaybackId(),
             ),
             capturedMediaId,
         )
@@ -169,6 +467,7 @@ class PlaybackResourceResolverTest {
             ),
             sourceRegistry = MusicSourceRegistry(listOf(remoteSource, localSource)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
             playbackAudioCache = cache,
         )
 
@@ -213,6 +512,7 @@ class PlaybackResourceResolverTest {
                 )
             ),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
         )
 
         assertEquals(SourcePlaybackResult.Success(remoteResource), resolver.resolve(music(42, "/Legacy.flac")))
@@ -236,6 +536,7 @@ class PlaybackResourceResolverTest {
             trackSourceRefDao = fakeTrackSourceRefDao(candidate(path = "/Music/Track.flac")),
             sourceRegistry = MusicSourceRegistry(listOf(source)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
             playbackAudioCache = fakePlaybackAudioCache(
                 onResolveCompleted = { identity, _ ->
                     assertEquals(PlaybackCacheIdentity(42, "/Music/Track.flac"), identity)
@@ -265,6 +566,7 @@ class PlaybackResourceResolverTest {
             ),
             sourceRegistry = MusicSourceRegistry(listOf(source)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
             playbackAudioCache = fakePlaybackAudioCache(
                 onWrapRemote = { identity, resource ->
                     assertEquals(
@@ -295,6 +597,7 @@ class PlaybackResourceResolverTest {
             trackSourceRefDao = fakeTrackSourceRefDao(),
             sourceRegistry = MusicSourceRegistry(listOf(source)),
             legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
         )
 
         assertEquals(
@@ -326,6 +629,7 @@ class PlaybackResourceResolverTest {
 
                 override suspend fun releaseAll() = Unit
             },
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
         )
 
         resolver.release(PlaybackResource(uri = "http://127.0.0.1/release.mp3"))
@@ -478,11 +782,12 @@ class PlaybackResourceResolverTest {
     }
 
     private fun candidate(
-        path: String,
+        path: String?,
         providerType: String = ProviderTypes.WebDav,
         sourceAccountId: Long = 42,
         etag: String? = null,
         sourceItemId: Long = 100,
+        providerItemId: String = "item-$sourceItemId",
         isPreferred: Boolean = true,
     ) = TrackSourcePlaybackCandidate(
         ref = TrackSourceRefEntity(
@@ -511,11 +816,11 @@ class PlaybackResourceResolverTest {
             sourceAccountId = sourceAccountId,
             libraryRootId = 2,
             itemType = SourceItemTypes.Track,
-            providerItemId = "item-$sourceItemId",
+            providerItemId = providerItemId,
             parentProviderItemId = null,
             canonicalPath = path,
             displayPath = path,
-            displayName = path.substringAfterLast('/'),
+            displayName = path?.substringAfterLast('/') ?: "Remote track",
             mimeType = "audio/flac",
             sizeBytes = 100,
             etag = etag,
@@ -541,5 +846,11 @@ class PlaybackResourceResolverTest {
             createdAt = 1,
             updatedAt = 2,
         ),
+    )
+
+    private data class ProviderPlaybackCase(
+        val providerType: String,
+        val sourceId: SourceId,
+        val isServer: Boolean,
     )
 }

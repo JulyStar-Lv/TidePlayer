@@ -628,6 +628,7 @@ interface PlaylistDao {
         FROM playlist p
         LEFT JOIN playlist_track pt ON pt.playlistId = p.id
         LEFT JOIN track t ON t.id = pt.trackId
+        WHERE p.providerType IS NULL
         GROUP BY p.id
         ORDER BY p.sortOrder, p.id
         """
@@ -678,11 +679,36 @@ interface PlaylistDao {
     @Query("SELECT MAX(id) FROM playlist")
     suspend fun maxId(): Long?
 
-    @Query("SELECT * FROM playlist ORDER BY sortOrder, id")
+    @Query("SELECT * FROM playlist WHERE providerType IS NULL ORDER BY sortOrder, id")
     suspend fun listAll(): List<PlaylistEntity>
 
-    @Query("SELECT MAX(sortOrder) FROM playlist")
+    @Query("SELECT MAX(sortOrder) FROM playlist WHERE providerType IS NULL")
     suspend fun maxSortOrder(): Long?
+
+    @Query(
+        """
+        SELECT * FROM playlist
+        WHERE providerType = :providerType
+          AND sourceAccountId = :sourceAccountId
+        ORDER BY sortOrder, id
+        """
+    )
+    suspend fun listRemoteForAccount(providerType: String, sourceAccountId: Long): List<PlaylistEntity>
+
+    @Query(
+        """
+        SELECT * FROM playlist
+        WHERE providerType = :providerType
+          AND sourceAccountId = :sourceAccountId
+          AND remotePlaylistId = :remotePlaylistId
+        LIMIT 1
+        """
+    )
+    suspend fun findRemote(
+        providerType: String,
+        sourceAccountId: Long,
+        remotePlaylistId: String,
+    ): PlaylistEntity?
 
     @Upsert
     suspend fun upsert(playlist: PlaylistEntity)

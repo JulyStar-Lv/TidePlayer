@@ -9,6 +9,7 @@ import io.github.julystar.musicapp.source.api.MusicSourceDescriptor
 import io.github.julystar.musicapp.source.api.RemoteServerGateway
 import io.github.julystar.musicapp.source.api.RemoteServerKind
 import io.github.julystar.musicapp.source.api.RemoteServerSourceConfiguration
+import io.github.julystar.musicapp.source.api.RemoteServerTrack
 import io.github.julystar.musicapp.source.api.SourceAuthFailureReason
 import io.github.julystar.musicapp.source.api.SourceAuthResult
 import io.github.julystar.musicapp.source.api.SourceCapability
@@ -23,6 +24,11 @@ import io.github.julystar.musicapp.source.api.SourcePlaybackResult
 import io.github.julystar.musicapp.source.api.SourceSearchFailureReason
 import io.github.julystar.musicapp.source.api.SourceSearchResult
 import io.github.julystar.musicapp.source.api.encodedPlaybackId
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.takeWhile
 
 class ServerMusicSource(
     private val kind: RemoteServerKind,
@@ -45,9 +51,20 @@ class ServerMusicSource(
         SourceCapability.Browse,
         SourceCapability.Search,
         SourceCapability.Stream,
-        SourceCapability.Download,
-        SourceCapability.Lyrics,
-    )
+    ) + when (kind) {
+        RemoteServerKind.Navidrome -> setOf(
+            SourceCapability.Download,
+            SourceCapability.Lyrics,
+            SourceCapability.PlaylistRead,
+            SourceCapability.PlaylistWrite,
+        )
+        RemoteServerKind.OpenSubsonic -> setOf(
+            SourceCapability.Lyrics,
+            SourceCapability.PlaylistRead,
+            SourceCapability.PlaylistWrite,
+        )
+        RemoteServerKind.Emby -> emptySet()
+    }
 
     override suspend fun authenticate(configuration: SourceConfiguration): SourceAuthResult {
         val server = configuration as? RemoteServerSourceConfiguration
@@ -61,57 +78,56 @@ class ServerMusicSource(
     override suspend fun list(
         accountId: SourceAccountId,
         directoryId: String?,
-    ): SourceListResult = gateway.tracks(
+    ): SourceListResult = listPages(accountId, directoryId).firstOrNull()
+        ?: SourceListResult.Failure(SourceListFailureReason.Unavailable)
+
+    override fun listPages(
+        accountId: SourceAccountId,
+        directoryId: String?,
+        pageSize: Int,
+    ): Flow<SourceListResult> = gateway.trackPages(
         kind = kind,
         accountId = accountId,
-        limit = SERVER_BROWSE_LIMIT,
-    ).fold(
-        onSuccess = { tracks ->
-            SourceListResult.Success(
-                tracks.map { track ->
-                    SourceNode(
-                        accountId = accountId,
-                        nodeId = track.encodedId(),
-                        remoteId = track.encodedId(),
-                        name = buildString {
-                            append(track.title)
-                            track.artist?.let { append(" — ").append(it) }
-                        },
-                        path = "/${track.remoteId}",
-                        type = SourceNodeType.Track,
-                        mimeType = track.mimeType,
-                        audioProperties = track.audioProperties,
-                        sourceMediaId = track.sourceMediaId,
-                    )
-                }
-            )
-        },
-        onFailure = { SourceListResult.Failure(SourceListFailureReason.Unavailable) },
-    )
+        pageSize = pageSize,
+    ).map { result ->
+        result.fold(
+            onSuccess = { page ->
+                SourceListResult.Success(page.tracks.map { it.toSourceNode(accountId) })
+            },
+            onFailure = { SourceListResult.Failure(SourceListFailureReason.Unavailable) },
+        )
+    }
 
     override suspend fun search(
         accountId: SourceAccountId,
         query: String,
         limit: Int,
-    ): SourceSearchResult = gateway.tracks(kind, accountId, query, limit).fold(
-        onSuccess = { tracks ->
-            SourceSearchResult.Success(
-                tracks.map { track ->
-                    SourceMediaItem(
-                        mediaId = MediaId(descriptor.id, MediaType.Track, track.encodedId()),
-                        accountId = accountId,
-                        title = track.title,
-                        artist = track.artist,
-                        album = track.album,
-                        durationMs = track.durationMs,
-                        path = track.streamUrl,
-                        audioProperties = track.audioProperties,
-                    )
-                }
-            )
-        },
-        onFailure = { SourceSearchResult.Failure(SourceSearchFailureReason.Unavailable) },
-    )
+    ): SourceSearchResult {
+        val target = limit.coerceAtLeast(0)
+        if (target == 0) return SourceSearchResult.Success(emptyList())
+        val items = mutableListOf<SourceMediaItem>()
+        var failed = false
+        gateway.trackPages(kind, accountId, query, target.coerceAtMost(500))
+            .takeWhile { result ->
+                result.fold(
+                    onSuccess = { page ->
+                        items += page.tracks.take(target - items.size)
+                            .map { it.toSourceMediaItem(descriptor.id) }
+                        items.size < target
+                    },
+                    onFailure = {
+                        failed = true
+                        false
+                    },
+                )
+            }
+            .collect()
+        return if (failed) {
+            SourceSearchResult.Failure(SourceSearchFailureReason.Unavailable)
+        } else {
+            SourceSearchResult.Success(items)
+        }
+    }
 
     override suspend fun resolvePlayback(mediaId: MediaId): SourcePlaybackResult {
         if (mediaId.sourceId != descriptor.id) {
@@ -122,9 +138,48 @@ class ServerMusicSource(
         }
         return gateway.playback(kind, mediaId.remoteId)
     }
+
+    override suspend fun resolveDownload(mediaId: MediaId): SourcePlaybackResult {
+        if (mediaId.sourceId != descriptor.id) {
+            return SourcePlaybackResult.Failure(SourcePlaybackFailureReason.UnsupportedMediaId)
+        }
+        if (mediaId.mediaType != MediaType.Track) {
+            return SourcePlaybackResult.Failure(SourcePlaybackFailureReason.UnsupportedMediaType)
+        }
+        if (kind != RemoteServerKind.Navidrome) {
+            return SourcePlaybackResult.Failure(SourcePlaybackFailureReason.UnsupportedMediaType)
+        }
+        return gateway.download(kind, mediaId.remoteId)
+    }
 }
 
-private fun io.github.julystar.musicapp.source.api.RemoteServerTrack.encodedId(): String =
+private fun RemoteServerTrack.encodedId(): String =
     encodedPlaybackId()
 
-private const val SERVER_BROWSE_LIMIT = 10_000
+private fun RemoteServerTrack.toSourceNode(accountId: SourceAccountId): SourceNode = SourceNode(
+    accountId = accountId,
+    nodeId = encodedId(),
+    remoteId = encodedId(),
+    name = buildString {
+        append(title)
+        artist?.let { append(" — ").append(it) }
+    },
+    path = "/$remoteId",
+    type = SourceNodeType.Track,
+    mimeType = mimeType,
+    audioProperties = audioProperties,
+    sourceMediaId = sourceMediaId,
+)
+
+private fun RemoteServerTrack.toSourceMediaItem(
+    sourceId: io.github.julystar.musicapp.core.domain.model.SourceId,
+): SourceMediaItem = SourceMediaItem(
+    mediaId = MediaId(sourceId, MediaType.Track, encodedId()),
+    accountId = accountId,
+    title = title,
+    artist = artist,
+    album = album,
+    durationMs = durationMs,
+    path = streamUrl.orEmpty(),
+    audioProperties = audioProperties,
+)

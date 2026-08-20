@@ -33,6 +33,7 @@ import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import io.github.julystar.musicapp.core.domain.model.MetadataParsingSettings
 import io.github.julystar.musicapp.core.domain.model.toOptions
 import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
+import io.github.julystar.musicapp.core.domain.model.storageSourceAccountId
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncScanRules
 import io.github.julystar.musicapp.source.storage.RemoteMetadataReader
@@ -52,6 +53,7 @@ import uniffi.app_backend.OneDriveDeltaItem
 import uniffi.app_backend.OneDriveDeltaPageResult
 import uniffi.app_backend.StorageEntry
 import uniffi.app_backend.StorageId
+import uniffi.app_backend.StorageType
 import uniffi.app_backend.WebDavSyncItem
 import uniffi.app_backend.WebDavSyncPage
 import uniffi.app_backend.WebDavSyncPageResult
@@ -70,7 +72,13 @@ data class RemoteLibraryImportRequest(
     val syncMode: String = SYNC_MODE_LEGACY_FULL_SCAN_FALLBACK,
     val capabilityDetectionElapsedMs: Long = 0,
     val directoryScanElapsedMs: Long = 0,
+    val pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 )
+
+enum class RemotePathSemantics {
+    Legacy,
+    OpenListRaw,
+}
 
 data class RemoteLibraryImportResult(
     val scanId: String,
@@ -730,6 +738,7 @@ class RemoteLibraryImportCoordinator(
         capabilityDetectionElapsedMs: Long = 0,
     ): RemoteLibraryImportResult {
         validateImportSettings(metadataConcurrency, importBatchSize)
+        val storage = storageRepository.storageForRust(StorageId(storageId))
         val request = RemoteLibraryImportRequest(
             storageId = storageId,
             selectedFolderRemoteId = selectedFolderRemoteId,
@@ -743,6 +752,11 @@ class RemoteLibraryImportCoordinator(
             importBatchSize = importBatchSize,
             syncMode = syncMode,
             capabilityDetectionElapsedMs = capabilityDetectionElapsedMs,
+            pathSemantics = if (storage?.typ == StorageType.OPEN_LIST) {
+                RemotePathSemantics.OpenListRaw
+            } else {
+                RemotePathSemantics.Legacy
+            },
         )
         val (execution, operation) = startTrackedImport(request)
         var currentJob = execution.job
@@ -772,10 +786,17 @@ class RemoteLibraryImportCoordinator(
             var directoryConcurrency = DEFAULT_DIRECTORY_CONCURRENCY
             operation.throwIfStopRequested()
             val directoryScanStartedAt = currentTimeMillis()
-            val session = remoteScannerRepository.startMusicFolderScan(
-                storageId = StorageId(storageId),
-                path = selectedFolderCanonicalPath,
-            )
+            val session = if (storage?.typ == StorageType.OPEN_LIST) {
+                remoteScannerRepository.startOpenListMusicFolderScan(
+                    accountId = storageSourceAccountId(storageId),
+                    path = selectedFolderCanonicalPath,
+                )
+            } else {
+                remoteScannerRepository.startMusicFolderScan(
+                    storageId = StorageId(storageId),
+                    path = selectedFolderCanonicalPath,
+                )
+            }
             scanSession = session
             operation.attachScanSession(session)
             while (true) {
@@ -795,6 +816,7 @@ class RemoteLibraryImportCoordinator(
                     rules = request.scanRules,
                     seenPaths = seenPaths,
                     entries = scanBatch.entries,
+                    pathSemantics = request.pathSemantics,
                 )
                 if (entries.isNotEmpty()) {
                     currentJob = currentJob.copy(
@@ -808,6 +830,7 @@ class RemoteLibraryImportCoordinator(
                         entries = entries,
                         existingByPath = signaturesByPath,
                         existingByRemoteId = signaturesByRemoteId,
+                        pathSemantics = request.pathSemantics,
                     )
                     missingCandidateIds.removeAll(snapshotPlan.matchedExistingIds)
                     val batchResult = importBatch(
@@ -881,12 +904,13 @@ class RemoteLibraryImportCoordinator(
         deltaLink: String? = null,
     ): RemoteLibraryImportResult {
         validateImportSettings(request.metadataConcurrency, request.importBatchSize)
-        val (execution, operation) = startTrackedImport(request)
+        val effectiveRequest = request.withDetectedPathSemantics()
+        val (execution, operation) = startTrackedImport(effectiveRequest)
         var currentJob = execution.job
 
         return try {
             val result = runCompleteSnapshotImport(
-                request = request,
+                request = effectiveRequest,
                 deltaLink = deltaLink,
                 execution = execution,
                 operation = operation,
@@ -922,8 +946,17 @@ class RemoteLibraryImportCoordinator(
             syncDao.getCursor(execution.libraryRoot.id, WEBDAV_CAPABILITY_CURSOR_TYPE)
         }
         operation.throwIfStopRequested()
-        val musicEntries = prepareMusicEntries(request.storageId, request.entries)
-            .filter { it.isAllowedByScanRules(request.selectedFolderCanonicalPath, request.scanRules) }
+        val musicEntries = prepareMusicEntries(
+            request.storageId,
+            request.entries,
+            request.pathSemantics,
+        ).filter {
+            it.isAllowedByScanRules(
+                request.selectedFolderCanonicalPath,
+                request.scanRules,
+                request.pathSemantics,
+            )
+        }
         val signatures = database.sourceItemDao()
             .signaturesForLibraryRoot(execution.libraryRoot.id)
         val signaturesByPath = signatures
@@ -949,6 +982,7 @@ class RemoteLibraryImportCoordinator(
                 entries = batch,
                 existingByPath = signaturesByPath,
                 existingByRemoteId = signaturesByRemoteId,
+                pathSemantics = request.pathSemantics,
             )
             missingCandidateIds.removeAll(snapshotPlan.matchedExistingIds)
             val batchResult = importBatch(
@@ -991,7 +1025,7 @@ class RemoteLibraryImportCoordinator(
         val now = currentTimeMillis()
         val databaseReadStartedAt = now
         val metadataOptions = request.metadataScanMode.toOptions()
-        val batchPaths = entries.map { normalizeRemotePath(it.path) }
+        val batchPaths = entries.map { normalizeRemotePath(it.path, request.pathSemantics) }
         val existing = if (batchPaths.isEmpty()) {
             emptyMap()
         } else {
@@ -1017,10 +1051,20 @@ class RemoteLibraryImportCoordinator(
             existing = existing,
             existingByRemoteId = existingByRemoteId,
             movedExistingByPath = movedExistingByPath,
+            pathSemantics = request.pathSemantics,
         )
         val databaseReadElapsedMs = (currentTimeMillis() - databaseReadStartedAt).coerceAtLeast(0)
         val metadataResults = if (plan.metadataEntries.isEmpty()) {
             emptyList()
+        } else if (
+            storageRepository.storageForRust(StorageId(request.storageId))?.typ == StorageType.OPEN_LIST
+        ) {
+            metadataRepository.readBatchForAccount(
+                accountId = storageSourceAccountId(request.storageId),
+                entries = plan.metadataEntries,
+                concurrency = request.metadataConcurrency,
+                options = metadataOptions,
+            )
         } else {
             metadataRepository.readBatch(
                 entries = plan.metadataEntries,
@@ -1031,7 +1075,7 @@ class RemoteLibraryImportCoordinator(
         val metadataByPath = metadataResults
             .mapNotNull { result ->
                 val metadata = result.metadata ?: return@mapNotNull null
-                normalizeRemotePath(result.entry.path) to metadata
+                normalizeRemotePath(result.entry.path, request.pathSemantics) to metadata
             }
             .toMap()
         val batchMetadataRequestCount = metadataByPath.values.sumMetric {
@@ -1055,11 +1099,12 @@ class RemoteLibraryImportCoordinator(
             emptySet()
         }
         val shortSkippedCount = plan.changedEntries.count { entry ->
-            normalizeRemotePath(entry.path) in shortAudioPaths
+            normalizeRemotePath(entry.path, request.pathSemantics) in shortAudioPaths
         }
         val failureDetails = buildImportFailureDetails(
             plan = plan,
             metadataResults = metadataResults,
+            pathSemantics = request.pathSemantics,
         )
         val batchFailedCount = failureDetails.size
         lateinit var updatedJob: ImportJobEntity
@@ -1104,7 +1149,7 @@ class RemoteLibraryImportCoordinator(
                     database.sourceErrorDao().insertAll(sourceErrors)
                 }
                 val trackMetadata = plan.changedEntries.mapNotNull { entry ->
-                    val path = normalizeRemotePath(entry.path)
+                    val path = normalizeRemotePath(entry.path, request.pathSemantics)
                     if (path in shortAudioPaths) return@mapNotNull null
                     val metadata = metadataByPath[path] ?: return@mapNotNull null
                     val sourceItem = sourceRows[path] ?: return@mapNotNull null
@@ -1159,6 +1204,7 @@ class RemoteLibraryImportCoordinator(
                             ?.let(albumsByName::get)
                             ?.id,
                         preserveExistingMetadata = canonicalMatch?.preserveCanonicalMetadata == true,
+                        pathSemantics = request.pathSemantics,
                     )
                     TrackMetadataContext(
                         track = track,
@@ -1750,6 +1796,16 @@ class RemoteLibraryImportCoordinator(
         return ImportExecution(libraryRoot, scanId, job)
     }
 
+    private suspend fun RemoteLibraryImportRequest.withDetectedPathSemantics(): RemoteLibraryImportRequest {
+        if (pathSemantics == RemotePathSemantics.OpenListRaw) return this
+        val storage = storageRepository.storageForRust(StorageId(storageId))
+        return if (storage?.typ == StorageType.OPEN_LIST) {
+            copy(pathSemantics = RemotePathSemantics.OpenListRaw)
+        } else {
+            this
+        }
+    }
+
     private suspend fun startTrackedImport(
         request: RemoteLibraryImportRequest,
     ): Pair<ImportExecution, ActiveImportOperation> {
@@ -1896,7 +1952,10 @@ class RemoteLibraryImportCoordinator(
         now: Long,
         sourceProviderType: String,
     ): LibraryRootEntity {
-        val canonicalPath = normalizeRemotePath(request.selectedFolderCanonicalPath)
+        val canonicalPath = normalizeRemotePath(
+            request.selectedFolderCanonicalPath,
+            request.pathSemantics,
+        )
         val libraryRootDao = database.libraryRootDao()
         val existing = libraryRootDao.findByPath(request.storageId, canonicalPath)
             ?: if (sourceProviderType == ProviderTypes.Local) {
@@ -2118,13 +2177,14 @@ internal fun matchWebDavMoves(
 internal fun prepareMusicEntries(
     storageId: Long,
     entries: List<StorageEntry>,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): List<StorageEntry> {
     return entries
         .asSequence()
         .filter { it.storageId.value == storageId }
         .filter(::isSupportedMusicEntry)
-        .distinctBy { normalizeRemotePath(it.path) }
-        .sortedBy { normalizeRemotePath(it.path) }
+        .distinctBy { normalizeRemotePath(it.path, pathSemantics) }
+        .sortedBy { normalizeRemotePath(it.path, pathSemantics) }
         .toList()
 }
 
@@ -2134,17 +2194,19 @@ internal fun prepareDiscoveredMusicEntries(
     rules: LibrarySyncScanRules,
     seenPaths: MutableSet<String>,
     entries: List<StorageEntry>,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): List<StorageEntry> {
-    return prepareMusicEntries(storageId, entries)
-        .filter { it.isAllowedByScanRules(rootPath, rules) }
-        .filter { seenPaths.add(normalizeRemotePath(it.path)) }
+    return prepareMusicEntries(storageId, entries, pathSemantics)
+        .filter { it.isAllowedByScanRules(rootPath, rules, pathSemantics) }
+        .filter { seenPaths.add(normalizeRemotePath(it.path, pathSemantics)) }
 }
 
 internal fun StorageEntry.isAllowedByScanRules(
     rootPath: String,
     rules: LibrarySyncScanRules,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): Boolean {
-    val relativeSegments = relativePathSegments(rootPath, path)
+    val relativeSegments = relativePathSegments(rootPath, path, pathSemantics)
     if (relativeSegments.isEmpty()) return false
     val directorySegments = relativeSegments.dropLast(1)
     if (!rules.scanSubdirectories && directorySegments.isNotEmpty()) return false
@@ -2157,9 +2219,13 @@ internal fun StorageEntry.isAllowedByScanRules(
     return true
 }
 
-private fun relativePathSegments(rootPath: String, path: String): List<String> {
-    val normalizedRoot = normalizeRemotePath(rootPath).trimEnd('/')
-    val normalizedPath = normalizeRemotePath(path)
+private fun relativePathSegments(
+    rootPath: String,
+    path: String,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
+): List<String> {
+    val normalizedRoot = normalizeRemotePath(rootPath, pathSemantics).trimEnd('/')
+    val normalizedPath = normalizeRemotePath(path, pathSemantics)
     val relative = when {
         normalizedRoot.isBlank() || normalizedRoot == "/" -> normalizedPath.trimStart('/')
         normalizedPath == normalizedRoot -> ""
@@ -2212,12 +2278,13 @@ internal fun planCompleteSnapshotBatch(
     entries: List<StorageEntry>,
     existingByPath: Map<String, SourceItemSignature>,
     existingByRemoteId: Map<String, SourceItemSignature> = emptyMap(),
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): CompleteSnapshotBatchPlan {
     val entriesToImport = mutableListOf<StorageEntry>()
     val matchedExistingIds = mutableSetOf<Long>()
     var unchangedCount = 0
     entries.forEach { entry ->
-        val canonicalPath = normalizeRemotePath(entry.path)
+        val canonicalPath = normalizeRemotePath(entry.path, pathSemantics)
         val previous = entry.remoteId?.let(existingByRemoteId::get)
             ?: existingByPath[canonicalPath]
         if (previous != null) {
@@ -2259,6 +2326,7 @@ internal fun planRemoteLibraryImport(
     existing: Map<String?, SourceItemEntity>,
     existingByRemoteId: Map<String, SourceItemEntity> = emptyMap(),
     movedExistingByPath: Map<String, SourceItemEntity> = emptyMap(),
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): RemoteLibraryImportPlan {
     val changedEntries = mutableListOf<StorageEntry>()
     val metadataEntries = mutableListOf<StorageEntry>()
@@ -2274,7 +2342,7 @@ internal fun planRemoteLibraryImport(
     var unreadableChangedCount = 0
 
     entries.forEach { entry ->
-        val canonicalPath = normalizeRemotePath(entry.path)
+        val canonicalPath = normalizeRemotePath(entry.path, pathSemantics)
         val movedPrevious = movedExistingByPath[canonicalPath]
         val previous = existing[canonicalPath]
             ?: entry.remoteId?.let(existingByRemoteId::get)
@@ -2296,6 +2364,7 @@ internal fun planRemoteLibraryImport(
                 scanId = scanId,
                 now = now,
                 existing = previous,
+                pathSemantics = pathSemantics,
             )?.let(changedItems::add)
             changedCount += 1
             modifiedCount += 1
@@ -2322,6 +2391,7 @@ internal fun planRemoteLibraryImport(
                 scanId = scanId,
                 now = now,
                 existing = previous,
+                pathSemantics = pathSemantics,
             )?.let(changedItems::add)
             changedCount += 1
             renamedCount += 1
@@ -2342,6 +2412,7 @@ internal fun planRemoteLibraryImport(
             scanId = scanId,
             now = now,
             existing = previous,
+            pathSemantics = pathSemantics,
         )
         if (sourceItem == null) {
             unreadableChangedCount += 1
@@ -2377,13 +2448,18 @@ internal fun planRemoteLibraryImport(
 internal fun buildImportFailureDetails(
     plan: RemoteLibraryImportPlan,
     metadataResults: List<RemoteMetadataResult>,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): List<ImportFailureDetail> {
     val details = mutableListOf<ImportFailureDetail>()
-    val metadataEntriesByPath = plan.metadataEntries.associateBy { normalizeRemotePath(it.path) }
-    val returnedPaths = metadataResults.map { normalizeRemotePath(it.entry.path) }.toSet()
+    val metadataEntriesByPath = plan.metadataEntries.associateBy {
+        normalizeRemotePath(it.path, pathSemantics)
+    }
+    val returnedPaths = metadataResults.map {
+        normalizeRemotePath(it.entry.path, pathSemantics)
+    }.toSet()
 
     plan.unreadableEntries.forEach { entry ->
-        val path = normalizeRemotePath(entry.path)
+        val path = normalizeRemotePath(entry.path, pathSemantics)
         details += ImportFailureDetail(
             path = path,
             errorType = ImportFailureTypes.UnreadableEntry,
@@ -2391,9 +2467,9 @@ internal fun buildImportFailureDetails(
         )
     }
     plan.metadataEntries
-        .filter { entry -> normalizeRemotePath(entry.path) !in returnedPaths }
+        .filter { entry -> normalizeRemotePath(entry.path, pathSemantics) !in returnedPaths }
         .forEach { entry ->
-            val path = normalizeRemotePath(entry.path)
+            val path = normalizeRemotePath(entry.path, pathSemantics)
             details += ImportFailureDetail(
                 path = path,
                 errorType = ImportFailureTypes.MetadataMissing,
@@ -2403,10 +2479,10 @@ internal fun buildImportFailureDetails(
     metadataResults
         .filter { result -> result.metadata == null }
         .forEach { result ->
-            val path = normalizeRemotePath(result.entry.path)
+            val path = normalizeRemotePath(result.entry.path, pathSemantics)
             val entry = metadataEntriesByPath[path]
             details += ImportFailureDetail(
-                path = normalizeRemotePath(entry?.path ?: result.entry.path),
+                path = normalizeRemotePath(entry?.path ?: result.entry.path, pathSemantics),
                 errorType = ImportFailureTypes.MetadataReadFailed,
                 message = "$path：${result.error?.takeIf(String::isNotBlank) ?: "元数据读取失败"}",
             )
@@ -2436,10 +2512,15 @@ internal fun buildTrackEntity(
     albumId: Long? = null,
     respectMetadataLock: Boolean = true,
     preserveExistingMetadata: Boolean = false,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): TrackEntity {
     val scannedTrack = TrackEntity(
         id = existingTrack?.id
-            ?: stableTrackId(entry.storageId.value, normalizeRemotePath(entry.path)),
+            ?: stableTrackId(
+                entry.storageId.value,
+                normalizeRemotePath(entry.path, pathSemantics),
+                pathSemantics,
+            ),
         title = metadata.title?.takeIf { it.isNotBlank() }
             ?: sourceItem.displayName.substringBeforeLast('.'),
         sortTitle = null,
@@ -2637,10 +2718,11 @@ private fun buildSourceItemEntity(
     scanId: String,
     now: Long,
     existing: SourceItemEntity?,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
 ): SourceItemEntity? {
     val size = entry.size
     if (size != null && size > Long.MAX_VALUE.toULong()) return null
-    val canonicalPath = normalizeRemotePath(entry.path)
+    val canonicalPath = normalizeRemotePath(entry.path, pathSemantics)
     val fileName = entry.name.ifBlank { canonicalPath.substringAfterLast('/').ifBlank { canonicalPath } }
     return SourceItemEntity(
         id = existing?.id ?: 0,
@@ -2723,9 +2805,15 @@ private fun escapeLikePattern(value: String): String {
         .replace("_", "\\_")
 }
 
-internal fun normalizeRemotePath(path: String): String {
+internal fun normalizeRemotePath(
+    path: String,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
+): String {
     if (path.isBlank()) return "/"
-    val normalized = path.replace('\\', '/')
+    val normalized = when (pathSemantics) {
+        RemotePathSemantics.Legacy -> path.replace('\\', '/')
+        RemotePathSemantics.OpenListRaw -> path
+    }
     return if (normalized.startsWith('/')) normalized else "/$normalized"
 }
 
@@ -2739,9 +2827,13 @@ internal fun String.toLegacyAndroidPrimaryStoragePath(): String? {
 
 private const val ANDROID_PRIMARY_STORAGE_PATH = "/storage/emulated/0"
 
-internal fun stableTrackId(storageId: Long, canonicalPath: String): Long {
+internal fun stableTrackId(
+    storageId: Long,
+    canonicalPath: String,
+    pathSemantics: RemotePathSemantics = RemotePathSemantics.Legacy,
+): Long {
     var hash = -3_750_763_034_362_895_579L
-    val value = "track:$storageId:${normalizeRemotePath(canonicalPath)}"
+    val value = "track:$storageId:${normalizeRemotePath(canonicalPath, pathSemantics)}"
     value.forEach { ch ->
         hash = hash xor ch.code.toLong()
         hash *= 1_099_511_628_211L
@@ -2827,7 +2919,7 @@ private fun RemoteMetadata.isShorterThan(minDurationMs: Long): Boolean {
     return durationMs in 0 until minDurationMs
 }
 
-private fun normalizeMetadataName(value: String): String {
+internal fun normalizeMetadataName(value: String): String {
     return value.trim().lowercase()
 }
 

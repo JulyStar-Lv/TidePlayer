@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.OneDriveDriveInfo
+import io.github.julystar.musicapp.core.domain.model.NeedsReauthenticationException
+import io.github.julystar.musicapp.core.domain.model.OpenListOtpRequiredException
 import io.github.julystar.musicapp.core.domain.model.metadataScanModeFor
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.StorageRepository
@@ -13,6 +15,7 @@ import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncController
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncRequest
+import io.github.julystar.musicapp.service.librarysync.domain.SourceAccountLibrarySyncController
 import io.github.julystar.musicapp.source.api.ImportRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -53,11 +56,19 @@ private data class EditorInputs(
     val oneDriveDrivesLoading: Boolean = false,
 )
 
+private data class OpenListOtpUiState(
+    val requiresOtp: Boolean = false,
+    val showOtp: Boolean = false,
+    val hasOtp: Boolean = false,
+    val inputGeneration: Int = 0,
+)
+
 class EditStorageVM constructor(
     private val storageRepository: StorageRepository,
     private val toastRepository: ToastRepository,
     private val importRepository: ImportRepository,
     private val librarySyncController: LibrarySyncController,
+    private val sourceAccountLibrarySyncController: SourceAccountLibrarySyncController,
     private val settingsRepository: SettingsRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -68,6 +79,7 @@ class EditStorageVM constructor(
     private val _draft = MutableStateFlow(defaultSourceEditorDraft())
     private var _draftBackups = HashMap<SourceEditorType, SourceEditorDraft>()
     private var _editorAccountId: String? = null
+    private val _persistedEditorType = MutableStateFlow<SourceEditorType?>(null)
 
     private val _validated = MutableStateFlow(Validated())
     private val _removeModalOpen = MutableStateFlow(false)
@@ -76,6 +88,11 @@ class EditStorageVM constructor(
     private val _oneDriveDrives = MutableStateFlow<List<OneDriveDriveInfo>>(emptyList())
     private val _oneDriveDrivesLoading = MutableStateFlow(false)
     private var _oneDriveDriveJob: Job? = null
+    private val _openListOtpUi = MutableStateFlow(OpenListOtpUiState())
+    private var openListOtpCode: String = ""
+    private val _connectedServerName = MutableStateFlow("")
+    private val _isSyncing = MutableStateFlow(false)
+    private var _syncJob: Job? = null
 
     val events = _events.receiveAsFlow()
     val state = combine(
@@ -91,6 +108,15 @@ class EditStorageVM constructor(
     }.combine(_oneDriveDrivesLoading) { inputs, oneDriveDrivesLoading ->
         inputs.copy(oneDriveDrivesLoading = oneDriveDrivesLoading)
     }.combine(_testResult) { inputs, testResult ->
+        inputs to testResult
+    }.combine(_openListOtpUi) { (inputs, testResult), otpUi ->
+        Triple(inputs, testResult, otpUi)
+    }.combine(_connectedServerName) { (inputs, testResult, otpUi), connectedServerName ->
+        Triple(inputs, testResult, otpUi) to connectedServerName
+    }.combine(_persistedEditorType) { (editor, connectedServerName), persistedEditorType ->
+        Triple(editor, connectedServerName, persistedEditorType)
+    }.combine(_isSyncing) { (editor, connectedServerName, persistedEditorType), isSyncing ->
+        val (inputs, testResult, otpUi) = editor
         sourceEditorState(
             draft = inputs.draft,
             title = inputs.title,
@@ -100,6 +126,14 @@ class EditStorageVM constructor(
             testResult = testResult,
             oneDriveDrives = inputs.oneDriveDrives,
             oneDriveDrivesLoading = inputs.oneDriveDrivesLoading,
+            requiresOtp = otpUi.requiresOtp,
+            showOtp = otpUi.showOtp,
+            hasOtp = otpUi.hasOtp,
+            otpInputGeneration = otpUi.inputGeneration,
+            connectedServerName = connectedServerName,
+            isSyncing = isSyncing,
+            canSyncCurrentServer = inputs.draft.storageType == persistedEditorType &&
+                inputs.draft.storageType in SERVER_EDITOR_TYPES,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -139,9 +173,15 @@ class EditStorageVM constructor(
             viewModelScope.launch {
                 val editorState = storageRepository.loadEditorState(id) ?: return@launch
                 _editorAccountId = editorState.accountId.value
+                _persistedEditorType.value = editorState.draft.storageType
                 _draft.value = editorState.draft
                 _title.value = editorState.title
                 _musicCount.value = editorState.musicCount
+                _connectedServerName.value = editorState.connectedServerName
+                _openListOtpUi.value = OpenListOtpUiState(
+                    requiresOtp = editorState.requiresOtp,
+                    showOtp = editorState.requiresOtp,
+                )
 
                 storageRepository.loadCredentialByAccountId(editorState.accountId)?.let { credential ->
                     updateDraft { current ->
@@ -170,7 +210,13 @@ class EditStorageVM constructor(
         _testResult.value = SourceConnectionTestStatus.Testing
 
         _testJob = viewModelScope.launch {
-            _testResult.value = storageRepository.testSource(_draft.value)
+            val result = if (_draft.value.storageType == SourceEditorType.OpenList) {
+                storageRepository.testOpenListSource(_draft.value, openListOtpCode)
+            } else {
+                storageRepository.testSource(_draft.value)
+            }
+            _testResult.value = result
+            updateOpenListOtpAfterTest(result)
 
             delay(5000)
             resetTestResult()
@@ -179,13 +225,18 @@ class EditStorageVM constructor(
 
     fun onAction(action: SourceEditorAction) {
         when (action) {
-            SourceEditorAction.NavigateBack -> sendEvent(SourceEditorEvent.NavigateBack)
+            SourceEditorAction.NavigateBack -> {
+                clearOpenListOtp(showOtp = false)
+                sendEvent(SourceEditorEvent.NavigateBack)
+            }
             SourceEditorAction.TestConnection -> test()
             SourceEditorAction.Save -> saveAndNavigateBack()
             SourceEditorAction.OpenRemoveDialog -> openRemoveModal()
             SourceEditorAction.CloseRemoveDialog -> closeRemoveModal()
             SourceEditorAction.ConfirmRemove -> removeAndNavigateBack()
             SourceEditorAction.ImportLibraryFolder -> prepareImportAndNavigate()
+            SourceEditorAction.ImportLocalLibraryFolder -> prepareLocalImportAndNavigate()
+            SourceEditorAction.SyncNow -> syncCurrentServerAccount()
             is SourceEditorAction.ChangeType -> changeType(action.storageType)
             is SourceEditorAction.WebDavAnonymousChanged -> updateDraft { draft ->
                 draft.copy(isAnonymous = action.isAnonymous)
@@ -201,6 +252,65 @@ class EditStorageVM constructor(
             }
             is SourceEditorAction.WebDavPasswordChanged -> updateDraft { draft ->
                 draft.copy(secret = action.value)
+            }
+            is SourceEditorAction.RemoteServerAliasChanged -> updateDraft { draft ->
+                draft.copy(alias = action.value)
+            }
+            is SourceEditorAction.RemoteServerAddressChanged -> updateDraft { draft ->
+                draft.copy(address = action.value)
+            }
+            is SourceEditorAction.RemoteServerUsernameChanged -> updateDraft { draft ->
+                draft.copy(username = action.value)
+            }
+            is SourceEditorAction.RemoteServerPasswordChanged -> updateDraft { draft ->
+                draft.copy(secret = action.value)
+            }
+            is SourceEditorAction.RemoteServerSecondaryAddressChanged -> updateDraft { draft ->
+                draft.copy(secondaryBaseUrl = action.value)
+            }
+            is SourceEditorAction.RemoteServerStreamBitRateChanged -> updateDraft { draft ->
+                draft.copy(streamMaxBitRate = action.value)
+            }
+            is SourceEditorAction.RemoteServerDownloadBitRateChanged -> updateDraft { draft ->
+                draft.copy(downloadMaxBitRate = action.value)
+            }
+            is SourceEditorAction.RemoteServerCoverArtSizeChanged -> updateDraft { draft ->
+                draft.copy(coverArtSize = action.value)
+            }
+            is SourceEditorAction.RemoteServerWriteChanged -> updateDraft { draft ->
+                draft.copy(remoteWriteEnabled = action.value)
+            }
+            is SourceEditorAction.OpenListAliasChanged -> updateDraft { draft ->
+                draft.copy(alias = action.value)
+            }
+            is SourceEditorAction.OpenListAddressChanged -> {
+                clearOpenListOtpKeepingPrompt()
+                updateDraft { draft -> draft.copy(address = action.value) }
+            }
+            is SourceEditorAction.OpenListUsernameChanged -> {
+                clearOpenListOtpKeepingPrompt()
+                updateDraft { draft -> draft.copy(username = action.value) }
+            }
+            is SourceEditorAction.OpenListPasswordChanged -> {
+                clearOpenListOtpKeepingPrompt()
+                updateDraft { draft -> draft.copy(secret = action.value) }
+            }
+            is SourceEditorAction.OpenListGuestChanged -> {
+                clearOpenListOtp(showOtp = false)
+                updateDraft { draft ->
+                    draft.copy(
+                        isAnonymous = action.value,
+                        username = if (action.value) "" else draft.username,
+                        secret = if (action.value) "" else draft.secret,
+                    )
+                }
+                if (!action.value && _openListOtpUi.value.requiresOtp) {
+                    _openListOtpUi.value = _openListOtpUi.value.copy(showOtp = true)
+                }
+            }
+            is SourceEditorAction.OpenListOtpChanged -> {
+                openListOtpCode = action.value
+                _openListOtpUi.value = _openListOtpUi.value.copy(hasOtp = action.value.isNotBlank())
             }
             is SourceEditorAction.OneDriveAliasChanged -> updateDraft { draft ->
                 draft.copy(alias = action.value)
@@ -256,6 +366,9 @@ class EditStorageVM constructor(
     }
 
     private fun changeType(storageType: SourceEditorType) {
+        clearOpenListOtp(showOtp = false)
+        _openListOtpUi.value = _openListOtpUi.value.copy(requiresOtp = false)
+        _connectedServerName.value = ""
         _draftBackups[_draft.value.storageType] = _draft.value
 
         val backup = _draftBackups[storageType]
@@ -292,6 +405,7 @@ class EditStorageVM constructor(
             usernameEmpty = when (draft.storageType) {
                 SourceEditorType.WebDav -> !draft.isAnonymous && draft.username.isBlank()
                 SourceEditorType.Smb -> !draft.isAnonymous && draft.username.isBlank()
+                SourceEditorType.OpenList -> !draft.isAnonymous && draft.username.isBlank()
                 SourceEditorType.Navidrome,
                 SourceEditorType.OpenSubsonic,
                 SourceEditorType.Emby -> draft.username.isBlank()
@@ -302,6 +416,7 @@ class EditStorageVM constructor(
                 SourceEditorType.Smb -> {
                     !draft.isAnonymous && draft.id == null && draft.secret.isBlank()
                 }
+                SourceEditorType.OpenList -> !draft.isAnonymous && draft.id == null && draft.secret.isBlank()
                 SourceEditorType.Navidrome,
                 SourceEditorType.OpenSubsonic,
                 SourceEditorType.Emby -> draft.id == null && draft.secret.isBlank()
@@ -322,8 +437,19 @@ class EditStorageVM constructor(
 
     private fun saveAndNavigateBack() {
         viewModelScope.launch {
-            if (finish()) {
-                _events.send(SourceEditorEvent.NavigateBack)
+            try {
+                if (finish()) {
+                    clearOpenListOtp(showOtp = false)
+                    _events.send(SourceEditorEvent.NavigateBack)
+                }
+            } catch (_: NeedsReauthenticationException) {
+                if (_draft.value.storageType == SourceEditorType.OpenList) {
+                    clearOpenListOtpKeepingPrompt()
+                }
+                _testResult.value = SourceConnectionTestStatus.Unauthorized
+            } catch (_: OpenListOtpRequiredException) {
+                clearOpenListOtp(showOtp = true)
+                _testResult.value = SourceConnectionTestStatus.OtpRequired
             }
         }
     }
@@ -331,12 +457,66 @@ class EditStorageVM constructor(
     private fun removeAndNavigateBack() {
         closeRemoveModal()
         remove()
+        clearOpenListOtp(showOtp = false)
         sendEvent(SourceEditorEvent.NavigateBack)
     }
 
     private fun prepareImportAndNavigate() {
-        prepareImportLibraryFolder()
+        val accountId = _editorAccountId?.let(::SourceAccountId) ?: return
+        if (_draft.value.storageType !in setOf(
+                SourceEditorType.WebDav,
+                SourceEditorType.OneDrive,
+                SourceEditorType.Smb,
+                SourceEditorType.OpenList,
+            )
+        ) {
+            return
+        }
+        prepareImportLibraryFolder(
+            accountId = accountId,
+            isWebDavLike = _draft.value.storageType == SourceEditorType.WebDav ||
+                _draft.value.storageType == SourceEditorType.Smb,
+        )
         sendEvent(SourceEditorEvent.OpenLibraryFolderImport)
+    }
+
+    private fun prepareLocalImportAndNavigate() {
+        val localAccountId = storageRepository.storageAccounts.value
+            .firstOrNull { account -> account.isLocal }
+            ?.accountId
+            ?: return
+        prepareImportLibraryFolder(accountId = localAccountId, isWebDavLike = false)
+        sendEvent(SourceEditorEvent.OpenLibraryFolderImport)
+    }
+
+    private fun syncCurrentServerAccount() {
+        if (_syncJob?.isActive == true) return
+        val currentType = _draft.value.storageType
+        if (currentType !in SERVER_EDITOR_TYPES || currentType != _persistedEditorType.value) {
+            return
+        }
+        val accountId = _editorAccountId?.let(::SourceAccountId) ?: return
+        _syncJob = viewModelScope.launch {
+            _isSyncing.value = true
+            toastRepository.emit(UiMessageKey.LibraryImportStarted)
+            try {
+                val result = sourceAccountLibrarySyncController.sync(accountId)
+                toastRepository.emit(
+                    UiMessageKey.LibraryImportCompleted,
+                    result.importedCount.toString(),
+                    result.skippedCount.toString(),
+                    result.failedCount.toString(),
+                )
+                storageRepository.reload()
+            } catch (cancellation: CancellationException) {
+                toastRepository.emit(UiMessageKey.LibraryImportCancelled)
+                throw cancellation
+            } catch (_: Throwable) {
+                toastRepository.emit(UiMessageKey.LibraryImportFailed)
+            } finally {
+                _isSyncing.value = false
+            }
+        }
     }
 
     private fun connectOneDrive() {
@@ -355,13 +535,16 @@ class EditStorageVM constructor(
         }
     }
 
-    private fun prepareImportLibraryFolder() {
-        importRepository.prepareCurrentDirectory { selection ->
+    private fun prepareImportLibraryFolder(
+        accountId: SourceAccountId,
+        isWebDavLike: Boolean,
+    ) {
+        importRepository.prepareCurrentDirectory(accountId) { selection ->
+            if (selection.accountId != accountId) return@prepareCurrentDirectory
             viewModelScope.launch {
                 toastRepository.emit(UiMessageKey.LibraryImportStarted)
                 val metadataScanMode = settingsRepository.settings.first().metadataScanModeFor(
-                    isWebDav = _draft.value.storageType == SourceEditorType.WebDav ||
-                        _draft.value.storageType == SourceEditorType.Smb,
+                    isWebDav = isWebDavLike,
                 )
                 val result = runCatching {
                     librarySyncController.syncFolder(
@@ -385,6 +568,7 @@ class EditStorageVM constructor(
                 }.onFailure { error ->
                     if (error is CancellationException) {
                         toastRepository.emit(UiMessageKey.LibraryImportCancelled)
+                        throw error
                     } else {
                         toastRepository.emit(UiMessageKey.LibraryImportFailed)
                     }
@@ -417,8 +601,19 @@ class EditStorageVM constructor(
         if (!validate()) {
             return false
         }
+        if (_draft.value.storageType == SourceEditorType.OpenList &&
+            !_draft.value.isAnonymous &&
+            _openListOtpUi.value.requiresOtp &&
+            openListOtpCode.isBlank()
+        ) {
+            throw OpenListOtpRequiredException()
+        }
 
-        storageRepository.upsertSource(_draft.value)
+        if (_draft.value.storageType == SourceEditorType.OpenList) {
+            storageRepository.upsertOpenListSource(_draft.value, openListOtpCode)
+        } else {
+            storageRepository.upsertSource(_draft.value)
+        }
         return true
     }
 
@@ -426,6 +621,37 @@ class EditStorageVM constructor(
         _testJob?.cancel()
         _testJob = null
         _testResult.value = SourceConnectionTestStatus.None
+    }
+
+    private fun updateOpenListOtpAfterTest(result: SourceConnectionTestStatus) {
+        if (_draft.value.storageType != SourceEditorType.OpenList) return
+        when (result) {
+            SourceConnectionTestStatus.Success -> {
+                if (openListOtpCode.isNotBlank()) {
+                    _openListOtpUi.value = _openListOtpUi.value.copy(
+                        showOtp = true,
+                        hasOtp = true,
+                    )
+                }
+            }
+            SourceConnectionTestStatus.OtpRequired -> clearOpenListOtp(showOtp = true)
+            SourceConnectionTestStatus.Unauthorized -> clearOpenListOtpKeepingPrompt()
+            else -> Unit
+        }
+    }
+
+    private fun clearOpenListOtpKeepingPrompt() {
+        val current = _openListOtpUi.value
+        clearOpenListOtp(showOtp = current.showOtp || current.requiresOtp)
+    }
+
+    private fun clearOpenListOtp(showOtp: Boolean) {
+        openListOtpCode = ""
+        _openListOtpUi.value = _openListOtpUi.value.copy(
+            showOtp = showOtp,
+            hasOtp = false,
+            inputGeneration = _openListOtpUi.value.inputGeneration + 1,
+        )
     }
 
     private fun sendEvent(event: SourceEditorEvent) {
@@ -466,6 +692,12 @@ class EditStorageVM constructor(
         }
     }
 }
+
+private val SERVER_EDITOR_TYPES = setOf(
+    SourceEditorType.Navidrome,
+    SourceEditorType.OpenSubsonic,
+    SourceEditorType.Emby,
+)
 
 private fun Validated.toSourceEditorValidation(): SourceEditorValidation {
     return SourceEditorValidation(

@@ -145,6 +145,15 @@ interface LibraryRootDao {
 
     @Query(
         """
+        SELECT canonicalPath FROM library_root
+        WHERE sourceAccountId = :sourceAccountId
+        ORDER BY id
+        """
+    )
+    suspend fun listCanonicalPaths(sourceAccountId: Long): List<String>
+
+    @Query(
+        """
         SELECT * FROM library_root
         WHERE sourceAccountId = :sourceAccountId
         ORDER BY displayName COLLATE NOCASE
@@ -239,6 +248,32 @@ interface SourceItemDao {
         providerItemIds: List<String>,
     ): List<SourceItemEntity>
 
+    @Query(
+        """
+        SELECT * FROM source_item
+        WHERE sourceAccountId = :sourceAccountId
+          AND itemType = 'track'
+          AND isDeleted = 0
+          AND (lastSeenScanId IS NULL OR lastSeenScanId != :scanId)
+        LIMIT :limit
+        """
+    )
+    suspend fun findMissingTracksForSourceAccount(
+        sourceAccountId: Long,
+        scanId: String,
+        limit: Int,
+    ): List<SourceItemEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM source_item
+        WHERE sourceAccountId = :sourceAccountId
+          AND itemType = 'track'
+          AND isDeleted = 0
+        """
+    )
+    suspend fun countLiveTracksForSourceAccount(sourceAccountId: Long): Long
+
     @Query("SELECT * FROM source_item WHERE contentHash = :contentHash AND contentHash IS NOT NULL")
     suspend fun findByContentHash(contentHash: String): List<SourceItemEntity>
 
@@ -253,6 +288,15 @@ interface SourceItemDao {
 
     @Upsert
     suspend fun upsertAll(items: List<SourceItemEntity>): List<Long>
+
+    @Query("SELECT * FROM source_item_property WHERE sourceItemId IN (:sourceItemIds)")
+    suspend fun propertiesForItems(sourceItemIds: List<Long>): List<SourceItemPropertyEntity>
+
+    @Upsert
+    suspend fun upsertProperties(properties: List<SourceItemPropertyEntity>)
+
+    @Query("DELETE FROM source_item_property WHERE sourceItemId IN (:sourceItemIds) AND propertyKey = :propertyKey")
+    suspend fun deletePropertyForItems(sourceItemIds: List<Long>, propertyKey: String)
 
     @Query(
         """
@@ -545,6 +589,7 @@ interface TrackSourceRefDao {
 
     @Query("SELECT COUNT(*) FROM track_source_ref WHERE trackId = :trackId")
     suspend fun countForTrack(trackId: Long): Int
+
 
     @Query(
         """

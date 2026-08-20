@@ -19,20 +19,30 @@ import uniffi.app_backend.StorageEntryLoc
 import uniffi.app_backend.StorageId
 import uniffi.app_backend.ctGetAsset
 
+internal interface RemoteArtworkCacheAware {
+    suspend fun isRemoteArtwork(artwork: Artwork): Boolean
+}
+
 class LegacyArtworkRepository(
     private val bridge: Bridge,
     private val storageRepository: StorageRepositoryImpl,
     private val roomLibraryStore: RoomLibraryStore,
     private val trackDao: TrackDao,
     private val metadataDao: MetadataDao,
-    private val pluginArtworkResolver: PluginArtworkResolver,
+    private val pluginArtworkResolver: PluginArtworkResolver? = null,
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
-) : ArtworkRepository {
+    private val navidromeArtworkResolver: NavidromeArtworkResolver? = null,
+) : ArtworkRepository, RemoteArtworkCacheAware {
     private val cache = HashMap<Artwork, ByteArray>()
+    private val remoteArtwork = HashSet<Artwork>()
 
     override fun cached(artwork: Artwork): ByteArray? {
+        if (artwork in remoteArtwork) return null
         return cache[artwork]
     }
+
+    override suspend fun isRemoteArtwork(artwork: Artwork): Boolean =
+        navidromeArtworkResolver?.isRemoteArtwork(artwork) == true
 
     override suspend fun cacheKey(artwork: Artwork): ArtworkCacheKey? {
         return artwork.resolveRoomArtworkCacheKey(
@@ -43,9 +53,18 @@ class LegacyArtworkRepository(
     }
 
     override suspend fun load(artwork: Artwork): ByteArray? {
-        cache[artwork]?.let { return it }
+        val isRemote = isRemoteArtwork(artwork)
+        if (isRemote) remoteArtwork += artwork
+        if (!isRemote) cache[artwork]?.let { return it }
 
-        cacheKey(artwork)?.readLocalArtworkBytes(fileSystem)?.let { bytes ->
+        if (!isRemote) {
+            cacheKey(artwork)?.readLocalArtworkBytes(fileSystem)?.let { bytes ->
+                cache[artwork] = bytes
+                return bytes
+            }
+        }
+
+        navidromeArtworkResolver?.load(artwork)?.let { bytes ->
             cache[artwork] = bytes
             return bytes
         }
@@ -54,7 +73,7 @@ class LegacyArtworkRepository(
             (artwork is Artwork.LibraryTrack && artwork.allowPluginLookup) ||
             artwork is Artwork.LibraryAlbum
         ) {
-            pluginArtworkResolver.load(artwork)?.let { bytes ->
+            pluginArtworkResolver?.load(artwork)?.let { bytes ->
                 cache[artwork] = bytes
                 return bytes
             }
@@ -72,6 +91,7 @@ class LegacyArtworkRepository(
         cache[artwork] = bytes
         return bytes
     }
+
 }
 
 internal fun ArtworkCacheKey.readLocalArtworkBytes(fileSystem: FileSystem): ByteArray? {

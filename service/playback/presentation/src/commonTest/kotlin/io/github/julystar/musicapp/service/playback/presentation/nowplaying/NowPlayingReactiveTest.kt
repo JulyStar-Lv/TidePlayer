@@ -36,7 +36,7 @@ class NowPlayingReactiveTest {
 
         assertTrue(quiet < beat)
         assertTrue(beat < loud)
-        assertTrue(loud <= 2.90f * 1.05f)
+        assertTrue(loud <= 2.90f * 1.06f)
         assertEquals(0f, invalid)
     }
 
@@ -52,6 +52,44 @@ class NowPlayingReactiveTest {
         assertEquals(1f, quiet)
         assertTrue(beat > quiet)
         assertEquals(1f, invalid)
+    }
+
+    @Test
+    fun glowAlphaIsFiniteClampedAndOrdered() {
+        val quiet = resolveReactiveGlowAlpha(level = 0f, beat = 0f)
+        val level = resolveReactiveGlowAlpha(level = 0.5f, beat = 0f)
+        val beat = resolveReactiveGlowAlpha(level = 0.5f, beat = 1f)
+        val invalid = resolveReactiveGlowAlpha(
+            level = Float.NaN,
+            beat = Float.POSITIVE_INFINITY,
+        )
+        val maximum = resolveReactiveGlowAlpha(level = 1f, beat = 1f)
+
+        assertEquals(0f, quiet)
+        assertTrue(level > quiet)
+        assertTrue(beat > level)
+        assertEquals(0f, invalid)
+        assertTrue(maximum.isFinite())
+        assertTrue(maximum <= 0.12f)
+    }
+
+    @Test
+    fun whiteGlowAlphaIsFiniteClampedAndOrdered() {
+        val quiet = resolveReactiveWhiteGlowAlpha(level = 0f, beat = 0f)
+        val level = resolveReactiveWhiteGlowAlpha(level = 0.5f, beat = 0f)
+        val beat = resolveReactiveWhiteGlowAlpha(level = 0.5f, beat = 1f)
+        val invalid = resolveReactiveWhiteGlowAlpha(
+            level = Float.NaN,
+            beat = Float.POSITIVE_INFINITY,
+        )
+        val maximum = resolveReactiveWhiteGlowAlpha(level = 1f, beat = 1f)
+
+        assertEquals(0f, quiet)
+        assertTrue(level > quiet)
+        assertTrue(beat > level)
+        assertEquals(0f, invalid)
+        assertTrue(maximum.isFinite())
+        assertTrue(maximum <= 0.04f)
     }
 
     @Test

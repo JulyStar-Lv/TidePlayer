@@ -104,6 +104,15 @@ class RemoteLibraryImportCoordinatorTest {
     }
 
     @Test
+    fun pathNormalizationKeepsLegacyBackslashBehaviorSeparateFromOpenListRawPaths() {
+        assertEquals("/Music/song.flac", normalizeRemotePath("\\Music\\song.flac"))
+        assertEquals(
+            "/Music\\song.flac",
+            normalizeRemotePath("/Music\\song.flac", RemotePathSemantics.OpenListRaw),
+        )
+    }
+
+    @Test
     fun oneDriveDeltaOnlyResyncsForLiveFileWithoutPath() {
         assertFalse(
             requiresOneDriveResync(

@@ -9,14 +9,38 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     ctx::BackendContext,
-    error::BResult,
+    error::{BError, BResult},
     objects::{ArgUpsertStorage, Storage},
     schema::{StorageEntryLoc, StorageType},
 };
 use storage_backend::{
-    BuildOneDriveArg, BuildSmbArg, BuildWebdavArg, LocalBackend, OneDriveBackend, SmbBackend,
-    StorageBackend, StreamFile, Webdav,
+    BuildOneDriveArg, BuildOpenListArg, BuildSmbArg, BuildWebdavArg, LocalBackend, OneDriveBackend,
+    OpenListBackend, SmbBackend, StorageBackend, StreamFile, Webdav,
 };
+
+pub fn build_openlist_backend(
+    base_url: String,
+    token: String,
+    timeout: Duration,
+) -> BResult<Arc<dyn StorageBackend + Send + Sync>> {
+    Ok(Arc::new(OpenListBackend::new(BuildOpenListArg {
+        base_url,
+        token,
+        timeout,
+    })?))
+}
+
+pub fn build_openlist_playback_backend(
+    base_url: String,
+    token: String,
+    timeout: Duration,
+) -> BResult<Arc<dyn StorageBackend + Send + Sync>> {
+    Ok(Arc::new(OpenListBackend::new_playback(BuildOpenListArg {
+        base_url,
+        token,
+        timeout,
+    })?))
+}
 
 const SMB_BACKEND_CACHE_CAPACITY: usize = 8;
 
@@ -53,8 +77,38 @@ pub fn build_storage_backend_by_arg(
             Arc::new(OneDriveBackend::new(arg))
         }
         StorageType::Smb => build_smb_backend(arg, connect_timeout)?,
+        StorageType::OpenList => {
+            return Err(BError::CustomError {
+                message: "OpenList storage backend is not implemented".to_string(),
+            });
+        }
     };
     Ok(ret)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_storage_backend_by_arg;
+    use crate::schema::StorageType;
+    use crate::{ctx::BackendContext, error::BError, objects::ArgUpsertStorage};
+
+    #[test]
+    fn open_list_backend_is_explicitly_unsupported() {
+        let result = build_storage_backend_by_arg(
+            &BackendContext::new(),
+            ArgUpsertStorage {
+                typ: StorageType::OpenList,
+                ..Default::default()
+            },
+        );
+
+        match result {
+            Err(BError::CustomError { message }) => {
+                assert!(message.contains("OpenList"));
+            }
+            _ => panic!("expected explicit OpenList error"),
+        }
+    }
 }
 
 fn build_smb_backend(

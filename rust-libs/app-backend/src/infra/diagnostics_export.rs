@@ -252,7 +252,7 @@ fn privacy_report(incidents: &[super::model::DiagnosticIncident]) -> String {
     format!(
         "TidePlayer diagnostics privacy report\n\
          redactionRulesVersion={}\n\
-         replacedFieldTypes=credentials,authorization,cookies,tokens,secrets,url-query,user-paths\n\
+         replacedFieldTypes=credentials,authorization,cookies,tokens,secrets,otp,url-query,loopback-playback-path,user-paths\n\
          containsSystemAnrTrace={}\n\
          containsFilePathSummary=true\n\
          containsPluginId=true\n\
@@ -349,6 +349,7 @@ mod tests {
                 Some(("rust-panic.txt", b"Bearer TEST_SECRET")),
             )
             .unwrap();
+        let playback_url = "http://127.0.0.1:45678/media/TEST_SECRET/stream.flac";
         let result = export_bundle(
             &init,
             &logs,
@@ -357,7 +358,7 @@ mod tests {
             &DiagnosticExportRequest {
                 summary: "api_key=TEST_SECRET".into(),
                 environment_json: "{}".into(),
-                playback_summary_json: "{}".into(),
+                playback_summary_json: format!(r#"{{"resource":"{playback_url}"}}"#),
                 scan_summary_json: "{}".into(),
                 plugin_summary_json: "{}".into(),
                 source_summary_json: "{}".into(),
@@ -379,8 +380,18 @@ mod tests {
         }
         assert!(archive.by_name("manifest.json").is_ok());
         assert!(archive.by_name("privacy-report.txt").is_ok());
-        assert!(!combined.contains("TEST_SECRET"));
-        assert!(!combined.contains(root.to_string_lossy().as_ref()));
+        assert!(
+            !combined.contains("TEST_SECRET"),
+            "diagnostics export credential redaction failed"
+        );
+        assert!(
+            !combined.contains(playback_url),
+            "diagnostics export playback URL redaction failed"
+        );
+        assert!(
+            !combined.contains(root.to_string_lossy().as_ref()),
+            "diagnostics export path redaction failed"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }

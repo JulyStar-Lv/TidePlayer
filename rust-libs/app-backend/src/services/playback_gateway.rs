@@ -80,6 +80,10 @@ impl PlaybackSession {
         self.url.clone()
     }
 
+    pub fn content_type(&self) -> String {
+        self.source.content_type.clone()
+    }
+
     pub fn stats(&self) -> PlaybackRangeStats {
         PlaybackRangeStats {
             remote_requests: self.source.remote_requests.load(Ordering::Relaxed),
@@ -676,7 +680,7 @@ pub async fn start_http_playback_cache_gateway(
     headers: HashMap<String, String>,
     cache_options: PlaybackCacheOptions,
 ) -> BResult<Arc<PlaybackSession>> {
-    let backend = Arc::new(DirectHttpPlaybackBackend::new(headers)?);
+    let backend = Arc::new(DirectHttpPlaybackBackend::new(&uri, headers)?);
     start_cached_playback_gateway(backend, uri, cache_options).await
 }
 
@@ -706,7 +710,7 @@ struct DirectHttpPlaybackBackend {
 }
 
 impl DirectHttpPlaybackBackend {
-    fn new(headers: HashMap<String, String>) -> BResult<Self> {
+    fn new(uri: &str, headers: HashMap<String, String>) -> BResult<Self> {
         let mut header_map = reqwest::header::HeaderMap::new();
         for (name, value) in headers {
             let name =
@@ -722,7 +726,21 @@ impl DirectHttpPlaybackBackend {
             })?;
             header_map.insert(name, value);
         }
-        let client = reqwest::Client::builder()
+        let origin = reqwest::Url::parse(uri).map_err(|_| BError::CustomError {
+            message: "HTTP playback URL is invalid".to_string(),
+        })?;
+        let restrict_cross_origin = !header_map.is_empty();
+        let client_builder = disable_proxy_for_loopback(reqwest::Client::builder(), &origin);
+        let client = client_builder
+            .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+                if attempt.previous().len() >= 10 {
+                    attempt.error("too many playback redirects")
+                } else if !restrict_cross_origin || same_origin(&origin, attempt.url()) {
+                    attempt.follow()
+                } else {
+                    attempt.error("cross-origin playback redirect rejected")
+                }
+            }))
             .build()
             .map_err(StorageBackendError::from)?;
         Ok(Self {
@@ -730,6 +748,25 @@ impl DirectHttpPlaybackBackend {
             headers: header_map,
         })
     }
+}
+
+fn disable_proxy_for_loopback(
+    builder: reqwest::ClientBuilder,
+    origin: &reqwest::Url,
+) -> reqwest::ClientBuilder {
+    if is_numeric_loopback_origin(origin) {
+        builder.no_proxy()
+    } else {
+        builder
+    }
+}
+
+fn is_numeric_loopback_origin(origin: &reqwest::Url) -> bool {
+    origin
+        .host_str()
+        .map(|host| host.trim_start_matches('[').trim_end_matches(']'))
+        .and_then(|host| host.parse::<std::net::IpAddr>().ok())
+        .is_some_and(|address| address.is_loopback())
 }
 
 impl StorageBackend for DirectHttpPlaybackBackend {
@@ -814,6 +851,12 @@ impl StorageBackend for DirectHttpPlaybackBackend {
                 .await?
         })
     }
+}
+
+fn same_origin(left: &reqwest::Url, right: &reqwest::Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
 }
 
 fn parse_origin_content_range(value: &str) -> StorageBackendResult<(u64, u64, u64)> {
@@ -1031,8 +1074,10 @@ fn is_generic_content_type(value: &str) -> bool {
 mod tests {
     use super::*;
     use futures_util::future::BoxFuture;
+    use std::sync::mpsc;
     use std::{
         future::Future,
+        io::{Read, Write},
         sync::Arc,
         task::{Context, Poll, Wake, Waker},
         thread,
@@ -1445,5 +1490,295 @@ mod tests {
         })
         .await
         .expect("rapid playback switching left source readers unreleased");
+    }
+
+    #[test]
+    fn playback_redirect_policy_compares_effective_origin() {
+        let origin = reqwest::Url::parse("https://media.example:443/base/track").unwrap();
+        assert!(same_origin(
+            &origin,
+            &reqwest::Url::parse("https://media.example/base/other").unwrap()
+        ));
+        assert!(!same_origin(
+            &origin,
+            &reqwest::Url::parse("https://evil.example/base/other").unwrap()
+        ));
+        assert!(!same_origin(
+            &origin,
+            &reqwest::Url::parse("http://media.example/base/other").unwrap()
+        ));
+    }
+
+    struct RawRedirectServer {
+        url: String,
+        records: Arc<Mutex<Vec<String>>>,
+        stop: Option<mpsc::Sender<()>>,
+        thread: Option<thread::JoinHandle<()>>,
+    }
+
+    impl RawRedirectServer {
+        fn start(mode: RawRedirectMode) -> Self {
+            let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)).unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let address = listener.local_addr().unwrap();
+            let records = Arc::new(Mutex::new(Vec::new()));
+            let records_for_thread = records.clone();
+            let (stop, stop_rx) = mpsc::channel();
+            let url = format!("http://127.0.0.1:{}/start", address.port());
+            let thread = thread::spawn(move || {
+                let deadline = std::time::Instant::now() + Duration::from_secs(5);
+                loop {
+                    if stop_rx.try_recv().is_ok() || std::time::Instant::now() >= deadline {
+                        break;
+                    }
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        thread::sleep(Duration::from_millis(2));
+                        continue;
+                    };
+                    stream
+                        .set_read_timeout(Some(Duration::from_millis(500)))
+                        .unwrap();
+                    let request = read_raw_http_request(&mut stream);
+                    records_for_thread.lock().unwrap().push(request.clone());
+                    let path = request
+                        .lines()
+                        .next()
+                        .and_then(|line| line.split_whitespace().nth(1))
+                        .unwrap_or("/");
+                    let response = mode.response(address.port(), path);
+                    let _ = stream.write_all(response.as_bytes());
+                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                }
+            });
+            Self {
+                url,
+                records,
+                stop: Some(stop),
+                thread: Some(thread),
+            }
+        }
+
+        fn requests(&self) -> Vec<String> {
+            self.records.lock().unwrap().clone()
+        }
+    }
+
+    fn read_raw_http_request(stream: &mut std::net::TcpStream) -> String {
+        let mut request = Vec::new();
+        let mut chunk = [0_u8; 1024];
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(size) => request.extend_from_slice(&chunk[..size]),
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+                    ) && std::time::Instant::now() < deadline => {}
+                Err(error) => panic!("raw HTTP request: {error}"),
+            }
+            assert!(request.len() <= 64 * 1024, "raw HTTP request was too large");
+        }
+        String::from_utf8_lossy(&request).into_owned()
+    }
+
+    impl Drop for RawRedirectServer {
+        fn drop(&mut self) {
+            if let Some(stop) = self.stop.take() {
+                let _ = stop.send(());
+            }
+            if let Some(thread) = self.thread.take() {
+                thread.join().unwrap();
+            }
+        }
+    }
+
+    enum RawRedirectMode {
+        Same,
+        Loop,
+        Cross(String),
+        Target,
+    }
+
+    impl RawRedirectMode {
+        fn response(&self, port: u16, path: &str) -> String {
+            match self {
+                Self::Same if path == "/start" => format!(
+                    "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{port}/final\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                ),
+                Self::Same => "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-0/1\r\nContent-Length: 1\r\nContent-Type: audio/flac\r\nConnection: close\r\n\r\nx".to_string(),
+                Self::Loop => format!(
+                    "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{port}/loop\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                ),
+                Self::Cross(target) if path == "/start" => format!(
+                    "HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                ),
+                Self::Cross(_) => "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
+                Self::Target => "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-0/1\r\nContent-Length: 1\r\nContent-Type: audio/flac\r\nConnection: close\r\n\r\nx".to_string(),
+            }
+        }
+    }
+
+    fn test_cache_options(name: &str) -> PlaybackCacheOptions {
+        PlaybackCacheOptions {
+            directory: std::env::temp_dir()
+                .join(format!("musicapp-redirect-{name}"))
+                .to_string_lossy()
+                .into_owned(),
+            key: name.to_string(),
+            extension: "flac".to_string(),
+            write_enabled: false,
+            max_bytes: 0,
+        }
+    }
+
+    #[test]
+    fn numeric_loopback_origin_detection_does_not_trust_hostnames() {
+        for url in ["http://127.0.0.1/track", "http://[::1]/track"] {
+            assert!(is_numeric_loopback_origin(
+                &reqwest::Url::parse(url).unwrap()
+            ));
+        }
+        for url in [
+            "http://localhost/track",
+            "http://192.0.2.1/track",
+            "https://media.example/track",
+        ] {
+            assert!(!is_numeric_loopback_origin(
+                &reqwest::Url::parse(url).unwrap()
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn loopback_origin_bypasses_configured_proxy_but_remote_origin_keeps_it() {
+        let target = RawRedirectServer::start(RawRedirectMode::Target);
+        let bypassed_proxy = RawRedirectServer::start(RawRedirectMode::Target);
+        let bypassed_proxy_port = reqwest::Url::parse(&bypassed_proxy.url)
+            .unwrap()
+            .port()
+            .unwrap();
+        let loopback_origin = reqwest::Url::parse(&target.url).unwrap();
+        let loopback_client = disable_proxy_for_loopback(
+            reqwest::Client::builder().proxy(
+                reqwest::Proxy::all(format!("http://127.0.0.1:{bypassed_proxy_port}")).unwrap(),
+            ),
+            &loopback_origin,
+        )
+        .build()
+        .unwrap();
+
+        let response = loopback_client
+            .get(loopback_origin)
+            .header(reqwest::header::RANGE, "bytes=0-0")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::PARTIAL_CONTENT);
+        assert!(!target.requests().is_empty());
+        assert!(bypassed_proxy.requests().is_empty());
+
+        let retained_proxy = RawRedirectServer::start(RawRedirectMode::Target);
+        let retained_proxy_port = reqwest::Url::parse(&retained_proxy.url)
+            .unwrap()
+            .port()
+            .unwrap();
+        let remote_origin = reqwest::Url::parse("http://192.0.2.1/track").unwrap();
+        let remote_client = disable_proxy_for_loopback(
+            reqwest::Client::builder().proxy(
+                reqwest::Proxy::all(format!("http://127.0.0.1:{retained_proxy_port}")).unwrap(),
+            ),
+            &remote_origin,
+        )
+        .build()
+        .unwrap();
+
+        let response = remote_client
+            .get(remote_origin)
+            .header(reqwest::header::RANGE, "bytes=0-0")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::PARTIAL_CONTENT);
+        assert!(retained_proxy.requests().iter().any(|request| request
+            .to_ascii_lowercase()
+            .contains("get http://192.0.2.1/track")));
+    }
+
+    #[tokio::test]
+    async fn redirect_policy_follows_same_origin_and_forwards_headers() {
+        let server = RawRedirectServer::start(RawRedirectMode::Same);
+        let session = start_http_playback_cache_gateway(
+            server.url.clone(),
+            HashMap::from([(String::from("X-Test"), String::from("required"))]),
+            test_cache_options("same-origin"),
+        )
+        .await
+        .unwrap();
+        assert!(server.requests().iter().any(|request| {
+            let request = request.to_ascii_lowercase();
+            request.contains("get /final") && request.contains("x-test: required")
+        }));
+        session.shutdown();
+    }
+
+    #[tokio::test]
+    async fn redirect_policy_rejects_cross_origin_before_sending_token() {
+        let target = RawRedirectServer::start(RawRedirectMode::Target);
+        let origin = RawRedirectServer::start(RawRedirectMode::Cross(target.url.clone()));
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            start_http_playback_cache_gateway(
+                origin.url.clone(),
+                HashMap::from([(String::from("X-Emby-Token"), String::from("secret"))]),
+                test_cache_options("cross-origin"),
+            ),
+        )
+        .await
+        .unwrap();
+        assert!(result.is_err());
+        assert!(
+            target.requests().is_empty(),
+            "cross-origin target received a request"
+        );
+    }
+
+    #[tokio::test]
+    async fn empty_header_redirect_can_follow_cross_origin_without_forwarding_custom_headers() {
+        let target = RawRedirectServer::start(RawRedirectMode::Target);
+        let origin = RawRedirectServer::start(RawRedirectMode::Cross(target.url.clone()));
+        let session = start_http_playback_cache_gateway(
+            origin.url.clone(),
+            HashMap::new(),
+            test_cache_options("cross-origin-no-headers"),
+        )
+        .await
+        .unwrap();
+        let target_requests = target.requests();
+        assert!(target_requests.iter().any(|request| {
+            let request = request.to_ascii_lowercase();
+            request.contains("get /start")
+                && !request.contains("x-emby-token:")
+                && !request.contains("x-test:")
+        }));
+        session.shutdown();
+    }
+
+    #[tokio::test]
+    async fn redirect_policy_bounds_same_origin_loops() {
+        let server = RawRedirectServer::start(RawRedirectMode::Loop);
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            start_http_playback_cache_gateway(
+                server.url.clone(),
+                HashMap::new(),
+                test_cache_options("redirect-loop"),
+            ),
+        )
+        .await
+        .unwrap();
+        assert!(result.is_err());
+        assert!(server.requests().len() <= 11);
     }
 }

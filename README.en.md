@@ -13,7 +13,7 @@ TidePlayer is a local-first private music collection player built with Kotlin Mu
 ## Highlights
 
 - **Android, iOS, and Desktop** from a shared Kotlin and Compose codebase.
-- **Local, WebDAV, and SMB2/3 music sources** with browsing, indexed search, streaming, and downloads.
+- **Local, WebDAV, SMB2/3, OneDrive, Navidrome, OpenSubsonic, Emby, and OpenList** share the `MusicSource` boundary and expose browse, search, stream, or download only when declared by that source.
 - **Room KMP canonical library** for tracks, albums, artists, genres, artwork, lyrics, playlists, downloads, and sync state.
 - **Adaptive UI** with bottom navigation on phones, navigation rail on medium windows, and sidebar layouts on large/desktop screens.
 - **Cross-platform playback abstraction** backed by Android Media3, iOS AVPlayer, and a Rust/rodio Desktop engine.
@@ -43,11 +43,17 @@ TidePlayer is a local-first private music collection player built with Kotlin Mu
 | WebDAV | Yes | Yes | Yes | Yes | Yes (RFC 6578 sync-token with safe full-scan fallback) |
 | SMB2/3 | Yes | Yes | Yes | Yes | Not yet |
 | OneDrive | Yes | Yes | Yes | Yes | Yes (Delta) |
-| Navidrome | Yes | Yes | Yes | Yes | Not yet |
-| OpenSubsonic | Yes | Yes | Yes | Yes | Not yet |
-| Emby | Yes | Yes | Yes | Yes | Not yet |
+| Navidrome | Yes | Yes | Yes | Yes | Full snapshot (no protocol delta) |
+| OpenSubsonic | Yes | Yes | Yes | No | Full snapshot (no protocol delta) |
+| Emby | Yes | Yes | Yes | No | Full snapshot (no protocol delta) |
+| OpenList | Yes | Unified Room index after sync | Yes | No | Full snapshot (no protocol delta) |
 
-Source adapters authenticate, browse, search, and resolve playback resources. They do not write directly to canonical music tables.
+Source adapters authenticate, browse, search, and resolve playback resources according to their declared capabilities. They do not write directly to canonical music tables.
+
+- Navidrome covers authentication, paged library sync, metadata, artwork, lyrics, and playback. Navidrome/OpenSubsonic support remote-playlist reads and writes, with writes disabled by default. OpenSubsonic also retains an extension-capability snapshot and structured-lyrics fallback.
+- Emby persists non-secret ServerId/ServerName/UserId identity and supports 25k paging, metadata, artwork, Direct Play, and Direct Stream. It does not support transcoding, playlists, remote writes, standalone downloads, or lyrics.
+- A per-account secondary endpoint is attempted once only when an individual request fails with a typed timeout/connectivity error. There is no fallback for 401/403, TLS, protocol/JSON errors, or cancellation. Later fetches of plain Subsonic playback, download, or artwork URLs do not gain transparent endpoint failover.
+- OpenList is an independent `source/openlist` `MusicSource`, never a `RemoteServerKind`. It supports guest/password/OTP authentication, dedicated browsing, raw canonical paths, multiple roots, complete snapshots, ranged metadata, and playback. Passwords live in `CredentialStore`; tokens and OTP remain memory-only, and `requiresOtp` accounts ask again after restart. Strict Range playback exposes only a stable loopback URL to platform players, validates headers/same-origin redirects, and permits one bounded re-resolution. It does not claim provider-native search, download, or delta sync; search uses the unified Room index after synchronization.
 
 ### Remote metadata scan modes
 
@@ -67,6 +73,8 @@ When external word-timed or TTML lyrics are ranked ahead of an available plain-l
 
 - Shared playback state, position, queue, play mode, and now-playing contracts.
 - Playback URLs, headers, cookies, and expiring tokens are resolved immediately before playback and are not persisted in Room.
+- Room stores only non-sensitive account configuration, identity, and credential references. Passwords and long-lived tokens live in platform `CredentialStore`s; session URLs/headers/tokens and OTP values remain memory-only.
+- Every remote playback request follows persisted account candidate -> `MusicSourceRegistry` -> `MusicSource.resolvePlayback` -> in-memory `PlaybackResource` -> existing platform player. There is no provider-specific player.
 - Android playback through Media3 and MediaSession.
 - iOS playback through AVPlayer, a processing tap, and the shared Rust DSP. The audio session supports AirPlay; Settings embeds the native `AVRoutePickerView` and reports `currentRoute`. Now Playing/Remote Command covers lock screen, Control Center, Bluetooth, and CarPlay Now Playing, but TidePlayer does not currently provide a full CarPlay library browser app.
 - Desktop playback through Rust/rodio. cpal is the sole source of truth for output devices and the system default; switching restores the resource position, playing/paused state, volume, and DSP.
@@ -119,7 +127,7 @@ Core architecture rules:
 3. Source identity and provider-specific state are stored separately.
 4. Signed URLs, headers, tokens, cookies, and temporary loopback URLs are resolved at playback time and are not canonical track metadata.
 5. Feature code depends on contracts rather than Media3, AVPlayer, rodio, Room, or UniFFI implementations.
-6. Metadata plugins implement `MetaSource`; Local, WebDAV, and SMB implement playback/browsing through `MusicSource`.
+6. Metadata plugins implement `MetaSource`; all eight current source types use `MusicSource` for only the browse, search, stream, or download capabilities they declare.
 
 Detailed documents:
 
@@ -142,7 +150,7 @@ TidePlayer/
 ├── iosApp/                      SwiftUI container and Xcode project
 ├── shared/                      App assembly, navigation, DI, Room, main data layer, platform actuals
 ├── core/                        Domain, stable data implementations, presentation, lyric core and lyric UI
-├── source/                      MusicSource API plus Local/WebDAV/SMB providers
+├── source/                      MusicSource API plus Local/WebDAV/OneDrive/SMB/OpenList/server providers
 ├── service/                     Playback, download and library-sync layers
 ├── feature/                     Home, library, search, settings, sources, playlists, etc.
 ├── rust-libs/                   DSP, app backend, storage, metadata, plugins and ordering crates

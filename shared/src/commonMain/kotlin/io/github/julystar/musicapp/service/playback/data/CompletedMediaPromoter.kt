@@ -66,6 +66,7 @@ class CompletedPlaybackCachePromoter(
             ProviderTypes.WebDav -> BuiltInSourceIds.WebDav
             ProviderTypes.OneDrive -> BuiltInSourceIds.OneDrive
             ProviderTypes.Smb -> BuiltInSourceIds.Smb
+            ProviderTypes.OpenList -> BuiltInSourceIds.OpenList
             else -> return
         }
         val mediaId = legacyStorageTrackMediaId(

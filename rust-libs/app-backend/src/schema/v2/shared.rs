@@ -96,6 +96,7 @@ pub enum StorageType {
     Webdav,
     OneDrive,
     Smb,
+    OpenList,
 }
 
 #[derive(
@@ -131,14 +132,16 @@ mod tests {
         Local,
         Webdav,
         OneDrive,
+        Smb,
     }
 
     #[test]
-    fn decodes_storage_type_values_written_before_smb_was_added() {
+    fn decodes_storage_type_values_written_before_open_list_was_added() {
         let cases = [
             (LegacyStorageType::Local, StorageType::Local),
             (LegacyStorageType::Webdav, StorageType::Webdav),
             (LegacyStorageType::OneDrive, StorageType::OneDrive),
+            (LegacyStorageType::Smb, StorageType::Smb),
         ];
         for (legacy, expected) in cases {
             let encoded = bitcode::encode(&legacy);
@@ -159,6 +162,14 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<StorageType>(r#""OneDrive""#).unwrap(),
             StorageType::OneDrive
+        );
+        assert_eq!(
+            serde_json::from_str::<StorageType>(r#""Smb""#).unwrap(),
+            StorageType::Smb
+        );
+        assert_eq!(
+            serde_json::from_str::<StorageType>(r#""OpenList""#).unwrap(),
+            StorageType::OpenList
         );
     }
 }

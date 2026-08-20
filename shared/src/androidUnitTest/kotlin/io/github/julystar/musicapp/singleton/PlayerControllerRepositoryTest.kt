@@ -271,6 +271,7 @@ class PlayerControllerRepositoryTest {
                 trackSourceRefDao = EmptyTrackSourceRefDao,
                 sourceRegistry = MusicSourceRegistry(listOf(source)),
                 legacyStoragePlaybackResolver = playbackResolver,
+                sourceItemPropertyReader = io.github.julystar.musicapp.service.playback.data.SourceItemPropertyReader.Empty,
             )
             val toastRepository = ToastRepositoryImpl(scope)
             val controller = PlayerControllerRepository(

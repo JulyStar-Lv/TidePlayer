@@ -17,12 +17,19 @@ interface StorageRepository {
     suspend fun reload()
     suspend fun startOneDriveOAuth(): String
     suspend fun upsertSource(draft: SourceEditorDraft): SourceAccountId
+    suspend fun upsertOpenListSource(draft: SourceEditorDraft, otpCode: String): SourceAccountId =
+        error("OpenList OTP persistence is not supported by this repository")
     suspend fun loadEditorState(id: Long): SourceEditorStorageState?
     suspend fun testSource(draft: SourceEditorDraft): SourceConnectionTestStatus
+    suspend fun testOpenListSource(
+        draft: SourceEditorDraft,
+        otpCode: String,
+    ): SourceConnectionTestStatus = error("OpenList OTP testing is not supported by this repository")
     suspend fun listOneDriveDriveInfos(refreshToken: String): OneDriveDriveListResult
     suspend fun updateOneDriveRefreshTokenByAccountId(accountId: SourceAccountId, refreshToken: String)
     fun findStorageAccountByAccountId(accountId: SourceAccountId): StorageAccountInfo?
     suspend fun loadCredentialByAccountId(accountId: SourceAccountId): StoredCredential?
     suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String)
+    suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> = emptyList()
     suspend fun removeByAccountId(accountId: SourceAccountId)
 }

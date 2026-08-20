@@ -391,6 +391,7 @@ class DesktopPlayerControllerTest {
                 trackSourceRefDao = EmptyTrackSourceRefDao,
                 sourceRegistry = MusicSourceRegistry(listOf(source)),
                 legacyStoragePlaybackResolver = playbackResolver,
+                sourceItemPropertyReader = io.github.julystar.musicapp.service.playback.data.SourceItemPropertyReader.Empty,
             )
             val controller = DesktopPlayerController(
                 playerRepository = playerRepository,

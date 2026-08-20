@@ -100,7 +100,7 @@ class FileDiagnosticsService(
             )
             DiagnosticsExportResult.Success(result.path)
         }.getOrElse { error ->
-            DiagnosticsExportResult.Failure(error.message ?: "Unknown diagnostics export error")
+            DiagnosticsExportResult.Failure(error.redactedDiagnosticsFailureMessage())
         }
     }
 }
@@ -130,21 +130,47 @@ private fun DiagnosticsReport.toText(): String = buildString {
 
 internal fun String.redactSensitiveData(): String {
     return replace(URL_CREDENTIAL_REGEX, "$1***:***@")
-        .replace(SENSITIVE_QUERY_REGEX, "$1=***")
-        .replace(AUTHORIZATION_REGEX, "$1 ***")
-        .replace(COOKIE_REGEX, "$1: ***")
+        .replace(LOOPBACK_PLAYBACK_URL_REGEX, "$1/<REDACTED_PLAYBACK_PATH>")
         .replace(URL_QUERY_REGEX, "$1?<REDACTED_QUERY>")
+        .replace(JSON_SENSITIVE_VALUE_REGEX) { match ->
+            "${match.groupValues[1]}***${match.groupValues[2]}"
+        }
+        .replace(SENSITIVE_HEADER_LINE_REGEX) { match ->
+            "${match.groupValues[1]} ***"
+        }
+        .replace(AUTHORIZATION_VALUE_REGEX) { match ->
+            "${match.groupValues[1]} ***"
+        }
+        .replace(SENSITIVE_ASSIGNMENT_REGEX) { match ->
+            "${match.groupValues[1]}***"
+        }
 }
 
+internal fun Throwable.redactedDiagnosticsFailureMessage(): String =
+    message?.redactSensitiveData() ?: "Unknown diagnostics export error"
+
 private val URL_CREDENTIAL_REGEX = Regex("(https?://)[^/@\\s:]+:[^/@\\s]+@", RegexOption.IGNORE_CASE)
-private val SENSITIVE_QUERY_REGEX = Regex(
-    "(?i)(token|access_token|refresh_token|password|passwd|secret|api_key|apikey|code|" +
-        "webdav[_-]?password|smb[_-]?password|plugin[_-]?(?:config[_-]?)?secret)" +
-        "\\s*[:=]\\s*([^&\\s]+)"
+private val LOOPBACK_PLAYBACK_URL_REGEX = Regex(
+    "(?i)(https?://(?:127\\.0\\.0\\.1|\\[::1]):\\d+)/media/[^\\s?#\"'<>]+" +
+        "(?:\\?[^\\s#\"'<>]+)?"
 )
-private val AUTHORIZATION_REGEX = Regex(
-    "(?i)(authorization\\s*:\\s*(?:bearer|basic)?|bearer|basic)\\s+[^\\s,]+"
+private val SENSITIVE_KEY_PATTERN =
+    "(?:token|access[_-]?token|refresh[_-]?token|password|passwd|secret|api[_-]?key|" +
+        "otp(?:[_-]?code)?|one[_-]?time[_-]?password|authorization|cookie|set-cookie|" +
+        "x[_-]?emby[_-]?token|webdav[_-]?password|smb[_-]?password|" +
+        "plugin[_-]?(?:config[_-]?)?secret)"
+private val JSON_SENSITIVE_VALUE_REGEX = Regex(
+    """(?i)("$SENSITIVE_KEY_PATTERN"\s*:\s*")(?:\\.|[^"\\\r\n])*(")"""
 )
-private val COOKIE_REGEX = Regex("(?i)(set-cookie|cookie)\\s*:\\s*[^\\r\\n]+")
-private val URL_QUERY_REGEX = Regex("(?i)(https?://[^\\s?#]+)\\?[^\\s#]+")
+private val SENSITIVE_ASSIGNMENT_REGEX = Regex(
+    "(?i)(\\b$SENSITIVE_KEY_PATTERN\\b\\s*[:=]\\s*)" +
+        "(?:\"[^\"\\r\\n]*\"|'[^'\\r\\n]*'|[^&,\\s}\\]\\r\\n]+)"
+)
+private val SENSITIVE_HEADER_LINE_REGEX = Regex(
+    "(?im)^(\\s*(?:authorization|cookie|set-cookie|x-emby-token)\\s*:)\\s*[^\\r\\n]*"
+)
+private val AUTHORIZATION_VALUE_REGEX = Regex(
+    "(?i)(authorization\\s*[:=]?\\s*(?:bearer|basic)?|bearer|basic)\\s+[^\\s,]+"
+)
+private val URL_QUERY_REGEX = Regex("(?i)(https?://[^\\s?#\"'<>]+)\\?[^\\s#\"'<>]+")
 private const val DIAGNOSTIC_ERROR_LIMIT = 20

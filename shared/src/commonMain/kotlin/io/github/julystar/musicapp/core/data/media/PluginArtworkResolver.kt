@@ -424,7 +424,7 @@ private fun MetaSongCandidate.artworkMatchScore(query: MetaSongQuery): Int? {
 
 private fun String.matchKey(): String = lowercase().filter(Char::isLetterOrDigit)
 
-private fun ByteArray.isSupportedImage(): Boolean =
+internal fun ByteArray.isSupportedImage(): Boolean =
     isJpeg() || isPng() || isGif() || isWebP() || isIsoBaseMediaImage()
 
 private fun ByteArray.isJpeg(): Boolean =
@@ -445,7 +445,7 @@ private fun ByteArray.isIsoBaseMediaImage(): Boolean =
     size >= 12 && decodeToString(4, 8) == "ftyp" &&
         decodeToString(8, 12) in setOf("avif", "avis", "heic", "heix", "mif1")
 
-private fun ByteArray.detectImageMimeType(): String? = when {
+internal fun ByteArray.detectImageMimeType(): String? = when {
     isJpeg() -> "image/jpeg"
     isPng() -> "image/png"
     isGif() -> "image/gif"

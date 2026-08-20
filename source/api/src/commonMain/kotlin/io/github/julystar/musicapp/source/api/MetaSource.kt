@@ -16,7 +16,13 @@ data class MetaSongQuery(
     val pageSize: Int = 20,
     val separator: String = "/",
     val song: MetaSongCandidate? = null,
-)
+) {
+    override fun toString(): String =
+        "MetaSongQuery(" +
+            "title=$title, artist=$artist, album=$album, date=$date, durationMs=$durationMs, " +
+            "config=<redacted>, keyword=$keyword, page=$page, pageSize=$pageSize, " +
+            "separator=$separator, song=$song)"
+}
 
 data class MetaSongCandidate(
     val id: String,
@@ -30,7 +36,13 @@ data class MetaSongCandidate(
     val fields: Map<String, String> = emptyMap(),
     val contextToken: String? = null,
     val sourceId: String? = null,
-)
+) {
+    override fun toString(): String =
+        "MetaSongCandidate(" +
+            "id=$id, title=$title, artist=$artist, album=$album, durationMs=$durationMs, " +
+            "date=$date, trackNumber=$trackNumber, pictureUrl=<redacted>, fields=<redacted>, " +
+            "contextToken=<redacted>, sourceId=$sourceId)"
+}
 
 data class MetaCoverCandidate(
     val url: String,
@@ -42,7 +54,12 @@ data class MetaCoverCandidate(
     val width: Int? = null,
     val height: Int? = null,
     val sourceId: String? = null,
-)
+) {
+    override fun toString(): String =
+        "MetaCoverCandidate(" +
+            "url=<redacted>, id=$id, title=$title, artist=$artist, album=$album, date=$date, " +
+            "width=$width, height=$height, sourceId=$sourceId)"
+}
 
 data class MetaLyricWord(
     val text: String,

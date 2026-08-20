@@ -967,3 +967,65 @@ persists through KMP Preferences DataStore rather than Room.
   that a missing stable file returns a structured failure.
 - `DownloadPersistenceIntegrationTest` verifies the version 20 to 21 migration
   preserves existing tasks while adding the nullable finalization warning.
+
+## 2026-08-21 — Remote-source scale and migration acceptance (T20)
+
+**Rust gates (`rust-libs`):**
+
+- `cargo fmt --all -- --check` and `cargo check --workspace`: successful.
+- `cargo test --workspace --no-fail-fast`: 296 passed, 0 failed. Four
+  pre-existing Samba integration tests remain ignored because they require the
+  opt-in fixture documented in `docs/music-sources/smb.md`; they are not part of
+  required CI.
+- The T19 `app-backend` library gate independently completed 107/107 tests.
+
+**Forced Gradle desktop gate:**
+
+```bash
+./gradlew :source:api:desktopTest \
+  :source:server:desktopTest \
+  :source:openlist:desktopTest \
+  :feature:sources:desktopTest \
+  :shared:desktopTest \
+  --rerun-tasks
+```
+
+Result: 532 tests, 0 failures:
+
+| Module | Tests | Failures | Skipped |
+| --- | ---: | ---: | ---: |
+| `:source:api` | 28 | 0 | 0 |
+| `:source:server` | 4 | 0 | 0 |
+| `:source:openlist` | 10 | 0 | 0 |
+| `:feature:sources` | 17 | 0 | 0 |
+| `:shared` | 473 | 0 | 1 |
+
+The one skip is the pre-existing opt-in live WebDAV smoke test. It requires
+runtime credentials and is not part of required CI; this report does not claim
+that every test ran without skips.
+
+**Scale, incremental, migration, and playback evidence:**
+
+- Sol's focused T20 acceptance set completed 28/28.
+- Subsonic and Emby pagers each consume 25,000 tracks in 50 pages of 500 with
+  exact offsets and no duplicates; the Navidrome coordinator persists the
+  corresponding 25,000-track run in real Room storage.
+- The second OpenList snapshot reports exactly 100 unchanged, 10 modified,
+  5 added, and 4 deleted entries, and reads metadata only for the 15 changed or
+  added entries.
+- Formal migrations run sequentially from 22 to 23 to 24 while preserving all
+  legacy lyric and local playlist/member fields. Structured lyrics and remote
+  playlist identity remain nullable for old rows, and identical remote
+  playlist IDs remain isolated by account.
+- The unified `PlaybackResourceResolver` matrix routes WebDAV, OneDrive, SMB,
+  OpenList, Navidrome, OpenSubsonic, and Emby through their exact registered
+  `MusicSource`; unknown provider types fail closed. The legacy Rust storage
+  lookup maps only the five file providers and rejects server/unknown accounts.
+
+**Multiplatform gate:**
+
+- A 770-task combined compile completed successfully for `shared`, source API,
+  server, OpenList, and Sources UI on Desktop, Android Debug, and iOS Simulator
+  Arm64.
+- `git diff --check` succeeded. Schema 24 remained unchanged, schema 25 was
+  absent, and no destructive migration fallback was introduced.

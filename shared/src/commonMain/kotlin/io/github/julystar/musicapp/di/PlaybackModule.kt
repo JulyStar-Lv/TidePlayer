@@ -11,6 +11,7 @@ import io.github.julystar.musicapp.service.playback.data.LegacyNowPlayingReposit
 import io.github.julystar.musicapp.service.playback.data.LegacyPlaylistPlaybackSync
 import io.github.julystar.musicapp.service.playback.data.PlaybackAudioCache
 import io.github.julystar.musicapp.service.playback.data.PlaybackResourceResolver
+import io.github.julystar.musicapp.service.playback.data.SourceItemPropertyReader
 import io.github.julystar.musicapp.service.playback.data.PersistentPlaybackAudioCache
 import io.github.julystar.musicapp.service.playback.data.PlayerController
 import io.github.julystar.musicapp.service.playback.data.PlayerRepository
@@ -40,7 +41,12 @@ val playbackModule = module {
             completedMediaPromoter = get(),
         )
     }
-    single { PlaybackResourceResolver(get(), get(), get(), get(), get()) }
+    single {
+        PlaybackResourceResolver(
+            get(), get(), get(), get(), get(),
+            SourceItemPropertyReader { itemId -> get<io.github.julystar.musicapp.database.SourceItemDao>().propertiesForItems(listOf(itemId)) },
+        )
+    }
     single<PlaybackSourceRepository> { RoomPlaybackSourceRepository(get(), get()) }
     single { PlaybackLyricsEnricher(get(), get(), get(), get(), get()) }
     single { PlayerRepository(get(), get(), get(), get(), get(), get(), get(), get()) }

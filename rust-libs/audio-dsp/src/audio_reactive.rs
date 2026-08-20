@@ -7,8 +7,8 @@ const SLOW_RELEASE_SECONDS: f32 = 0.350;
 const NOISE_FLOOR_SECONDS: f32 = 0.800;
 const MIN_BEAT_GAP_SECONDS: f32 = 0.120;
 const BEAT_DECAY_SECONDS: f32 = 0.220;
-const TRANSIENT_MULTIPLIER: f32 = 2.5;
-const TRANSIENT_EPSILON: f32 = 0.02;
+const TRANSIENT_MULTIPLIER: f32 = 1.8;
+const TRANSIENT_EPSILON: f32 = 0.01;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AudioReactiveSnapshot {
@@ -239,6 +239,26 @@ mod tests {
         let beat_before_second = analyzer.snapshot().beat;
         block(&mut analyzer, 0.25);
         assert!(analyzer.snapshot().beat > beat_before_second);
+    }
+
+    #[test]
+    fn rhythmic_medium_pulses_trigger_multiple_beats() {
+        let mut analyzer = AudioReactiveAnalyzer::default();
+        settle(&mut analyzer, 0.15, 40);
+
+        for pulse_index in 0..3 {
+            assert!(analyzer.beat_armed, "pulse {pulse_index} was not re-armed");
+            let beat_before_pulse = analyzer.snapshot().beat;
+            for _ in 0..10 {
+                block(&mut analyzer, 0.25);
+            }
+            let beat_after_pulse = analyzer.snapshot().beat;
+            assert!(
+                beat_after_pulse > beat_before_pulse,
+                "pulse {pulse_index} did not raise beat: before={beat_before_pulse}, after={beat_after_pulse}",
+            );
+            settle(&mut analyzer, 0.0, 30);
+        }
     }
 
     #[test]

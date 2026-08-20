@@ -48,6 +48,7 @@ data class LyricsEntity(
     val sourcePath: String?,
     val updatedAt: Long,
     val sourceKind: String = "EmbeddedPlain",
+    val structuredContent: String? = null,
 )
 
 @Entity(
@@ -193,7 +194,10 @@ data class DownloadTaskEntity(
 
 @Entity(
     tableName = "playlist",
-    indices = [Index(value = ["sortOrder"])],
+    indices = [
+        Index(value = ["sortOrder"]),
+        Index(value = ["providerType", "sourceAccountId", "remotePlaylistId"], unique = true),
+    ],
 )
 data class PlaylistEntity(
     @androidx.room.PrimaryKey val id: Long,
@@ -204,7 +208,17 @@ data class PlaylistEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val sortOrder: Long,
-)
+    val providerType: String? = null,
+    val sourceAccountId: Long? = null,
+    val remotePlaylistId: String? = null,
+) {
+    init {
+        val identityFields = listOf(providerType, sourceAccountId?.toString(), remotePlaylistId)
+        require(identityFields.all { it == null } || identityFields.all { !it.isNullOrBlank() }) {
+            "Playlist remote identity must be fully specified or fully local"
+        }
+    }
+}
 
 @Entity(
     tableName = "playlist_track",

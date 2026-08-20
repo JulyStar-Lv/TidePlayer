@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::schema::{StorageEntryLoc, StorageType};
+use crate::schema::{StorageEntryLoc, StorageId, StorageType};
 use storage_backend::{
     list_smb_server_path, BuildOneDriveArg, BuildSmbArg, BuildWebdavArg, OneDriveBackend, Webdav,
 };
@@ -14,8 +14,8 @@ use crate::{
         WebDavSyncItem, WebDavSyncPage, WebDavSyncPageResult, WebDavSyncRequest,
     },
     services::{
-        build_storage_backend, build_storage_backend_by_arg, release_cached_storage_backend,
-        storage_entry, RemoteMusicScanSession,
+        build_openlist_backend, build_storage_backend, build_storage_backend_by_arg,
+        release_cached_storage_backend, storage_entry, RemoteMusicScanSession,
     },
     ArgUpsertStorage, Backend,
 };
@@ -375,6 +375,19 @@ pub fn ct_start_storage_music_scan(
         arg.storage_id,
         backend,
         arg.path,
+    ))
+}
+
+#[uniffi::export]
+pub fn ct_start_openlist_music_scan(
+    storage_id: StorageId,
+    base_url: String,
+    token: String,
+    path: String,
+) -> BResult<Arc<RemoteMusicScanSession>> {
+    let backend = build_openlist_backend(base_url, token, std::time::Duration::from_secs(45))?;
+    Ok(RemoteMusicScanSession::new_openlist(
+        storage_id, backend, path,
     ))
 }
 

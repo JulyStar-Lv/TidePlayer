@@ -169,11 +169,17 @@ sealed interface SettingsAction {
     data class TestWebDavConnection(
         val password: String,
         val draft: WebDavAccountDialogState? = null,
-    ) : SettingsAction
+    ) : SettingsAction {
+        override fun toString(): String =
+            "TestWebDavConnection(password=<redacted>, draft=$draft)"
+    }
     data class SaveWebDavAccount(
         val password: String,
         val draft: WebDavAccountDialogState? = null,
-    ) : SettingsAction
+    ) : SettingsAction {
+        override fun toString(): String =
+            "SaveWebDavAccount(password=<redacted>, draft=$draft)"
+    }
     data class RequestDeleteWebDavAccount(
         val accountId: SourceAccountId,
         val title: String,
@@ -184,11 +190,17 @@ sealed interface SettingsAction {
     data class TestSmbConnection(
         val password: String,
         val draft: SmbAccountDialogState? = null,
-    ) : SettingsAction
+    ) : SettingsAction {
+        override fun toString(): String =
+            "TestSmbConnection(password=<redacted>, draft=$draft)"
+    }
     data class SaveSmbAccount(
         val password: String,
         val draft: SmbAccountDialogState? = null,
-    ) : SettingsAction
+    ) : SettingsAction {
+        override fun toString(): String =
+            "SaveSmbAccount(password=<redacted>, draft=$draft)"
+    }
     data class RequestDeleteSmbAccount(
         val accountId: SourceAccountId,
         val title: String,
@@ -234,6 +246,7 @@ data class SourceAccountSettingsItem(
     val isLocal: Boolean,
     val isWebDav: Boolean,
     val isSmb: Boolean,
+    val isOpenList: Boolean,
     val isRemoteServer: Boolean,
     val sourceLabel: String,
 )

@@ -13,13 +13,18 @@ import uniffi.app_backend.ctListSmbServerEntryChildren
 import uniffi.app_backend.ctGetOnedriveDeltaPage
 import uniffi.app_backend.ctScanStorageMusicFolder
 import uniffi.app_backend.ctStartStorageMusicScan
+import uniffi.app_backend.ctStartOpenlistMusicScan
 import uniffi.app_backend.ctGetWebdavSyncPage
 import io.github.julystar.musicapp.singleton.Bridge
 import io.github.julystar.musicapp.core.data.StorageRepositoryImpl
+import io.github.julystar.musicapp.core.data.OpenListSessionManager
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 
 class RemoteScannerRepository(
     private val bridge: Bridge,
     private val storageRepository: StorageRepositoryImpl,
+    private val openListSessionManager: OpenListSessionManager? = null,
 ) {
     suspend fun listDirectory(
         storageId: StorageId,
@@ -90,6 +95,27 @@ class RemoteScannerRepository(
                     path = path,
                 ),
             )
+        }
+    }
+
+    suspend fun startOpenListMusicFolderScan(
+        accountId: SourceAccountId,
+        path: String,
+    ): RemoteMusicScanSession {
+        val manager = requireNotNull(openListSessionManager) {
+            "OpenList session manager is not configured"
+        }
+        val storageId = accountId.toStorageRouteIdOrNull()
+            ?: error("OpenList account has no storage route")
+        return manager.validatedAuthorized(accountId) { endpoint, token ->
+            bridge.runRaw {
+                ctStartOpenlistMusicScan(
+                    storageId = StorageId(storageId),
+                    baseUrl = endpoint,
+                    token = token,
+                    path = path,
+                )
+            }
         }
     }
 

@@ -12,11 +12,22 @@ import okio.FileSystem
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import uniffi.app_backend.StorageEntryLoc
 import uniffi.app_backend.StorageId
 
 class LegacyArtworkRepositoryTest {
+    @Test
+    fun navidromeArtworkCacheKeyIsStableAndCredentialFree() {
+        val key = navidromeArtworkCacheKey(7, "cover/id?token=secret", 512)
+        assertEquals(key, navidromeArtworkCacheKey(7, "cover/id?token=secret", 512))
+        assertNotEquals(key, navidromeArtworkCacheKey(7, "cover/id?token=secret", 768))
+        assertTrue("secret" !in key)
+        assertTrue(key.startsWith("navidrome-7-"))
+    }
+
     @Test
     fun resolvesLibraryTrackArtworkThroughTrackLocationLookup() = runBlocking {
         val loc = Artwork.LibraryTrack(trackId = 7).resolveLegacyStorageEntryLoc { trackId ->

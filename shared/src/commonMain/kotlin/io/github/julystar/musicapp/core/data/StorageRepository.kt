@@ -17,13 +17,29 @@ import io.github.julystar.musicapp.database.ProviderTypes
 import io.github.julystar.musicapp.database.SourceAccountDao
 import io.github.julystar.musicapp.database.SourceAccountEntity
 import io.github.julystar.musicapp.database.SourceAccountSummaryRow
+import io.github.julystar.musicapp.database.LibraryRootDao
+import io.github.julystar.musicapp.database.LibraryRootEntity
 
 import io.github.julystar.musicapp.platform.currentTimeMillis
 import io.github.julystar.musicapp.core.data.security.CredentialStore
 import io.github.julystar.musicapp.core.domain.model.StoredCredential
+import io.github.julystar.musicapp.core.domain.model.NeedsReauthenticationException
+import io.github.julystar.musicapp.core.domain.model.OpenListOtpRequiredException
 import io.github.julystar.musicapp.source.api.BuiltInSourceIds
+import io.github.julystar.musicapp.source.api.EmbyProviderConfigurationCodec
+import io.github.julystar.musicapp.source.api.NavidromeProviderConfiguration
+import io.github.julystar.musicapp.source.api.NavidromeProviderConfigurationCodec
+import io.github.julystar.musicapp.source.api.OpenSubsonicProviderConfigurationCodec
 import io.github.julystar.musicapp.source.api.SmbSourceConfiguration
+import io.github.julystar.musicapp.source.api.OpenListAuthenticator
+import io.github.julystar.musicapp.source.api.OpenListProviderConfigurationCodec
+import io.github.julystar.musicapp.source.api.OpenListSourceConfiguration
+import io.github.julystar.musicapp.source.api.SourceAuthFailureReason
+import io.github.julystar.musicapp.source.api.SourceAuthResult
+import io.github.julystar.musicapp.source.api.sanitizeRemoteServerBaseUrl
+import io.github.julystar.musicapp.source.server.RemoteServerEndpointPolicy
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -50,6 +66,8 @@ import uniffi.app_backend.StorageId
 import uniffi.app_backend.StorageType
 import uniffi.app_backend.ctEmbyLogin
 import uniffi.app_backend.ctEmbyRequest
+import uniffi.app_backend.EmbyLoginIdentity
+import uniffi.app_backend.RemoteMusicException
 import uniffi.app_backend.ctSubsonicRequest
 import io.github.julystar.musicapp.source.smb.toSmbAddress
 
@@ -59,6 +77,19 @@ class StorageRepositoryImpl(
     private val scope: CoroutineScope,
     private val sourceAccountDao: SourceAccountDao,
     private val credentialStore: CredentialStore,
+    private val embyLogin: (String, String, String) -> EmbyLoginIdentity =
+        { address, username, password -> ctEmbyLogin(address, username, password) },
+    private val embyRequest: (String, String, String, Map<String, String>) -> String =
+        { address, token, path, params -> ctEmbyRequest(address, token, path, params) },
+    private val subsonicRequest: (String, String, String, String, Map<String, String>) -> String =
+        { address, username, password, endpoint, params ->
+            ctSubsonicRequest(address, username, password, endpoint, params)
+        },
+    private val openListAuthenticator: OpenListAuthenticator = OpenListAuthenticator {
+        error("OpenList authenticator is not configured")
+    },
+    private val openListSessionManager: OpenListSessionManager? = null,
+    private val libraryRootDao: LibraryRootDao? = null,
 ) : StorageRepository {
     private val _oauthRefreshToken = MutableStateFlow("")
     private val _storages = MutableStateFlow(listOf<Storage>())
@@ -141,38 +172,58 @@ class StorageRepositoryImpl(
         val id = normalized.id ?: StorageId((sourceAccountDao.maxId() ?: 0L) + 1L)
         val now = currentTimeMillis()
         val previous = sourceAccountDao.get(id.value)
+        val previousCredential = previous?.let { credentialStore.load(id.value) }
         val credential = StoredCredential(
             username = normalized.username,
             secret = normalized.password,
             isAnonymous = normalized.isAnonymous,
         )
         credentialStore.save(id.value, credential)
-        sourceAccountDao.upsert(
-            SourceAccountEntity(
-                id = id.value,
-                providerType = normalized.typ.toProviderType(),
-                displayName = normalized.alias.ifBlank {
-                    if (normalized.typ == StorageType.LOCAL) "Local" else normalized.addr
-                },
-                endpoint = normalized.addr.takeIf { it.isNotBlank() },
-                externalAccountId = if (normalized.typ == StorageType.ONE_DRIVE) {
-                    normalized.addr.ifBlank { null }
-                } else {
-                    null
-                },
-                credentialRef = previous?.credentialRef ?: "storage-${id.value}",
-                priority = previous?.priority ?: 0,
-                enabled = true,
-                createdAt = previous?.createdAt ?: now,
-                updatedAt = now,
-                rootPath = previous?.rootPath ?: if (normalized.typ == StorageType.WEBDAV) "/" else null,
+        try {
+            sourceAccountDao.upsert(
+                SourceAccountEntity(
+                    id = id.value,
+                    providerType = normalized.typ.toProviderType(),
+                    displayName = normalized.alias.ifBlank {
+                        if (normalized.typ == StorageType.LOCAL) "Local" else normalized.addr
+                    },
+                    endpoint = normalized.addr.takeIf { it.isNotBlank() },
+                    externalAccountId = if (normalized.typ == StorageType.ONE_DRIVE) {
+                        normalized.addr.ifBlank { null }
+                    } else {
+                        null
+                    },
+                    credentialRef = previous?.credentialRef ?: "storage-${id.value}",
+                    priority = previous?.priority ?: 0,
+                    enabled = true,
+                    createdAt = previous?.createdAt ?: now,
+                    updatedAt = now,
+                    rootPath = previous?.rootPath ?: if (
+                        normalized.typ == StorageType.WEBDAV || normalized.typ == StorageType.OPEN_LIST
+                    ) "/" else null,
+                )
             )
-        )
+        } catch (failure: Throwable) {
+            restoreCredentialAfterPersistenceFailure(id.value, previousCredential)
+            throw failure
+        }
         return id
     }
 
     override suspend fun upsertSource(draft: SourceEditorDraft): SourceAccountId {
-        return when {
+        val draftId = draft.id
+        val replacedOpenListAccount = if (
+            draft.storageType != SourceEditorType.OpenList && draftId != null &&
+            sourceAccountDao.get(draftId)?.providerType == ProviderTypes.OpenList
+        ) {
+            storageSourceAccountId(draftId)
+        } else {
+            null
+        }
+        val accountId = when {
+            draft.storageType == SourceEditorType.OpenList -> {
+                storageSourceAccountId(upsertOpenList(draft, otpCode = ""))
+            }
             draft.storageType == SourceEditorType.Smb -> {
                 storageSourceAccountId(upsertSmb(draft))
             }
@@ -181,10 +232,21 @@ class StorageRepositoryImpl(
             }
             else -> storageSourceAccountId(upsertStorage(draft.toArgUpsertStorage()).value)
         }
+        replacedOpenListAccount?.let { openListSessionManager?.clear(it) }
+        return accountId
+    }
+
+    override suspend fun upsertOpenListSource(
+        draft: SourceEditorDraft,
+        otpCode: String,
+    ): SourceAccountId {
+        require(draft.storageType == SourceEditorType.OpenList)
+        return storageSourceAccountId(upsertOpenList(draft, otpCode))
     }
 
     suspend fun remove(id: StorageId) {
         _preRemoveStorageEvent.emit(id)
+        openListSessionManager?.clear(storageSourceAccountId(id.value))
         ctReleaseStorageBackend(id)
         credentialStore.delete(id.value)
         sourceAccountDao.delete(id.value)
@@ -202,6 +264,7 @@ class StorageRepositoryImpl(
 
     suspend fun storageForRust(id: StorageId): Storage? {
         val entity = sourceAccountDao.get(id.value) ?: return null
+        if (entity.providerType !in FILE_PROVIDER_TYPES) return null
         val credential = loadCredential(id)
         return entity.toStorage(password = credential?.secret.orEmpty())
             .copyCredential(credential)
@@ -279,6 +342,15 @@ class StorageRepositoryImpl(
         val entity = sourceAccountDao.get(id) ?: return null
         if (entity.providerType !in FILE_PROVIDER_TYPES) {
             val credential = loadCredential(StorageId(id))
+            val navidromeConfig = entity.providerConfig
+                ?.takeIf { entity.providerType == ProviderTypes.Navidrome }
+                ?.let(NavidromeProviderConfigurationCodec::decode)
+            val openSubsonicConfig = entity.providerConfig
+                ?.takeIf { entity.providerType == ProviderTypes.OpenSubsonic }
+                ?.let(OpenSubsonicProviderConfigurationCodec::decode)
+            val embyConfig = entity.providerConfig
+                ?.takeIf { entity.providerType == ProviderTypes.Emby }
+                ?.let(EmbyProviderConfigurationCodec::decode)
             return SourceEditorStorageState(
                 accountId = storageSourceAccountId(id),
                 draft = SourceEditorDraft(
@@ -289,10 +361,22 @@ class StorageRepositoryImpl(
                     secret = "",
                     storageType = entity.providerType.toRemoteSourceEditorType(),
                     externalAccountId = entity.externalAccountId.orEmpty(),
+                    streamMaxBitRate = navidromeConfig?.streamMaxBitRate
+                        ?: openSubsonicConfig?.streamMaxBitRate ?: 0,
+                    downloadMaxBitRate = navidromeConfig?.downloadMaxBitRate
+                        ?: openSubsonicConfig?.downloadMaxBitRate ?: 0,
+                    coverArtSize = navidromeConfig?.coverArtSize
+                        ?: openSubsonicConfig?.coverArtSize ?: 512,
+                    remoteWriteEnabled = navidromeConfig?.remoteWriteEnabled
+                        ?: openSubsonicConfig?.remoteWriteEnabled ?: false,
+                    secondaryBaseUrl = navidromeConfig?.secondaryBaseUrl
+                        ?: openSubsonicConfig?.secondaryBaseUrl
+                        ?: embyConfig?.secondaryBaseUrl.orEmpty(),
                 ),
                 title = entity.displayName.ifBlank { entity.endpoint.orEmpty() },
                 musicCount = 0u,
                 isOneDrive = false,
+                connectedServerName = embyConfig?.serverName.orEmpty(),
             )
         }
         if (entity.providerType == ProviderTypes.Smb) {
@@ -330,10 +414,15 @@ class StorageRepositoryImpl(
             title = storage.displayNameForEditor(),
             musicCount = storage.musicCount,
             isOneDrive = storage.typ == StorageType.ONE_DRIVE,
+            requiresOtp = entity.providerType == ProviderTypes.OpenList &&
+                OpenListProviderConfigurationCodec.decode(entity.providerConfig).requiresOtp,
         )
     }
 
     override suspend fun testSource(draft: SourceEditorDraft): SourceConnectionTestStatus {
+        if (draft.storageType == SourceEditorType.OpenList) {
+            return testOpenList(draft, otpCode = "")
+        }
         if (draft.storageType.isRemoteServer) {
             return testRemoteServer(draft)
         }
@@ -378,122 +467,376 @@ class StorageRepositoryImpl(
             )
         )
         val now = currentTimeMillis()
-        sourceAccountDao.upsert(
-            SourceAccountEntity(
-                id = id,
-                providerType = ProviderTypes.Smb,
-                displayName = draft.alias.ifBlank { draft.smbHost },
-                endpoint = draft.smbHost.trim(),
-                externalAccountId = null,
-                credentialRef = previous?.credentialRef ?: "storage-$id",
-                priority = previous?.priority ?: 0,
-                enabled = previous?.enabled ?: true,
-                createdAt = previous?.createdAt ?: now,
-                updatedAt = now,
-                rootPath = configuredSmbPath(configuration.share, configuration.rootPath),
-                providerConfig = SMB_JSON.encodeToString(
-                    SmbProviderConfiguration(
-                        port = configuration.port,
-                        share = configuration.share,
-                        rootPath = configuration.rootPath,
-                        domain = configuration.domain,
-                        requireSigning = configuration.requireSigning,
-                        requireEncryption = configuration.requireEncryption,
-                    )
-                ),
+        try {
+            sourceAccountDao.upsert(
+                SourceAccountEntity(
+                    id = id,
+                    providerType = ProviderTypes.Smb,
+                    displayName = draft.alias.ifBlank { draft.smbHost },
+                    endpoint = draft.smbHost.trim(),
+                    externalAccountId = null,
+                    credentialRef = previous?.credentialRef ?: "storage-$id",
+                    priority = previous?.priority ?: 0,
+                    enabled = previous?.enabled ?: true,
+                    createdAt = previous?.createdAt ?: now,
+                    updatedAt = now,
+                    rootPath = configuredSmbPath(configuration.share, configuration.rootPath),
+                    providerConfig = SMB_JSON.encodeToString(
+                        SmbProviderConfiguration(
+                            port = configuration.port,
+                            share = configuration.share,
+                            rootPath = configuration.rootPath,
+                            domain = configuration.domain,
+                            requireSigning = configuration.requireSigning,
+                            requireEncryption = configuration.requireEncryption,
+                        )
+                    ),
+                )
             )
-        )
+        } catch (failure: Throwable) {
+            restoreCredentialAfterPersistenceFailure(id, previousCredential)
+            throw failure
+        }
         ctReleaseStorageBackend(StorageId(id))
         return id
     }
 
     private suspend fun testRemoteServer(draft: SourceEditorDraft): SourceConnectionTestStatus =
-        runCatching {
+        try {
+            val address = draft.validatedRemoteServerAddress()
+            val secondaryBaseUrl = draft.validatedSecondaryBaseUrl()
             when (draft.storageType) {
                 SourceEditorType.Navidrome,
                 SourceEditorType.OpenSubsonic -> {
                     val password = draft.secret.ifBlank {
                         draft.id?.let { loadCredential(StorageId(it))?.secret }.orEmpty()
                     }
-                    ctSubsonicRequest(
-                        baseUrl = draft.address,
-                        username = draft.username,
-                        password = password,
-                        endpoint = "ping",
-                        params = emptyMap(),
-                    )
+                    RemoteServerEndpointPolicy.execute(address, secondaryBaseUrl) { endpoint ->
+                        subsonicRequest(
+                            endpoint,
+                            draft.username,
+                            password,
+                            "ping",
+                            emptyMap(),
+                        )
+                    }
                 }
                 SourceEditorType.Emby -> {
                     if (draft.secret.isNotBlank()) {
-                        ctEmbyLogin(draft.address, draft.username, draft.secret)
+                        RemoteServerEndpointPolicy.execute(address, secondaryBaseUrl) { endpoint ->
+                            embyLogin(endpoint, draft.username, draft.secret)
+                        }
                     } else {
                         val id = requireNotNull(draft.id)
-                        val token = loadCredential(StorageId(id))?.secret.orEmpty()
-                        ctEmbyRequest(
-                            draft.address,
-                            token,
-                            "Users/${draft.externalAccountId}",
-                            emptyMap(),
+                        val account = requireNotNull(sourceAccountDao.get(id))
+                        if (account.providerType != ProviderTypes.Emby) {
+                            throw NeedsReauthenticationException()
+                        }
+                        val credential = loadCredential(StorageId(id))
+                            ?: throw NeedsReauthenticationException()
+                        if (credential.secret.isBlank()) throw NeedsReauthenticationException()
+                        val verified = parseEmbyUser(RemoteServerEndpointPolicy.execute(
+                            address,
+                            secondaryBaseUrl,
+                        ) { endpoint ->
+                            embyRequest(
+                                endpoint,
+                                credential.secret,
+                                "Users/${account.externalAccountId ?: throw NeedsReauthenticationException()}",
+                                emptyMap(),
+                            )
+                        }.value)
+                        validateEmbyIdentity(
+                            verified,
+                            expectedUserId = account.externalAccountId,
+                            expectedServerId = EmbyProviderConfigurationCodec
+                                .decode(account.providerConfig).serverId,
                         )
                     }
                 }
                 else -> error("Unsupported remote server type")
             }
-        }.fold(
-            onSuccess = { SourceConnectionTestStatus.Success },
-            onFailure = { SourceConnectionTestStatus.Error },
+            SourceConnectionTestStatus.Success
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Throwable) {
+            when (error) {
+                    is NeedsReauthenticationException -> SourceConnectionTestStatus.Unauthorized
+                    is RemoteMusicException.Unauthorized -> SourceConnectionTestStatus.Unauthorized
+                    is RemoteMusicException.PermissionDenied -> SourceConnectionTestStatus.PermissionDenied
+                    is RemoteMusicException.Timeout -> SourceConnectionTestStatus.Timeout
+                    is RemoteMusicException.Connectivity -> SourceConnectionTestStatus.Unavailable
+                    is RemoteMusicException.NotFound -> SourceConnectionTestStatus.NotFound
+                    is RemoteMusicException.InvalidAddress -> SourceConnectionTestStatus.InvalidAddress
+                    is RemoteMusicException.Unavailable -> SourceConnectionTestStatus.Unavailable
+                    else -> SourceConnectionTestStatus.Error
+            }
+        }
+
+    override suspend fun testOpenListSource(
+        draft: SourceEditorDraft,
+        otpCode: String,
+    ): SourceConnectionTestStatus {
+        require(draft.storageType == SourceEditorType.OpenList)
+        return testOpenList(draft, otpCode)
+    }
+
+    private suspend fun testOpenList(
+        draft: SourceEditorDraft,
+        otpCode: String,
+    ): SourceConnectionTestStatus {
+        val id = draft.id?.let(::storageSourceAccountId)
+        val previous = draft.id?.let { sourceAccountDao.get(it) }
+        if (draft.id != null && previous != null && previous.providerType != ProviderTypes.OpenList) {
+            return SourceConnectionTestStatus.Unauthorized
+        }
+        val stored = draft.id?.let { loadCredential(StorageId(it)) }
+        val result = openListAuthenticator.probe(
+            OpenListSourceConfiguration(
+                accountId = id,
+                alias = draft.alias,
+                address = draft.address,
+                username = draft.username.ifBlank { stored?.username.orEmpty() },
+                password = draft.secret.ifBlank { stored?.secret.orEmpty() },
+                isGuest = draft.isAnonymous,
+                otpCode = otpCode,
+            )
         )
+        return result.toSourceConnectionTestStatus()
+    }
+
+    private suspend fun upsertOpenList(draft: SourceEditorDraft, otpCode: String): Long {
+        val id = draft.id ?: ((sourceAccountDao.maxId() ?: 0L) + 1L)
+        val previous = sourceAccountDao.get(id)
+        val previousCredential = loadCredential(StorageId(id))
+        if (draft.id != null && previous != null && previous.providerType != ProviderTypes.OpenList) {
+            openListSessionManager?.clear(storageSourceAccountId(id))
+            throw NeedsReauthenticationException()
+        }
+        val username = if (draft.isAnonymous) "" else {
+            draft.username.ifBlank { previousCredential?.username.orEmpty() }
+        }
+        val password = if (draft.isAnonymous) "" else {
+            draft.secret.ifBlank { previousCredential?.secret.orEmpty() }
+        }
+        val configuration = OpenListSourceConfiguration(
+            accountId = storageSourceAccountId(id),
+            alias = draft.alias,
+            address = draft.address,
+            username = username,
+            password = password,
+            isGuest = draft.isAnonymous,
+            otpCode = otpCode,
+        )
+        val result = openListAuthenticator.authenticate(configuration)
+        if (result !is SourceAuthResult.Success) {
+            val reason = (result as SourceAuthResult.Failure).reason
+            if (reason == SourceAuthFailureReason.OtpRequired) {
+                throw OpenListOtpRequiredException()
+            }
+            if (reason == SourceAuthFailureReason.Unauthorized) {
+                throw NeedsReauthenticationException()
+            }
+            throw OpenListAuthenticationException(reason)
+        }
+        val oldConfig = OpenListProviderConfigurationCodec.decode(previous?.providerConfig)
+        val newConfig = oldConfig.copy(
+            requiresOtp = !draft.isAnonymous &&
+                (oldConfig.requiresOtp || otpCode.isNotBlank()),
+        )
+        val now = currentTimeMillis()
+        try {
+            credentialStore.save(
+                id,
+                StoredCredential(username = username, secret = password, isAnonymous = draft.isAnonymous),
+            )
+            sourceAccountDao.upsert(
+                SourceAccountEntity(
+                    id = id,
+                    providerType = ProviderTypes.OpenList,
+                    displayName = draft.alias.ifBlank { draft.address },
+                    endpoint = draft.address,
+                    externalAccountId = null,
+                    credentialRef = previous?.credentialRef ?: "storage-$id",
+                    priority = previous?.priority ?: 0,
+                    enabled = previous?.enabled ?: true,
+                    createdAt = previous?.createdAt ?: now,
+                    updatedAt = now,
+                    rootPath = "/",
+                    providerConfig = OpenListProviderConfigurationCodec.encode(newConfig),
+                ),
+            )
+        } catch (failure: Throwable) {
+            try {
+                if (previousCredential == null) {
+                    credentialStore.delete(id)
+                } else {
+                    credentialStore.save(id, previousCredential)
+                }
+            } catch (_: Throwable) {
+                // Preserve the original persistence failure while making a best-effort rollback.
+            }
+            openListSessionManager?.clear(storageSourceAccountId(id))
+            throw failure
+        }
+        return id
+    }
 
     private suspend fun upsertRemoteServer(draft: SourceEditorDraft): Long {
         val id = draft.id ?: ((sourceAccountDao.maxId() ?: 0L) + 1L)
         val previous = sourceAccountDao.get(id)
+        val address = draft.validatedRemoteServerAddress()
+        val secondaryBaseUrl = draft.validatedSecondaryBaseUrl()
+        if (draft.storageType == SourceEditorType.Emby &&
+            draft.secret.isBlank() &&
+            previous?.providerType != ProviderTypes.Emby
+        ) {
+            throw NeedsReauthenticationException()
+        }
         val previousCredential = loadCredential(StorageId(id))
         var secret = draft.secret.ifBlank { previousCredential?.secret.orEmpty() }
+        var username = draft.username
         var externalAccountId = draft.externalAccountId.ifBlank {
             previous?.externalAccountId.orEmpty()
         }
-        if (draft.storageType == SourceEditorType.Emby && draft.secret.isNotBlank()) {
-            val login = Json.parseToJsonElement(
-                ctEmbyLogin(draft.address, draft.username, draft.secret)
-            ).jsonObject
-            secret = login["AccessToken"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            externalAccountId = login["User"]?.jsonObject
-                ?.get("Id")?.jsonPrimitive?.contentOrNull.orEmpty()
-            require(secret.isNotBlank() && externalAccountId.isNotBlank())
-        } else if (draft.storageType != SourceEditorType.Emby) {
-            ctSubsonicRequest(
-                draft.address,
-                draft.username,
-                secret,
-                "ping",
-                emptyMap(),
+        var providerConfig = when (draft.storageType) {
+            SourceEditorType.Navidrome -> NavidromeProviderConfigurationCodec.encode(
+                NavidromeProviderConfiguration(
+                    streamMaxBitRate = draft.streamMaxBitRate,
+                    downloadMaxBitRate = draft.downloadMaxBitRate,
+                    coverArtSize = draft.coverArtSize,
+                    remoteWriteEnabled = draft.remoteWriteEnabled,
+                    secondaryBaseUrl = secondaryBaseUrl,
+                ),
             )
+            SourceEditorType.OpenSubsonic -> OpenSubsonicProviderConfigurationCodec.encode(
+                OpenSubsonicProviderConfigurationCodec.decode(
+                    previous?.providerConfig.takeIf { previous?.providerType == ProviderTypes.OpenSubsonic },
+                ).copy(
+                    streamMaxBitRate = draft.streamMaxBitRate,
+                    downloadMaxBitRate = draft.downloadMaxBitRate,
+                    coverArtSize = draft.coverArtSize,
+                    remoteWriteEnabled = draft.remoteWriteEnabled,
+                    secondaryBaseUrl = secondaryBaseUrl,
+                ),
+            )
+            SourceEditorType.Emby -> EmbyProviderConfigurationCodec.encode(
+                EmbyProviderConfigurationCodec.decode(
+                    previous?.providerConfig.takeIf { previous?.providerType == ProviderTypes.Emby },
+                ).copy(secondaryBaseUrl = secondaryBaseUrl),
+            )
+            else -> error("Unsupported remote server type")
+        }
+        if (draft.storageType == SourceEditorType.Emby && draft.secret.isNotBlank()) {
+            val login = try {
+                RemoteServerEndpointPolicy.execute(address, secondaryBaseUrl) { endpoint ->
+                    embyLogin(endpoint, draft.username, draft.secret)
+                }.value
+            } catch (error: RemoteMusicException.Unauthorized) {
+                throw NeedsReauthenticationException()
+            }
+            secret = login.accessToken
+            externalAccountId = login.userId
+            providerConfig = EmbyProviderConfigurationCodec.encode(
+                EmbyProviderConfigurationCodec.decode(providerConfig).copy(
+                    serverId = login.serverId,
+                    serverName = login.serverName,
+                ),
+            )
+        } else if (draft.storageType == SourceEditorType.Emby) {
+            val existing = previous ?: throw NeedsReauthenticationException()
+            val credential = previousCredential ?: throw NeedsReauthenticationException()
+            if (credential.secret.isBlank()) throw NeedsReauthenticationException()
+            val persistedUserId = existing.externalAccountId
+                ?: throw NeedsReauthenticationException()
+            val verified = try {
+                parseEmbyUser(RemoteServerEndpointPolicy.execute(
+                    address,
+                    secondaryBaseUrl,
+                ) { endpoint ->
+                    embyRequest(
+                        endpoint,
+                        credential.secret,
+                        "Users/$persistedUserId",
+                        emptyMap(),
+                    )
+                }.value)
+            } catch (error: RemoteMusicException.Unauthorized) {
+                throw NeedsReauthenticationException()
+            }
+            validateEmbyIdentity(
+                verified,
+                expectedUserId = persistedUserId,
+                expectedServerId = EmbyProviderConfigurationCodec
+                    .decode(existing.providerConfig).serverId,
+            )
+            secret = credential.secret
+            externalAccountId = persistedUserId
+            username = verified.name ?: credential.username
+            val oldConfig = EmbyProviderConfigurationCodec.decode(existing.providerConfig)
+            providerConfig = EmbyProviderConfigurationCodec.encode(
+                EmbyProviderConfigurationCodec.decode(providerConfig).copy(
+                    serverId = verified.serverId ?: oldConfig.serverId,
+                    serverName = verified.serverName ?: oldConfig.serverName,
+                ),
+            )
+        } else if (draft.storageType != SourceEditorType.Emby) {
+            RemoteServerEndpointPolicy.execute(address, secondaryBaseUrl) { endpoint ->
+                subsonicRequest(
+                    endpoint,
+                    draft.username,
+                    secret,
+                    "ping",
+                    emptyMap(),
+                )
+            }
         }
         credentialStore.save(
             id,
             StoredCredential(
-                username = draft.username,
+                username = username,
                 secret = secret,
                 isAnonymous = false,
             )
         )
         val now = currentTimeMillis()
-        sourceAccountDao.upsert(
-            SourceAccountEntity(
-                id = id,
-                providerType = draft.storageType.providerType,
-                displayName = draft.alias.ifBlank { draft.address },
-                endpoint = draft.address,
-                externalAccountId = externalAccountId.ifBlank { null },
-                credentialRef = previous?.credentialRef ?: "storage-$id",
-                priority = previous?.priority ?: 0,
-                enabled = previous?.enabled ?: true,
-                createdAt = previous?.createdAt ?: now,
-                updatedAt = now,
-                rootPath = null,
+        try {
+            sourceAccountDao.upsert(
+                SourceAccountEntity(
+                    id = id,
+                    providerType = draft.storageType.providerType,
+                    displayName = draft.alias.ifBlank { address },
+                    endpoint = address,
+                    externalAccountId = externalAccountId.ifBlank { null },
+                    credentialRef = previous?.credentialRef ?: "storage-$id",
+                    priority = previous?.priority ?: 0,
+                    enabled = previous?.enabled ?: true,
+                    createdAt = previous?.createdAt ?: now,
+                    updatedAt = now,
+                    rootPath = null,
+                    providerConfig = providerConfig,
+                )
             )
-        )
+        } catch (failure: Throwable) {
+            restoreCredentialAfterPersistenceFailure(id, previousCredential)
+            throw failure
+        }
         return id
+    }
+
+    private suspend fun restoreCredentialAfterPersistenceFailure(
+        id: Long,
+        previousCredential: StoredCredential?,
+    ) {
+        try {
+            if (previousCredential == null) {
+                credentialStore.delete(id)
+            } else {
+                credentialStore.save(id, previousCredential)
+            }
+        } catch (_: Throwable) {
+            // Preserve the original DAO failure while making a best-effort credential rollback.
+        }
     }
 
     override suspend fun listOneDriveDriveInfos(refreshToken: String): OneDriveDriveListResult {
@@ -527,7 +870,33 @@ class StorageRepositoryImpl(
     override suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String) {
         val id = accountId.toStorageIdOrNull() ?: return
         val account = sourceAccountDao.get(id.value) ?: return
-        if (account.providerType == ProviderTypes.Smb) {
+        if (account.providerType == ProviderTypes.OpenList) {
+            val roots = libraryRootDao
+                ?: error("Library root storage is not configured")
+            val path = rootPath.openListCanonicalPath()
+            val existing = roots.findByPath(id.value, path)
+            val now = currentTimeMillis()
+            roots.upsert(
+                existing?.copy(
+                    providerRootId = path,
+                    canonicalPath = path,
+                    displayName = path.substringAfterLast('/').ifBlank { "/" },
+                    syncStatus = "PENDING",
+                    syncCursor = null,
+                    updatedAt = now,
+                ) ?: LibraryRootEntity(
+                    sourceAccountId = id.value,
+                    providerRootId = path,
+                    canonicalPath = path,
+                    displayName = path.substringAfterLast('/').ifBlank { "/" },
+                    syncStatus = "PENDING",
+                    syncCursor = null,
+                    lastSyncAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        } else if (account.providerType == ProviderTypes.Smb) {
             val path = rootPath.normalizedRootPath()
             val segments = path.split('/').filter(String::isNotBlank)
             require(segments.isNotEmpty()) { "Select an SMB share or one of its folders" }
@@ -554,6 +923,13 @@ class StorageRepositoryImpl(
         }
     }
 
+    override suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> {
+        val id = accountId.toStorageRouteIdOrNull() ?: return emptyList()
+        val account = sourceAccountDao.get(id) ?: return emptyList()
+        if (account.providerType != ProviderTypes.OpenList) return emptyList()
+        return libraryRootDao?.listCanonicalPaths(id).orEmpty()
+    }
+
     fun findStorageAccount(id: Long): StorageAccountInfo? {
         return _storageAccounts.value.find { it.accountId.toStorageRouteIdOrNull() == id }
     }
@@ -573,12 +949,53 @@ class StorageRepositoryImpl(
 
 }
 
+private data class EmbyVerifiedUser(
+    val id: String,
+    val serverId: String?,
+    val serverName: String?,
+    val name: String?,
+)
+
+private fun parseEmbyUser(raw: String): EmbyVerifiedUser {
+    val root = Json.parseToJsonElement(raw).jsonObject
+    val user = root["User"]?.jsonObject ?: root
+    val id = user["Id"]?.jsonPrimitive?.contentOrNull
+        ?.takeIf(String::isNotBlank)
+        ?: throw IllegalArgumentException("Emby user identity is missing")
+    val serverId = jsonString(root["ServerId"])
+        ?: jsonString(user["ServerId"])
+    val serverName = jsonString(user["ServerName"])
+        ?: jsonString(root["ServerName"])
+    val name = user["Name"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+    return EmbyVerifiedUser(id, serverId, serverName, name)
+}
+
+private fun jsonString(value: kotlinx.serialization.json.JsonElement?): String? =
+    (value as? kotlinx.serialization.json.JsonPrimitive)
+        ?.takeIf(kotlinx.serialization.json.JsonPrimitive::isString)
+        ?.contentOrNull
+        ?.takeIf(String::isNotBlank)
+
+private fun validateEmbyIdentity(
+    user: EmbyVerifiedUser,
+    expectedUserId: String?,
+    expectedServerId: String?,
+) {
+    if (expectedUserId != null && user.id != expectedUserId) {
+        throw IllegalArgumentException("Emby user identity does not match the saved account")
+    }
+    if (expectedServerId != null && user.serverId != null && user.serverId != expectedServerId) {
+        throw IllegalArgumentException("Emby server identity does not match the saved account")
+    }
+}
+
 private fun StorageType.toProviderType(): String {
     return when (this) {
         StorageType.LOCAL -> ProviderTypes.Local
         StorageType.WEBDAV -> ProviderTypes.WebDav
         StorageType.ONE_DRIVE -> ProviderTypes.OneDrive
         StorageType.SMB -> ProviderTypes.Smb
+        StorageType.OPEN_LIST -> ProviderTypes.OpenList
     }
 }
 
@@ -588,7 +1005,8 @@ private fun String.toStorageType(): StorageType {
         ProviderTypes.WebDav -> StorageType.WEBDAV
         ProviderTypes.OneDrive -> StorageType.ONE_DRIVE
         ProviderTypes.Smb -> StorageType.SMB
-        else -> StorageType.WEBDAV
+        ProviderTypes.OpenList -> StorageType.OPEN_LIST
+        else -> error("Unsupported file provider type")
     }
 }
 
@@ -599,6 +1017,7 @@ private val FILE_PROVIDER_TYPES = setOf(
     ProviderTypes.WebDav,
     ProviderTypes.OneDrive,
     ProviderTypes.Smb,
+    ProviderTypes.OpenList,
 )
 
 private val SourceEditorType.isRemoteServer: Boolean
@@ -627,6 +1046,7 @@ private fun SourceAccountSummaryRow.toStorageAccountInfo(): StorageAccountInfo {
         ProviderTypes.WebDav -> BuiltInSourceIds.WebDav
         ProviderTypes.OneDrive -> BuiltInSourceIds.OneDrive
         ProviderTypes.Smb -> BuiltInSourceIds.Smb
+        ProviderTypes.OpenList -> BuiltInSourceIds.OpenList
         ProviderTypes.Navidrome -> BuiltInSourceIds.Navidrome
         ProviderTypes.OpenSubsonic -> BuiltInSourceIds.OpenSubsonic
         ProviderTypes.Emby -> BuiltInSourceIds.Emby
@@ -657,6 +1077,7 @@ fun SourceConnectionTestStatus.toStorageConnectionTestResult(): StorageConnectio
         SourceConnectionTestStatus.Testing -> StorageConnectionTestResult.TESTING
         SourceConnectionTestStatus.Success -> StorageConnectionTestResult.SUCCESS
         SourceConnectionTestStatus.Unauthorized -> StorageConnectionTestResult.UNAUTHORIZED
+        SourceConnectionTestStatus.OtpRequired -> StorageConnectionTestResult.UNAUTHORIZED
         SourceConnectionTestStatus.Timeout -> StorageConnectionTestResult.TIMEOUT
         SourceConnectionTestStatus.PermissionDenied -> StorageConnectionTestResult.PERMISSION_DENIED
         SourceConnectionTestStatus.NotFound -> StorageConnectionTestResult.NOT_FOUND
@@ -664,6 +1085,22 @@ fun SourceConnectionTestStatus.toStorageConnectionTestResult(): StorageConnectio
         SourceConnectionTestStatus.Unavailable -> StorageConnectionTestResult.UNAVAILABLE
         SourceConnectionTestStatus.UnsupportedSecurityPolicy -> StorageConnectionTestResult.UNSUPPORTED
         SourceConnectionTestStatus.Error -> StorageConnectionTestResult.OTHER_ERROR
+    }
+}
+
+private fun SourceAuthResult.toSourceConnectionTestStatus(): SourceConnectionTestStatus = when (this) {
+    SourceAuthResult.Success -> SourceConnectionTestStatus.Success
+    is SourceAuthResult.Failure -> when (reason) {
+        SourceAuthFailureReason.Timeout -> SourceConnectionTestStatus.Timeout
+        SourceAuthFailureReason.Unauthorized -> SourceConnectionTestStatus.Unauthorized
+        SourceAuthFailureReason.PermissionDenied -> SourceConnectionTestStatus.PermissionDenied
+        SourceAuthFailureReason.NotFound -> SourceConnectionTestStatus.NotFound
+        SourceAuthFailureReason.InvalidAddress -> SourceConnectionTestStatus.InvalidAddress
+        SourceAuthFailureReason.OtpRequired -> SourceConnectionTestStatus.OtpRequired
+        SourceAuthFailureReason.UnsupportedSecurityPolicy -> SourceConnectionTestStatus.UnsupportedSecurityPolicy
+        SourceAuthFailureReason.UnsupportedConfiguration,
+        SourceAuthFailureReason.Unavailable,
+        SourceAuthFailureReason.Unknown -> SourceConnectionTestStatus.Unavailable
     }
 }
 
@@ -718,6 +1155,29 @@ private fun configuredSmbPath(share: String, rootPath: String): String? {
     if (sharePath.isEmpty()) return null
     val nestedPath = rootPath.trim().trim('/')
     return if (nestedPath.isEmpty()) "/$sharePath" else "/$sharePath/$nestedPath"
+}
+
+private fun SourceEditorDraft.validatedRemoteServerAddress(): String =
+    sanitizeRemoteServerBaseUrl(address)
+        ?: throw RemoteMusicException.InvalidAddress()
+
+private fun SourceEditorDraft.validatedSecondaryBaseUrl(): String? {
+    if (secondaryBaseUrl.isBlank()) return null
+    return sanitizeRemoteServerBaseUrl(secondaryBaseUrl)
+        ?: throw RemoteMusicException.InvalidAddress()
+}
+
+private fun String.openListCanonicalPath(): String {
+    require(isNotEmpty() && !contains('\u0000')) {
+        "OpenList root must be a non-empty canonical path"
+    }
+    val canonical = if (startsWith('/')) this else "/$this"
+    if (canonical == "/") return "/"
+    val segments = canonical.removePrefix("/").split('/')
+    require(segments.none { it.isEmpty() || it == "." || it == ".." }) {
+        "OpenList root contains an invalid path segment"
+    }
+    return canonical
 }
 
 private fun SourceAccountEntity.smbProviderConfiguration(): SmbProviderConfiguration? {

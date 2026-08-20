@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,6 +40,7 @@ import io.github.julystar.musicapp.core.presentation.components.FormText
 import io.github.julystar.musicapp.core.presentation.components.FormWidget
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
+import io.github.julystar.musicapp.core.presentation.components.DesignChip
 import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
 import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
 import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
@@ -63,6 +65,9 @@ import musicapp.feature.sources.generated.resources.storage_edit_form_password
 import musicapp.feature.sources.generated.resources.storage_edit_form_username
 import musicapp.feature.sources.generated.resources.storage_edit_import_library_action
 import musicapp.feature.sources.generated.resources.storage_edit_import_library_label
+import musicapp.feature.sources.generated.resources.storage_edit_sync_library_action
+import musicapp.feature.sources.generated.resources.storage_edit_sync_library_label
+import musicapp.feature.sources.generated.resources.sources_syncing
 import musicapp.feature.sources.generated.resources.storage_edit_oauth
 import musicapp.feature.sources.generated.resources.storage_edit_onedrive_alias_not_empty
 import musicapp.feature.sources.generated.resources.storage_edit_onedrive_connect
@@ -72,6 +77,15 @@ import musicapp.feature.sources.generated.resources.storage_edit_onedrive_drive_
 import musicapp.feature.sources.generated.resources.storage_edit_onedrive_drive_required
 import musicapp.feature.sources.generated.resources.storage_edit_onedrive_should_auth
 import musicapp.feature.sources.generated.resources.storage_edit_password
+import musicapp.feature.sources.generated.resources.storage_edit_secondary_addr
+import musicapp.feature.sources.generated.resources.storage_edit_stream_bitrate
+import musicapp.feature.sources.generated.resources.storage_edit_download_bitrate
+import musicapp.feature.sources.generated.resources.storage_edit_cover_size
+import musicapp.feature.sources.generated.resources.storage_edit_remote_write
+import musicapp.feature.sources.generated.resources.storage_edit_emby_server_name
+import musicapp.feature.sources.generated.resources.storage_edit_emby_connected_account
+import musicapp.feature.sources.generated.resources.storage_edit_openlist_guest
+import musicapp.feature.sources.generated.resources.storage_edit_openlist_otp
 import musicapp.feature.sources.generated.resources.storage_edit_username
 import musicapp.feature.sources.generated.resources.storage_edit_smb_domain
 import musicapp.feature.sources.generated.resources.storage_edit_smb_encryption
@@ -86,6 +100,7 @@ import musicapp.feature.sources.generated.resources.storage_remove_desc_main
 import musicapp.feature.sources.generated.resources.storage_test_error
 import musicapp.feature.sources.generated.resources.storage_test_invalid_address
 import musicapp.feature.sources.generated.resources.storage_test_not_found
+import musicapp.feature.sources.generated.resources.storage_test_otp_required
 import musicapp.feature.sources.generated.resources.storage_test_permission
 import musicapp.feature.sources.generated.resources.storage_test_success
 import musicapp.feature.sources.generated.resources.storage_test_testing
@@ -274,7 +289,7 @@ private fun WebDavConfig(
 
 @Composable
 private fun RemoteServerConfig(
-    state: WebDavSourceEditorState,
+    state: RemoteServerSourceEditorState,
     validation: SourceEditorValidation,
     onAction: (SourceEditorAction) -> Unit,
 ) {
@@ -282,19 +297,19 @@ private fun RemoteServerConfig(
     FormText(
         label = stringResource(Res.string.storage_edit_alias),
         value = state.alias,
-        onChange = { onAction(SourceEditorAction.WebDavAliasChanged(it)) },
+        onChange = { onAction(SourceEditorAction.RemoteServerAliasChanged(it)) },
         error = if (validation.aliasEmpty) Res.string.storage_edit_onedrive_alias_not_empty else null,
     )
     FormText(
         label = stringResource(Res.string.storage_edit_addr),
         value = state.address,
-        onChange = { onAction(SourceEditorAction.WebDavAddressChanged(it)) },
+        onChange = { onAction(SourceEditorAction.RemoteServerAddressChanged(it)) },
         error = if (validation.addressEmpty) Res.string.storage_edit_form_address else null,
     )
     FormText(
         label = stringResource(Res.string.storage_edit_username),
         value = state.username,
-        onChange = { onAction(SourceEditorAction.WebDavUsernameChanged(it)) },
+        onChange = { onAction(SourceEditorAction.RemoteServerUsernameChanged(it)) },
         error = if (validation.usernameEmpty) Res.string.storage_edit_form_username else null,
     )
     FormText(
@@ -303,11 +318,191 @@ private fun RemoteServerConfig(
         isPassword = true,
         onChange = {
             password = it
-            onAction(SourceEditorAction.WebDavPasswordChanged(it))
+            onAction(SourceEditorAction.RemoteServerPasswordChanged(it))
         },
         error = if (validation.passwordEmpty) Res.string.storage_edit_form_password else null,
     )
+    FormText(
+        label = stringResource(Res.string.storage_edit_secondary_addr),
+        value = state.secondaryBaseUrl,
+        onChange = { onAction(SourceEditorAction.RemoteServerSecondaryAddressChanged(it)) },
+    )
+    IntegerChoices(
+        label = stringResource(Res.string.storage_edit_stream_bitrate),
+        value = state.streamMaxBitRate,
+        values = sourceEditorBitRateChoices,
+        onChange = { onAction(SourceEditorAction.RemoteServerStreamBitRateChanged(it)) },
+    )
+    IntegerChoices(
+        label = stringResource(Res.string.storage_edit_download_bitrate),
+        value = state.downloadMaxBitRate,
+        values = sourceEditorBitRateChoices,
+        onChange = { onAction(SourceEditorAction.RemoteServerDownloadBitRateChanged(it)) },
+    )
+    IntegerChoices(
+        label = stringResource(Res.string.storage_edit_cover_size),
+        value = state.coverArtSize,
+        values = sourceEditorCoverArtSizeChoices,
+        onChange = { onAction(SourceEditorAction.RemoteServerCoverArtSizeChanged(it)) },
+    )
+    FormSwitch(
+        label = stringResource(Res.string.storage_edit_remote_write),
+        value = state.remoteWriteEnabled,
+        onChange = { onAction(SourceEditorAction.RemoteServerWriteChanged(it)) },
+    )
 }
+
+@Composable
+private fun EmbyConfig(
+    state: EmbySourceEditorState,
+    validation: SourceEditorValidation,
+    onAction: (SourceEditorAction) -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    FormText(
+        label = stringResource(Res.string.storage_edit_alias),
+        value = state.alias,
+        onChange = { onAction(SourceEditorAction.RemoteServerAliasChanged(it)) },
+        error = if (validation.aliasEmpty) Res.string.storage_edit_onedrive_alias_not_empty else null,
+    )
+    FormText(
+        label = stringResource(Res.string.storage_edit_addr),
+        value = state.address,
+        onChange = { onAction(SourceEditorAction.RemoteServerAddressChanged(it)) },
+        error = if (validation.addressEmpty) Res.string.storage_edit_form_address else null,
+    )
+    FormText(
+        label = stringResource(Res.string.storage_edit_username),
+        value = state.username,
+        onChange = { onAction(SourceEditorAction.RemoteServerUsernameChanged(it)) },
+        error = if (validation.usernameEmpty) Res.string.storage_edit_form_username else null,
+    )
+    FormText(
+        label = stringResource(Res.string.storage_edit_password),
+        value = password,
+        isPassword = true,
+        onChange = {
+            password = it
+            onAction(SourceEditorAction.RemoteServerPasswordChanged(it))
+        },
+        error = if (validation.passwordEmpty) Res.string.storage_edit_form_password else null,
+    )
+    FormText(
+        label = stringResource(Res.string.storage_edit_secondary_addr),
+        value = state.secondaryBaseUrl,
+        onChange = { onAction(SourceEditorAction.RemoteServerSecondaryAddressChanged(it)) },
+    )
+    ReadOnlyValue(Res.string.storage_edit_emby_server_name, state.serverName)
+    ReadOnlyValue(Res.string.storage_edit_emby_connected_account, state.connectedUserId)
+}
+
+@Composable
+private fun OpenListConfig(
+    state: OpenListSourceEditorState,
+    validation: SourceEditorValidation,
+    otpInputGeneration: Int,
+    onAction: (SourceEditorAction) -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    var otpCode by remember(otpInputGeneration) { mutableStateOf("") }
+    FormSwitch(
+        label = stringResource(Res.string.storage_edit_openlist_guest),
+        value = state.isGuest,
+        onChange = { isGuest ->
+            if (isGuest) password = ""
+            onAction(SourceEditorAction.OpenListGuestChanged(isGuest))
+        },
+    )
+    FormText(
+        label = stringResource(Res.string.storage_edit_alias),
+        value = state.alias,
+        onChange = { onAction(SourceEditorAction.OpenListAliasChanged(it)) },
+        error = if (validation.aliasEmpty) Res.string.storage_edit_onedrive_alias_not_empty else null,
+    )
+    FormText(
+        label = stringResource(Res.string.storage_edit_addr),
+        value = state.address,
+        onChange = { onAction(SourceEditorAction.OpenListAddressChanged(it)) },
+        error = if (validation.addressEmpty) Res.string.storage_edit_form_address else null,
+    )
+    if (!state.isGuest) {
+        FormText(
+            label = stringResource(Res.string.storage_edit_username),
+            value = state.username,
+            onChange = { onAction(SourceEditorAction.OpenListUsernameChanged(it)) },
+            error = if (validation.usernameEmpty) Res.string.storage_edit_form_username else null,
+        )
+        FormText(
+            label = stringResource(Res.string.storage_edit_password),
+            value = password,
+            isPassword = true,
+            onChange = {
+                password = it
+                onAction(SourceEditorAction.OpenListPasswordChanged(it))
+            },
+            error = if (validation.passwordEmpty) Res.string.storage_edit_form_password else null,
+        )
+        if (state.showOtp) {
+            FormText(
+                label = stringResource(Res.string.storage_edit_openlist_otp),
+                value = otpCode,
+                isPassword = true,
+                onChange = {
+                    otpCode = it
+                    onAction(SourceEditorAction.OpenListOtpChanged(it))
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun IntegerChoices(
+    label: String,
+    value: Int,
+    values: List<Int>,
+    onChange: (Int) -> Unit,
+) {
+    FormWidget(label = label) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            values.chunked(3).forEach { rowValues ->
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    rowValues.forEach { option ->
+                        DesignChip(
+                            label = if (option == 0) "Original" else option.toString(),
+                            selected = option == value,
+                            onClick = { onChange(option) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadOnlyValue(label: org.jetbrains.compose.resources.StringResource, value: String) {
+    if (value.isBlank()) return
+    FormWidget(label = stringResource(label)) {
+        Text(
+            text = value,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.body1,
+        )
+    }
+}
+
+private val SourceSelectorOption.label: String
+    get() = when (this) {
+        SourceSelectorOption.Local -> "Local"
+        SourceSelectorOption.WebDav -> "WebDAV"
+        SourceSelectorOption.Smb -> "SMB"
+        SourceSelectorOption.OneDrive -> "OneDrive"
+        SourceSelectorOption.Navidrome -> "Navidrome"
+        SourceSelectorOption.OpenSubsonic -> "OpenSubsonic"
+        SourceSelectorOption.Emby -> "Emby"
+        SourceSelectorOption.OpenList -> "OpenList"
+    }
 
 @Composable
 private fun SmbConfig(
@@ -511,6 +706,7 @@ fun SourceEditorScreen(
             iconTint = MiuixTheme.colorScheme.primary,
         )
         SourceConnectionTestStatus.Unauthorized,
+        SourceConnectionTestStatus.OtpRequired,
         SourceConnectionTestStatus.Timeout,
         SourceConnectionTestStatus.PermissionDenied,
         SourceConnectionTestStatus.NotFound,
@@ -527,6 +723,7 @@ fun SourceEditorScreen(
         SourceConnectionTestStatus.Testing -> stringResource(Res.string.storage_test_testing)
         SourceConnectionTestStatus.Success -> stringResource(Res.string.storage_test_success)
         SourceConnectionTestStatus.Unauthorized -> stringResource(Res.string.storage_test_unauthorized)
+        SourceConnectionTestStatus.OtpRequired -> stringResource(Res.string.storage_test_otp_required)
         SourceConnectionTestStatus.Timeout -> stringResource(Res.string.storage_test_timeout)
         SourceConnectionTestStatus.PermissionDenied -> stringResource(Res.string.storage_test_permission)
         SourceConnectionTestStatus.NotFound -> stringResource(Res.string.storage_test_not_found)
@@ -626,49 +823,23 @@ fun SourceEditorScreen(
                             bottom = 12.dp + bottomContentInset,
                         ),
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        StorageBlock(
-                            title = "WebDAV",
-                            isActive = storageType == SourceEditorType.WebDav,
-                            onSelect = {
-                                onAction(SourceEditorAction.ChangeType(SourceEditorType.WebDav))
-                            },
-                        )
-                        StorageBlock(
-                            title = "OneDrive",
-                            isActive = storageType == SourceEditorType.OneDrive,
-                            onSelect = {
-                                onAction(SourceEditorAction.ChangeType(SourceEditorType.OneDrive))
-                            },
-                        )
-                        StorageBlock(
-                            title = "SMB",
-                            isActive = storageType == SourceEditorType.Smb,
-                            onSelect = {
-                                onAction(SourceEditorAction.ChangeType(SourceEditorType.Smb))
-                            },
-                        )
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        StorageBlock(
-                            title = "Navidrome",
-                            isActive = storageType == SourceEditorType.Navidrome,
-                            onSelect = { onAction(SourceEditorAction.ChangeType(SourceEditorType.Navidrome)) },
-                        )
-                        StorageBlock(
-                            title = "OpenSubsonic",
-                            isActive = storageType == SourceEditorType.OpenSubsonic,
-                            onSelect = { onAction(SourceEditorAction.ChangeType(SourceEditorType.OpenSubsonic)) },
-                        )
-                        StorageBlock(
-                            title = "Emby",
-                            isActive = storageType == SourceEditorType.Emby,
-                            onSelect = { onAction(SourceEditorAction.ChangeType(SourceEditorType.Emby)) },
-                        )
+                    sourceSelectorOptions.chunked(3).forEach { options ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            options.forEach { option ->
+                                StorageBlock(
+                                    title = option.label,
+                                    isActive = option.editorType == storageType,
+                                    onSelect = {
+                                        val editorType = option.editorType
+                                        if (editorType == null) {
+                                            onAction(SourceEditorAction.ImportLocalLibraryFolder)
+                                        } else {
+                                            onAction(SourceEditorAction.ChangeType(editorType))
+                                        }
+                                    },
+                                )
+                            }
+                        }
                     }
                     DesignCardSurface(
                         cornerRadius = shapes.xl,
@@ -699,21 +870,41 @@ fun SourceEditorScreen(
                                     onAction = onAction,
                                 )
                             }
-                            if (
-                                storageType == SourceEditorType.Navidrome ||
-                                storageType == SourceEditorType.OpenSubsonic ||
-                                storageType == SourceEditorType.Emby
+                            if (storageType == SourceEditorType.Navidrome ||
+                                storageType == SourceEditorType.OpenSubsonic
                             ) {
-                                RemoteServerConfig(
-                                    state = state.webDav,
-                                    validation = state.validation,
-                                    onAction = onAction,
-                                )
+                                key(storageType) {
+                                    RemoteServerConfig(
+                                        state = state.remoteServer,
+                                        validation = state.validation,
+                                        onAction = onAction,
+                                    )
+                                }
+                            }
+                            if (storageType == SourceEditorType.Emby) {
+                                key(storageType) {
+                                    EmbyConfig(
+                                        state = state.emby,
+                                        validation = state.validation,
+                                        onAction = onAction,
+                                    )
+                                }
+                            }
+                            if (storageType == SourceEditorType.OpenList) {
+                                key(storageType) {
+                                    OpenListConfig(
+                                        state = state.openList,
+                                        validation = state.validation,
+                                        otpInputGeneration = state.otpInputGeneration,
+                                        onAction = onAction,
+                                    )
+                                }
                             }
                             if (!state.isCreated && (
                                 storageType == SourceEditorType.WebDav ||
                                 storageType == SourceEditorType.OneDrive ||
-                                storageType == SourceEditorType.Smb
+                                storageType == SourceEditorType.Smb ||
+                                storageType == SourceEditorType.OpenList
                             )) {
                                 FormWidget(
                                     label = stringResource(Res.string.storage_edit_import_library_label),
@@ -725,6 +916,25 @@ fun SourceEditorScreen(
                                         onClick = {
                                             onAction(SourceEditorAction.ImportLibraryFolder)
                                         },
+                                    )
+                                }
+                            }
+                            if (state.canSyncCurrentServer) {
+                                FormWidget(
+                                    label = stringResource(Res.string.storage_edit_sync_library_label),
+                                ) {
+                                    DesignTextButton(
+                                        text = stringResource(
+                                            if (state.isSyncing) {
+                                                Res.string.sources_syncing
+                                            } else {
+                                                Res.string.storage_edit_sync_library_action
+                                            },
+                                        ),
+                                        variant = DesignTextButtonVariant.PrimaryFilled,
+                                        size = DesignTextButtonSize.Medium,
+                                        enabled = !state.isSyncing,
+                                        onClick = { onAction(SourceEditorAction.SyncNow) },
                                     )
                                 }
                             }

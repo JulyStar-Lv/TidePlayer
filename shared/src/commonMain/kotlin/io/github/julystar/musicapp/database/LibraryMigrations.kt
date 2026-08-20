@@ -774,3 +774,25 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
         ).use { statement -> statement.step() }
     }
 }
+
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.prepare("ALTER TABLE lyrics ADD COLUMN structuredContent TEXT").use { statement ->
+            statement.step()
+        }
+    }
+}
+
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(connection: SQLiteConnection) {
+        listOf(
+            "ALTER TABLE playlist ADD COLUMN providerType TEXT",
+            "ALTER TABLE playlist ADD COLUMN sourceAccountId INTEGER",
+            "ALTER TABLE playlist ADD COLUMN remotePlaylistId TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS index_playlist_providerType_sourceAccountId_remotePlaylistId " +
+                "ON playlist(providerType, sourceAccountId, remotePlaylistId)",
+        ).forEach { sql ->
+            connection.prepare(sql).use { statement -> statement.step() }
+        }
+    }
+}

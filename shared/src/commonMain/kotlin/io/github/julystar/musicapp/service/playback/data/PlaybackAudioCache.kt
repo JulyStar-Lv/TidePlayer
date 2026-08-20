@@ -5,6 +5,7 @@ import io.github.julystar.musicapp.source.api.PlaybackResource
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
 import okio.Path.Companion.toPath
 import uniffi.app_backend.PlaybackCacheOptions
 import uniffi.app_backend.PlaybackSession
@@ -56,11 +57,22 @@ interface PlaybackAudioCache {
     }
 }
 
-class PersistentPlaybackAudioCache(
+class PersistentPlaybackAudioCache internal constructor(
     private val settingsRepository: SettingsRepository,
     cacheDirectory: String,
     private val completedMediaPromoter: CompletedMediaPromoter = CompletedMediaPromoter.Disabled,
+    private val sessionFactory: suspend (String, Map<String, String>, PlaybackCacheOptions) -> PlaybackCacheSessionHandle,
 ) : PlaybackAudioCache {
+    constructor(
+        settingsRepository: SettingsRepository,
+        cacheDirectory: String,
+        completedMediaPromoter: CompletedMediaPromoter = CompletedMediaPromoter.Disabled,
+    ) : this(
+        settingsRepository,
+        cacheDirectory,
+        completedMediaPromoter,
+        ::createNativePlaybackCacheSession,
+    )
     private val directory = (cacheDirectory.toPath() / CACHE_DIRECTORY_NAME).toString()
     private val mutex = Mutex()
     private val sessions = mutableMapOf<String, RetainedCacheSession>()
@@ -84,7 +96,13 @@ class PersistentPlaybackAudioCache(
             mimeType = mimeType,
             isLocal = true,
         )
-        retain(resource.uri, session, original = null, identity = identity, mimeType = mimeType)
+        retain(
+            resource.uri,
+            NativePlaybackCacheSessionHandle(session),
+            original = null,
+            identity = identity,
+            mimeType = mimeType,
+        )
         return resource
     }
 
@@ -92,23 +110,33 @@ class PersistentPlaybackAudioCache(
         identity: PlaybackCacheIdentity,
         resource: PlaybackResource,
     ): PlaybackResource {
-        if (resource.isLocal || !resource.uri.isHttpUri()) return resource
-        val settings = settingsRepository.settings.first()
-        if (!settings.listenAndCacheEnabled || settings.audioCacheLimitBytes <= 0L) {
+        if (resource.isLocal || !resource.uri.isHttpUri()) {
+            if (resource.headers.isNotEmpty()) throw PlaybackProxyUnavailableException()
             return resource
         }
-        val session = runCatching {
-            ctCreateHttpPlaybackCacheSession(
-                uri = resource.uri,
-                headers = resource.headers,
-                cacheOptions = cacheOptions(
+        val settings = settingsRepository.settings.first()
+        val requiresHeaderProxy = resource.headers.isNotEmpty()
+        val cacheEnabled = settings.listenAndCacheEnabled && settings.audioCacheLimitBytes > 0L
+        if (!requiresHeaderProxy && !cacheEnabled) {
+            return resource
+        }
+        val session = try {
+            sessionFactory(
+                resource.uri,
+                resource.headers,
+                cacheOptions(
                     identity = identity,
                     mimeType = resource.mimeType,
-                    writeEnabled = true,
-                    maxBytes = settings.audioCacheLimitBytes,
+                    writeEnabled = cacheEnabled,
+                    maxBytes = if (cacheEnabled) settings.audioCacheLimitBytes else 0L,
                 ),
             )
-        }.getOrNull() ?: return resource
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            if (requiresHeaderProxy) throw PlaybackProxyUnavailableException()
+            return resource
+        }
         val wrapped = resource.copy(
             uri = session.url(),
             headers = emptyMap(),
@@ -146,7 +174,7 @@ class PersistentPlaybackAudioCache(
 
     private suspend fun retain(
         uri: String,
-        session: PlaybackSession,
+        session: PlaybackCacheSessionHandle,
         original: PlaybackResource?,
         identity: PlaybackCacheIdentity,
         mimeType: String?,
@@ -174,8 +202,35 @@ class PersistentPlaybackAudioCache(
     )
 }
 
+internal class PlaybackProxyUnavailableException : Exception()
+
+internal interface PlaybackCacheSessionHandle {
+    fun url(): String
+    fun shutdown()
+}
+
+private class NativePlaybackCacheSessionHandle(
+    private val session: PlaybackSession,
+) : PlaybackCacheSessionHandle {
+    override fun url(): String = session.url()
+
+    override fun shutdown() = session.shutdown()
+}
+
+private suspend fun createNativePlaybackCacheSession(
+    uri: String,
+    headers: Map<String, String>,
+    options: PlaybackCacheOptions,
+): PlaybackCacheSessionHandle = NativePlaybackCacheSessionHandle(
+    ctCreateHttpPlaybackCacheSession(
+        uri = uri,
+        headers = headers,
+        cacheOptions = options,
+    )
+)
+
 private data class RetainedCacheSession(
-    val session: PlaybackSession,
+    val session: PlaybackCacheSessionHandle,
     val original: PlaybackResource?,
     val identity: PlaybackCacheIdentity,
     val mimeType: String?,

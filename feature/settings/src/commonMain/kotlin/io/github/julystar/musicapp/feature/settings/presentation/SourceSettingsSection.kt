@@ -873,6 +873,8 @@ private fun SourceActionsButton(
                                 )
                             },
                         )
+                    }
+                    if (account.isWebDav || account.isSmb || account.isOpenList) {
                         SourceMenuItem(
                             icon = Res.drawable.icon_source_sliders,
                             label = stringResource(Res.string.settings_source_path_action),

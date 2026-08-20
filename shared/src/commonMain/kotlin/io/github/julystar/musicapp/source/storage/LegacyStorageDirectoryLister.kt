@@ -27,6 +27,7 @@ internal fun LegacyStorageKind.toStorageType(): StorageType {
         LegacyStorageKind.WebDav -> StorageType.WEBDAV
         LegacyStorageKind.OneDrive -> StorageType.ONE_DRIVE
         LegacyStorageKind.Smb -> StorageType.SMB
+        LegacyStorageKind.OpenList -> StorageType.OPEN_LIST
     }
 }
 

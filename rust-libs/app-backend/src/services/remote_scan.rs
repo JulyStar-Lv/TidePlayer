@@ -150,11 +150,41 @@ impl RemoteMusicScanSession {
         Self::new_with_concurrency(storage_id, backend, root, DEFAULT_DIRECTORY_CONCURRENCY)
     }
 
+    pub fn new_openlist(
+        storage_id: StorageId,
+        backend: Arc<dyn StorageBackend + Send + Sync>,
+        root: String,
+    ) -> Arc<Self> {
+        Self::new_with_concurrency_and_path_mode(
+            storage_id,
+            backend,
+            root,
+            DEFAULT_DIRECTORY_CONCURRENCY,
+            true,
+        )
+    }
+
     pub(crate) fn new_with_concurrency(
         storage_id: StorageId,
         backend: Arc<dyn StorageBackend + Send + Sync>,
         root: String,
         directory_concurrency: usize,
+    ) -> Arc<Self> {
+        Self::new_with_concurrency_and_path_mode(
+            storage_id,
+            backend,
+            root,
+            directory_concurrency,
+            false,
+        )
+    }
+
+    fn new_with_concurrency_and_path_mode(
+        storage_id: StorageId,
+        backend: Arc<dyn StorageBackend + Send + Sync>,
+        root: String,
+        directory_concurrency: usize,
+        preserve_raw_paths: bool,
     ) -> Arc<Self> {
         assert!(
             (MIN_DIRECTORY_CONCURRENCY..=MAX_DIRECTORY_CONCURRENCY)
@@ -173,6 +203,7 @@ impl RemoteMusicScanSession {
             Arc::clone(&stats),
             Arc::clone(&cancelled),
             Arc::clone(&cancel_notify),
+            preserve_raw_paths,
         )));
         Arc::new(Self {
             storage_id,
@@ -207,10 +238,15 @@ async fn run_directory_scan(
     stats: Arc<RemoteMusicScanStats>,
     cancelled: Arc<AtomicBool>,
     cancel_notify: Arc<Notify>,
+    preserve_raw_paths: bool,
 ) {
     // One coordinator owns queue/dedup state. Directory futures own only their
     // path and backend handle, so no scan-state lock is held across network I/O.
-    let root = canonical_directory_path(&root);
+    let root = if preserve_raw_paths {
+        root
+    } else {
+        canonical_directory_path(&root)
+    };
     let mut directories = VecDeque::from([DirectoryTask {
         path: root.clone(),
         retry_count: 0,
@@ -268,14 +304,18 @@ async fn run_directory_scan(
                         return;
                     }
                     if entry.is_dir {
-                        let path = canonical_directory_path(&entry.path);
+                        let path = if preserve_raw_paths {
+                            entry.path.clone()
+                        } else {
+                            canonical_directory_path(&entry.path)
+                        };
                         if scheduled_directories.insert(path.clone()) {
                             directories.push_back(DirectoryTask {
                                 path,
                                 retry_count: 0,
                             });
                         }
-                    } else if is_supported_music_entry(&entry) {
+                    } else if is_supported_music_entry(&entry, preserve_raw_paths) {
                         let sent = tokio::select! {
                             sent = sender.send(ScanMessage::Entry(entry)) => sent.is_ok(),
                             _ = cancel_notify.notified() => false,
@@ -353,12 +393,15 @@ pub(crate) fn is_supported_music_path(path: &str) -> bool {
     .any(|suffix| lower_path.ends_with(suffix))
 }
 
-fn is_supported_music_entry(entry: &Entry) -> bool {
-    !entry
+fn is_supported_music_entry(entry: &Entry, openlist_mode: bool) -> bool {
+    let mime = entry
         .mime_type
         .as_deref()
-        .is_some_and(|mime_type| mime_type.trim().to_ascii_lowercase().starts_with("video/"))
-        && is_supported_music_path(&entry.path)
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    !mime.starts_with("video/")
+        && (is_supported_music_path(&entry.path) || (openlist_mode && mime.starts_with("audio/")))
 }
 
 #[cfg(test)]
@@ -692,6 +735,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn openlist_recursive_scan_preserves_raw_paths_and_generic_mode_does_not() {
+        let raw_dir = "/音乐/%25 #? 😀\\folder".to_string();
+        let raw_track = format!("{raw_dir}/无扩展曲目");
+        let calls = Arc::new(StdMutex::new(Vec::new()));
+        let storage = Arc::new(RawMemoryStorage {
+            directories: HashMap::from([
+                ("/".to_string(), vec![entry(&raw_dir, true)]),
+                (raw_dir.clone(), vec![audio_entry(&raw_track)]),
+            ]),
+            calls: Arc::clone(&calls),
+        });
+        let session =
+            RemoteMusicScanSession::new_openlist(StorageId::wrap(7), storage, "/".to_string());
+        let batch = drain_scan(session).await;
+        assert_eq!(batch.entries.len(), 1);
+        assert_eq!(batch.entries[0].path, raw_track);
+        assert_eq!(
+            calls.lock().unwrap().as_slice(),
+            ["/".to_string(), raw_dir.clone()].as_slice()
+        );
+
+        let generic_storage = Arc::new(RawMemoryStorage {
+            directories: HashMap::from([
+                ("/".to_string(), vec![entry(&raw_dir, true)]),
+                (raw_dir, vec![audio_entry(&raw_track)]),
+            ]),
+            calls: Arc::new(StdMutex::new(Vec::new())),
+        });
+        let generic = RemoteMusicScanSession::new(StorageId::wrap(7), generic_storage, "/".into());
+        assert!(generic.next_batch(10).await.is_err());
+    }
+
+    #[tokio::test]
     async fn transient_directory_failure_retries_then_succeeds() {
         let storage = Arc::new(RetryStorage {
             attempts: AtomicUsize::new(0),
@@ -813,6 +889,25 @@ mod tests {
 
     struct CountingStorage {
         calls: StdMutex<HashMap<String, usize>>,
+    }
+
+    struct RawMemoryStorage {
+        directories: HashMap<String, Vec<Entry>>,
+        calls: Arc<StdMutex<Vec<String>>>,
+    }
+
+    impl StorageBackend for RawMemoryStorage {
+        fn list(&self, dir: String) -> BoxFuture<'_, StorageBackendResult<Vec<Entry>>> {
+            Box::pin(async move {
+                self.calls.lock().unwrap().push(dir.clone());
+                self.directories
+                    .get(&dir)
+                    .cloned()
+                    .ok_or_else(|| StorageBackendError::UrlParseError("missing raw path".into()))
+            })
+        }
+
+        storage_read_stubs!();
     }
 
     impl StorageBackend for CountingStorage {
@@ -1070,17 +1165,32 @@ mod tests {
         }
     }
 
+    fn audio_entry(path: &str) -> Entry {
+        let mut value = entry(path, false);
+        value.mime_type = Some("audio/flac".to_string());
+        value
+    }
+
     #[test]
     fn scan_excludes_video_mp4_and_keeps_audio_mp4() {
         let mut video = entry("/Photos/clip.mp4", false);
         video.mime_type = Some("video/mp4".to_string());
-        assert!(!is_supported_music_entry(&video));
+        assert!(!is_supported_music_entry(&video, false));
 
         let mut audio = entry("/Music/track.mp4", false);
         audio.mime_type = Some("audio/mp4".to_string());
-        assert!(is_supported_music_entry(&audio));
+        assert!(is_supported_music_entry(&audio, false));
 
         let unknown = entry("/Music/legacy.mp4", false);
-        assert!(is_supported_music_entry(&unknown));
+        assert!(is_supported_music_entry(&unknown, false));
+    }
+
+    #[test]
+    fn openlist_mode_allows_audio_mime_without_changing_generic_filter() {
+        let mut opaque = entry("/音乐/%25 #? 😀\\track", false);
+        opaque.mime_type = Some("audio/flac".to_string());
+        assert!(!is_supported_music_entry(&opaque, false));
+        assert!(is_supported_music_entry(&opaque, true));
+        assert!(opaque.path.contains("%25 #? 😀\\track"));
     }
 }

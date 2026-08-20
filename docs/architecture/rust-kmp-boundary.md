@@ -1,12 +1,16 @@
 # Rust and KMP boundary
 
-Last updated: 2026-07-15
+Last updated: 2026-08-21
 
 ## Responsibilities
 
 Rust owns:
 
 - WebDAV and OneDrive networking and authentication protocol handling;
+- Subsonic/Emby request construction, login transport, typed transport errors,
+  and response-body transport classification;
+- OpenList authentication, `/api/fs/*` access, storage scanning, strict ranged
+  metadata reads, direct/proxy route validation, and loopback playback serving;
 - controlled `Depth: 1` traversal, RFC 6578 `sync-collection`, and Graph pagination;
 - bounded HTTP ranges and response validation;
 - range-block caching and metadata read budgets;
@@ -16,6 +20,10 @@ Rust owns:
 KMP owns:
 
 - secure credential references and platform credential stores;
+- persisted account/provider configuration, account-scoped secondary endpoint
+  policy, server paging, capability snapshots, and library-sync coordination;
+- the independent `source/openlist` `MusicSource`, root selection, and
+  Compose-local input plus private ViewModel OTP lifecycle;
 - import coordination and Room transactions;
 - repositories, `Flow`/`StateFlow`, ViewModels, and Compose UI;
 - platform player adapters for Android and iOS.
@@ -23,6 +31,65 @@ KMP owns:
 Compose UI must not import generated UniFFI functions. Generated types are
 currently confined to repositories and legacy adapters while domain models are
 introduced incrementally.
+
+## Server API and endpoint boundary
+
+```text
+KMP RemoteServerGatewayImpl(accountId)
+  -> load SourceAccountEntity + CredentialStore entry
+  -> request-scoped RemoteServerEndpointPolicy
+  -> Rust ctSubsonicRequest / ctEmbyLogin / ctEmbyRequest
+  -> typed result and JSON payload
+  -> KMP provider pager / RemoteServerLibrarySyncCoordinator
+  -> Room account-scoped SourceItem and canonical Track writes
+```
+
+Navidrome, OpenSubsonic, and Emby are the only `RemoteServerKind` values;
+OpenList is not routed through that enum. The sync entry accepts only
+`SourceAccountId`, loads the persisted provider kind from Room, and fails
+closed for missing, non-server, or mismatched accounts.
+
+Endpoint selection is stateless and per request. Primary runs first. Only a
+typed timeout or connect-stage DNS/refused/unreachable error may try a
+sanitized, distinct secondary once. HTTP 401/403/404, TLS/certificate errors,
+other HTTP failures, protocol/JSON errors, generic unavailable failures, and
+cancellation never fall back; a secondary failure terminates the request.
+The endpoint returned by a successful request is used for resource URLs created
+from that response. Pure Subsonic playback/download/artwork URL builders do not
+perform a network request and therefore cannot provide transparent later-fetch
+failover or persistent endpoint affinity.
+
+## OpenList boundary
+
+```text
+Sources UI (guest or username/password, optional OTP)
+  -> StorageRepository / OpenListAuthenticator
+  -> Rust OpenList auth API
+  -> KMP OpenListSessionManager (session token in memory)
+  -> source/openlist MusicSource
+  -> Rust /api/fs/list, scan, metadata, or playback backend
+  -> account-scoped Room snapshot or transient PlaybackResource
+```
+
+Passwords are stored only in `CredentialStore`. OTP and the OpenList session
+token are memory-only; OTP is neither part of `SourceEditorDraft` nor saved
+state, and an account whose non-secret configuration says `requiresOtp` asks
+for a new code after process restart. Guest mode stores no username/password.
+The adapter preserves raw canonical paths and multiple persisted roots, and a
+completed scan is a full snapshot rather than a delta cursor. OpenList exposes
+Browse + Stream; provider-native Search and Download are not advertised, while
+synchronized items remain searchable in the unified Room index.
+
+Playback first authorizes and resolves size/sign through `/api/fs/get`, then
+may consult admin-only `/api/fs/link`. Candidate use is proven with exact HTTP
+Range responses: bare direct URL first, optional validated link headers only
+after an eligible direct failure, then the same-server signed/unsigned `/p`
+route. API tokens are never sent to direct or `/p` requests. Forwarded headers
+reject CRLF, forbidden/hop-by-hop fields, and cross-origin redirects. A stable
+tokenized loopback URL is the only resource exposed to platform players. An
+explicit expiry or selected-route 401/403 can trigger one shared, generation-
+guarded re-resolution for the playback session; malformed partial responses
+and ordinary transport/protocol failures fail closed rather than downgrading.
 
 ## Metadata call path
 
@@ -193,23 +260,27 @@ the coordinator are. The Home pager includes a Library tab backed by
 `TrackDao.observeAll()`, so imported songs remain visible after the remote scan
 objects have been released.
 
-## iOS playback call path
+## Remote playback call path
 
 ```text
-IosPlayerController
-  -> ctCreatePlaybackSession
-  -> Rust loopback gateway on 127.0.0.1
-  -> AVPlayer HTTP Range request
+persisted account-scoped playback candidate
+  -> MusicSourceRegistry
+  -> MusicSource.resolvePlayback
+  -> PlaybackResource (memory only)
+  -> stable Rust loopback gateway on 127.0.0.1 when required
+  -> Media3 / AVPlayer / Desktop rodio HTTP Range request
   -> 256 KiB in-memory LRU block cache
   -> StorageBackend.get_range_response(start..=end)
-  -> finite WebDAV or OneDrive Range request
+  -> finite provider Range request
 ```
 
 The loopback URL contains a random per-session token and a media extension for
 AVFoundation format detection. The gateway supports one HTTP byte range per
 request, returns `206 Partial Content` or `416 Range Not Satisfiable`, and never
 falls back to a whole-file disk cache. The KMP controller owns the Rust
-`PlaybackSession`; replacing or stopping playback shuts down the gateway.
+`PlaybackSession`; replacing or stopping playback shuts down the gateway. All
+seven remote providers use this existing player chain; there is no
+provider-specific player.
 
 Gateway setup and serving run inside TidePlayer's Rust Tokio runtime. This is
 required because UniFFI async functions may be polled from platform coroutine
@@ -217,10 +288,19 @@ threads that do not have a Tokio reactor.
 
 ## Credential call path
 
-Room persists only `credentialRef` and non-secret storage display fields.
-`StorageRepository` loads the platform credential and registers it in the
-in-memory Rust backend state. Rust clears migrated legacy secrets and never
-returns passwords or refresh tokens in storage-list responses.
+Room persists only `credentialRef`, non-secret account/provider configuration,
+and source identity. `StorageRepository` loads the platform credential and
+registers it in in-memory backend/session state. Passwords and long-lived
+tokens remain in platform credential stores; resolved URLs, HTTP headers,
+OpenList session tokens, and OTP values remain memory-only. Rust clears
+migrated legacy secrets and never returns passwords or refresh tokens in
+storage-list responses.
+
+Kotlin `AppLogger` and uncaught-exception reporting enter the Rust diagnostic
+boundary. Logs, incidents, artifacts, and exports use redaction v2 for URL
+credentials/queries, authorization and cookie headers, credential/OTP key
+variants, and known loopback `/media/<capability>/...` paths. This is a
+defensive boundary, not a claim that every ordinary query-free URL is removed.
 
 Platform stores:
 

@@ -8,6 +8,7 @@ enum class LegacyStorageKind {
     WebDav,
     OneDrive,
     Smb,
+    OpenList,
 }
 
 data class LegacyStorageConnectionRequest(
@@ -17,7 +18,12 @@ data class LegacyStorageConnectionRequest(
     val password: String = "",
     val isAnonymous: Boolean = false,
     val kind: LegacyStorageKind,
-)
+) {
+    override fun toString(): String =
+        "LegacyStorageConnectionRequest(" +
+            "alias=$alias, address=$address, username=$username, password=<redacted>, " +
+            "isAnonymous=$isAnonymous, kind=$kind)"
+}
 
 fun interface LegacyStorageConnectionTester {
     suspend fun test(request: LegacyStorageConnectionRequest): SourceAuthResult

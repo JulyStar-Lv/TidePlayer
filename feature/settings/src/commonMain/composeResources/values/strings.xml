@@ -502,6 +502,8 @@
     <string name="settings_feedback_smb_host_required">Enter the server or IP address</string>
     <string name="settings_feedback_smb_port_invalid">Enter a valid SMB port</string>
     <string name="settings_feedback_smb_path_required">Configure a music path before scanning this SMB source</string>
+    <string name="settings_feedback_openlist_path_required">Choose an OpenList music path before scanning this source</string>
+    <string name="settings_feedback_openlist_enable_required">Enable this OpenList source first</string>
     <string name="settings_feedback_smb_username_required">Enter a username, or enable guest access</string>
     <string name="settings_feedback_smb_password_required">Enter a password, or enable guest access</string>
     <string name="settings_feedback_scan_complete">Scan complete: %1$s, scanned %2$s, added %3$s, modified %4$s, deleted %5$s, skipped %6$s, metadata requests %7$s, %8$s read, %9$s ms</string>

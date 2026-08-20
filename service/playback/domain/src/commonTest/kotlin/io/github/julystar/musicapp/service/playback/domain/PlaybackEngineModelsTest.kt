@@ -63,4 +63,28 @@ class PlaybackEngineModelsTest {
         assertSame(item, request.item)
         assertSame(resource, request.resource)
     }
+
+    @Test
+    fun playbackResourceAndNestedLoadRequestRedactUriAndHeaders() {
+        val resource = PlaybackEngineResource(
+            uri = "$TEST_URL/track.flac",
+            headers = mapOf("Authorization" to TEST_SECRET),
+        )
+        val request = PlaybackEngineLoadRequest(
+            item = PlayableItem(title = "Track", libraryTrackId = 1),
+            resource = resource,
+        )
+
+        listOf(resource, request).forEach { model ->
+            val rendered = model.toString()
+            assertFalse(TEST_URL in rendered)
+            assertFalse(TEST_SECRET in rendered)
+            assertTrue("<redacted>" in rendered)
+        }
+    }
+
+    private companion object {
+        const val TEST_SECRET = "playback-fixture-sensitive-value"
+        const val TEST_URL = "https://media.example/private"
+    }
 }

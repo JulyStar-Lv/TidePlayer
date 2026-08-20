@@ -11,6 +11,13 @@ fun sourceEditorState(
     testResult: SourceConnectionTestStatus,
     oneDriveDrives: List<OneDriveDriveInfo> = emptyList(),
     oneDriveDrivesLoading: Boolean = false,
+    requiresOtp: Boolean = false,
+    showOtp: Boolean = requiresOtp,
+    hasOtp: Boolean = false,
+    otpInputGeneration: Int = 0,
+    connectedServerName: String = "",
+    isSyncing: Boolean = false,
+    canSyncCurrentServer: Boolean = false,
 ): SourceEditorState {
     return SourceEditorState(
         title = title,
@@ -45,6 +52,36 @@ fun sourceEditorState(
             requireSigning = draft.smbRequireSigning,
             requireEncryption = draft.smbRequireEncryption,
         ),
+        remoteServer = RemoteServerSourceEditorState(
+            alias = draft.alias,
+            address = draft.address,
+            username = draft.username,
+            secondaryBaseUrl = draft.secondaryBaseUrl,
+            streamMaxBitRate = draft.streamMaxBitRate,
+            downloadMaxBitRate = draft.downloadMaxBitRate,
+            coverArtSize = draft.coverArtSize,
+            remoteWriteEnabled = draft.remoteWriteEnabled,
+        ),
+        emby = EmbySourceEditorState(
+            alias = draft.alias,
+            address = draft.address,
+            username = draft.username,
+            secondaryBaseUrl = draft.secondaryBaseUrl,
+            serverName = connectedServerName,
+            connectedUserId = draft.externalAccountId,
+        ),
+        openList = OpenListSourceEditorState(
+            alias = draft.alias,
+            address = draft.address,
+            username = draft.username,
+            isGuest = draft.isAnonymous,
+            showOtp = draft.storageType == SourceEditorType.OpenList && !draft.isAnonymous &&
+                (requiresOtp || showOtp),
+            hasOtp = hasOtp,
+        ),
+        otpInputGeneration = otpInputGeneration,
+        isSyncing = isSyncing,
+        canSyncCurrentServer = canSyncCurrentServer,
     )
 }
 

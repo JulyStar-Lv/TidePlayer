@@ -112,6 +112,17 @@ internal class LegacyLibrarySyncController(
                     metadataConcurrency = request.metadataConcurrency,
                     importBatchSize = request.importBatchSize,
                 )
+                StorageType.OPEN_LIST -> importer.scanAndImportFolder(
+                    storageId = storageId.value,
+                    selectedFolderRemoteId = request.selectedFolderRemoteId,
+                    selectedFolderCanonicalPath = request.selectedFolderCanonicalPath,
+                    selectedFolderDisplayPath = request.selectedFolderDisplayPath,
+                    scanId = request.scanId,
+                    scanRules = request.scanRules,
+                    metadataScanMode = request.metadataScanMode,
+                    metadataConcurrency = request.metadataConcurrency,
+                    importBatchSize = request.importBatchSize,
+                )
             }
             automaticTrackMerger.merge()
             importResult

@@ -1,6 +1,6 @@
 # TidePlayer Final Architecture Report
 
-Date: 2026-08-11
+Date: 2026-08-21
 
 This document records the current architecture after the Komi Store-style KMP/CMP refactor. It reflects the physical module split and playback engine adapter work completed through Round 34 in `docs/architecture/komi-cmp-task.md`.
 
@@ -22,6 +22,7 @@ TidePlayer/
 │   ├── webdav/                         WebDAV source adapter
 │   ├── onedrive/                       OneDrive source adapter
 │   ├── smb/                            SMB2/3 source adapter
+│   ├── openlist/                       Independent OpenList source adapter
 │   └── server/                         Server source adapter
 ├── service/
 │   ├── playback/domain/                PlaybackController, PlaybackEngine, advanced capabilities, queue/state contracts
@@ -60,6 +61,8 @@ TidePlayer/
 | `:core:presentation` | Shared UI system | Compose theme/components, artwork UI, window size |
 | `:source:api` | Music source API | `MusicSource`, `MusicSourceRegistry`, source result models |
 | `:source:smb` | SMB music source | SMB configuration, authentication/list/search/playback/download adapters over the shared storage bridge |
+| `:source:openlist` | OpenList music source | Dedicated browse and stream adapter; OpenList is not a `RemoteServerKind` |
+| `:source:server` | Server music sources | Navidrome, OpenSubsonic, and Emby adapters over the shared gateway |
 | `:service:playback:domain` | Playback contracts | `PlaybackController`, `PlaybackEngine`, `AudioOutputController`, optional advanced playback capabilities, queue, state, position |
 | `:service:playback:presentation` | Playback presentation | NowPlaying state models and domain-to-presentation mappers |
 | `:service:download:domain` | Download contracts | `DownloadTask`, `DownloadController`, `EnqueueDownloadUseCase` |
@@ -113,7 +116,7 @@ Data-side code stays in `shared` only where it currently depends on Room, UniFFI
 
 | Type | Purpose |
 |------|---------|
-| `SourceId` | Stable source identifier such as local, webdav, onedrive, smb |
+| `SourceId` | Stable source identifier for Local, WebDAV, OneDrive, SMB, OpenList, Navidrome, OpenSubsonic, or Emby |
 | `SourceAccountId` | Stable per-account identifier |
 | `MediaType` | Track, Album, Artist, Playlist, Folder, Image |
 | `MediaId` | Stable cross-layer source media identifier |
@@ -139,7 +142,7 @@ interface MusicSource {
 }
 ```
 
-Local, WebDAV, OneDrive, SMB, and server adapters live in physical `source:*`
+Local, WebDAV, OneDrive, SMB, OpenList, and server adapters live in physical `source:*`
 modules. `shared` supplies their Room, credential-store, and Rust/UniFFI bridge
 implementations through Koin.
 
@@ -151,7 +154,39 @@ Current protocol-level incremental capability is intentionally narrow:
 | WebDAV | Yes | RFC 6578 sync-token with cached capability and safe full-scan fallback |
 | SMB | No | Signature/full scan; SMB Change Notify is not implemented |
 | OneDrive | Yes | Microsoft Graph Delta cursor |
-| Navidrome / OpenSubsonic / Emby | No | Bounded server-library fetch; no provider delta cursor |
+| Navidrome / OpenSubsonic / Emby | No | Bounded complete snapshot; no provider delta cursor |
+| OpenList | No | Complete snapshot over raw canonical paths; no provider delta cursor |
+
+The Sources selector exposes eight entries: Local, WebDAV, SMB, OneDrive,
+Navidrome, OpenSubsonic, Emby, and OpenList. Local remains a UI-only picker
+option rather than a persisted remote editor type. The server synchronization
+entry accepts only `SourceAccountId`; it reads the persisted account from Room
+and dispatches Navidrome, OpenSubsonic, or Emby without a global active server
+or a UI-supplied provider kind.
+
+Provider capability boundaries are explicit:
+
+- Navidrome implements authentication, bounded paging, library metadata,
+  artwork, lyrics, playback, downloads, and remote-playlist reads/writes.
+- OpenSubsonic implements browse/search/stream, preserves its negotiated
+  extension snapshot, uses structured-lyrics fallback, and shares remote
+  playlist reads/writes with Navidrome. Remote writes default to disabled; it
+  does not advertise standalone download.
+- Emby keeps token/UserId/ServerId/ServerName identity at their appropriate
+  credential/non-secret boundaries and supports 25k paging, metadata, artwork,
+  Direct Play, and Direct Stream. Transcoding, playlists, remote writes,
+  downloads, and lyrics are not implemented.
+- OpenList is the independent `source/openlist` adapter with Browse + Stream.
+  Its provider does not advertise Search or Download; synchronized items are
+  searchable through the unified Room index.
+
+Navidrome, OpenSubsonic, Emby, and OpenList synchronization is a complete
+snapshot, not protocol-level incremental synchronization. A secondary server
+endpoint is account-scoped and request-scoped: primary is tried first, and a
+typed timeout/connectivity failure may try the sanitized secondary exactly
+once. Authentication/permission, TLS, HTTP/protocol/JSON failures, and
+cancellation do not fall back. Plain Subsonic resource URLs produced for later
+playback, download, or artwork fetches do not receive transparent failover.
 
 ### PlaybackController
 
@@ -205,6 +240,21 @@ Android, iOS, and Desktop platform engine adapters now implement this common
 `PlaybackEngine` contract. Shared data-layer mappers convert source-level
 `PlaybackResource` values and UniFFI music models into `PlaybackEngineResource`
 and `PlayableItem` at the boundary.
+
+All seven remote providers use one playback chain:
+
+```text
+persisted account-scoped source candidate
+  -> MusicSourceRegistry
+  -> MusicSource.resolvePlayback(MediaId)
+  -> in-memory PlaybackResource
+  -> PlaybackEngineResource
+  -> existing Android / iOS / Desktop player
+```
+
+There is no provider-specific player. A provider-neutral canonical `Track` can
+retain seven account-scoped `SourceItem`/`track_source_ref` identities, and
+candidate selection never relies on a global active account.
 
 ### DownloadController
 
@@ -280,7 +330,7 @@ Koin is still assembled in `shared` because it wires platform actuals, Room, Uni
 | Module | Responsibility |
 |--------|----------------|
 | `coreDataModule` | Room, DataStore, credential store, repositories, bridge objects |
-| `sourceDataModule` | MusicSource adapters, source registry, legacy source bridges |
+| `sourceDataModule` | Eight MusicSource entries, source registry, account-scoped server sync coordinators, legacy source bridges |
 | `playbackModule` | Playback controller bridge, resolver, platform engine |
 | `downloadModule` | Download controller, repository, scheduler, enqueue use case |
 | `librarySyncModule` | Library sync controller, repository, legacy sync bridge |
@@ -300,7 +350,7 @@ Room KMP remains in `shared`.
 - Database: `AppDatabase`
 - Driver: `BundledSQLiteDriver`
 - Schema path: `shared/schemas/io.github.julystar.musicapp.database.AppDatabase/`
-- Current schema version: 17
+- Current schema version: 24
 - Source identity tables: `source_account`, `library_root`, `source_item`, `source_item_property`, `track_source_ref`, `source_sync_cursor`, `source_error`
 - Canonical library tables: `track`, `album`, `artist`, `genre`, joins, `artwork`, `lyrics`, `raw_metadata`, `playlist`, `playlist_track`, `download_task`, `import_job`
 
@@ -318,9 +368,25 @@ the write boundary that converts source scan output into `source_item`,
 canonical metadata rows, and `track_source_ref`.
 
 Playback resolves through `TrackEntity -> TrackSourceRefEntity ->
-SourceItemEntity -> MusicSource.resolvePlayback(...)`. Temporary URIs,
+SourceItemEntity -> persisted SourceAccountEntity -> MusicSourceRegistry ->
+MusicSource.resolvePlayback(...)`. Temporary URIs,
 headers, cookies, tokens, and signed URLs remain transient and are not written
 to Room.
+
+Official migrations `22 -> 23` add nullable structured lyrics and `23 -> 24`
+add account-scoped remote playlist identity. Sequential `22 -> 23 -> 24`
+migration preserves legacy lyric fields and local playlist/member rows, while
+allowing the same remote playlist ID in two different accounts. There is no
+destructive migration fallback, schema 24 is the current version, and schema 25 is
+absent.
+
+Room stores non-sensitive account configuration, provider identity, canonical
+library rows, and credential references. Passwords and long-lived provider
+tokens live in platform `CredentialStore`s. Session tokens, resolved playback
+URLs/headers, and OpenList OTP values remain memory-only. Diagnostic log,
+incident, artifact, and export boundaries use redaction v2, including known
+loopback playback capability paths; this does not claim that every ordinary
+query-free URL is removed.
 
 ### SMB storage and playback
 
@@ -395,47 +461,15 @@ Class-based convention plugins are currently apply-only. KMP targets and module-
 
 ## 11. Build / Test Results
 
-Latest full gate, Round 33:
-
-```bash
-./gradlew shared:desktopTest \
-  :feature:search:desktopTest \
-  :feature:playlist:desktopTest \
-  :feature:settings:desktopTest \
-  :feature:dashboard:desktopTest \
-  :feature:downloads:desktopTest \
-  :feature:onboarding:desktopTest \
-  :feature:radio:desktopTest \
-  :feature:lyrics:desktopTest \
-  :feature:recentlyadded:desktopTest \
-  :feature:recentlyplayed:desktopTest \
-  :feature:album:desktopTest \
-  :feature:artist:desktopTest \
-  :feature:browse:desktopTest \
-  :feature:library:desktopTest \
-  :feature:queue:desktopTest \
-  :core:domain:desktopTest \
-  :service:playback:domain:desktopTest \
-  :service:playback:presentation:desktopTest \
-  :service:download:domain:desktopTest \
-  :service:librarysync:domain:desktopTest \
-  shared:testDebugUnitTest --tests io.github.julystar.musicapp.singleton.PlayerControllerRepositoryTest \
-  shared:iosSimulatorArm64Test --tests io.github.julystar.musicapp.singleton.IosPlayerControllerTest \
-  shared:compileDebugKotlinAndroid \
-  shared:compileKotlinIosSimulatorArm64 \
-  desktopApp:compileKotlinDesktop \
-  --no-daemon --console plain
-```
-
-Result: `BUILD SUCCESSFUL`, 789 Gradle tasks, 0 failures, after splitting the
-queue presentation into `:feature:queue`. The local XML test reports
-currently show 259 tests, 0 failures (789 tasks), 0 errors, and 0 skipped.
-
-Test coverage currently includes shared tests plus physical module tests for
-core domain, service domain modules, search, playlist, settings, dashboard, and
-downloads, onboarding, queue, radio, lyrics, recently added, recently played, album, artist, browse, and library. The focused Round 33 onboarding/queue DI colocation gate passed
-`:feature:queue:desktopTest`, Android debug compilation, iOS Simulator
-compilation, shared cross-platform compilation, and Desktop app compilation.
+The 2026-08-21 acceptance gate ran the Rust workspace (296 passed, with four
+pre-existing opt-in Samba tests ignored), 532 forced Gradle desktop tests
+across source API/server/OpenList, Sources UI, and shared (0 failures; one
+pre-existing opt-in live WebDAV smoke test skipped), and a 770-task Desktop,
+Android Debug, and iOS Simulator Arm64 compilation gate. It includes real Room
+25k server synchronization, exact OpenList second-snapshot counts, sequential
+schema 22-to-24 migration, and the seven-provider playback resolver matrix.
+Exact commands and per-module counts are recorded in
+[the test report](../testing/test-report.md).
 
 ## 12. Known Limits
 
