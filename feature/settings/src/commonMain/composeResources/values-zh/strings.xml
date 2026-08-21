@@ -502,6 +502,8 @@
     <string name="settings_feedback_smb_host_required">请输入服务器或 IP 地址</string>
     <string name="settings_feedback_smb_port_invalid">请输入有效的 SMB 端口</string>
     <string name="settings_feedback_smb_path_required">请先为此 SMB 音源配置音乐路径</string>
+    <string name="settings_feedback_openlist_path_required">请先选择 OpenList 音乐路径，再扫描该音源</string>
+    <string name="settings_feedback_openlist_enable_required">请先启用该 OpenList 音源</string>
     <string name="settings_feedback_smb_username_required">请输入用户名，或启用访客访问</string>
     <string name="settings_feedback_smb_password_required">请输入密码，或启用访客访问</string>
     <string name="settings_feedback_scan_complete">扫描完成：%1$s，已扫描 %2$s，新增 %3$s，修改 %4$s，删除 %5$s，跳过 %6$s，元数据请求 %7$s，读取 %8$s，耗时 %9$s 毫秒</string>
