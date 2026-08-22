@@ -128,24 +128,66 @@ jobs:
             gradle_task: :desktopApp:packageReleaseDmg
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
             artifact_output: artifacts/desktop/TidePlayer-x86_64.dmg
+            format: dmg
           - platform: macOS
             arch: arm64
             runner: macos-14
             gradle_task: :desktopApp:packageReleaseDmg
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
             artifact_output: artifacts/desktop/TidePlayer-arm64.dmg
+            format: dmg
+          - platform: macOS
+            arch: x86_64
+            runner: macos-13
+            gradle_task: :desktopApp:packageReleasePkg
+            artifact_path: desktopApp/build/compose/binaries/main-release/pkg/*.pkg
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.pkg
+            format: pkg
+          - platform: macOS
+            arch: arm64
+            runner: macos-14
+            gradle_task: :desktopApp:packageReleasePkg
+            artifact_path: desktopApp/build/compose/binaries/main-release/pkg/*.pkg
+            artifact_output: artifacts/desktop/TidePlayer-arm64.pkg
+            format: pkg
           - platform: Windows
             arch: x86_64
             runner: windows-latest
             gradle_task: :desktopApp:packageReleaseMsi
             artifact_path: desktopApp/build/compose/binaries/main-release/msi/*.msi
             artifact_output: artifacts/desktop/TidePlayer-x86_64.msi
+            format: msi
+          - platform: Windows
+            arch: x86_64
+            runner: windows-latest
+            gradle_task: :desktopApp:packageReleaseExe
+            artifact_path: desktopApp/build/compose/binaries/main-release/exe/*.exe
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.exe
+            format: exe
           - platform: Linux
             arch: x86_64
             runner: ubuntu-latest
             gradle_task: :desktopApp:packageReleaseDeb
             artifact_path: desktopApp/build/compose/binaries/main-release/deb/*.deb
             artifact_output: artifacts/desktop/TidePlayer-x86_64.deb
+            format: deb
+            upload_mapping: true
+          - platform: Linux
+            arch: x86_64
+            runner: ubuntu-latest
+            gradle_task: :desktopApp:packageReleaseRpm
+            artifact_path: desktopApp/build/compose/binaries/main-release/rpm/*.rpm
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.rpm
+            format: rpm
+            upload_mapping: false
+          - platform: Linux
+            arch: x86_64
+            runner: ubuntu-latest
+            gradle_task: :desktopApp:packageReleaseAppImage
+            artifact_path: desktopApp/build/compose/binaries/main-release/app-image/*.AppImage
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.AppImage
+            format: appimage
+            upload_mapping: false
     steps:
       - uses: actions/checkout@v7
         with:
@@ -188,7 +230,7 @@ jobs:
         run: node scripts/audit-release.js
       - uses: actions/upload-artifact@v4
         with:
-          name: tideplayer-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}
+          name: tideplayer-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.format }}-${{ github.ref_name }}
           path: ${{ matrix.artifact_output }}
           if-no-files-found: error
       - name: Upload desktop package to GitHub release
@@ -197,7 +239,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.artifact_output }} --clobber
       - name: Upload desktop R8 mapping to GitHub release
-        if: matrix.platform == 'Linux'
+        if: matrix.upload_mapping == true
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

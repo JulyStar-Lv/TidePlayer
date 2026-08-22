@@ -10,6 +10,21 @@ plugins {
 
 val appPackageVersion = rootProject.extra["appPackageVersion"] as String
 val desktopProguardDir = layout.buildDirectory.dir("compose/proguard")
+val desktopTargetFormats = when {
+    System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> arrayOf(
+        TargetFormat.Dmg,
+        TargetFormat.Pkg,
+    )
+    System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> arrayOf(
+        TargetFormat.Msi,
+        TargetFormat.Exe,
+    )
+    else -> arrayOf(
+        TargetFormat.Deb,
+        TargetFormat.Rpm,
+        TargetFormat.AppImage,
+    )
+}
 
 kotlin {
     jvm("desktop")
@@ -46,7 +61,7 @@ compose.desktop {
             }
         }
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Msi, TargetFormat.Dmg)
+            targetFormats(*desktopTargetFormats)
             modules("jdk.unsupported")
             packageName = "TidePlayer"
             packageVersion = appPackageVersion
