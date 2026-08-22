@@ -112,6 +112,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" artifacts/apk/*.apk --clobber
+      - name: Upload Android R8 mapping to GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "androidApp/build/outputs/mapping/release/mapping.txt#android-mapping.txt" --clobber
 
   desktop:
     name: Desktop ${{ matrix.platform }} release
@@ -129,6 +134,7 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
             artifact_output: artifacts/desktop/TidePlayer-x86_64.dmg
             format: dmg
+            mapping_asset: desktop-macos-x86_64-mapping.txt
           - platform: macOS
             arch: arm64
             runner: macos-14
@@ -136,6 +142,7 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
             artifact_output: artifacts/desktop/TidePlayer-arm64.dmg
             format: dmg
+            mapping_asset: desktop-macos-arm64-mapping.txt
           - platform: Windows
             arch: x86_64
             runner: windows-latest
@@ -143,6 +150,7 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/exe/*.exe
             artifact_output: artifacts/desktop/TidePlayer-x86_64.exe
             format: exe
+            mapping_asset: desktop-windows-x86_64-mapping.txt
           - platform: Linux
             arch: x86_64
             runner: ubuntu-latest
@@ -150,7 +158,7 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/deb/*.deb
             artifact_output: artifacts/desktop/TidePlayer-x86_64.deb
             format: deb
-            upload_mapping: true
+            mapping_asset: desktop-linux-x86_64-deb-mapping.txt
           - platform: Linux
             arch: x86_64
             runner: ubuntu-latest
@@ -158,7 +166,7 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/rpm/*.rpm
             artifact_output: artifacts/desktop/TidePlayer-x86_64.rpm
             format: rpm
-            upload_mapping: false
+            mapping_asset: desktop-linux-x86_64-rpm-mapping.txt
           - platform: Linux
             arch: x86_64
             runner: ubuntu-latest
@@ -166,7 +174,7 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/app
             artifact_output: artifacts/desktop/TidePlayer-x86_64.AppImage
             format: appimage
-            upload_mapping: false
+            mapping_asset: desktop-linux-x86_64-appimage-mapping.txt
     steps:
       - uses: actions/checkout@v7
         with:
@@ -222,8 +230,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.artifact_output }} --clobber
       - name: Upload desktop R8 mapping to GitHub release
-        if: matrix.upload_mapping == true
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" desktopApp/build/compose/proguard/mapping.txt --clobber
+        run: gh release upload "$GITHUB_REF_NAME" "desktopApp/build/compose/proguard/mapping.txt#${{ matrix.mapping_asset }}" --clobber
