@@ -79,7 +79,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.96.0"
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android, x86_64-linux-android
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -104,7 +104,7 @@ jobs:
         run: pnpm run audit:release
       - uses: actions/upload-artifact@v4
         with:
-          name: tideplayer-android-${{ github.ref_name }}
+          name: tideplayer-android-all-arches-${{ github.ref_name }}
           path: artifacts/apk/*.apk
           if-no-files-found: error
       - name: Upload APK to GitHub release
@@ -123,17 +123,29 @@ jobs:
       matrix:
         include:
           - platform: macOS
+            arch: x86_64
+            runner: macos-13
+            gradle_task: :desktopApp:packageReleaseDmg
+            artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.dmg
+          - platform: macOS
+            arch: arm64
             runner: macos-14
             gradle_task: :desktopApp:packageReleaseDmg
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
+            artifact_output: artifacts/desktop/TidePlayer-arm64.dmg
           - platform: Windows
+            arch: x86_64
             runner: windows-latest
             gradle_task: :desktopApp:packageReleaseMsi
             artifact_path: desktopApp/build/compose/binaries/main-release/msi/*.msi
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.msi
           - platform: Linux
+            arch: x86_64
             runner: ubuntu-latest
             gradle_task: :desktopApp:packageReleaseDeb
             artifact_path: desktopApp/build/compose/binaries/main-release/deb/*.deb
+            artifact_output: artifacts/desktop/TidePlayer-x86_64.deb
     steps:
       - uses: actions/checkout@v7
         with:
@@ -161,18 +173,29 @@ jobs:
       - name: Build desktop package
         shell: bash
         run: ./gradlew --no-daemon --stacktrace "${{ matrix.gradle_task }}"
+      - name: Rename desktop package with architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/desktop
+          packages=( ${{ matrix.artifact_path }} )
+          if [[ "${#packages[@]}" -ne 1 ]]; then
+            echo "Expected exactly one desktop package, found ${#packages[@]}" >&2
+            exit 1
+          fi
+          cp "${packages[0]}" "${{ matrix.artifact_output }}"
       - name: Audit release artifacts
         run: node scripts/audit-release.js
       - uses: actions/upload-artifact@v4
         with:
-          name: tideplayer-${{ matrix.platform }}-${{ github.ref_name }}
-          path: ${{ matrix.artifact_path }}
+          name: tideplayer-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}
+          path: ${{ matrix.artifact_output }}
           if-no-files-found: error
       - name: Upload desktop package to GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.artifact_path }} --clobber
+        run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.artifact_output }} --clobber
       - name: Upload desktop R8 mapping to GitHub release
         if: matrix.platform == 'Linux'
         shell: bash

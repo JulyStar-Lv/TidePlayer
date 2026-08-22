@@ -7,4 +7,4 @@ export const ENVS = {
   Build: Boolean(process.env.EBUILD),
 };
 
-export const TARGETS = ["arm64-v8a"];
+export const TARGETS = ["arm64-v8a", "x86_64"];
