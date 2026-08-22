@@ -54,6 +54,17 @@ struct DirectoryTask {
     retry_count: u8,
 }
 
+struct DirectoryScanArgs {
+    backend: Arc<dyn StorageBackend + Send + Sync>,
+    root: String,
+    directory_concurrency: usize,
+    sender: mpsc::Sender<ScanMessage>,
+    stats: Arc<RemoteMusicScanStats>,
+    cancelled: Arc<AtomicBool>,
+    cancel_notify: Arc<Notify>,
+    preserve_raw_paths: bool,
+}
+
 type DirectoryFuture = Pin<
     Box<dyn std::future::Future<Output = (DirectoryTask, StorageBackendResult<Vec<Entry>>)> + Send>,
 >;
@@ -195,16 +206,16 @@ impl RemoteMusicScanSession {
         let stats = Arc::new(RemoteMusicScanStats::default());
         let cancelled = Arc::new(AtomicBool::new(false));
         let cancel_notify = Arc::new(Notify::new());
-        std::mem::drop(tokio_runtime().spawn(run_directory_scan(
+        std::mem::drop(tokio_runtime().spawn(run_directory_scan(DirectoryScanArgs {
             backend,
             root,
             directory_concurrency,
             sender,
-            Arc::clone(&stats),
-            Arc::clone(&cancelled),
-            Arc::clone(&cancel_notify),
+            stats: Arc::clone(&stats),
+            cancelled: Arc::clone(&cancelled),
+            cancel_notify: Arc::clone(&cancel_notify),
             preserve_raw_paths,
-        )));
+        })));
         Arc::new(Self {
             storage_id,
             receiver: Mutex::new(receiver),
@@ -230,16 +241,17 @@ impl RemoteMusicScanSession {
     }
 }
 
-async fn run_directory_scan(
-    backend: Arc<dyn StorageBackend + Send + Sync>,
-    root: String,
-    directory_concurrency: usize,
-    sender: mpsc::Sender<ScanMessage>,
-    stats: Arc<RemoteMusicScanStats>,
-    cancelled: Arc<AtomicBool>,
-    cancel_notify: Arc<Notify>,
-    preserve_raw_paths: bool,
-) {
+async fn run_directory_scan(args: DirectoryScanArgs) {
+    let DirectoryScanArgs {
+        backend,
+        root,
+        directory_concurrency,
+        sender,
+        stats,
+        cancelled,
+        cancel_notify,
+        preserve_raw_paths,
+    } = args;
     // One coordinator owns queue/dedup state. Directory futures own only their
     // path and backend handle, so no scan-state lock is held across network I/O.
     let root = if preserve_raw_paths {

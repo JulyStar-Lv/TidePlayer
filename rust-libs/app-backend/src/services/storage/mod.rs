@@ -86,31 +86,6 @@ pub fn build_storage_backend_by_arg(
     Ok(ret)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::build_storage_backend_by_arg;
-    use crate::schema::StorageType;
-    use crate::{ctx::BackendContext, error::BError, objects::ArgUpsertStorage};
-
-    #[test]
-    fn open_list_backend_is_explicitly_unsupported() {
-        let result = build_storage_backend_by_arg(
-            &BackendContext::new(),
-            ArgUpsertStorage {
-                typ: StorageType::OpenList,
-                ..Default::default()
-            },
-        );
-
-        match result {
-            Err(BError::CustomError { message }) => {
-                assert!(message.contains("OpenList"));
-            }
-            _ => panic!("expected explicit OpenList error"),
-        }
-    }
-}
-
 fn build_smb_backend(
     arg: ArgUpsertStorage,
     connect_timeout: Duration,
@@ -214,4 +189,29 @@ pub(crate) async fn get_asset_file(
     byte_offset: u64,
 ) -> BResult<Option<StreamFile>> {
     get_asset_file_by_loc(cx, storage, entry, byte_offset).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_storage_backend_by_arg;
+    use crate::schema::StorageType;
+    use crate::{ctx::BackendContext, error::BError, objects::ArgUpsertStorage};
+
+    #[test]
+    fn open_list_backend_is_explicitly_unsupported() {
+        let result = build_storage_backend_by_arg(
+            &BackendContext::new(),
+            ArgUpsertStorage {
+                typ: StorageType::OpenList,
+                ..Default::default()
+            },
+        );
+
+        match result {
+            Err(BError::CustomError { message }) => {
+                assert!(message.contains("OpenList"));
+            }
+            _ => panic!("expected explicit OpenList error"),
+        }
+    }
 }
