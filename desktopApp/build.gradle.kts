@@ -9,6 +9,7 @@ plugins {
 }
 
 val appPackageVersion = rootProject.extra["appPackageVersion"] as String
+val desktopProguardDir = layout.buildDirectory.dir("compose/proguard")
 
 kotlin {
     jvm("desktop")
@@ -32,6 +33,18 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "io.github.julystar.musicapp.MainKt"
+        buildTypes {
+            release {
+                proguard {
+                    isEnabled.set(true)
+                    obfuscate.set(true)
+                    // Kotlin coroutine state machines currently trigger a ProGuard
+                    // stack-size calculation failure when optimization is enabled.
+                    optimize.set(false)
+                    configurationFiles.from(project.file("proguard-rules.pro"))
+                }
+            }
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Msi, TargetFormat.Dmg)
             modules("jdk.unsupported")
@@ -58,6 +71,8 @@ val desktopRuntimeLauncher = javaToolchains.launcherFor {
 }
 
 afterEvaluate {
+    desktopProguardDir.get().asFile.mkdirs()
+
     tasks.named<JavaExec>("run") {
         javaLauncher.set(desktopRuntimeLauncher)
         executable = desktopRuntimeLauncher.get().executablePath.asFile.absolutePath
