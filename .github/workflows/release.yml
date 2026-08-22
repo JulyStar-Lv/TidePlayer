@@ -124,7 +124,7 @@ jobs:
         include:
           - platform: macOS
             arch: x86_64
-            runner: macos-13
+            runner: macos-15-intel
             gradle_task: :desktopApp:packageReleaseDmg
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
             artifact_output: artifacts/desktop/TidePlayer-x86_64.dmg
