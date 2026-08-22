@@ -21,6 +21,7 @@ import io.github.julystar.musicapp.source.api.RemoteServerGateway
 import io.github.julystar.musicapp.source.api.RemoteServerKind
 import io.github.julystar.musicapp.source.api.LegacyStorageConnectionTester
 import io.github.julystar.musicapp.source.api.OpenListAuthenticator
+import io.github.julystar.musicapp.source.api.OpenListBrowseClient
 import io.github.julystar.musicapp.source.api.LegacyStorageDirectoryLister
 import io.github.julystar.musicapp.source.api.LegacyStoragePlaybackResolver
 import io.github.julystar.musicapp.source.api.LegacyStorageSearchProvider
@@ -81,7 +82,7 @@ val sourceDataModule = module {
     single { OpenListSessionManager(get(), get()) }
     single<OpenListAuthenticator> { get<OpenListSessionManager>() }
     single<OpenListBrowseTransport> { OpenListRustBrowseTransport() }
-    single { OpenListSessionBrowseClient(get(), get(), get()) }
+    single<OpenListBrowseClient> { OpenListSessionBrowseClient(get(), get(), get()) }
     single {
         StorageRepositoryImpl(
             get(), get(), get(), get(),
