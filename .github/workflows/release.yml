@@ -172,7 +172,7 @@ jobs:
             runner: ubuntu-latest
             gradle_task: :desktopApp:packageReleaseAppImage
             artifact_path: desktopApp/build/compose/binaries/main-release/app
-            artifact_output: artifacts/desktop/TidePlayer-x86_64.AppImage
+            artifact_output: artifacts/desktop/TidePlayer-x86_64-app-image.tar.gz
             format: appimage
             mapping_asset: desktop-linux-x86_64-appimage-mapping.txt
     steps:
@@ -208,7 +208,13 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/desktop
           if [[ "${{ matrix.format }}" == "appimage" ]]; then
-            mapfile -t packages < <(find "${{ matrix.artifact_path }}" -maxdepth 1 -type f -perm -111 -print)
+            app_dir="${{ matrix.artifact_path }}/TidePlayer"
+            if [[ ! -d "$app_dir" ]]; then
+              echo "Expected AppImage application directory at $app_dir" >&2
+              exit 1
+            fi
+            tar -czf "${{ matrix.artifact_output }}" -C "${{ matrix.artifact_path }}" TidePlayer
+            exit 0
           else
             packages=( ${{ matrix.artifact_path }} )
           fi
