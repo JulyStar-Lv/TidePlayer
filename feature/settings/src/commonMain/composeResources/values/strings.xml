@@ -855,4 +855,5 @@
     <string name="settings_feedback_backup_created">Backup created: %1$s</string>
     <string name="settings_feedback_backup_restored">Backup restored: %1$s</string>
     <string name="settings_feedback_backup_failed">Backup failed: %1$s</string>
+    <string name="settings_feedback_system_picker_fallback">System file picker unavailable. Switched to the in-app browser.</string>
 </resources>

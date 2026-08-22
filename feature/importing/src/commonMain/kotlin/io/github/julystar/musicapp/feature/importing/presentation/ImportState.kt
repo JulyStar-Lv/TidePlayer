@@ -15,6 +15,7 @@ data class ImportState(
     val splitPaths: ImmutableList<ImportPathUi> = persistentListOf(),
     val entries: ImmutableList<SourceNode> = persistentListOf(),
     val selectedPaths: ImmutableSet<String> = persistentHashSetOf(),
+    val persistedPaths: ImmutableSet<String> = persistentHashSetOf(),
     val selectedCount: Int = 0,
     val allowNodeTypes: ImmutableList<SourceNodeType> = persistentListOf(),
     val storageAccounts: ImmutableList<ImportStorageAccountUi> = persistentListOf(),
@@ -58,6 +59,9 @@ sealed interface ImportAction {
     data class SelectStorage(val accountId: SourceAccountId) : ImportAction
     data class OpenPath(val path: String) : ImportAction
     data class OpenEntry(val entry: SourceNode) : ImportAction
+    data class ToggleFolderSelection(val entry: SourceNode) : ImportAction
+    data class RemoveFolderSelection(val path: String) : ImportAction
+    data object ClearFolderSelection : ImportAction
 }
 
 sealed interface ImportEvent {

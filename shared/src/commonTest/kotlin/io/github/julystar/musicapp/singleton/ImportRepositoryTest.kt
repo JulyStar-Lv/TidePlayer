@@ -114,6 +114,23 @@ class ImportRepositoryTest {
     }
 
     @Test
+    fun multipleDirectoryImportReturnsEverySelectedRoot() {
+        val repository = ImportRepositoryImpl()
+        val accountId = SourceAccountId("storage:9")
+        val selections = listOf(
+            SourceDirectorySelection(SourceId("webdav"), accountId, "/Music", "music-id"),
+            SourceDirectorySelection(SourceId("webdav"), accountId, "/OST", "ost-id"),
+        )
+        var received: List<SourceDirectorySelection>? = null
+
+        repository.prepareDirectories(accountId) { received = it }
+        repository.onFinishDirectories(selections)
+
+        assertEquals(selections, received)
+        assertEquals(accountId, repository.currentDirectoryAccountId.value)
+    }
+
+    @Test
     fun entryImportResetsDirectoryMode() {
         val repository = ImportRepositoryImpl()
 

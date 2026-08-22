@@ -418,13 +418,52 @@ class SettingsVMTest {
             viewModel.onAction(SettingsAction.RequestAddLocalDirectory)
             assertIs<SettingsEvent.OpenLibraryFolderPicker>(viewModel.eventFlow.first())
 
-            viewModel.onAction(SettingsAction.AddLocalDirectory("/Music/Albums"))
+            viewModel.onAction(
+                SettingsAction.HandleLocalDirectoryPickerResult(
+                    LocalDirectoryPickerResult.Success("/Music/Albums")
+                )
+            )
             advanceUntilIdle()
 
             val request = sync.requests.single()
             assertEquals(storageSourceAccountId(1L), request.accountId)
             assertEquals("/Music/Albums", request.selectedFolderCanonicalPath)
             assertEquals("/Music/Albums", request.selectedFolderDisplayPath)
+        }
+    }
+
+    @Test
+    fun `system picker cancellation does not open built-in picker`() = runTest {
+        val environment = TestEnvironment()
+
+        withStartedViewModel(environment) { viewModel ->
+            viewModel.onAction(
+                SettingsAction.HandleLocalDirectoryPickerResult(LocalDirectoryPickerResult.Cancelled)
+            )
+            advanceUntilIdle()
+
+            assertNull(environment.importRepository.currentDirectoryAccountId.value)
+            assertTrue(environment.librarySyncController.requests.isEmpty())
+        }
+    }
+
+    @Test
+    fun `system picker launch failure opens built-in local picker`() = runTest {
+        val environment = TestEnvironment()
+
+        withStartedViewModel(environment) { viewModel ->
+            viewModel.onAction(
+                SettingsAction.HandleLocalDirectoryPickerResult(
+                    LocalDirectoryPickerResult.LaunchFailed(IllegalStateException("unavailable"))
+                )
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                storageSourceAccountId(1L),
+                environment.importRepository.currentDirectoryAccountId.value,
+            )
+            assertIs<SettingsEvent.OpenSourcePathPicker>(viewModel.eventFlow.first())
         }
     }
 
@@ -457,12 +496,13 @@ class SettingsVMTest {
             assertEquals(accountId to "/Music/Lossless", storage.lastRootPathUpdate)
             assertTrue(environment.librarySyncController.requests.isEmpty())
 
+            storage.rootPaths[accountId] = listOf("/Music/Lossless", "/Other")
             viewModel.onAction(SettingsAction.ScanSourceAccount(accountId))
             advanceUntilIdle()
 
             assertEquals(
-                "/Music/Lossless",
-                environment.librarySyncController.requests.single().selectedFolderCanonicalPath,
+                listOf("/Music/Lossless", "/Other"),
+                environment.librarySyncController.requests.map { it.selectedFolderCanonicalPath },
             )
         }
     }
@@ -695,6 +735,7 @@ class SettingsVMTest {
                 musicCount = 0u,
                 isOneDrive = false,
             )
+            rootPaths[accountId] = listOf("/Music/Lossless", "/Music/Jazz")
         }
         val sync = FakeLibrarySyncController()
         val environment = TestEnvironment(
@@ -706,9 +747,14 @@ class SettingsVMTest {
             viewModel.onAction(SettingsAction.ScanSourceAccount(accountId))
             advanceUntilIdle()
 
-            val request = sync.requests.single()
-            assertEquals("/", request.selectedFolderCanonicalPath)
-            assertEquals("/", request.selectedFolderDisplayPath)
+            assertEquals(
+                listOf("/Lossless", "/Jazz"),
+                sync.requests.map { it.selectedFolderCanonicalPath },
+            )
+            assertEquals(
+                listOf("/Music/Lossless", "/Music/Jazz"),
+                sync.requests.map { it.selectedFolderDisplayPath },
+            )
         }
     }
 

@@ -58,7 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun listeningStatisticsDao(): ListeningStatisticsDao
 }
 
-const val APP_DATABASE_VERSION = 24
+const val APP_DATABASE_VERSION = 25
 
 @Suppress("KotlinNoActualForExpect")
 expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
@@ -93,4 +93,5 @@ fun buildDatabase(): AppDatabase = databaseBuilder()
     .addMigrations(MIGRATION_21_22)
     .addMigrations(MIGRATION_22_23)
     .addMigrations(MIGRATION_23_24)
+    .addMigrations(MIGRATION_24_25)
     .build()

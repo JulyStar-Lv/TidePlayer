@@ -926,8 +926,131 @@ class StorageRepositoryImpl(
     override suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> {
         val id = accountId.toStorageRouteIdOrNull() ?: return emptyList()
         val account = sourceAccountDao.get(id) ?: return emptyList()
-        if (account.providerType != ProviderTypes.OpenList) return emptyList()
-        return libraryRootDao?.listCanonicalPaths(id).orEmpty()
+        val roots = libraryRootDao?.listBySourceAccount(id).orEmpty()
+        val paths = roots.mapNotNull { root ->
+            if (account.providerType == ProviderTypes.Smb) {
+                root.providerRootId ?: root.canonicalPath
+            } else {
+                root.canonicalPath ?: root.providerRootId
+            }
+        }
+        return paths.ifEmpty { listOfNotNull(account.rootPath) }
+    }
+
+    override suspend fun replaceAccountRootPaths(
+        accountId: SourceAccountId,
+        rootPaths: List<String>,
+    ) {
+        val id = accountId.toStorageRouteIdOrNull() ?: return
+        val account = sourceAccountDao.get(id) ?: return
+        val roots = libraryRootDao ?: error("Library root storage is not configured")
+        val normalizedPaths = rootPaths
+            .map { path ->
+                if (account.providerType == ProviderTypes.OpenList) {
+                    path.openListCanonicalPath()
+                } else {
+                    path.normalizedRootPath()
+                }
+            }
+            .distinct()
+            .let(::removeCoveredRootPaths)
+        val now = currentTimeMillis()
+        val existing = roots.listBySourceAccount(id)
+        if (account.providerType == ProviderTypes.Smb) {
+            replaceSmbAccountRoots(
+                account = account,
+                normalizedPaths = normalizedPaths,
+                existing = existing,
+                roots = roots,
+                now = now,
+            )
+            ctReleaseStorageBackend(StorageId(id))
+            return
+        }
+        existing.filter { root -> root.canonicalPath !in normalizedPaths }.forEach { root ->
+            roots.delete(root.id)
+        }
+        normalizedPaths.forEach { path ->
+            val previous = existing.firstOrNull { root -> root.canonicalPath == path }
+            roots.upsert(
+                previous?.copy(updatedAt = now) ?: LibraryRootEntity(
+                    sourceAccountId = id,
+                    providerRootId = if (account.providerType == ProviderTypes.OpenList) path else null,
+                    canonicalPath = path,
+                    displayName = path.trimEnd('/').substringAfterLast('/').ifBlank { "/" },
+                    syncStatus = "PENDING",
+                    syncCursor = null,
+                    lastSyncAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+        }
+
+        val legacyPath = normalizedPaths.firstOrNull()
+        sourceAccountDao.upsert(account.copy(rootPath = legacyPath, updatedAt = now))
+    }
+
+    private suspend fun replaceSmbAccountRoots(
+        account: SourceAccountEntity,
+        normalizedPaths: List<String>,
+        existing: List<LibraryRootEntity>,
+        roots: LibraryRootDao,
+        now: Long,
+    ) {
+        val pathsWithSegments = normalizedPaths.associateWith { path ->
+            path.split('/').filter(String::isNotBlank)
+        }
+        require(pathsWithSegments.values.all(List<String>::isNotEmpty)) {
+            "Select an SMB share or one of its folders"
+        }
+        val shares = pathsWithSegments.values.map(List<String>::first).distinct()
+        require(shares.size <= 1) { "Music folders in one SMB source must use the same share" }
+
+        val desired = pathsWithSegments.mapValues { (_, segments) ->
+            segments.drop(1).joinToString("/", prefix = "/").ifBlank { "/" }
+        }
+        existing.filter { root ->
+            val pickerPath = root.providerRootId ?: root.canonicalPath
+            pickerPath !in desired.keys
+        }.forEach { root -> roots.delete(root.id) }
+        desired.forEach { (pickerPath, canonicalPath) ->
+            val previous = existing.firstOrNull { root ->
+                root.providerRootId == pickerPath ||
+                    root.canonicalPath == pickerPath ||
+                    root.canonicalPath == canonicalPath
+            }
+            roots.upsert(
+                (previous ?: LibraryRootEntity(
+                    sourceAccountId = account.id,
+                    providerRootId = pickerPath,
+                    canonicalPath = canonicalPath,
+                    displayName = pickerPath.substringAfterLast('/'),
+                    syncStatus = "PENDING",
+                    syncCursor = null,
+                    lastSyncAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                )).copy(
+                    providerRootId = pickerPath,
+                    canonicalPath = canonicalPath,
+                    displayName = pickerPath.substringAfterLast('/'),
+                    updatedAt = now,
+                )
+            )
+        }
+
+        val configuration = account.smbProviderConfiguration()
+            ?: SmbProviderConfiguration(share = "")
+        sourceAccountDao.upsert(
+            account.copy(
+                rootPath = normalizedPaths.firstOrNull(),
+                providerConfig = SMB_JSON.encodeToString(
+                    configuration.copy(share = shares.firstOrNull().orEmpty(), rootPath = "")
+                ),
+                updatedAt = now,
+            )
+        )
     }
 
     fun findStorageAccount(id: Long): StorageAccountInfo? {
@@ -1155,6 +1278,17 @@ private fun configuredSmbPath(share: String, rootPath: String): String? {
     if (sharePath.isEmpty()) return null
     val nestedPath = rootPath.trim().trim('/')
     return if (nestedPath.isEmpty()) "/$sharePath" else "/$sharePath/$nestedPath"
+}
+
+private fun removeCoveredRootPaths(paths: List<String>): List<String> = paths.filter { candidate ->
+    paths.none { other -> other != candidate && other.isRootPathAncestorOf(candidate) }
+}
+
+private fun String.isRootPathAncestorOf(other: String): Boolean {
+    val parentSegments = trim().trimEnd('/').split('/').filter(String::isNotEmpty)
+    val childSegments = other.trim().trimEnd('/').split('/').filter(String::isNotEmpty)
+    return parentSegments.size < childSegments.size &&
+        childSegments.take(parentSegments.size) == parentSegments
 }
 
 private fun SourceEditorDraft.validatedRemoteServerAddress(): String =

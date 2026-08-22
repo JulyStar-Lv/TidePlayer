@@ -97,6 +97,36 @@ class AccountScopedLibrarySyncControllerTest {
             database.close()
         }
     }
+
+    @Test
+    fun failedRootDoesNotStopRemainingRoots() = runTest {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }.setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.Default).build()
+        try {
+            val accountId = 103L
+            database.sourceAccountDao().upsert(account(accountId, ProviderTypes.WebDav))
+            database.libraryRootDao().upsert(root(accountId, "first", "/First"))
+            database.libraryRootDao().upsert(root(accountId, "second", "/Second"))
+            val fileSync = RecordingLibrarySyncController(failingPath = "/First")
+            val controller = AccountScopedLibrarySyncController.forTesting(
+                sourceAccountDao = database.sourceAccountDao(),
+                libraryRootDao = database.libraryRootDao(),
+                librarySyncController = fileSync,
+                remoteServerSync = { error("not used") },
+                metadataScanMode = { MetadataScanMode.Full },
+            )
+
+            val result = controller.sync(storageSourceAccountId(accountId))
+
+            assertEquals(listOf("/First", "/Second"), fileSync.requests.map { it.selectedFolderCanonicalPath })
+            assertEquals(1L, result.importedCount)
+            assertEquals(2L, result.skippedCount)
+            assertEquals(4L, result.failedCount)
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun account(id: Long, providerType: String) = SourceAccountEntity(
@@ -124,12 +154,15 @@ private fun root(accountId: Long, remoteId: String, path: String) = LibraryRootE
     updatedAt = 1,
 )
 
-private class RecordingLibrarySyncController : LibrarySyncController {
+private class RecordingLibrarySyncController(
+    private val failingPath: String? = null,
+) : LibrarySyncController {
     val requests = mutableListOf<LibrarySyncRequest>()
     override val recentTasks: Flow<List<LibrarySyncTask>> = emptyFlow()
     override fun observeFailures(taskId: String): Flow<List<LibrarySyncFailure>> = emptyFlow()
     override suspend fun syncFolder(request: LibrarySyncRequest): LibrarySyncResult {
         requests += request
+        if (request.selectedFolderCanonicalPath == failingPath) error("root unavailable")
         return LibrarySyncResult(
             scanId = "file-scan",
             selectedFolderId = requests.size.toLong(),

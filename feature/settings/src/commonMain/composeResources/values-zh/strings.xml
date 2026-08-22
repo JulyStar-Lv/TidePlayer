@@ -855,4 +855,5 @@
     <string name="settings_feedback_backup_created">备份已创建：%1$s</string>
     <string name="settings_feedback_backup_restored">备份已恢复：%1$s</string>
     <string name="settings_feedback_backup_failed">备份失败：%1$s</string>
+    <string name="settings_feedback_system_picker_fallback">系统文件管理器不可用，已切换到应用内浏览器</string>
 </resources>

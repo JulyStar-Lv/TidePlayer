@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,10 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +44,12 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
@@ -50,6 +61,7 @@ import io.github.julystar.musicapp.core.presentation.components.DesignFab
 import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
 import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
 import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
+import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.domain.model.ImportSelectionMode
 import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandler
@@ -74,6 +86,20 @@ import musicapp.feature.importing.generated.resources.import_library_select_curr
 import musicapp.feature.importing.generated.resources.import_library_source_label
 import musicapp.feature.importing.generated.resources.import_library_subtitle
 import musicapp.feature.importing.generated.resources.import_library_title
+import musicapp.feature.importing.generated.resources.import_folder_already_imported
+import musicapp.feature.importing.generated.resources.import_folder_clear_selection
+import musicapp.feature.importing.generated.resources.import_folder_deselect_all
+import musicapp.feature.importing.generated.resources.import_folder_empty
+import musicapp.feature.importing.generated.resources.import_folder_save
+import musicapp.feature.importing.generated.resources.import_folder_retry
+import musicapp.feature.importing.generated.resources.import_folder_select_all
+import musicapp.feature.importing.generated.resources.import_folder_selected_count
+import musicapp.feature.importing.generated.resources.import_folder_selected_title
+import musicapp.feature.importing.generated.resources.import_folder_a11y_enter
+import musicapp.feature.importing.generated.resources.import_folder_a11y_inherited
+import musicapp.feature.importing.generated.resources.import_folder_a11y_partial
+import musicapp.feature.importing.generated.resources.import_folder_a11y_selected
+import musicapp.feature.importing.generated.resources.import_folder_a11y_unselected
 import musicapp.feature.importing.generated.resources.import_musics_error_authentication_desc
 import musicapp.feature.importing.generated.resources.import_musics_error_authentication_title
 import musicapp.feature.importing.generated.resources.import_musics_error_permission_desc
@@ -374,6 +400,10 @@ private fun ImportEntries(
     val shapes = DesignTokens.shapes
     val bottomContentInset = LocalDesignBottomContentInset.current
     val choosingDirectory = state.selectionMode == ImportSelectionMode.CurrentDirectory
+    if (choosingDirectory) {
+        FolderPickerEntries(state, horizontalPadding, onAction)
+        return
+    }
     val visibleEntries = if (choosingDirectory) {
         state.entries.filter { entry -> entry.type == SourceNodeType.Folder }
     } else {
@@ -513,6 +543,290 @@ private fun ImportEntries(
                     modifier = Modifier.size(22.dp),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun FolderPickerEntries(
+    state: ImportState,
+    horizontalPadding: Dp,
+    onAction: (ImportAction) -> Unit,
+) {
+    val spacing = DesignTokens.spacing
+    val folders = state.entries.filter { it.type == SourceNodeType.Folder }
+    var panelExpanded by rememberSaveable { mutableStateOf(false) }
+    val selectedLabels = selectedFolderLabels(state.selectedPaths)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = horizontalPadding),
+        ) {
+            if (state.splitPaths.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(bottom = spacing.sm),
+                ) {
+                    FolderBreadcrumb(
+                        text = stringResource(Res.string.import_musics_paths_root),
+                        enabled = true,
+                        onClick = { onAction(ImportAction.OpenPath("/")) },
+                    )
+                    val visibleParts = if (state.splitPaths.size > 3) {
+                        state.splitPaths.takeLast(2)
+                    } else {
+                        state.splitPaths
+                    }
+                    if (visibleParts.size != state.splitPaths.size) {
+                        DesignChevron(
+                            size = 8.dp,
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                        Text(
+                            text = "…",
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.footnote1,
+                        )
+                    }
+                    visibleParts.forEach { part ->
+                        DesignChevron(
+                            size = 8.dp,
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                        FolderBreadcrumb(
+                            text = part.name,
+                            enabled = part != state.splitPaths.last(),
+                            onClick = { onAction(ImportAction.OpenPath(part.path)) },
+                        )
+                    }
+                }
+            }
+
+            DesignCardSurface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(0.dp),
+                elevation = 0.dp,
+            ) {
+                if (folders.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(Res.string.import_folder_empty),
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.body2,
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        itemsIndexed(folders, key = { index, item -> item.lazyListKey(index) }) { index, folder ->
+                            FolderPickerRow(
+                                folder = folder,
+                                selectionState = folderSelectionState(folder.path, state.selectedPaths),
+                                alreadyImported = folder.path in state.persistedPaths,
+                                onOpen = { onAction(ImportAction.OpenEntry(folder)) },
+                                onToggle = { onAction(ImportAction.ToggleFolderSelection(folder)) },
+                            )
+                            if (index != folders.lastIndex) DesignListDivider()
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(104.dp))
+        }
+
+        DesignCardSurface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = horizontalPadding, end = horizontalPadding, bottom = 12.dp),
+            cornerRadius = 22.dp,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHighest,
+            borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.14f),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { panelExpanded = !panelExpanded },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.import_folder_selected_count, state.selectedCount),
+                        color = MiuixTheme.colorScheme.onSurface,
+                        style = MiuixTheme.textStyles.body2,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = if (panelExpanded) "⌄" else "⌃",
+                        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    )
+                }
+                if (panelExpanded && selectedLabels.isNotEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.import_folder_selected_title),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MiuixTheme.textStyles.footnote1,
+                    )
+                    selectedLabels.forEach { (path, label) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = label,
+                                color = MiuixTheme.colorScheme.onSurface,
+                                style = MiuixTheme.textStyles.body2,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "×",
+                                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                                style = MiuixTheme.textStyles.title3,
+                                modifier = Modifier
+                                    .clickable { onAction(ImportAction.RemoveFolderSelection(path)) }
+                                    .padding(8.dp),
+                            )
+                        }
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (panelExpanded && state.selectedCount > 0) {
+                        Text(
+                            text = stringResource(Res.string.import_folder_clear_selection),
+                            color = MiuixTheme.colorScheme.primary,
+                            style = MiuixTheme.textStyles.body2,
+                            modifier = Modifier
+                                .clickable { onAction(ImportAction.ClearFolderSelection) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                        )
+                    }
+                    DesignButton(
+                        text = stringResource(Res.string.import_folder_save),
+                        variant = DesignButtonVariant.Primary,
+                        minWidth = 112.dp,
+                        onClick = { onAction(ImportAction.FinishCurrentDirectory) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FolderBreadcrumb(text: String, enabled: Boolean, onClick: () -> Unit) {
+    Text(
+        text = text,
+        color = if (enabled) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+        style = MiuixTheme.textStyles.footnote1,
+        fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Normal,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun FolderPickerRow(
+    folder: SourceNode,
+    selectionState: FolderSelectionState,
+    alreadyImported: Boolean,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+) {
+    val inherited = selectionState == FolderSelectionState.InheritedSelected
+    val navigationDescription = stringResource(Res.string.import_folder_a11y_enter, folder.name)
+    val selectionDescription = stringResource(
+        when (selectionState) {
+            FolderSelectionState.Unselected -> Res.string.import_folder_a11y_unselected
+            FolderSelectionState.Selected -> Res.string.import_folder_a11y_selected
+            FolderSelectionState.PartiallySelected -> Res.string.import_folder_a11y_partial
+            FolderSelectionState.InheritedSelected -> Res.string.import_folder_a11y_inherited
+        },
+        folder.name,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = navigationDescription
+                }
+                .clickable(onClick = onOpen)
+                .padding(start = 14.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ImportEntryIcon(painterResource(Res.drawable.icon_folder), active = true)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = folder.name,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    style = MiuixTheme.textStyles.body2,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (alreadyImported) {
+                    Text(
+                        text = stringResource(Res.string.import_folder_already_imported),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MiuixTheme.textStyles.footnote2,
+                    )
+                }
+            }
+        }
+        val mark = when (selectionState) {
+            FolderSelectionState.Unselected -> "□"
+            FolderSelectionState.PartiallySelected -> "—"
+            FolderSelectionState.Selected,
+            FolderSelectionState.InheritedSelected -> "✓"
+        }
+        Text(
+            text = mark,
+            color = if (inherited) {
+                MiuixTheme.colorScheme.onSurfaceVariantSummary
+            } else {
+                MiuixTheme.colorScheme.primary
+            },
+            style = MiuixTheme.textStyles.title3,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .width(52.dp)
+                .semantics {
+                    role = Role.Checkbox
+                    contentDescription = folder.name
+                    stateDescription = selectionDescription
+                    if (inherited) disabled()
+                }
+                .clickable(enabled = !inherited, onClick = onToggle)
+                .padding(vertical = 16.dp),
+        )
+    }
+}
+
+internal fun selectedFolderLabels(paths: Collection<String>): List<Pair<String, String>> {
+    val names = paths.associateWith { path -> folderPathSegments(path).lastOrNull().orEmpty().ifBlank { "/" } }
+    val duplicates = names.values.groupingBy { it }.eachCount()
+    return names.map { (path, name) ->
+        val segments = folderPathSegments(path)
+        path to if (duplicates[name] == 1 || segments.size < 2) {
+            name
+        } else {
+            "${segments[segments.lastIndex - 1]} › $name"
         }
     }
 }
@@ -754,7 +1068,7 @@ private fun ImportMusicsError(
         actionLabel = if (loadState == ImportLoadState.NeedsPermission) {
             stringResource(Res.string.import_musics_error_permission_action)
         } else {
-            null
+            stringResource(Res.string.import_folder_retry)
         },
         modifier = modifier,
         onClick = {
@@ -770,7 +1084,10 @@ fun ImportScreen(
 ) {
     val spacing = DesignTokens.spacing
     val titleText = if (state.selectionMode == ImportSelectionMode.CurrentDirectory) {
-        stringResource(Res.string.import_library_title)
+        state.storageAccounts
+            .firstOrNull { it.accountId == state.selectedStorageAccountId }
+            ?.name
+            ?: stringResource(Res.string.import_library_title)
     } else {
         when (state.selectedCount) {
             0 -> stringResource(Res.string.import_musics_title_default)
@@ -811,10 +1128,7 @@ fun ImportScreen(
                             onAction(ImportAction.NavigateBack)
                         }
                     )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = titleText,
                             color = MiuixTheme.colorScheme.onBackground,
@@ -823,18 +1137,31 @@ fun ImportScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        if (state.selectionMode == ImportSelectionMode.CurrentDirectory) {
-                            Text(
-                                text = stringResource(Res.string.import_library_subtitle),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                style = MiuixTheme.textStyles.footnote1,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
                     }
                 }
-                if (state.selectionMode == ImportSelectionMode.Entries) {
+                if (state.selectionMode == ImportSelectionMode.CurrentDirectory) {
+                    val folderPaths = state.entries
+                        .filter { it.type == SourceNodeType.Folder }
+                        .map { it.path }
+                    val allSelected = isCurrentFolderLevelSelected(state.selectedPaths, folderPaths)
+                    Text(
+                        text = stringResource(
+                            if (allSelected) {
+                                Res.string.import_folder_deselect_all
+                            } else {
+                                Res.string.import_folder_select_all
+                            }
+                        ),
+                        color = MiuixTheme.colorScheme.primary,
+                        style = MiuixTheme.textStyles.body2,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clickable(enabled = folderPaths.isNotEmpty()) {
+                                onAction(ImportAction.ToggleAll)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                    )
+                } else {
                     DesignIconButton(
                         size = DesignIconButtonSize.Medium,
                         variant = DesignIconButtonVariant.Default,
@@ -846,19 +1173,14 @@ fun ImportScreen(
                     )
                 }
             }
-            if (state.selectionMode == ImportSelectionMode.CurrentDirectory) {
-                ImportSectionLabel(
-                    text = stringResource(Res.string.import_library_source_label),
+            if (state.selectionMode != ImportSelectionMode.CurrentDirectory) {
+                ImportStorages(
+                    state = state,
                     horizontalPadding = horizontalPadding,
+                    onAction = onAction,
                 )
-                Box(modifier = Modifier.height(spacing.xs))
+                Box(modifier = Modifier.height(spacing.md))
             }
-            ImportStorages(
-                state = state,
-                horizontalPadding = horizontalPadding,
-                onAction = onAction,
-            )
-            Box(modifier = Modifier.height(spacing.md))
             when (state.loadState) {
                 ImportLoadState.Loading -> ImportEntriesSkeleton(
                     horizontalPadding = horizontalPadding,

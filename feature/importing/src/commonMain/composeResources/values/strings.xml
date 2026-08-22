@@ -21,4 +21,18 @@
     <string name="import_musics_error_timeout_title">CONNECTION TIMEOUT</string>
     <string name="import_musics_error_unknown_title">UNKNOWN ERROR</string>
     <string name="import_musics_error_permission_title">Music access is required</string>
+    <string name="import_folder_select_all">Select all</string>
+    <string name="import_folder_deselect_all">Deselect all</string>
+    <string name="import_folder_selected_count">%1$d folders selected</string>
+    <string name="import_folder_selected_title">Selected folders</string>
+    <string name="import_folder_clear_selection">Clear selection</string>
+    <string name="import_folder_already_imported">Already imported</string>
+    <string name="import_folder_empty">This folder is empty</string>
+    <string name="import_folder_save">Save</string>
+    <string name="import_folder_retry">Retry</string>
+    <string name="import_folder_a11y_enter">%1$s, folder, activate to open</string>
+    <string name="import_folder_a11y_unselected">%1$s, not selected</string>
+    <string name="import_folder_a11y_selected">%1$s, selected</string>
+    <string name="import_folder_a11y_partial">%1$s, partially selected</string>
+    <string name="import_folder_a11y_inherited">%1$s, included by a parent folder</string>
 </resources>

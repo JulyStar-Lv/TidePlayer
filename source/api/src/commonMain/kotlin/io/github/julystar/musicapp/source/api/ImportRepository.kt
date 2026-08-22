@@ -14,6 +14,15 @@ interface ImportRepository {
         accountId: SourceAccountId? = null,
         block: (SourceDirectorySelection) -> Unit,
     )
+    fun prepareDirectories(
+        accountId: SourceAccountId? = null,
+        block: (List<SourceDirectorySelection>) -> Unit,
+    ) {
+        prepareCurrentDirectory(accountId) { selection -> block(listOf(selection)) }
+    }
     fun onFinish(entries: List<SourceNodeSelection>)
     fun onFinishCurrentDirectory(selection: SourceDirectorySelection)
+    fun onFinishDirectories(selections: List<SourceDirectorySelection>) {
+        selections.firstOrNull()?.let(::onFinishCurrentDirectory)
+    }
 }

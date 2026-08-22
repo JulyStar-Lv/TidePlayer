@@ -123,6 +123,9 @@ interface LibraryRootDao {
     @Query("SELECT * FROM library_root ORDER BY sourceAccountId, id")
     suspend fun listAll(): List<LibraryRootEntity>
 
+    @Query("SELECT * FROM library_root WHERE sourceAccountId = :sourceAccountId ORDER BY id")
+    suspend fun listBySourceAccount(sourceAccountId: Long): List<LibraryRootEntity>
+
     @Query(
         """
         SELECT * FROM library_root

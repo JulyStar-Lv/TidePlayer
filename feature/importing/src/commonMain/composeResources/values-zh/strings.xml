@@ -21,4 +21,18 @@
     <string name="import_musics_error_timeout_title">连接超时</string>
     <string name="import_musics_error_unknown_title">未知错误</string>
     <string name="import_musics_error_permission_title">需要访问音乐的权限</string>
+    <string name="import_folder_select_all">全选</string>
+    <string name="import_folder_deselect_all">取消全选</string>
+    <string name="import_folder_selected_count">已选择 %1$d 个文件夹</string>
+    <string name="import_folder_selected_title">已选择文件夹</string>
+    <string name="import_folder_clear_selection">清空选择</string>
+    <string name="import_folder_already_imported">已导入</string>
+    <string name="import_folder_empty">此文件夹为空</string>
+    <string name="import_folder_save">保存</string>
+    <string name="import_folder_retry">重试</string>
+    <string name="import_folder_a11y_enter">%1$s，文件夹，双击进入</string>
+    <string name="import_folder_a11y_unselected">%1$s，未选择</string>
+    <string name="import_folder_a11y_selected">%1$s，已选择</string>
+    <string name="import_folder_a11y_partial">%1$s，部分选择</string>
+    <string name="import_folder_a11y_inherited">%1$s，已由父文件夹包含</string>
 </resources>

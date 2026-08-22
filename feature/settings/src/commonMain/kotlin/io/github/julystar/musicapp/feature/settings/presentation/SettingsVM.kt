@@ -392,6 +392,18 @@ class SettingsVM(
             is SettingsAction.SetAccountEnabled -> setAccountEnabled(action.accountId, action.enabled)
             SettingsAction.RequestAddLocalDirectory -> requestAddLocalDirectory()
             is SettingsAction.AddLocalDirectory -> addLocalDirectory(action.path)
+            is SettingsAction.HandleLocalDirectoryPickerResult -> {
+                when (val result = action.result) {
+                    is LocalDirectoryPickerResult.Success -> addLocalDirectory(result.path)
+                    LocalDirectoryPickerResult.Cancelled -> Unit
+                    is LocalDirectoryPickerResult.LaunchFailed -> {
+                        viewModelScope.launch {
+                            emitFeedback(Res.string.settings_feedback_system_picker_fallback)
+                        }
+                        openBuiltInLocalDirectoryPicker()
+                    }
+                }
+            }
             SettingsAction.ReportUnsupportedLocalDirectory -> reportUnsupportedLocalDirectory()
             is SettingsAction.RequestRemoveLocalDirectory -> {
                 pendingConfirmation.value = SettingsConfirmation.RemoveLocalDirectory(
@@ -514,19 +526,63 @@ class SettingsVM(
             ?: return
         if (!account.isWebDav && !account.isSmb && !account.isOpenList) return
 
-        importRepository.prepareCurrentDirectory(accountId) { selection ->
-            if (selection.accountId != accountId) return@prepareCurrentDirectory
+        importRepository.prepareDirectories(accountId) { selections ->
+            if (selections.any { it.accountId != accountId }) return@prepareDirectories
             viewModelScope.launch {
                 runCatching {
-                    storageRepository.setAccountRootPath(accountId, selection.path)
+                    storageRepository.replaceAccountRootPaths(accountId, selections.map { it.path })
                     storageRepository.reload()
                 }.onSuccess {
-                    emitFeedback(Res.string.settings_feedback_source_path_saved, selection.path)
+                    emitFeedback(
+                        Res.string.settings_feedback_source_path_saved,
+                        selections.joinToString { it.path },
+                    )
                 }.onFailure { error ->
                     emitFeedback(
                         Res.string.settings_feedback_source_path_save_failed,
                         error.userMessage(),
                     )
+                }
+            }
+        }
+        viewModelScope.launch { events.send(SettingsEvent.OpenSourcePathPicker) }
+    }
+
+    private fun openBuiltInLocalDirectoryPicker() {
+        val accountId = storageSourceAccountId(LOCAL_STORAGE_ID)
+        importRepository.prepareDirectories(accountId) { selections ->
+            if (selections.any { it.accountId != accountId }) return@prepareDirectories
+            viewModelScope.launch {
+                val saveResult = runCatching {
+                    storageRepository.replaceAccountRootPaths(accountId, selections.map { it.path })
+                }
+                if (saveResult.isFailure) {
+                    val error = saveResult.exceptionOrNull() ?: return@launch
+                    if (error is CancellationException) throw error
+                    emitFeedback(Res.string.settings_feedback_source_path_save_failed, error.userMessage())
+                    return@launch
+                }
+                var firstScanFailure: Throwable? = null
+                selections.forEach { selection ->
+                    try {
+                        librarySyncController.syncFolder(
+                            LibrarySyncRequest(
+                                accountId = accountId,
+                                selectedFolderRemoteId = selection.remoteId,
+                                selectedFolderCanonicalPath = selection.path,
+                                selectedFolderDisplayPath = selection.path,
+                                scanRules = state.value.settings.scanRules(),
+                                metadataScanMode = metadataScanModeFor(accountId),
+                            )
+                        )
+                    } catch (error: Throwable) {
+                        if (error is CancellationException) throw error
+                        if (firstScanFailure == null) firstScanFailure = error
+                    }
+                }
+                storageRepository.reload()
+                firstScanFailure?.let { error ->
+                    emitFeedback(Res.string.settings_feedback_source_path_save_failed, error.userMessage())
                 }
             }
         }
@@ -545,6 +601,20 @@ class SettingsVM(
     private fun syncSelectedDirectory(path: String) {
         val accountId = storageSourceAccountId(LOCAL_STORAGE_ID)
         viewModelScope.launch {
+            val existingRoots = storageRepository.listAccountRootPaths(accountId)
+            val mergedRoots = normalizeLocalRootPaths(existingRoots + path)
+            try {
+                storageRepository.replaceAccountRootPaths(accountId, mergedRoots)
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                emitFeedback(Res.string.settings_feedback_source_path_save_failed, error.userMessage())
+                return@launch
+            }
+            if (path !in mergedRoots) {
+                storageRepository.reload()
+                emitFeedback(Res.string.settings_feedback_source_path_saved, path)
+                return@launch
+            }
             syncFolder(
                 request = LibrarySyncRequest(
                     accountId = accountId,
@@ -627,8 +697,8 @@ class SettingsVM(
             }
             return
         }
-        directories.forEach { directory ->
-            viewModelScope.launch {
+        viewModelScope.launch {
+            directories.forEach { directory ->
                 syncFolder(
                     request = LibrarySyncRequest(
                         accountId = directory.accountId,
@@ -798,22 +868,25 @@ class SettingsVM(
             }
             return
         }
-        val rootPath = account.rootPath.normalizedRootPath()
         viewModelScope.launch {
-            syncFolder(
-                request = LibrarySyncRequest(
-                    accountId = accountId,
-                    selectedFolderRemoteId = null,
-                    selectedFolderCanonicalPath = rootPath,
-                    selectedFolderDisplayPath = rootPath,
-                    scanRules = state.value.settings.scanRules(),
-                    metadataScanMode = state.value.settings.webDavMetadataScanMode,
-                ),
-                startMessage = textProvider.get(
-                    Res.string.settings_feedback_scan_start,
-                    account.title,
-                ),
-            )
+            val roots = storageRepository.listAccountRootPaths(accountId)
+                .ifEmpty { listOf(account.rootPath.normalizedRootPath()) }
+            roots.forEach { rootPath ->
+                syncFolder(
+                    request = LibrarySyncRequest(
+                        accountId = accountId,
+                        selectedFolderRemoteId = null,
+                        selectedFolderCanonicalPath = rootPath,
+                        selectedFolderDisplayPath = rootPath,
+                        scanRules = state.value.settings.scanRules(),
+                        metadataScanMode = state.value.settings.webDavMetadataScanMode,
+                    ),
+                    startMessage = textProvider.get(
+                        Res.string.settings_feedback_scan_start,
+                        rootPath,
+                    ),
+                )
+            }
         }
     }
 
@@ -915,20 +988,26 @@ class SettingsVM(
             return
         }
         viewModelScope.launch {
-            val rootPath = "/"
-            syncFolder(
-                request = LibrarySyncRequest(
-                    accountId = accountId,
-                    selectedFolderRemoteId = null,
-                    selectedFolderCanonicalPath = rootPath,
-                    selectedFolderDisplayPath = rootPath,
-                    scanRules = state.value.settings.scanRules(),
-                ),
-                startMessage = textProvider.get(
-                    Res.string.settings_feedback_scan_start,
-                    account.title,
-                ),
-            )
+            val pickerRoots = storageRepository.listAccountRootPaths(accountId)
+            val scanRoots = pickerRoots.map { pickerPath ->
+                val relativeSegments = pickerPath.split('/').filter(String::isNotBlank).drop(1)
+                pickerPath to relativeSegments.joinToString("/", prefix = "/").ifBlank { "/" }
+            }.ifEmpty { listOf("/" to "/") }
+            scanRoots.forEach { (displayPath, canonicalPath) ->
+                syncFolder(
+                    request = LibrarySyncRequest(
+                        accountId = accountId,
+                        selectedFolderRemoteId = null,
+                        selectedFolderCanonicalPath = canonicalPath,
+                        selectedFolderDisplayPath = displayPath,
+                        scanRules = state.value.settings.scanRules(),
+                    ),
+                    startMessage = textProvider.get(
+                        Res.string.settings_feedback_scan_start,
+                        displayPath,
+                    ),
+                )
+            }
         }
     }
 
@@ -1260,6 +1339,20 @@ private fun List<LibrarySyncTask>.filterRelevantToSettings(
 private fun String?.normalizedRootPath(): String {
     val trimmed = this?.trim().orEmpty().ifBlank { "/" }
     return if (trimmed.startsWith('/')) trimmed else "/$trimmed"
+}
+
+internal fun normalizeLocalRootPaths(paths: Collection<String>): List<String> {
+    val distinct = paths.distinct()
+    return distinct.filter { candidate ->
+        distinct.none { other -> other != candidate && isDirectoryAncestor(other, candidate) }
+    }
+}
+
+private fun isDirectoryAncestor(parent: String, child: String): Boolean {
+    val parentSegments = parent.trim().trimEnd('/').split('/').filter(String::isNotEmpty)
+    val childSegments = child.trim().trimEnd('/').split('/').filter(String::isNotEmpty)
+    return parentSegments.size < childSegments.size &&
+        childSegments.take(parentSegments.size) == parentSegments
 }
 
 internal fun AppSettings.scanRules(): LibrarySyncScanRules {

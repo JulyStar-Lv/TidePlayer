@@ -18,6 +18,7 @@ class ImportRepositoryImpl : ImportRepository {
     private val _currentDirectoryAccountId = MutableStateFlow<SourceAccountId?>(null)
     private var _importCallback: ((List<SourceNodeSelection>) -> Unit)? = null
     private var _directoryImportCallback: ((SourceDirectorySelection) -> Unit)? = null
+    private var _directoriesImportCallback: ((List<SourceDirectorySelection>) -> Unit)? = null
 
     override val allowTypes = _allowTypes.asStateFlow()
     override val selectionMode = _selectionMode.asStateFlow()
@@ -29,6 +30,7 @@ class ImportRepositoryImpl : ImportRepository {
         _currentDirectoryAccountId.value = null
         _importCallback = block
         _directoryImportCallback = null
+        _directoriesImportCallback = null
     }
 
     override fun prepareCurrentDirectory(
@@ -40,6 +42,19 @@ class ImportRepositoryImpl : ImportRepository {
         _currentDirectoryAccountId.value = accountId
         _importCallback = null
         _directoryImportCallback = block
+        _directoriesImportCallback = null
+    }
+
+    override fun prepareDirectories(
+        accountId: SourceAccountId?,
+        block: (List<SourceDirectorySelection>) -> Unit,
+    ) {
+        _allowTypes.value = emptyList()
+        _selectionMode.value = ImportSelectionMode.CurrentDirectory
+        _currentDirectoryAccountId.value = accountId
+        _importCallback = null
+        _directoryImportCallback = null
+        _directoriesImportCallback = block
     }
 
     override fun onFinish(entries: List<SourceNodeSelection>) {
@@ -55,6 +70,16 @@ class ImportRepositoryImpl : ImportRepository {
         _directoryImportCallback = null
         if (callback != null) {
             callback(selection)
+        }
+    }
+
+    override fun onFinishDirectories(selections: List<SourceDirectorySelection>) {
+        val callback = _directoriesImportCallback
+        _directoriesImportCallback = null
+        if (callback != null) {
+            callback(selections)
+        } else {
+            super.onFinishDirectories(selections)
         }
     }
 }

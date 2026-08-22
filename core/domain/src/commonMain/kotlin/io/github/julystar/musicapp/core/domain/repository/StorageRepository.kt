@@ -30,6 +30,9 @@ interface StorageRepository {
     fun findStorageAccountByAccountId(accountId: SourceAccountId): StorageAccountInfo?
     suspend fun loadCredentialByAccountId(accountId: SourceAccountId): StoredCredential?
     suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String)
+    suspend fun replaceAccountRootPaths(accountId: SourceAccountId, rootPaths: List<String>) {
+        rootPaths.forEach { rootPath -> setAccountRootPath(accountId, rootPath) }
+    }
     suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> = emptyList()
     suspend fun removeByAccountId(accountId: SourceAccountId)
 }

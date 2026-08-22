@@ -334,8 +334,12 @@ class EditStorageVMTest {
             )
         }
         val imports = FakeImportRepository()
-        val librarySync = FakeLibrarySyncController()
-        val viewModel = createViewModel(storage, id = 9, imports = imports, librarySync = librarySync)
+        val syncedAccounts = mutableListOf<SourceAccountId>()
+        val accountSync = SourceAccountLibrarySyncController { accountId ->
+            syncedAccounts += accountId
+            SourceAccountLibrarySyncResult(0, 0, 0)
+        }
+        val viewModel = createViewModel(storage, id = 9, imports = imports, accountSync = accountSync)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
         advanceUntilIdle()
 
@@ -351,8 +355,8 @@ class EditStorageVMTest {
             )
         )
         advanceUntilIdle()
-        assertEquals("raw::目录/音乐", librarySync.requests.single().selectedFolderRemoteId)
-        assertEquals("/原始 路径/音乐", librarySync.requests.single().selectedFolderCanonicalPath)
+        assertEquals(openListId to listOf("/原始 路径/音乐"), storage.replacedRoots.single())
+        assertEquals(listOf(openListId), syncedAccounts)
 
         viewModel.onAction(SourceEditorAction.ImportLocalLibraryFolder)
         advanceUntilIdle()
@@ -378,15 +382,15 @@ class EditStorageVMTest {
             )
         }
         val imports = FakeImportRepository()
-        val librarySync = FakeLibrarySyncController().apply {
-            failure = CancellationException("cancelled")
+        val accountSync = SourceAccountLibrarySyncController {
+            throw CancellationException("cancelled")
         }
         val toasts = FakeToastRepository()
         val viewModel = createViewModel(
             storage = storage,
             id = 10,
             imports = imports,
-            librarySync = librarySync,
+            accountSync = accountSync,
             toasts = toasts,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
@@ -618,6 +622,7 @@ private class FakeEditorStorageRepository : StorageRepository {
     var savedOpenListOtp: String? = null
     var openListSaveCalls = 0
     var reloadCalls = 0
+    val replacedRoots = mutableListOf<Pair<SourceAccountId, List<String>>>()
 
     override suspend fun reload() {
         reloadCalls += 1
@@ -655,6 +660,9 @@ private class FakeEditorStorageRepository : StorageRepository {
         accounts.value.firstOrNull { it.accountId == accountId }
     override suspend fun loadCredentialByAccountId(accountId: SourceAccountId) = credential
     override suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String) = Unit
+    override suspend fun replaceAccountRootPaths(accountId: SourceAccountId, rootPaths: List<String>) {
+        replacedRoots += accountId to rootPaths
+    }
     override suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> = emptyList()
     override suspend fun removeByAccountId(accountId: SourceAccountId) = Unit
 }

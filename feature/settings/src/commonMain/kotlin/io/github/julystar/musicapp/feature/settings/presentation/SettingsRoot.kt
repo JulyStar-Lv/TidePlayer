@@ -50,14 +50,10 @@ fun SettingsRoot(
     val state by settingsVM.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val directoryPicker = rememberDirectoryPickerLauncher { directory ->
-        val path = directory?.path ?: return@rememberDirectoryPickerLauncher
-        val localPath = normalizePickedDirectoryPath(path)
         settingsVM.onAction(
-            if (localPath == null) {
-                SettingsAction.ReportUnsupportedLocalDirectory
-            } else {
-                SettingsAction.AddLocalDirectory(localPath)
-            },
+            SettingsAction.HandleLocalDirectoryPickerResult(
+                localDirectoryPickerResult(directory?.path, ::normalizePickedDirectoryPath),
+            ),
         )
     }
 
@@ -71,7 +67,17 @@ fun SettingsRoot(
     LaunchedEffect(settingsVM) {
         settingsVM.eventFlow.collect { event ->
             when (event) {
-                SettingsEvent.OpenLibraryFolderPicker -> directoryPicker.launch()
+                SettingsEvent.OpenLibraryFolderPicker -> {
+                    try {
+                        directoryPicker.launch()
+                    } catch (error: Exception) {
+                        settingsVM.onAction(
+                            SettingsAction.HandleLocalDirectoryPickerResult(
+                                LocalDirectoryPickerResult.LaunchFailed(error),
+                            )
+                        )
+                    }
+                }
                 SettingsEvent.OpenSourcePathPicker -> onNavigateToSourcePathPicker()
             }
         }

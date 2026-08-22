@@ -156,6 +156,9 @@ sealed interface SettingsAction {
     data class SetAccountEnabled(val accountId: SourceAccountId, val enabled: Boolean) : SettingsAction
     data object RequestAddLocalDirectory : SettingsAction
     data class AddLocalDirectory(val path: String) : SettingsAction
+    data class HandleLocalDirectoryPickerResult(
+        val result: LocalDirectoryPickerResult,
+    ) : SettingsAction
     data object ReportUnsupportedLocalDirectory : SettingsAction
     data class RequestRemoveLocalDirectory(val id: String, val title: String) : SettingsAction
     data object ScanAllSources : SettingsAction

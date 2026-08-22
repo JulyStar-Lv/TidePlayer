@@ -41,6 +41,53 @@ import kotlin.test.assertTrue
 
 class RoomLibraryIntegrationTest {
     @Test
+    fun migrationTwentyFourToTwentyFiveMaterializesLegacySingleRoot() {
+        val connection = BundledSQLiteDriver().open(":memory:")
+        try {
+            connection.execute(
+                "CREATE TABLE source_account (id INTEGER PRIMARY KEY NOT NULL, providerType TEXT NOT NULL, rootPath TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL)"
+            )
+            connection.execute(
+                "CREATE TABLE library_root (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sourceAccountId INTEGER NOT NULL, providerRootId TEXT, canonicalPath TEXT, displayName TEXT NOT NULL, syncStatus TEXT NOT NULL, syncCursor TEXT, lastSyncAt INTEGER, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL)"
+            )
+            connection.execute(
+                "CREATE UNIQUE INDEX index_library_root_sourceAccountId_canonicalPath ON library_root(sourceAccountId, canonicalPath)"
+            )
+            connection.execute("INSERT INTO source_account VALUES (7, 'webdav', '/Music', 10, 20)")
+            connection.execute("INSERT INTO source_account VALUES (8, 'smb', '/Share/Rock', 10, 20)")
+            connection.execute(
+                "INSERT INTO library_root(sourceAccountId, providerRootId, canonicalPath, displayName, syncStatus, syncCursor, lastSyncAt, createdAt, updatedAt) VALUES (8, NULL, '/Share/Rock', '/Share/Rock', 'SYNCED', NULL, NULL, 10, 20)"
+            )
+
+            MIGRATION_24_25.migrate(connection)
+            MIGRATION_24_25.migrate(connection)
+
+            assertEquals(
+                "1",
+                singleText(connection, "SELECT CAST(COUNT(*) AS TEXT) FROM library_root WHERE sourceAccountId = 7"),
+            )
+            assertEquals(
+                "/Music",
+                singleText(connection, "SELECT canonicalPath FROM library_root WHERE sourceAccountId = 7"),
+            )
+            assertEquals(
+                "/",
+                singleText(connection, "SELECT canonicalPath FROM library_root WHERE sourceAccountId = 8"),
+            )
+            assertEquals(
+                "/Share/Rock",
+                singleText(connection, "SELECT providerRootId FROM library_root WHERE sourceAccountId = 8"),
+            )
+            assertEquals(
+                "1",
+                singleText(connection, "SELECT CAST(COUNT(*) AS TEXT) FROM library_root WHERE sourceAccountId = 8"),
+            )
+        } finally {
+            connection.close()
+        }
+    }
+
+    @Test
     fun migrationTwentyTwoThroughTwentyFourPreservesLegacyLyricsAndLocalPlaylistData() {
         val connection = BundledSQLiteDriver().open(":memory:")
         try {

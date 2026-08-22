@@ -264,6 +264,7 @@ class SmbStorageRepositoryIntegrationTest {
                 scope = scope,
                 sourceAccountDao = database.sourceAccountDao(),
                 credentialStore = credentialStore,
+                libraryRootDao = database.libraryRootDao(),
             )
             withTimeout(5_000) {
                 while (database.sourceAccountDao().get(1) == null) delay(10)
@@ -306,6 +307,29 @@ class SmbStorageRepositoryIntegrationTest {
             assertFalse(rustStorage.addr.contains("secret-password"))
             assertEquals("", editor.draft.secret)
             assertEquals("Music Share", editor.draft.smbShare)
+
+            repository.replaceAccountRootPaths(
+                accountId,
+                listOf(
+                    "/Music Share/Rock",
+                    "/Music Share/Jazz",
+                    "/Music Share/Rock/Live",
+                ),
+            )
+            val configuredRoots = database.libraryRootDao().listBySourceAccount(storageId)
+            assertEquals(setOf("/Rock", "/Jazz"), configuredRoots.mapNotNull { it.canonicalPath }.toSet())
+            assertEquals(
+                setOf("/Music Share/Rock", "/Music Share/Jazz"),
+                configuredRoots.mapNotNull { it.providerRootId }.toSet(),
+            )
+            assertEquals(
+                setOf("/Music Share/Rock", "/Music Share/Jazz"),
+                repository.listAccountRootPaths(accountId).toSet(),
+            )
+            assertEquals(
+                "smb://nas.local:1445/Music%20Share?domain=STUDIO&signing=true&encryption=true",
+                repository.storageForRust(uniffi.app_backend.StorageId(storageId))?.addr,
+            )
 
             repository.upsertSource(
                 draft.copy(

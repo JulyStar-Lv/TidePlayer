@@ -15,6 +15,7 @@ import io.github.julystar.musicapp.service.librarysync.domain.SourceAccountLibra
 import io.github.julystar.musicapp.source.server.RemoteServerLibrarySyncCoordinator
 import io.github.julystar.musicapp.source.server.RemoteServerLibrarySyncResult
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 
 internal class AccountScopedLibrarySyncController private constructor(
     private val sourceAccountDao: SourceAccountDao,
@@ -118,18 +119,24 @@ internal class AccountScopedLibrarySyncController private constructor(
         var skipped = 0L
         var failed = 0L
         roots.forEach { root ->
-            val result = librarySyncController.syncFolder(
-                LibrarySyncRequest(
-                    accountId = accountId,
-                    selectedFolderRemoteId = root.remoteId,
-                    selectedFolderCanonicalPath = root.canonicalPath,
-                    selectedFolderDisplayPath = root.displayPath,
-                    metadataScanMode = metadataScanMode(providerType),
+            try {
+                val result = librarySyncController.syncFolder(
+                    LibrarySyncRequest(
+                        accountId = accountId,
+                        selectedFolderRemoteId = root.remoteId,
+                        selectedFolderCanonicalPath = root.canonicalPath,
+                        selectedFolderDisplayPath = root.displayPath,
+                        metadataScanMode = metadataScanMode(providerType),
+                    )
                 )
-            )
-            imported += result.importedCount
-            skipped += result.skippedCount
-            failed += result.failedCount
+                imported += result.importedCount
+                skipped += result.skippedCount
+                failed += result.failedCount
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                // A failed root must not prevent the remaining independent roots from scanning.
+                failed += 1
+            }
         }
         return SourceAccountLibrarySyncResult(
             importedCount = imported,

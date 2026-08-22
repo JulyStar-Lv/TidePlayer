@@ -796,3 +796,74 @@ val MIGRATION_23_24 = object : Migration(23, 24) {
         }
     }
 }
+
+/** Materializes the legacy single account root as the first member of the multi-root table. */
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.prepare(
+            """
+            UPDATE library_root
+            SET providerRootId = (
+                    SELECT account.rootPath FROM source_account AS account
+                    WHERE account.id = library_root.sourceAccountId
+                ),
+                canonicalPath = '/'
+            WHERE providerRootId IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM source_account AS account
+                  WHERE account.id = library_root.sourceAccountId
+                    AND account.providerType = 'smb'
+                    AND account.rootPath = library_root.canonicalPath
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM library_root AS sibling
+                  WHERE sibling.sourceAccountId = library_root.sourceAccountId
+                    AND sibling.id != library_root.id
+                    AND sibling.canonicalPath = '/'
+              )
+            """.trimIndent()
+        ).use { statement -> statement.step() }
+        connection.prepare(
+            """
+            UPDATE library_root
+            SET providerRootId = (
+                SELECT account.rootPath FROM source_account AS account
+                WHERE account.id = library_root.sourceAccountId
+            )
+            WHERE providerRootId IS NULL
+              AND canonicalPath = '/'
+              AND EXISTS (
+                  SELECT 1 FROM source_account AS account
+                  WHERE account.id = library_root.sourceAccountId
+                    AND account.providerType = 'smb'
+                    AND account.rootPath IS NOT NULL
+                    AND account.rootPath != ''
+              )
+            """.trimIndent()
+        ).use { statement -> statement.step() }
+        connection.prepare(
+            """
+            INSERT OR IGNORE INTO library_root(
+                sourceAccountId, providerRootId, canonicalPath, displayName, syncStatus,
+                syncCursor, lastSyncAt, createdAt, updatedAt
+            )
+            SELECT account.id,
+                   CASE WHEN account.providerType IN ('smb', 'openlist') THEN account.rootPath ELSE NULL END,
+                   CASE WHEN account.providerType = 'smb' THEN '/' ELSE account.rootPath END,
+                   account.rootPath, 'PENDING',
+                   NULL, NULL, account.createdAt, account.updatedAt
+            FROM source_account AS account
+            WHERE account.rootPath IS NOT NULL
+              AND account.rootPath != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM library_root AS root
+                  WHERE root.sourceAccountId = account.id
+                    AND (
+                        root.canonicalPath = account.rootPath
+                        OR (account.providerType = 'smb' AND root.providerRootId = account.rootPath)
+                    )
+              )
+            """.trimIndent()
+        ).use { statement -> statement.step() }
+    }
+}

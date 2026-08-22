@@ -26,7 +26,9 @@ import io.github.julystar.musicapp.source.api.SourceNodeType
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentHashSetOf
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentHashSet
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -83,6 +85,7 @@ private data class ImportBrowseState(
     val splitPaths: List<SplitPathItem>,
     val entries: List<SourceNode>,
     val selectedPaths: ImmutableSet<String>,
+    val persistedPaths: ImmutableSet<String>,
 )
 
 private data class ImportSelectionState(
@@ -104,6 +107,7 @@ class ImportVM constructor(
     private val permissionRepository: PermissionChecker,
     private val sourceRegistry: MusicSourceRegistry,
 ) : ViewModel() {
+    private var loadJob: Job? = null
     private val directoryNames = mutableMapOf<String, String>()
     private val directoryRemoteIds = mutableMapOf<String, String?>()
     private val _currentPath = MutableStateFlow("/")
@@ -125,6 +129,7 @@ class ImportVM constructor(
         splitPaths
     }.stateIn(viewModelScope, SharingStarted.Lazily, defaultSplitPaths())
     private val _selected = MutableStateFlow(persistentHashSetOf<String>())
+    private val _persisted = MutableStateFlow(persistentHashSetOf<String>())
     private val _entries = MutableStateFlow(listOf<SourceNode>())
     private val _selectedStorageAccountId = MutableStateFlow(
         importRepository.currentDirectoryAccountId.value
@@ -137,14 +142,18 @@ class ImportVM constructor(
     private val _undoStack = MutableStateFlow(persistentListOf<String>())
     private val _events = Channel<ImportEvent>(Channel.BUFFERED)
     val splitPaths = _splitPaths
-    val selectedCount = _selected.combine(_entries) { selected, entries ->
-        entries.count { entry -> selected.contains(entry.path) }
+    val selectionMode = importRepository.selectionMode
+    val selectedCount = combine(_selected, _entries, selectionMode) { selected, entries, mode ->
+        if (mode == ImportSelectionMode.CurrentDirectory) {
+            selected.size
+        } else {
+            entries.count { entry -> selected.contains(entry.path) }
+        }
     }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
     val entries = _entries.asStateFlow()
     val selected = _selected.asStateFlow()
     private val allowTypes = importRepository.allowTypes
     val allowNodeTypes: StateFlow<List<SourceNodeType>> = allowTypes
-    val selectionMode = importRepository.selectionMode
     val selectedStorageAccountId = _selectedStorageAccountId.asStateFlow()
     val loadState = _loadState.asStateFlow()
     val disabledToggleAll = _disabledToggleAll
@@ -154,11 +163,12 @@ class ImportVM constructor(
         }.stateIn(viewModelScope, SharingStarted.Lazily, false)
     val events = _events.receiveAsFlow()
     val state = combine(
-        combine(_splitPaths, _entries, _selected) { splitPaths, entries, selectedPaths ->
+        combine(_splitPaths, _entries, _selected, _persisted) { splitPaths, entries, selectedPaths, persistedPaths ->
             ImportBrowseState(
                 splitPaths = splitPaths,
                 entries = entries,
                 selectedPaths = selectedPaths,
+                persistedPaths = persistedPaths,
             )
         },
         combine(selectedCount, allowNodeTypes, selectionMode) { selectedCount, allowNodeTypes, selectionMode ->
@@ -195,6 +205,7 @@ class ImportVM constructor(
             splitPaths = browse.splitPaths,
             entries = browse.entries,
             selectedPaths = browse.selectedPaths,
+            persistedPaths = browse.persistedPaths,
             selectedCount = selection.selectedCount,
             allowNodeTypes = selection.allowNodeTypes,
             storageAccounts = storageAccounts,
@@ -208,6 +219,16 @@ class ImportVM constructor(
 
 
     init {
+        viewModelScope.launch {
+            importRepository.currentDirectoryAccountId.collect { accountId ->
+                if (accountId != null && accountId != _selectedStorageAccountId.value) {
+                    _selectedStorageAccountId.value = accountId
+                }
+                if (selectionMode.value == ImportSelectionMode.CurrentDirectory) {
+                    resetDirectorySelection(accountId ?: _selectedStorageAccountId.value)
+                }
+            }
+        }
         viewModelScope.launch {
             storageRepository.storageAccounts.collect { accounts ->
                 val account = accounts.find { account ->
@@ -263,6 +284,9 @@ class ImportVM constructor(
             is ImportAction.SelectStorage -> selectStorage(action.accountId)
             is ImportAction.OpenPath -> navigateDir(action.path)
             is ImportAction.OpenEntry -> clickEntry(action.entry)
+            is ImportAction.ToggleFolderSelection -> toggleFolderSelection(action.entry)
+            is ImportAction.RemoveFolderSelection -> removeFolderSelection(action.path)
+            ImportAction.ClearFolderSelection -> _selected.value = persistentHashSetOf()
         }
     }
 
@@ -311,6 +335,10 @@ class ImportVM constructor(
     }
 
     fun finishCurrentDirectory() {
+        if (selectionMode.value == ImportSelectionMode.CurrentDirectory) {
+            finishDirectories()
+            return
+        }
         val account = currentAccount() ?: return
         if (account.sourceId == BuiltInSourceIds.Smb && currentPath() == "/") return
         importRepository.onFinishCurrentDirectory(
@@ -321,6 +349,19 @@ class ImportVM constructor(
                 remoteId = currentDirectoryRemoteId(account),
             )
         )
+    }
+
+    private fun finishDirectories() {
+        val account = currentAccount() ?: return
+        val selections = normalizeFolderRoots(_selected.value).map { path ->
+            SourceDirectorySelection(
+                sourceId = account.sourceId,
+                accountId = account.accountId,
+                path = path,
+                remoteId = directoryRemoteIds[path],
+            )
+        }
+        importRepository.onFinishDirectories(selections)
     }
 
     fun requestPermission() {
@@ -337,7 +378,16 @@ class ImportVM constructor(
     }
 
     fun toggleAll() {
-        if (selectionMode.value != ImportSelectionMode.Entries) return
+        if (selectionMode.value == ImportSelectionMode.CurrentDirectory) {
+            val folders = _entries.value.filter { it.type == SourceNodeType.Folder }.map { it.path }
+            val next = if (isCurrentFolderLevelSelected(_selected.value, folders)) {
+                deselectCurrentFolderLevel(_selected.value, folders)
+            } else {
+                selectCurrentFolderLevel(_selected.value, folders)
+            }
+            _selected.value = next.toPersistentHashSet()
+            return
+        }
 
         val allSelected = _selected.value.size == _entries.value.size
         if (allSelected) {
@@ -362,7 +412,8 @@ class ImportVM constructor(
         _loadState.value = ImportLoadState.Loading
         _entries.value = emptyList()
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             val source = sourceRegistry.sourceOrNull(account.sourceId)
             if (source == null) {
                 _loadState.value = ImportLoadState.UnknownError
@@ -442,11 +493,39 @@ class ImportVM constructor(
 
     private fun navigateDirImpl(path: String) {
         _currentPath.value = path
-        _selected.update { selected ->
-            selected.cleared()
+        if (selectionMode.value != ImportSelectionMode.CurrentDirectory) {
+            _selected.update { selected -> selected.cleared() }
         }
 
         reload()
+    }
+
+    private fun toggleFolderSelection(entry: SourceNode) {
+        if (entry.type != SourceNodeType.Folder) return
+        directoryRemoteIds[entry.path] = entry.remoteId
+        directoryNames[entry.path] = entry.name
+        val next = when (folderSelectionState(entry.path, _selected.value)) {
+            FolderSelectionState.Selected -> deselectFolderRoot(_selected.value, entry.path)
+            FolderSelectionState.InheritedSelected -> return
+            FolderSelectionState.PartiallySelected,
+            FolderSelectionState.Unselected -> selectFolderRoot(_selected.value, entry.path)
+        }
+        _selected.value = next.toPersistentHashSet()
+    }
+
+    private fun removeFolderSelection(path: String) {
+        _selected.value = deselectFolderRoot(_selected.value, path).toPersistentHashSet()
+    }
+
+    private suspend fun resetDirectorySelection(accountId: SourceAccountId?) {
+        val paths = accountId?.let { storageRepository.listAccountRootPaths(it) }.orEmpty()
+        val normalized = normalizeFolderRoots(paths).toPersistentHashSet()
+        _persisted.value = normalized
+        _selected.value = normalized
+        _undoStack.value = persistentListOf()
+        directoryNames.clear()
+        directoryRemoteIds.clear()
+        navigateDirImpl("/")
     }
 
     private fun sendEvent(event: ImportEvent) {

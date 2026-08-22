@@ -655,7 +655,10 @@ private fun holdExitTransition(durationMillis: Int) = fadeOut(
 )
 
 internal fun shouldShowPersistentMiniPlayer(route: String?): Boolean =
-    !isRouteHome(route) && !isImmersivePlayerRoute(route)
+    !isRouteHome(route) && !isImmersivePlayerRoute(route) && !isFolderPickerRoute(route)
+
+private fun isFolderPickerRoute(route: String?): Boolean =
+    route?.substringBefore('?')?.endsWith(".Import") == true
 
 internal fun shouldShowNowPlayingOverlay(
     requested: Boolean,

@@ -16,6 +16,8 @@ import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncController
 import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncRequest
 import io.github.julystar.musicapp.service.librarysync.domain.SourceAccountLibrarySyncController
+import io.github.julystar.musicapp.service.librarysync.domain.SourceAccountLibrarySyncResult
+import io.github.julystar.musicapp.source.api.SourceDirectorySelection
 import io.github.julystar.musicapp.source.api.ImportRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -474,8 +476,6 @@ class EditStorageVM constructor(
         }
         prepareImportLibraryFolder(
             accountId = accountId,
-            isWebDavLike = _draft.value.storageType == SourceEditorType.WebDav ||
-                _draft.value.storageType == SourceEditorType.Smb,
         )
         sendEvent(SourceEditorEvent.OpenLibraryFolderImport)
     }
@@ -485,7 +485,7 @@ class EditStorageVM constructor(
             .firstOrNull { account -> account.isLocal }
             ?.accountId
             ?: return
-        prepareImportLibraryFolder(accountId = localAccountId, isWebDavLike = false)
+        prepareImportLibraryFolder(accountId = localAccountId)
         sendEvent(SourceEditorEvent.OpenLibraryFolderImport)
     }
 
@@ -537,25 +537,19 @@ class EditStorageVM constructor(
 
     private fun prepareImportLibraryFolder(
         accountId: SourceAccountId,
-        isWebDavLike: Boolean,
     ) {
-        importRepository.prepareCurrentDirectory(accountId) { selection ->
-            if (selection.accountId != accountId) return@prepareCurrentDirectory
+        val sourceType = _draft.value.storageType
+        importRepository.prepareDirectories(accountId) { selections ->
+            if (selections.any { it.accountId != accountId }) return@prepareDirectories
             viewModelScope.launch {
                 toastRepository.emit(UiMessageKey.LibraryImportStarted)
-                val metadataScanMode = settingsRepository.settings.first().metadataScanModeFor(
-                    isWebDav = isWebDavLike,
-                )
                 val result = runCatching {
-                    librarySyncController.syncFolder(
-                        LibrarySyncRequest(
-                            accountId = selection.accountId,
-                            selectedFolderRemoteId = selection.remoteId,
-                            selectedFolderCanonicalPath = selection.path,
-                            selectedFolderDisplayPath = selection.path,
-                            metadataScanMode = metadataScanMode,
-                        )
-                    )
+                    storageRepository.replaceAccountRootPaths(accountId, selections.map { it.path })
+                    if (sourceType == SourceEditorType.OneDrive) {
+                        syncSelectedOneDriveRoots(selections)
+                    } else {
+                        sourceAccountLibrarySyncController.sync(accountId)
+                    }
                 }
                 result.onSuccess { value ->
                     toastRepository.emit(
@@ -575,6 +569,30 @@ class EditStorageVM constructor(
                 }
             }
         }
+    }
+
+    private suspend fun syncSelectedOneDriveRoots(
+        selections: List<SourceDirectorySelection>,
+    ): SourceAccountLibrarySyncResult {
+        val metadataScanMode = settingsRepository.settings.first().metadataScanModeFor(isWebDav = false)
+        var imported = 0L
+        var skipped = 0L
+        var failed = 0L
+        selections.filter { it.remoteId != null }.forEach { selection ->
+            val result = librarySyncController.syncFolder(
+                LibrarySyncRequest(
+                    accountId = selection.accountId,
+                    selectedFolderRemoteId = selection.remoteId,
+                    selectedFolderCanonicalPath = selection.path,
+                    selectedFolderDisplayPath = selection.path,
+                    metadataScanMode = metadataScanMode,
+                )
+            )
+            imported += result.importedCount
+            skipped += result.skippedCount
+            failed += result.failedCount
+        }
+        return SourceAccountLibrarySyncResult(imported, skipped, failed)
     }
 
     private suspend fun startOneDriveOAuth(): String = storageRepository.startOneDriveOAuth()
