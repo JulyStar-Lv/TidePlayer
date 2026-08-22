@@ -136,27 +136,6 @@ jobs:
             artifact_path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
             artifact_output: artifacts/desktop/TidePlayer-arm64.dmg
             format: dmg
-          - platform: macOS
-            arch: x86_64
-            runner: macos-13
-            gradle_task: :desktopApp:packageReleasePkg
-            artifact_path: desktopApp/build/compose/binaries/main-release/pkg/*.pkg
-            artifact_output: artifacts/desktop/TidePlayer-x86_64.pkg
-            format: pkg
-          - platform: macOS
-            arch: arm64
-            runner: macos-14
-            gradle_task: :desktopApp:packageReleasePkg
-            artifact_path: desktopApp/build/compose/binaries/main-release/pkg/*.pkg
-            artifact_output: artifacts/desktop/TidePlayer-arm64.pkg
-            format: pkg
-          - platform: Windows
-            arch: x86_64
-            runner: windows-latest
-            gradle_task: :desktopApp:packageReleaseMsi
-            artifact_path: desktopApp/build/compose/binaries/main-release/msi/*.msi
-            artifact_output: artifacts/desktop/TidePlayer-x86_64.msi
-            format: msi
           - platform: Windows
             arch: x86_64
             runner: windows-latest

@@ -13,10 +13,8 @@ val desktopProguardDir = layout.buildDirectory.dir("compose/proguard")
 val desktopTargetFormats = when {
     System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> arrayOf(
         TargetFormat.Dmg,
-        TargetFormat.Pkg,
     )
     System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> arrayOf(
-        TargetFormat.Msi,
         TargetFormat.Exe,
     )
     else -> arrayOf(
