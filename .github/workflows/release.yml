@@ -184,7 +184,7 @@ jobs:
             arch: x86_64
             runner: ubuntu-latest
             gradle_task: :desktopApp:packageReleaseAppImage
-            artifact_path: desktopApp/build/compose/binaries/main-release/app-image/*.AppImage
+            artifact_path: desktopApp/build/compose/binaries/main-release/app
             artifact_output: artifacts/desktop/TidePlayer-x86_64.AppImage
             format: appimage
             upload_mapping: false
@@ -220,7 +220,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/desktop
-          packages=( ${{ matrix.artifact_path }} )
+          if [[ "${{ matrix.format }}" == "appimage" ]]; then
+            mapfile -t packages < <(find "${{ matrix.artifact_path }}" -maxdepth 1 -type f -perm -111 -print)
+          else
+            packages=( ${{ matrix.artifact_path }} )
+          fi
           if [[ "${#packages[@]}" -ne 1 ]]; then
             echo "Expected exactly one desktop package, found ${#packages[@]}" >&2
             exit 1
