@@ -27,9 +27,12 @@ import androidx.navigation.compose.rememberNavController
 import io.github.julystar.musicapp.core.LocalNavController
 import io.github.julystar.musicapp.core.isRouteHome
 import io.github.julystar.musicapp.core.isRouteNowPlaying
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeClass
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
+import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
@@ -70,6 +73,9 @@ fun HomePage(
     }
     val onNavigateToLibraryFolderImport = {
         globalNavController.navigate(MusicGraph.Import(RouteImportType.LibraryFolder))
+    }
+    val onNavigateToSourceEditor: (SourceAccountId?) -> Unit = { accountId ->
+        sourceEditorDestination(accountId)?.let(globalNavController::navigate)
     }
     val onNavigateToAlbum = { id: Long ->
         globalNavController.navigate(MusicGraph.Album(id))
@@ -118,6 +124,7 @@ fun HomePage(
                 navigateToSourceSettings = true
                 onTabSelected(HomeTab.SETTINGS)
             },
+            onNavigateToSourceEditor = onNavigateToSourceEditor,
             onNavigateToSearch = { onTabSelected(HomeTab.SEARCH) },
             onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
             onNavigateToAlbum = onNavigateToAlbum,
@@ -163,6 +170,7 @@ fun HomePage(
                     navigateToSourceSettings = true
                     onTabSelected(HomeTab.SETTINGS)
                 },
+                onNavigateToSourceEditor = onNavigateToSourceEditor,
                 onNavigateToSearch = { onTabSelected(HomeTab.SEARCH) },
                 onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
                 onNavigateToAlbum = onNavigateToAlbum,
@@ -273,6 +281,14 @@ fun HomePage(
                 }
             }
         }
+    }
+}
+
+internal fun sourceEditorDestination(accountId: SourceAccountId?): MusicGraph.EditStorage? {
+    return if (accountId == null) {
+        MusicGraph.EditStorage(NEW_STORAGE_ID)
+    } else {
+        accountId.toStorageRouteIdOrNull()?.let(MusicGraph::EditStorage)
     }
 }
 

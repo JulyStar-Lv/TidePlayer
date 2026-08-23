@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.core.domain.repository
 
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceAccountRootSelection
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
 import io.github.julystar.musicapp.core.domain.model.SourceEditorDraft
 import io.github.julystar.musicapp.core.domain.model.SourceEditorStorageState
@@ -32,6 +33,12 @@ interface StorageRepository {
     suspend fun setAccountRootPath(accountId: SourceAccountId, rootPath: String)
     suspend fun replaceAccountRootPaths(accountId: SourceAccountId, rootPaths: List<String>) {
         rootPaths.forEach { rootPath -> setAccountRootPath(accountId, rootPath) }
+    }
+    suspend fun replaceAccountRootSelections(
+        accountId: SourceAccountId,
+        selections: List<SourceAccountRootSelection>,
+    ) {
+        replaceAccountRootPaths(accountId, selections.map { it.path })
     }
     suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> = emptyList()
     suspend fun removeByAccountId(accountId: SourceAccountId)

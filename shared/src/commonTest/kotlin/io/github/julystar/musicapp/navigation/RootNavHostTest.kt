@@ -1,7 +1,10 @@
 package io.github.julystar.musicapp.navigation
 
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
+import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,6 +12,21 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RootNavHostTest {
+
+    @Test
+    fun `settings source callback maps new and persisted accounts to editor routes fail closed`() {
+        assertEquals(NEW_STORAGE_ID, sourceEditorDestination(null)?.id)
+        assertEquals(42L, sourceEditorDestination(SourceAccountId("storage:42"))?.id)
+        assertNull(sourceEditorDestination(SourceAccountId("server:42")))
+        assertNull(sourceEditorDestination(SourceAccountId("storage:not-a-number")))
+    }
+
+    @Test
+    fun `saved source account opens the existing library folder import route fail closed`() {
+        val destination = libraryFolderImportDestination(SourceAccountId("storage:42"))
+        assertEquals(RouteImportType.LibraryFolder, destination?.type)
+        assertNull(libraryFolderImportDestination(SourceAccountId("server:42")))
+    }
 
     @Test
     fun `root navigation exposes only the four primary destinations`() {

@@ -20,12 +20,7 @@ fun SourcesRoot(
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            when (event) {
-                SourcesEvent.OpenNewSourceEditor -> onNavigateToSourceEditor(NEW_STORAGE_ID)
-                is SourcesEvent.OpenSourceEditor -> {
-                    event.id.toStorageRouteIdOrNull()?.let(onNavigateToSourceEditor)
-                }
-            }
+            dispatchSourcesNavigation(event, onNavigateToSourceEditor)
         }
     }
 
@@ -34,4 +29,16 @@ fun SourcesRoot(
         onAction = viewModel::onAction,
         modifier = modifier,
     )
+}
+
+internal fun dispatchSourcesNavigation(
+    event: SourcesEvent,
+    onNavigateToSourceEditor: (Long) -> Unit,
+) {
+    when (event) {
+        SourcesEvent.OpenNewSourceEditor -> onNavigateToSourceEditor(NEW_STORAGE_ID)
+        is SourcesEvent.OpenSourceEditor -> {
+            event.id.toStorageRouteIdOrNull()?.let(onNavigateToSourceEditor)
+        }
+    }
 }

@@ -554,6 +554,7 @@ private fun FolderPickerEntries(
     onAction: (ImportAction) -> Unit,
 ) {
     val spacing = DesignTokens.spacing
+    val bottomContentInset = LocalDesignBottomContentInset.current
     val folders = state.entries.filter { it.type == SourceNodeType.Folder }
     var panelExpanded by rememberSaveable { mutableStateOf(false) }
     val selectedLabels = selectedFolderLabels(state.selectedPaths)
@@ -637,13 +638,17 @@ private fun FolderPickerEntries(
                     }
                 }
             }
-            Spacer(Modifier.height(104.dp))
+            Spacer(Modifier.height(104.dp + bottomContentInset))
         }
 
         DesignCardSurface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(start = horizontalPadding, end = horizontalPadding, bottom = 12.dp),
+                .padding(
+                    start = horizontalPadding,
+                    end = horizontalPadding,
+                    bottom = 12.dp + bottomContentInset,
+                ),
             cornerRadius = 22.dp,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             backgroundColor = MiuixTheme.colorScheme.surfaceContainerHighest,

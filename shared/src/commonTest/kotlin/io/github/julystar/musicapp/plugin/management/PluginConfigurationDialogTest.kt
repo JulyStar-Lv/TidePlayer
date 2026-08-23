@@ -15,34 +15,6 @@ class PluginConfigurationDialogTest {
     }
 
     @Test
-    fun placesSelectMenuWhereItFitsInCompactWindows() {
-        assertFalse(
-            shouldPlacePluginConfigMenuAbove(
-                anchorTop = 120.dp,
-                anchorBottom = 188.dp,
-                windowHeight = 800.dp,
-                menuHeight = 184.dp,
-            ),
-        )
-        assertTrue(
-            shouldPlacePluginConfigMenuAbove(
-                anchorTop = 500.dp,
-                anchorBottom = 568.dp,
-                windowHeight = 800.dp,
-                menuHeight = 184.dp,
-            ),
-        )
-        assertTrue(
-            shouldPlacePluginConfigMenuAbove(
-                anchorTop = 350.dp,
-                anchorBottom = 418.dp,
-                windowHeight = 600.dp,
-                menuHeight = 184.dp,
-            ),
-        )
-    }
-
-    @Test
     fun dismissesCompactSheetAfterEnoughDistanceOrVelocity() {
         assertFalse(
             shouldDismissBottomSheet(

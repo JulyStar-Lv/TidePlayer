@@ -29,6 +29,7 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.animation)
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.preference)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
@@ -42,6 +43,14 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.uiTest)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        val desktopTest by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+            }
         }
     }
 }

@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -48,16 +46,18 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
 import io.github.julystar.musicapp.core.domain.model.LocalMusicDirectory
 import io.github.julystar.musicapp.core.domain.model.MAX_MINIMUM_AUDIO_DURATION_MS
 import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
+import io.github.julystar.musicapp.core.domain.model.sanitizeSourceEndpointForDisplay
+import io.github.julystar.musicapp.core.domain.model.sanitizeSourceTitleForDisplay
 import io.github.julystar.musicapp.core.presentation.components.AppSwitch
 import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
+import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
+import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
 import io.github.julystar.musicapp.core.presentation.components.DesignChevron
 import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
 import io.github.julystar.musicapp.core.presentation.components.DesignDialog
@@ -91,12 +91,12 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun SourceSettingsSection(
     state: SettingsUiState,
     onBack: (() -> Unit)?,
+    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
     onAction: (SettingsAction) -> Unit,
 ) {
     val settings = state.settings
     var customDurationDialogOpen by remember { mutableStateOf(false) }
     var customDurationInputSeconds by remember { mutableStateOf("") }
-    var addSourceDialogOpen by remember { mutableStateOf(false) }
     var localDirectoriesDialogOpen by remember { mutableStateOf(false) }
     var scanResultsAccountId by remember { mutableStateOf<SourceAccountId?>(null) }
 
@@ -147,6 +147,9 @@ fun SourceSettingsSection(
                         task.accountId == account.accountId
                     },
                     onManageLocal = { localDirectoriesDialogOpen = true },
+                    onOpenEditor = {
+                        dispatchSourceSettingsNavigation(account.accountId, onNavigateToSourceEditor)
+                    },
                     onShowScanResults = { scanResultsAccountId = account.accountId },
                     onAction = onAction,
                 )
@@ -154,7 +157,7 @@ fun SourceSettingsSection(
             AddSourceRow(
                 enabled = state.capabilities.customMusicDirectorySupported ||
                     state.capabilities.secureCredentialStoreSupported,
-                onClick = { addSourceDialogOpen = true },
+                onClick = { dispatchSourceSettingsNavigation(null, onNavigateToSourceEditor) },
             )
         }
 
@@ -215,25 +218,6 @@ fun SourceSettingsSection(
         }
     }
 
-    AddSourceDialog(
-        show = addSourceDialogOpen,
-        canAddLocal = state.capabilities.customMusicDirectorySupported,
-        canAddWebDav = state.capabilities.secureCredentialStoreSupported,
-        canAddSmb = state.capabilities.secureCredentialStoreSupported,
-        onAddLocal = {
-            addSourceDialogOpen = false
-            onAction(SettingsAction.RequestAddLocalDirectory)
-        },
-        onAddWebDav = {
-            addSourceDialogOpen = false
-            onAction(SettingsAction.OpenAddWebDavDialog)
-        },
-        onAddSmb = {
-            addSourceDialogOpen = false
-            onAction(SettingsAction.OpenAddSmbDialog)
-        },
-        onDismiss = { addSourceDialogOpen = false },
-    )
     LocalDirectoriesDialog(
         show = localDirectoriesDialogOpen,
         directories = state.localDirectories,
@@ -320,7 +304,7 @@ fun SourceSettingsSection(
             if (account.isLocal) {
                 stringResource(Res.string.settings_source_local)
             } else {
-                account.title.ifBlank { account.sourceLabel }
+                sanitizeSourceTitleForDisplay(account.title, account.subtitle, account.sourceLabel)
             }
         }.orEmpty(),
         task = scanResultsAccount?.let { account ->
@@ -332,6 +316,13 @@ fun SourceSettingsSection(
         },
         onDismiss = { scanResultsAccountId = null },
     )
+}
+
+internal fun dispatchSourceSettingsNavigation(
+    accountId: SourceAccountId?,
+    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
+) {
+    onNavigateToSourceEditor(accountId)
 }
 
 @Composable
@@ -592,13 +583,14 @@ private fun SourceAccountRow(
     activeTask: LibrarySyncTask?,
     latestTask: LibrarySyncTask?,
     onManageLocal: () -> Unit,
+    onOpenEditor: () -> Unit,
     onShowScanResults: () -> Unit,
     onAction: (SettingsAction) -> Unit,
 ) {
     val sourceTitle = if (account.isLocal) {
         stringResource(Res.string.settings_source_local)
     } else {
-        account.title.ifBlank { account.sourceLabel }
+        sanitizeSourceTitleForDisplay(account.title, account.subtitle, account.sourceLabel)
     }
     val location = when {
         account.isLocal -> stringResource(
@@ -610,10 +602,10 @@ private fun SourceAccountRow(
             localDirectories.size,
         )
         !account.rootPath.isNullOrBlank() -> account.rootPath
-        else -> account.subtitle
+        else -> sanitizeSourceEndpointForDisplay(account.subtitle).orEmpty()
     }
     val metadata = listOf(
-        account.sourceLabel,
+        account.sourceLabel.takeUnless { account.isLocal }.orEmpty(),
         location,
         stringResource(Res.string.settings_track_count, account.trackCount.groupedCount()),
     ).filter(String::isNotBlank).joinToString(" · ")
@@ -644,6 +636,7 @@ private fun SourceAccountRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable { if (account.isLocal) onManageLocal() else onOpenEditor() }
                 .heightIn(min = 88.dp)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -719,6 +712,7 @@ private fun SourceAccountRow(
                     sourceTitle = sourceTitle,
                     onShowScanResults = onShowScanResults,
                     onManageLocal = onManageLocal,
+                    onOpenEditor = onOpenEditor,
                     onAction = onAction,
                 )
             }
@@ -815,6 +809,7 @@ private fun SourceActionsButton(
     sourceTitle: String,
     onShowScanResults: () -> Unit,
     onManageLocal: () -> Unit,
+    onOpenEditor: () -> Unit,
     onAction: (SettingsAction) -> Unit,
 ) {
     var menuOpen by remember(account.accountId) { mutableStateOf(false) }
@@ -833,135 +828,97 @@ private fun SourceActionsButton(
                 modifier = Modifier.size(20.dp),
             )
         }
-        if (menuOpen) {
-            Popup(
-                alignment = Alignment.TopEnd,
-                properties = PopupProperties(focusable = true),
-                onDismissRequest = { menuOpen = false },
-            ) {
-                Column(
-                    modifier = Modifier
-                        .width(IntrinsicSize.Max)
-                        .widthIn(min = 168.dp, max = 256.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(MiuixTheme.colorScheme.surfaceContainerHighest)
-                        .padding(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    if (account.isLocal) {
-                        SourceMenuItem(
+        DesignContextMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false },
+            compact = true,
+            items = buildList {
+                if (account.isLocal) {
+                    add(
+                        DesignContextMenuItem(
                             icon = Res.drawable.icon_source_sliders,
-                            label = stringResource(Res.string.settings_source_manage),
+                            label = Res.string.settings_source_manage,
                             onClick = {
                                 menuOpen = false
                                 onManageLocal()
                             },
-                        )
-                    }
-                    if (account.isWebDav || account.isSmb) {
-                        SourceMenuItem(
+                        ),
+                    )
+                }
+                if (!account.isLocal) {
+                    add(
+                        DesignContextMenuItem(
                             icon = Res.drawable.icon_source_pencil,
-                            label = stringResource(Res.string.settings_source_edit_action),
+                            label = Res.string.settings_source_edit_action,
                             onClick = {
                                 menuOpen = false
-                                onAction(
-                                    if (account.isWebDav) {
-                                        SettingsAction.OpenEditWebDavDialog(account.accountId)
-                                    } else {
-                                        SettingsAction.OpenEditSmbDialog(account.accountId)
-                                    },
-                                )
+                                onOpenEditor()
                             },
-                        )
-                    }
-                    if (account.isWebDav || account.isSmb || account.isOpenList) {
-                        SourceMenuItem(
+                        ),
+                    )
+                }
+                if (account.isWebDav || account.isSmb || account.isOpenList) {
+                    add(
+                        DesignContextMenuItem(
                             icon = Res.drawable.icon_source_sliders,
-                            label = stringResource(Res.string.settings_source_path_action),
+                            label = Res.string.settings_source_path_action,
                             onClick = {
                                 menuOpen = false
                                 onAction(SettingsAction.ConfigureSourcePath(account.accountId))
                             },
-                        )
-                    }
-                    if (!account.isRemoteServer) {
-                        SourceMenuItem(
+                        ),
+                    )
+                }
+                if (!account.isRemoteServer) {
+                    add(
+                        DesignContextMenuItem(
                             icon = Res.drawable.icon_source_refresh,
-                            label = stringResource(Res.string.settings_source_scan_action),
+                            label = Res.string.settings_source_scan_action,
                             enabled = account.enabled &&
                                 (!account.isSmb || !account.rootPath.isNullOrBlank()),
                             onClick = {
                                 menuOpen = false
                                 onAction(SettingsAction.ScanSourceAccount(account.accountId))
                             },
-                        )
-                    }
-                    SourceMenuItem(
+                        ),
+                    )
+                }
+                add(
+                    DesignContextMenuItem(
                         icon = Res.drawable.icon_log,
-                        label = stringResource(Res.string.settings_source_scan_results),
+                        label = Res.string.settings_source_scan_results,
                         onClick = {
                             menuOpen = false
                             onShowScanResults()
                         },
-                    )
-                    if (account.isWebDav || account.isSmb) {
-                        DesignListDivider()
-                        SourceMenuItem(
+                    ),
+                )
+                if (account.isWebDav || account.isSmb) {
+                    add(
+                        DesignContextMenuItem(
                             icon = Res.drawable.icon_source_trash,
-                            label = stringResource(Res.string.settings_source_delete_action),
-                            color = MiuixTheme.colorScheme.error,
+                            label = Res.string.settings_source_delete_action,
+                            isError = true,
                             onClick = {
                                 menuOpen = false
-                                onAction(if (account.isWebDav) {
-                                    SettingsAction.RequestDeleteWebDavAccount(
-                                        accountId = account.accountId,
-                                        title = sourceTitle,
-                                    )
-                                } else {
-                                    SettingsAction.RequestDeleteSmbAccount(
-                                        accountId = account.accountId,
-                                        title = sourceTitle,
-                                    )
-                                })
+                                onAction(
+                                    if (account.isWebDav) {
+                                        SettingsAction.RequestDeleteWebDavAccount(
+                                            accountId = account.accountId,
+                                            title = sourceTitle,
+                                        )
+                                    } else {
+                                        SettingsAction.RequestDeleteSmbAccount(
+                                            accountId = account.accountId,
+                                            title = sourceTitle,
+                                        )
+                                    },
+                                )
                             },
-                        )
-                    }
+                        ),
+                    )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SourceMenuItem(
-    icon: DrawableResource,
-    label: String,
-    enabled: Boolean = true,
-    color: Color = MiuixTheme.colorScheme.onSurface,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .alpha(if (enabled) 1f else 0.4f)
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(16.dp),
-        )
-        Text(
-            text = label,
-            color = color,
-            style = MiuixTheme.textStyles.body2,
-            fontWeight = FontWeight.Medium,
+            },
         )
     }
 }
@@ -1235,213 +1192,6 @@ private fun LocalDirectoryRow(
                 modifier = Modifier.size(18.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun AddSourceDialog(
-    show: Boolean,
-    canAddLocal: Boolean,
-    canAddWebDav: Boolean,
-    canAddSmb: Boolean,
-    onAddLocal: () -> Unit,
-    onAddWebDav: () -> Unit,
-    onAddSmb: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var deviceNetworkExpanded by remember(show) { mutableStateOf(false) }
-    DesignDialog(show = show, onDismiss = onDismiss) {
-        Text(
-            text = stringResource(Res.string.settings_add_source),
-            color = MiuixTheme.colorScheme.onSurface,
-            style = MiuixTheme.textStyles.title3,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(Res.string.settings_add_source_dialog_summary),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            style = MiuixTheme.textStyles.body2,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = stringResource(Res.string.settings_source_quick_access),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (canAddLocal) {
-                SourcePickerQuickOption(
-                    modifier = Modifier.weight(1f),
-                    icon = Res.drawable.icon_source_hard_drive,
-                    colors = DesignGradients.PinkOrange.colors,
-                    title = stringResource(Res.string.settings_source_quick_local),
-                    onClick = onAddLocal,
-                )
-            }
-            if (canAddWebDav) {
-                SourcePickerQuickOption(
-                    modifier = Modifier.weight(1f),
-                    icon = Res.drawable.icon_source_server,
-                    colors = DesignGradients.BluePurple.colors,
-                    title = stringResource(Res.string.settings_source_quick_webdav),
-                    onClick = onAddWebDav,
-                )
-            }
-            if (canAddSmb) {
-                SourcePickerQuickOption(
-                    modifier = Modifier.weight(1f),
-                    icon = Res.drawable.icon_source_database,
-                    colors = DesignGradients.OrangeYellow.colors,
-                    title = stringResource(Res.string.settings_source_quick_smb),
-                    onClick = onAddSmb,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            text = stringResource(Res.string.settings_source_browse_by_type),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
-        ) {
-            SourcePickerCategoryRow(
-                expanded = deviceNetworkExpanded,
-                onClick = { deviceNetworkExpanded = !deviceNetworkExpanded },
-            )
-            if (deviceNetworkExpanded) {
-                if (canAddLocal) {
-                    DesignListDivider()
-                    SourcePickerRow(
-                        icon = Res.drawable.icon_source_hard_drive,
-                        colors = DesignGradients.PinkOrange.colors,
-                        title = stringResource(Res.string.settings_source_add_local),
-                        summary = stringResource(Res.string.settings_source_add_local_summary),
-                        onClick = onAddLocal,
-                    )
-                }
-                if (canAddWebDav) {
-                    DesignListDivider()
-                    SourcePickerRow(
-                        icon = Res.drawable.icon_source_server,
-                        colors = DesignGradients.BluePurple.colors,
-                        title = stringResource(Res.string.settings_source_add_webdav),
-                        summary = stringResource(Res.string.settings_source_add_webdav_summary),
-                        onClick = onAddWebDav,
-                    )
-                }
-                if (canAddSmb) {
-                    DesignListDivider()
-                    SourcePickerRow(
-                        icon = Res.drawable.icon_source_database,
-                        colors = DesignGradients.OrangeYellow.colors,
-                        title = stringResource(Res.string.settings_source_add_smb),
-                        summary = stringResource(Res.string.settings_source_add_smb_summary),
-                        onClick = onAddSmb,
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            DesignTextButton(
-                text = stringResource(Res.string.settings_cancel),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
-                onClick = onDismiss,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SourcePickerQuickOption(
-    modifier: Modifier,
-    icon: DrawableResource,
-    colors: List<Color>,
-    title: String,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        SettingsIconBadge(drawable = icon, colors = colors)
-        Text(
-            text = title,
-            color = MiuixTheme.colorScheme.onSurface,
-            style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun SourcePickerCategoryRow(
-    expanded: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 76.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SettingsIconBadge(
-            drawable = Res.drawable.icon_source_layers,
-            colors = DesignGradients.GreenBlue.colors,
-        )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            Text(
-                text = stringResource(Res.string.settings_source_device_network),
-                color = MiuixTheme.colorScheme.onSurface,
-                style = MiuixTheme.textStyles.body1,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = stringResource(Res.string.settings_source_device_network_summary),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                style = MiuixTheme.textStyles.footnote1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Text(
-            text = stringResource(
-                if (expanded) Res.string.settings_source_collapse else Res.string.settings_source_expand,
-            ),
-            color = MiuixTheme.colorScheme.primary,
-            style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
-        )
     }
 }
 

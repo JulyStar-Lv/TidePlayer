@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.core.data
 
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceAccountRootSelection
 import io.github.julystar.musicapp.core.domain.model.SourceId
 import io.github.julystar.musicapp.core.domain.model.StorageAccountInfo
 import io.github.julystar.musicapp.core.domain.model.OneDriveDriveInfo
@@ -989,6 +990,52 @@ class StorageRepositoryImpl(
 
         val legacyPath = normalizedPaths.firstOrNull()
         sourceAccountDao.upsert(account.copy(rootPath = legacyPath, updatedAt = now))
+    }
+
+    override suspend fun replaceAccountRootSelections(
+        accountId: SourceAccountId,
+        selections: List<SourceAccountRootSelection>,
+    ) {
+        val id = accountId.toStorageRouteIdOrNull() ?: return
+        val account = sourceAccountDao.get(id) ?: return
+        if (account.providerType != ProviderTypes.OpenList) {
+            replaceAccountRootPaths(accountId, selections.map { it.path })
+            return
+        }
+        require(selections.all { it.path.isNotBlank() }) { "Library root path cannot be blank" }
+        val selectedRoots = selections.distinctBy { it.path }
+        val roots = libraryRootDao ?: error("Library root storage is not configured")
+        val existing = roots.listBySourceAccount(id)
+        val selectedPaths = selectedRoots.map { it.path }.toSet()
+        val now = currentTimeMillis()
+
+        existing.filter { root -> root.canonicalPath !in selectedPaths }.forEach { root ->
+            roots.delete(root.id)
+        }
+        selectedRoots.forEach { selection ->
+            val previous = existing.firstOrNull { root -> root.canonicalPath == selection.path }
+            roots.upsert(
+                (previous ?: LibraryRootEntity(
+                    sourceAccountId = id,
+                    providerRootId = selection.remoteId,
+                    canonicalPath = selection.path,
+                    displayName = selection.path,
+                    syncStatus = "PENDING",
+                    syncCursor = null,
+                    lastSyncAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                )).copy(
+                    providerRootId = selection.remoteId,
+                    canonicalPath = selection.path,
+                    displayName = selection.path,
+                    updatedAt = now,
+                )
+            )
+        }
+        sourceAccountDao.upsert(
+            account.copy(rootPath = selectedRoots.firstOrNull()?.path, updatedAt = now)
+        )
     }
 
     private suspend fun replaceSmbAccountRoots(

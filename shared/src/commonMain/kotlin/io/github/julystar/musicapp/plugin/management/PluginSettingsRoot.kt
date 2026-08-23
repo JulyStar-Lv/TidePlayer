@@ -44,12 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.AnnotatedString
@@ -65,17 +60,12 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
+import io.github.julystar.musicapp.core.presentation.components.AppDropdownPreference
 import io.github.julystar.musicapp.core.presentation.components.AppSwitch
 import io.github.julystar.musicapp.core.presentation.components.AppTextField
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import io.github.julystar.musicapp.core.presentation.components.DesignDialog
 import io.github.julystar.musicapp.core.presentation.components.DesignBottomSheetDefaults
 import io.github.julystar.musicapp.core.presentation.components.DesignBottomSheetHandle
@@ -1489,237 +1479,20 @@ private fun PluginConfigSelectRow(
     onValueChange: (String) -> Unit,
     showDivider: Boolean = true,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-    var anchorBounds by remember { mutableStateOf<Rect?>(null) }
-    val selectedLabel = field.options.firstOrNull { it.value == value }?.label ?: value
-    val trailingColor = if (menuOpen) {
-        MiuixTheme.colorScheme.primary
-    } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
-    }
-    val windowSize = LocalWindowInfo.current.containerDpSize
-    val density = LocalDensity.current
-    val maxWindowMenuHeight = if (windowSize.isSpecified) {
-        (windowSize.height - 32.dp).coerceAtLeast(0.dp)
-    } else {
-        360.dp
-    }
-    val estimatedMenuHeight = minOf(
-        56.dp * field.options.size + 16.dp,
-        360.dp,
-        maxWindowMenuHeight,
+    val selectedIndex = field.options.indexOfFirst { it.value == value }
+    AppDropdownPreference(
+        title = field.title,
+        summary = field.summary,
+        items = field.options.map { it.label },
+        selectedIndex = selectedIndex,
+        selectedLabel = value.takeIf { selectedIndex == -1 },
+        enabled = enabled,
+        showDivider = showDivider,
+        onSelectedIndexChange = { index ->
+            field.options.getOrNull(index)?.let { onValueChange(it.value) }
+        },
     )
-    val placeMenuAbove = anchorBounds?.let { bounds ->
-        with(density) {
-            val anchorTop = bounds.top.toDp()
-            val anchorBottom = bounds.bottom.toDp()
-            shouldPlacePluginConfigMenuAbove(
-                anchorTop = anchorTop,
-                anchorBottom = anchorBottom,
-                windowHeight = windowSize.height,
-                menuHeight = estimatedMenuHeight,
-            )
-        }
-    } ?: false
-    val menuOffset = anchorBounds?.let { bounds ->
-        with(density) {
-            if (placeMenuAbove) {
-                val anchorTop = bounds.top.toDp()
-                val desiredTop = maxOf(
-                    16.dp,
-                    anchorTop - estimatedMenuHeight - 8.dp,
-                )
-                IntOffset(x = 0, y = (desiredTop - anchorTop).roundToPx())
-            } else {
-                IntOffset(
-                    x = 0,
-                    y = (estimatedMenuHeight + 8.dp).roundToPx(),
-                )
-            }
-        }
-    } ?: IntOffset.Zero
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.45f),
-    ) {
-        Box {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        anchorBounds = coordinates.boundsInWindow()
-                    }
-                    .heightIn(min = 68.dp)
-                    .clickable(enabled = enabled) { menuOpen = true }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Text(
-                        text = field.title,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium,
-                        style = MiuixTheme.textStyles.body1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    field.summary?.let { summary ->
-                        Text(
-                            text = summary,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                        )
-                    }
-                }
-                Text(
-                    text = selectedLabel,
-                    color = if (menuOpen) MiuixTheme.colorScheme.primary
-                    else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Box(
-                    modifier = Modifier.size(DesignTokens.adaptive.minimumTouchTarget),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            painter = painterResource(CoreRes.drawable.icon_chevron_right),
-                            contentDescription = null,
-                            tint = trailingColor,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .rotate(-90f),
-                        )
-                        Icon(
-                            painter = painterResource(CoreRes.drawable.icon_chevron_right),
-                            contentDescription = null,
-                            tint = trailingColor,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .rotate(90f),
-                        )
-                    }
-                }
-            }
-
-            if (menuOpen) {
-                Popup(
-                    popupPositionProvider = FullScreenPopupPositionProvider,
-                    properties = PopupProperties(focusable = false),
-                    onDismissRequest = { menuOpen = false },
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Color.Black.copy(
-                                    alpha = if (
-                                        MiuixTheme.colorScheme.background.luminance() < 0.5f
-                                    ) {
-                                        0.45f
-                                    } else {
-                                        0.25f
-                                    },
-                                ),
-                            )
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember {
-                                    MutableInteractionSource()
-                                },
-                            ) { menuOpen = false },
-                    )
-                }
-                Popup(
-                    alignment = if (placeMenuAbove) {
-                        Alignment.TopEnd
-                    } else {
-                        Alignment.BottomEnd
-                    },
-                    offset = menuOffset,
-                    properties = PopupProperties(focusable = true),
-                    onDismissRequest = { menuOpen = false },
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(28.dp))
-                            .background(MiuixTheme.colorScheme.surfaceContainerHighest)
-                            .widthIn(min = 200.dp, max = 360.dp)
-                            .heightIn(max = estimatedMenuHeight)
-                            .verticalScroll(rememberScrollState())
-                            .padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        field.options.forEach { option ->
-                            val isSelected = option.value == value
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .clickable {
-                                        onValueChange(option.value)
-                                        menuOpen = false
-                                    }
-                                    .padding(horizontal = 20.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = option.label,
-                                    color = if (isSelected) MiuixTheme.colorScheme.primary
-                                    else MiuixTheme.colorScheme.onSurface,
-                                    style = MiuixTheme.textStyles.body1,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                if (isSelected) {
-                                    Icon(
-                                        painter = painterResource(CoreRes.drawable.icon_ok),
-                                        contentDescription = null,
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (showDivider) {
-            DesignListDivider()
-        }
-    }
 }
-
-private object FullScreenPopupPositionProvider : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
-}
-
-internal fun shouldPlacePluginConfigMenuAbove(
-    anchorTop: Dp,
-    anchorBottom: Dp,
-    windowHeight: Dp,
-    menuHeight: Dp,
-): Boolean =
-    anchorTop > windowHeight / 2 ||
-        anchorBottom + 8.dp + menuHeight > windowHeight - 16.dp
 
 internal fun isPluginConfigFieldVisible(
     field: ManifestConfigField,

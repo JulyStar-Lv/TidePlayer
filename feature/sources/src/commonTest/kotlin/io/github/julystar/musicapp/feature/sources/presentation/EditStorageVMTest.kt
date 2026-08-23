@@ -11,6 +11,7 @@ import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
 import io.github.julystar.musicapp.core.domain.model.OneDriveDriveListResult
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceAccountRootSelection
 import io.github.julystar.musicapp.core.domain.model.SourceEditorDraft
 import io.github.julystar.musicapp.core.domain.model.SourceEditorStorageState
 import io.github.julystar.musicapp.core.domain.model.StorageAccountInfo
@@ -86,6 +87,8 @@ class EditStorageVMTest {
         viewModel.onAction(SourceEditorAction.OpenListAddressChanged("https://list.example"))
         viewModel.onAction(SourceEditorAction.OpenListUsernameChanged("alice"))
         viewModel.onAction(SourceEditorAction.OpenListPasswordChanged("password-secret"))
+        runCurrent()
+        assertFalse(viewModel.state.value.openList.showOtp)
         viewModel.onAction(SourceEditorAction.TestConnection)
         advanceUntilIdle()
 
@@ -97,9 +100,10 @@ class EditStorageVMTest {
         viewModel.onAction(SourceEditorAction.OpenListOtpChanged("111111"))
         viewModel.onAction(SourceEditorAction.TestConnection)
         advanceUntilIdle()
-        assertEquals("111111", storage.openListTestOtps.last())
+        assertTrue(storage.openListTestOtps.last() == "111111", "OTP should reach connection test")
         assertTrue(viewModel.state.value.openList.showOtp)
         assertTrue(viewModel.state.value.openList.hasOtp)
+        assertFalse(viewModel.state.value.toString().contains("111111"))
 
         viewModel.onAction(SourceEditorAction.OpenListAddressChanged("https://new-list.example"))
         runCurrent()
@@ -114,9 +118,12 @@ class EditStorageVMTest {
         viewModel.onAction(SourceEditorAction.Save)
         advanceUntilIdle()
 
-        assertEquals("222222", storage.savedOpenListOtp)
+        assertTrue(storage.savedOpenListOtp == "222222", "OTP should reach save in memory")
         assertFalse(storage.savedOpenListDraft.toString().contains("222222"))
-        assertEquals(SourceEditorEvent.NavigateBack, viewModel.events.first())
+        assertEquals(
+            SourceEditorEvent.OpenLibraryFolderImport(storageSourceAccountId(21)),
+            viewModel.events.first(),
+        )
         assertFalse(viewModel.state.value.openList.showOtp)
         assertFalse(viewModel.state.value.openList.hasOtp)
     }
@@ -236,7 +243,10 @@ class EditStorageVMTest {
         assertTrue(viewModel.state.value.openList.showOtp)
         assertFalse(viewModel.state.value.openList.hasOtp)
         assertTrue(viewModel.state.value.otpInputGeneration > generation)
-        assertEquals(listOf("", "111111", "222222"), storage.openListTestOtps)
+        assertTrue(
+            storage.openListTestOtps == listOf("", "111111", "222222"),
+            "OTP challenge attempts should be forwarded in order",
+        )
     }
 
     @Test
@@ -266,6 +276,7 @@ class EditStorageVMTest {
 
         assertEquals("Verified Emby", viewModel.state.value.emby.serverName)
         assertEquals("user-id-8", viewModel.state.value.emby.connectedUserId)
+        assertFalse(viewModel.state.value.toString().contains("stored-token"))
         viewModel.onAction(SourceEditorAction.TestConnection)
         advanceUntilIdle()
         assertEquals("", storage.testDrafts.single().secret)
@@ -275,12 +286,40 @@ class EditStorageVMTest {
     }
 
     @Test
+    fun newEmbyActionsMapEditableFieldsAndAuthenticationToDraft() = runTest(dispatcher) {
+        val storage = FakeEditorStorageRepository()
+        val viewModel = createViewModel(storage)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
+
+        viewModel.onAction(SourceEditorAction.ChangeType(SourceEditorType.Emby))
+        viewModel.onAction(SourceEditorAction.RemoteServerAliasChanged("Emby home"))
+        viewModel.onAction(SourceEditorAction.RemoteServerAddressChanged("https://emby.example"))
+        viewModel.onAction(SourceEditorAction.RemoteServerUsernameChanged("listener"))
+        viewModel.onAction(SourceEditorAction.RemoteServerPasswordChanged("new-auth-value"))
+        viewModel.onAction(
+            SourceEditorAction.RemoteServerSecondaryAddressChanged("https://backup.example")
+        )
+        viewModel.onAction(SourceEditorAction.TestConnection)
+        advanceUntilIdle()
+
+        val draft = storage.testDrafts.single()
+        assertEquals(SourceEditorType.Emby, draft.storageType)
+        assertEquals("Emby home", draft.alias)
+        assertEquals("https://emby.example", draft.address)
+        assertEquals("listener", draft.username)
+        assertTrue(draft.secret.isNotEmpty(), "authentication action should reach draft")
+        assertEquals("https://backup.example", draft.secondaryBaseUrl)
+    }
+
+    @Test
     fun remoteServerAdvancedActionsMapToDraftForBothSubsonicProviders() = runTest(dispatcher) {
         for (type in listOf(SourceEditorType.Navidrome, SourceEditorType.OpenSubsonic)) {
             val storage = FakeEditorStorageRepository()
             val viewModel = createViewModel(storage)
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
             viewModel.onAction(SourceEditorAction.ChangeType(type))
+            runCurrent()
+            assertFalse(viewModel.state.value.remoteServer.remoteWriteEnabled)
             viewModel.onAction(SourceEditorAction.RemoteServerAliasChanged(type.name))
             viewModel.onAction(SourceEditorAction.RemoteServerAddressChanged("https://primary.example"))
             viewModel.onAction(SourceEditorAction.RemoteServerUsernameChanged("alice"))
@@ -295,6 +334,10 @@ class EditStorageVMTest {
 
             val draft = storage.testDrafts.single()
             assertEquals(type, draft.storageType)
+            assertEquals(type.name, draft.alias)
+            assertEquals("https://primary.example", draft.address)
+            assertEquals("alice", draft.username)
+            assertTrue(draft.secret.isNotEmpty(), "credential action should reach draft")
             assertEquals("https://secondary.example", draft.secondaryBaseUrl)
             assertEquals(192, draft.streamMaxBitRate)
             assertEquals(320, draft.downloadMaxBitRate)
@@ -339,29 +382,145 @@ class EditStorageVMTest {
             syncedAccounts += accountId
             SourceAccountLibrarySyncResult(0, 0, 0)
         }
-        val viewModel = createViewModel(storage, id = 9, imports = imports, accountSync = accountSync)
+        val folderSync = FakeLibrarySyncController()
+        val viewModel = createViewModel(
+            storage,
+            id = 9,
+            imports = imports,
+            librarySync = folderSync,
+            accountSync = accountSync,
+        )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
         advanceUntilIdle()
 
         viewModel.onAction(SourceEditorAction.ImportLibraryFolder)
         advanceUntilIdle()
         assertEquals(openListId, imports.preparedAccountId)
-        imports.finish(
+        val selections = listOf(
             SourceDirectorySelection(
                 sourceId = BuiltInSourceIds.OpenList,
                 accountId = openListId,
                 path = "/原始 路径/音乐",
                 remoteId = "raw::目录/音乐",
-            )
+            ),
+            SourceDirectorySelection(
+                sourceId = BuiltInSourceIds.OpenList,
+                accountId = openListId,
+                path = "/第二 根/无改写",
+                remoteId = "opaque::第二根?id=%2Fraw",
+            ),
         )
+        imports.finishAll(selections)
         advanceUntilIdle()
-        assertEquals(openListId to listOf("/原始 路径/音乐"), storage.replacedRoots.single())
-        assertEquals(listOf(openListId), syncedAccounts)
+        assertEquals(
+            openListId to selections.map { SourceAccountRootSelection(it.remoteId, it.path) },
+            storage.replacedRootSelections.single(),
+        )
+        assertEquals(emptyList(), syncedAccounts)
+        assertEquals(
+            selections.map { selection ->
+                listOf(
+                    selection.accountId.value,
+                    selection.remoteId,
+                    selection.path,
+                    selection.path,
+                )
+            },
+            folderSync.requests.map { request ->
+                listOf(
+                    request.accountId.value,
+                    request.selectedFolderRemoteId,
+                    request.selectedFolderCanonicalPath,
+                    request.selectedFolderDisplayPath,
+                )
+            },
+        )
 
         viewModel.onAction(SourceEditorAction.ImportLocalLibraryFolder)
         advanceUntilIdle()
         assertEquals(localId, imports.preparedAccountId)
     }
+
+    @Test
+    fun newOpenListSaveImmediatelyOpensExactAccountPickerAndSyncsMultipleRawRoots() =
+        runTest(dispatcher) {
+            val savedAccountId = storageSourceAccountId(21)
+            val storage = FakeEditorStorageRepository()
+            val imports = FakeImportRepository()
+            val folderSync = FakeLibrarySyncController()
+            val accountSyncCalls = mutableListOf<SourceAccountId>()
+            val viewModel = createViewModel(
+                storage = storage,
+                imports = imports,
+                librarySync = folderSync,
+                accountSync = SourceAccountLibrarySyncController { accountId ->
+                    accountSyncCalls += accountId
+                    SourceAccountLibrarySyncResult(0, 0, 0)
+                },
+            )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.state.collect {}
+            }
+
+            viewModel.onAction(SourceEditorAction.ChangeType(SourceEditorType.OpenList))
+            viewModel.onAction(SourceEditorAction.OpenListAliasChanged("OpenList"))
+            viewModel.onAction(SourceEditorAction.OpenListAddressChanged("https://list.example"))
+            viewModel.onAction(SourceEditorAction.OpenListUsernameChanged("listener"))
+            viewModel.onAction(SourceEditorAction.OpenListPasswordChanged("credential-value"))
+            viewModel.onAction(SourceEditorAction.TestConnection)
+            runCurrent()
+            assertEquals(SourceConnectionTestStatus.Success, viewModel.state.value.testStatus)
+            advanceUntilIdle()
+            assertEquals(SourceConnectionTestStatus.None, viewModel.state.value.testStatus)
+
+            viewModel.onAction(SourceEditorAction.Save)
+            advanceUntilIdle()
+
+            val navigationEvent = viewModel.events.first()
+            assertEquals(SourceEditorEvent.OpenLibraryFolderImport(savedAccountId), navigationEvent)
+            val pickerAccounts = mutableListOf<SourceAccountId>()
+            dispatchSourceEditorNavigation(
+                event = navigationEvent,
+                onNavigateBack = { error("OpenList save must open the folder picker") },
+                onNavigateToLibraryFolderImport = pickerAccounts::add,
+                onOpenUri = { error("OpenList save must not open a URI") },
+            )
+            assertEquals(listOf(savedAccountId), pickerAccounts)
+            assertEquals(savedAccountId, imports.preparedAccountId)
+            assertFalse(viewModel.state.value.isCreated)
+
+            val selections = listOf(
+                SourceDirectorySelection(
+                    sourceId = BuiltInSourceIds.OpenList,
+                    accountId = savedAccountId,
+                    path = "/未改写 path/一",
+                    remoteId = "opaque://root-one?sig=%2Fkeep",
+                ),
+                SourceDirectorySelection(
+                    sourceId = BuiltInSourceIds.OpenList,
+                    accountId = savedAccountId,
+                    path = "/未改写 path/二",
+                    remoteId = "opaque::root-two/原始",
+                ),
+            )
+            imports.finishAll(selections)
+            advanceUntilIdle()
+
+            assertEquals(
+                savedAccountId to selections.map {
+                    SourceAccountRootSelection(remoteId = it.remoteId, path = it.path)
+                },
+                storage.replacedRootSelections.single(),
+            )
+            assertEquals(emptyList(), accountSyncCalls)
+            assertEquals(2, folderSync.requests.size)
+            folderSync.requests.zip(selections).forEach { (request, selection) ->
+                assertEquals(selection.accountId, request.accountId)
+                assertEquals(selection.remoteId, request.selectedFolderRemoteId)
+                assertEquals(selection.path, request.selectedFolderCanonicalPath)
+                assertEquals(selection.path, request.selectedFolderDisplayPath)
+            }
+        }
 
     @Test
     fun folderSyncCancellationReportsCancelledWithoutReloadOrSuccess() = runTest(dispatcher) {
@@ -453,6 +612,75 @@ class EditStorageVMTest {
     }
 
     @Test
+    fun dashboardAddSourceActionOpensNewSourceEditor() = runTest(dispatcher) {
+        val viewModel = SourcesViewModel(
+            FakeEditorStorageRepository(),
+            SourceAccountLibrarySyncController {
+                SourceAccountLibrarySyncResult(0, 0, 0)
+            },
+            FakeToastRepository(),
+        )
+
+        viewModel.onAction(SourcesAction.AddSource)
+
+        assertEquals(SourcesEvent.OpenNewSourceEditor, viewModel.events.first())
+    }
+
+    @Test
+    fun addNavidromeSaveBackCardAndReopenTraverseDashboardAndEditorContracts() =
+        runTest(dispatcher) {
+            val storage = FakeEditorStorageRepository()
+            val dashboard = SourcesViewModel(
+                storage,
+                SourceAccountLibrarySyncController {
+                    SourceAccountLibrarySyncResult(0, 0, 0)
+                },
+                FakeToastRepository(),
+            )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                dashboard.state.collect {}
+            }
+            advanceUntilIdle()
+
+            dashboard.onAction(SourcesAction.AddSource)
+            val addRoutes = mutableListOf<Long>()
+            dispatchSourcesNavigation(dashboard.events.first(), addRoutes::add)
+            assertEquals(listOf(-1L), addRoutes)
+
+            val editor = createViewModel(storage)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                editor.state.collect {}
+            }
+            editor.onAction(SourceEditorAction.ChangeType(SourceEditorType.Navidrome))
+            editor.onAction(SourceEditorAction.RemoteServerAliasChanged("Navidrome home"))
+            editor.onAction(SourceEditorAction.RemoteServerAddressChanged("https://music.example/api"))
+            editor.onAction(SourceEditorAction.RemoteServerUsernameChanged("listener"))
+            editor.onAction(SourceEditorAction.RemoteServerPasswordChanged("credential-secret"))
+            editor.onAction(SourceEditorAction.Save)
+            advanceUntilIdle()
+
+            var backCalls = 0
+            dispatchSourceEditorNavigation(
+                event = editor.events.first(),
+                onNavigateBack = { backCalls += 1 },
+                onNavigateToLibraryFolderImport = { error("Navidrome save must navigate back") },
+                onOpenUri = { error("Navidrome save must not open a URI") },
+            )
+            assertEquals(1, backCalls)
+
+            val card = dashboard.state.value.sources.single()
+            assertEquals("Navidrome home", card.title)
+            assertEquals("Navidrome", card.sourceType)
+            assertEquals("https://music.example", card.safeEndpoint)
+            assertFalse("credential-secret" in card.toString())
+
+            dashboard.onAction(SourcesAction.OpenSource(card.id))
+            val reopenRoutes = mutableListOf<Long>()
+            dispatchSourcesNavigation(dashboard.events.first(), reopenRoutes::add)
+            assertEquals(listOf(20L), reopenRoutes)
+        }
+
+    @Test
     fun existingServerEditorSyncPassesExactAccountAndRejectsDuplicateTap() = runTest(dispatcher) {
         val accountId = storageSourceAccountId(33)
         val storage = FakeEditorStorageRepository().apply {
@@ -508,42 +736,99 @@ class EditStorageVMTest {
     }
 
     @Test
-    fun unsavedProviderChangesCannotSyncPersistedAccountThroughEditor() = runTest(dispatcher) {
-        val calls = mutableListOf<SourceAccountId>()
-        val controller = SourceAccountLibrarySyncController { accountId ->
-            calls += accountId
-            SourceAccountLibrarySyncResult(0, 0, 0)
+    fun existingNavidromeRejectsForgedProviderChangeWithoutMutatingDraft() = runTest(dispatcher) {
+        val persistedDraft = SourceEditorDraft(
+            id = 34,
+            storageType = SourceEditorType.Navidrome,
+            alias = "Navidrome home",
+            address = "https://navidrome.example",
+            username = "alice",
+            secondaryBaseUrl = "https://backup.example",
+            streamMaxBitRate = 192,
+            downloadMaxBitRate = 320,
+            coverArtSize = 768,
+            remoteWriteEnabled = true,
+        )
+        val storage = FakeEditorStorageRepository().apply {
+            editorState = SourceEditorStorageState(
+                accountId = storageSourceAccountId(34),
+                draft = persistedDraft,
+                title = persistedDraft.alias,
+                musicCount = 12u,
+                isOneDrive = false,
+            )
         }
+        val viewModel = createViewModel(storage, id = 34)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
+        advanceUntilIdle()
+        val before = viewModel.state.value
+        assertFalse(before.isCreated)
+        assertTrue(before.canSyncCurrentServer)
 
-        suspend fun assertBlocked(persistedType: SourceEditorType, selectedType: SourceEditorType, id: Long) {
+        viewModel.onAction(SourceEditorAction.ChangeType(SourceEditorType.OpenList))
+        runCurrent()
+
+        assertEquals(before, viewModel.state.value)
+        viewModel.onAction(SourceEditorAction.Save)
+        advanceUntilIdle()
+        assertEquals(persistedDraft, storage.savedDraft)
+    }
+
+    @Test
+    fun existingOpenListRejectsForgedProviderChangeWithoutClearingOtpOrDraft() =
+        runTest(dispatcher) {
+            val persistedDraft = SourceEditorDraft(
+                id = 35,
+                storageType = SourceEditorType.OpenList,
+                alias = "OpenList home",
+                address = "https://openlist.example",
+                username = "listener",
+            )
             val storage = FakeEditorStorageRepository().apply {
                 editorState = SourceEditorStorageState(
-                    accountId = storageSourceAccountId(id),
-                    draft = SourceEditorDraft(
-                        id = id,
-                        storageType = persistedType,
-                        alias = persistedType.name,
-                        address = "https://source.example",
-                        username = "alice",
-                    ),
-                    title = persistedType.name,
-                    musicCount = 0u,
+                    accountId = storageSourceAccountId(35),
+                    draft = persistedDraft,
+                    title = persistedDraft.alias,
+                    musicCount = 7u,
                     isOneDrive = false,
+                    requiresOtp = true,
                 )
             }
-            val viewModel = createViewModel(storage, id = id, accountSync = controller)
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
+            val viewModel = createViewModel(storage, id = 35)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.state.collect {}
+            }
             advanceUntilIdle()
-            viewModel.onAction(SourceEditorAction.ChangeType(selectedType))
+            viewModel.onAction(SourceEditorAction.OpenListOtpChanged("654321"))
             runCurrent()
-            assertFalse(viewModel.state.value.canSyncCurrentServer)
-            viewModel.onAction(SourceEditorAction.SyncNow)
+            val before = viewModel.state.value
+            assertFalse(before.isCreated)
+            assertTrue(before.openList.showOtp)
+            assertTrue(before.openList.hasOtp)
+
+            viewModel.onAction(SourceEditorAction.ChangeType(SourceEditorType.Navidrome))
+            runCurrent()
+
+            assertEquals(before, viewModel.state.value)
+            viewModel.onAction(SourceEditorAction.Save)
             advanceUntilIdle()
+            assertEquals(persistedDraft, storage.savedOpenListDraft)
+            assertEquals("654321", storage.savedOpenListOtp)
         }
 
-        assertBlocked(SourceEditorType.WebDav, SourceEditorType.Navidrome, 34)
-        assertBlocked(SourceEditorType.Navidrome, SourceEditorType.OpenSubsonic, 35)
-        assertEquals(emptyList(), calls)
+    @Test
+    fun newEditorStillAllowsProviderChanges() = runTest(dispatcher) {
+        val viewModel = createViewModel(FakeEditorStorageRepository())
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
+
+        viewModel.onAction(SourceEditorAction.ChangeType(SourceEditorType.OpenList))
+        runCurrent()
+        assertEquals(SourceEditorType.OpenList, viewModel.state.value.storageType)
+
+        viewModel.onAction(SourceEditorAction.ChangeType(SourceEditorType.Navidrome))
+        runCurrent()
+        assertEquals(SourceEditorType.Navidrome, viewModel.state.value.storageType)
+        assertTrue(viewModel.state.value.isCreated)
     }
 
     @Test
@@ -623,6 +908,8 @@ private class FakeEditorStorageRepository : StorageRepository {
     var openListSaveCalls = 0
     var reloadCalls = 0
     val replacedRoots = mutableListOf<Pair<SourceAccountId, List<String>>>()
+    val replacedRootSelections =
+        mutableListOf<Pair<SourceAccountId, List<SourceAccountRootSelection>>>()
 
     override suspend fun reload() {
         reloadCalls += 1
@@ -630,13 +917,17 @@ private class FakeEditorStorageRepository : StorageRepository {
     override suspend fun startOneDriveOAuth(): String = ""
     override suspend fun upsertSource(draft: SourceEditorDraft): SourceAccountId {
         savedDraft = draft
-        return draft.id?.let(::storageSourceAccountId) ?: storageSourceAccountId(20)
+        val accountId = draft.id?.let(::storageSourceAccountId) ?: storageSourceAccountId(20)
+        publishSavedAccount(accountId, draft)
+        return accountId
     }
     override suspend fun upsertOpenListSource(draft: SourceEditorDraft, otpCode: String): SourceAccountId {
         openListSaveCalls += 1
         savedOpenListDraft = draft
         savedOpenListOtp = otpCode
-        return draft.id?.let(::storageSourceAccountId) ?: storageSourceAccountId(21)
+        val accountId = draft.id?.let(::storageSourceAccountId) ?: storageSourceAccountId(21)
+        publishSavedAccount(accountId, draft)
+        return accountId
     }
     override suspend fun loadEditorState(id: Long): SourceEditorStorageState? = editorState
     override suspend fun testSource(draft: SourceEditorDraft): SourceConnectionTestStatus {
@@ -663,8 +954,35 @@ private class FakeEditorStorageRepository : StorageRepository {
     override suspend fun replaceAccountRootPaths(accountId: SourceAccountId, rootPaths: List<String>) {
         replacedRoots += accountId to rootPaths
     }
+    override suspend fun replaceAccountRootSelections(
+        accountId: SourceAccountId,
+        selections: List<SourceAccountRootSelection>,
+    ) {
+        replacedRootSelections += accountId to selections
+    }
     override suspend fun listAccountRootPaths(accountId: SourceAccountId): List<String> = emptyList()
     override suspend fun removeByAccountId(accountId: SourceAccountId) = Unit
+
+    private fun publishSavedAccount(accountId: SourceAccountId, draft: SourceEditorDraft) {
+        val sourceId = when (draft.storageType) {
+            SourceEditorType.WebDav -> BuiltInSourceIds.WebDav
+            SourceEditorType.OneDrive -> BuiltInSourceIds.OneDrive
+            SourceEditorType.Smb -> BuiltInSourceIds.Smb
+            SourceEditorType.Navidrome -> BuiltInSourceIds.Navidrome
+            SourceEditorType.OpenSubsonic -> BuiltInSourceIds.OpenSubsonic
+            SourceEditorType.Emby -> BuiltInSourceIds.Emby
+            SourceEditorType.OpenList -> BuiltInSourceIds.OpenList
+        }
+        accounts.value = accounts.value.filterNot { it.accountId == accountId } + StorageAccountInfo(
+            accountId = accountId,
+            sourceId = sourceId,
+            isLocal = false,
+            isOneDrive = draft.storageType == SourceEditorType.OneDrive,
+            title = draft.alias,
+            subtitle = draft.address,
+            musicCount = 0,
+        )
+    }
 }
 
 private class FakeImportRepository : ImportRepository {
@@ -673,6 +991,7 @@ private class FakeImportRepository : ImportRepository {
     override val currentDirectoryAccountId = MutableStateFlow<SourceAccountId?>(null)
     var preparedAccountId: SourceAccountId? = null
     private var callback: ((SourceDirectorySelection) -> Unit)? = null
+    private var directoriesCallback: ((List<SourceDirectorySelection>) -> Unit)? = null
 
     override fun prepare(types: List<SourceNodeType>, block: (List<SourceNodeSelection>) -> Unit) = Unit
     override fun prepareCurrentDirectory(
@@ -681,10 +1000,23 @@ private class FakeImportRepository : ImportRepository {
     ) {
         preparedAccountId = accountId
         callback = block
+        directoriesCallback = null
+    }
+    override fun prepareDirectories(
+        accountId: SourceAccountId?,
+        block: (List<SourceDirectorySelection>) -> Unit,
+    ) {
+        preparedAccountId = accountId
+        callback = null
+        directoriesCallback = block
     }
     override fun onFinish(entries: List<SourceNodeSelection>) = Unit
     override fun onFinishCurrentDirectory(selection: SourceDirectorySelection) = Unit
-    fun finish(selection: SourceDirectorySelection) = requireNotNull(callback)(selection)
+    fun finish(selection: SourceDirectorySelection) {
+        callback?.invoke(selection) ?: requireNotNull(directoriesCallback)(listOf(selection))
+    }
+    fun finishAll(selections: List<SourceDirectorySelection>) =
+        requireNotNull(directoriesCallback)(selections)
 }
 
 private class FakeLibrarySyncController : LibrarySyncController {

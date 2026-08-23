@@ -4,7 +4,8 @@ import io.github.julystar.musicapp.core.domain.model.StorageAccountInfo
 import io.github.julystar.musicapp.core.data.toSourceAccountId
 import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
-import io.github.julystar.musicapp.core.domain.model.SourceId
+import io.github.julystar.musicapp.core.domain.model.sanitizeSourceEndpointForDisplay
+import io.github.julystar.musicapp.core.domain.model.sanitizeSourceTitleForDisplay
 import io.github.julystar.musicapp.source.api.BuiltInSourceIds
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,11 +48,12 @@ class SourcesStateTest {
         val sources = accounts
             .filter { account -> !account.isLocal }
             .map { account ->
+                val sourceType = if (account.sourceId == BuiltInSourceIds.WebDav) "WebDAV" else "OneDrive"
                 SourceAccountUi(
                     id = account.accountId,
-                    title = account.title,
-                    subtitle = account.subtitle,
-                    sourceType = if (account.sourceId == BuiltInSourceIds.WebDav) "WebDAV" else "OneDrive",
+                    title = sanitizeSourceTitleForDisplay(account.title, account.subtitle, sourceType),
+                    safeEndpoint = sanitizeSourceEndpointForDisplay(account.subtitle),
+                    sourceType = sourceType,
                     musicCount = account.musicCount,
                 )
             }
@@ -60,8 +62,8 @@ class SourcesStateTest {
         assertEquals(
             SourceAccountUi(
                 id = SourceAccountId("storage:2"),
-                title = "https://dav.example.com/music",
-                subtitle = "https://dav.example.com/music",
+                title = "WebDAV",
+                safeEndpoint = "https://dav.example.com",
                 sourceType = "WebDAV",
                 musicCount = 10,
             ),
@@ -71,7 +73,7 @@ class SourcesStateTest {
             SourceAccountUi(
                 id = SourceAccountId("storage:3"),
                 title = "OneDrive",
-                subtitle = "drive-id",
+                safeEndpoint = null,
                 sourceType = "OneDrive",
                 musicCount = 5,
             ),

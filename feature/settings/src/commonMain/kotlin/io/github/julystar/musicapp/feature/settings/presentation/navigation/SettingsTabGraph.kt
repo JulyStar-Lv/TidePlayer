@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.feature.settings.presentation.SettingsPage
 import io.github.julystar.musicapp.feature.settings.presentation.SettingsRoot
 
@@ -28,6 +29,7 @@ fun SettingsTabGraph(
     gitCommitSha: String,
     onNavigateToPlugins: () -> Unit,
     onNavigateToSourcePathPicker: () -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
 ) {
     fun navigate(route: String) {
         navController.navigate(route)
@@ -53,6 +55,7 @@ fun SettingsTabGraph(
             onNavigateToAbout = { navController.navigateSection(ROUTE_ABOUT) },
             onNavigateToLicenses = { navigate(ROUTE_LICENSES) },
             onNavigateToSourcePathPicker = onNavigateToSourcePathPicker,
+            onNavigateToSourceEditor = onNavigateToSourceEditor,
             onBack = { navController.navigateUp() },
         )
     }

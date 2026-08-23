@@ -1,6 +1,5 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,20 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isShiftPressed
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -62,7 +49,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.MAX_CUSTOM_THEME_SEEDS
 import io.github.julystar.musicapp.core.domain.model.normalizeCustomThemeSeedArgbValues
@@ -70,16 +56,14 @@ import io.github.julystar.musicapp.core.domain.model.normalizeThemeSeedArgb
 import io.github.julystar.musicapp.core.presentation.components.DesignButton
 import io.github.julystar.musicapp.core.presentation.components.DesignButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.DesignDialog
+import io.github.julystar.musicapp.core.presentation.components.AppHsvColorPicker
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.theme.ThemeSeedPreviewTheme
 import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.color.api.toHsv
-import top.yukonga.miuix.kmp.color.space.Hsv
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.roundToInt
 import kotlin.math.pow
 
 private data class ThemePreset(
@@ -394,7 +378,7 @@ private fun PickerEditor(
         }
 
         PickerSection(title = stringResource(Res.string.settings_theme_color_custom_hsv)) {
-            HsvSaturationValuePicker(
+            AppHsvColorPicker(
                 color = Color(draftArgb.toInt()),
                 onColorChange = { onDraftChange(it.toArgb().toLong() and 0xFFFFFFFFL) },
             )
@@ -569,169 +553,6 @@ private fun SavedThemeColor(
                 style = MiuixTheme.textStyles.title3,
             )
         }
-    }
-}
-
-@Composable
-private fun HsvSaturationValuePicker(
-    color: Color,
-    onColorChange: (Color) -> Unit,
-) {
-    val pickerTokens = DesignTokens.colorPicker
-    val hsv = color.toHsv()
-    val hueColor = Hsv(hsv.h, 100f, 100f).toColor()
-    var areaSize by remember { mutableStateOf(IntSize.Zero) }
-    val indicatorX = hsv.s / 100f
-    val indicatorY = 1f - hsv.v / 100f
-    val saturationDescription = stringResource(Res.string.settings_theme_color_saturation_value)
-    val hueDescription = stringResource(Res.string.settings_theme_color_hue)
-
-    fun updateSaturationValue(offset: Offset) {
-        if (areaSize.width <= 0 || areaSize.height <= 0) return
-        val saturation = (offset.x / areaSize.width).coerceIn(0f, 1f)
-        val value = (1f - offset.y / areaSize.height).coerceIn(0f, 1f)
-        onColorChange(Hsv(hsv.h, saturation * 100f, value * 100f).toColor())
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(pickerTokens.saturationValueHeight)
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, MiuixTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-                .onSizeChanged { areaSize = it }
-                .pointerInput(hsv.h, areaSize) {
-                    detectDragGestures(
-                        onDragStart = ::updateSaturationValue,
-                        onDrag = { change, _ ->
-                            updateSaturationValue(change.position)
-                            change.consume()
-                        },
-                    )
-                }
-                .onKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                    val step = if (event.isShiftPressed) 0.1f else 0.02f
-                    val saturation = hsv.s / 100f
-                    val value = hsv.v / 100f
-                    when (event.key) {
-                        Key.DirectionLeft -> onColorChange(
-                            Hsv(hsv.h, (saturation - step).coerceAtLeast(0f) * 100f, value * 100f).toColor(),
-                        )
-                        Key.DirectionRight -> onColorChange(
-                            Hsv(hsv.h, (saturation + step).coerceAtMost(1f) * 100f, value * 100f).toColor(),
-                        )
-                        Key.DirectionUp -> onColorChange(
-                            Hsv(hsv.h, saturation * 100f, (value + step).coerceAtMost(1f) * 100f).toColor(),
-                        )
-                        Key.DirectionDown -> onColorChange(
-                            Hsv(hsv.h, saturation * 100f, (value - step).coerceAtLeast(0f) * 100f).toColor(),
-                        )
-                        else -> return@onKeyEvent false
-                    }
-                    true
-                }
-                .focusable()
-                .semantics {
-                    contentDescription = saturationDescription
-                    stateDescription =
-                        "${hsv.s.roundToInt()}% saturation, ${hsv.v.roundToInt()}% brightness"
-                },
-        ) {
-            drawRect(brush = Brush.horizontalGradient(listOf(Color.White, hueColor)))
-            drawRect(brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
-            val center = Offset(size.width * indicatorX, size.height * indicatorY)
-            val radius = pickerTokens.indicatorSize.toPx() / 2f
-            drawCircle(Color.Black.copy(alpha = 0.75f), radius = radius + 2.dp.toPx(), center = center)
-            drawCircle(Color.White, radius = radius, center = center, style = Stroke(width = 3.dp.toPx()))
-        }
-
-        HueSlider(
-            hue = hsv.h,
-            saturation = hsv.s,
-            value = hsv.v,
-            contentDescription = hueDescription,
-            onHueChange = { newHue ->
-                onColorChange(Hsv(newHue, hsv.s, hsv.v).toColor())
-            },
-        )
-    }
-}
-
-@Composable
-private fun HueSlider(
-    hue: Float,
-    saturation: Float,
-    value: Float,
-    contentDescription: String,
-    onHueChange: (Float) -> Unit,
-) {
-    val pickerTokens = DesignTokens.colorPicker
-    var sliderSize by remember { mutableStateOf(IntSize.Zero) }
-
-    fun updateHue(x: Float) {
-        if (sliderSize.width <= 0) return
-        onHueChange((x / sliderSize.width * 360f).coerceIn(0f, 360f))
-    }
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .onSizeChanged { sliderSize = it }
-            .pointerInput(sliderSize) {
-                detectDragGestures(
-                    onDragStart = { updateHue(it.x) },
-                    onDrag = { change, _ ->
-                        updateHue(change.position.x)
-                        change.consume()
-                    },
-                )
-            }
-            .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                val step = if (event.isShiftPressed) 10f else 2f
-                when (event.key) {
-                    Key.DirectionLeft -> onHueChange((hue - step + 360f) % 360f)
-                    Key.DirectionRight -> onHueChange((hue + step) % 360f)
-                    else -> return@onKeyEvent false
-                }
-                true
-            }
-            .focusable()
-            .semantics {
-                this.contentDescription = contentDescription
-                stateDescription = "${hue.roundToInt()} degrees"
-            },
-    ) {
-        val visualHeight = pickerTokens.hueVisualHeight.toPx()
-        val top = (size.height - visualHeight) / 2f
-        drawRoundRect(
-            brush = Brush.horizontalGradient(
-                listOf(
-                    Color.Red,
-                    Color.Yellow,
-                    Color.Green,
-                    Color.Cyan,
-                    Color.Blue,
-                    Color.Magenta,
-                    Color.Red,
-                ),
-            ),
-            topLeft = Offset(0f, top),
-            size = androidx.compose.ui.geometry.Size(size.width, visualHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(visualHeight / 2f),
-        )
-        val x = size.width * (hue / 360f)
-        val center = Offset(x, size.height / 2f)
-        drawCircle(Color.Black.copy(alpha = 0.72f), 11.dp.toPx(), center)
-        drawCircle(Color.White, 9.dp.toPx(), center, style = Stroke(width = 3.dp.toPx()))
-        drawCircle(
-            Hsv(hue, saturation, value).toColor(),
-            6.dp.toPx(),
-            center,
-        )
     }
 }
 

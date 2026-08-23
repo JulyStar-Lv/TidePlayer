@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.SourceId
 import io.github.julystar.musicapp.core.domain.model.StorageAccountInfo
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.sanitizeSourceTitleForDisplay
 import io.github.julystar.musicapp.core.domain.repository.StorageRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
@@ -104,12 +105,14 @@ class SourcesViewModel(
     }
 }
 
-private fun StorageAccountInfo.toSourceAccountUi(isSyncing: Boolean): SourceAccountUi {
+internal fun StorageAccountInfo.toSourceAccountUi(isSyncing: Boolean): SourceAccountUi {
+    val sourceType = sourceId.toSourceTypeLabel()
+    val safeEndpoint = sanitizeSourceCardEndpoint(subtitle)
     return SourceAccountUi(
         id = accountId,
-        title = title,
-        subtitle = subtitle,
-        sourceType = sourceId.toSourceTypeLabel(),
+        title = sanitizeSourceTitleForDisplay(title, subtitle, sourceType),
+        safeEndpoint = safeEndpoint,
+        sourceType = sourceType,
         musicCount = musicCount,
         syncEnabled = enabled,
         isSyncing = isSyncing,

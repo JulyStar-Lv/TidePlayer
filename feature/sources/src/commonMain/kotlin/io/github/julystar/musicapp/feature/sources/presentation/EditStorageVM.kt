@@ -4,10 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceAccountRootSelection
 import io.github.julystar.musicapp.core.domain.model.OneDriveDriveInfo
 import io.github.julystar.musicapp.core.domain.model.NeedsReauthenticationException
 import io.github.julystar.musicapp.core.domain.model.OpenListOtpRequiredException
 import io.github.julystar.musicapp.core.domain.model.metadataScanModeFor
+import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.StorageRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
@@ -95,6 +97,8 @@ class EditStorageVM constructor(
     private val _connectedServerName = MutableStateFlow("")
     private val _isSyncing = MutableStateFlow(false)
     private var _syncJob: Job? = null
+    private val editorRouteId: Long? = savedStateHandle["id"]
+    private val isExistingEditorRoute = editorRouteId?.let { it >= 0 } == true
 
     val events = _events.receiveAsFlow()
     val state = combine(
@@ -170,7 +174,7 @@ class EditStorageVM constructor(
         _title.value = ""
         _musicCount.value = 0u
 
-        val id: Long? = savedStateHandle["id"]
+        val id = editorRouteId
         if (id != null && id >= 0) {
             viewModelScope.launch {
                 val editorState = storageRepository.loadEditorState(id) ?: return@launch
@@ -368,6 +372,7 @@ class EditStorageVM constructor(
     }
 
     private fun changeType(storageType: SourceEditorType) {
+        if (isExistingEditorRoute || _draft.value.id != null) return
         clearOpenListOtp(showOtp = false)
         _openListOtpUi.value = _openListOtpUi.value.copy(requiresOtp = false)
         _connectedServerName.value = ""
@@ -440,9 +445,24 @@ class EditStorageVM constructor(
     private fun saveAndNavigateBack() {
         viewModelScope.launch {
             try {
-                if (finish()) {
+                val savedType = _draft.value.storageType
+                val wasNew = _draft.value.id == null
+                val savedAccountId = finish()
+                if (savedAccountId != null) {
                     clearOpenListOtp(showOtp = false)
-                    _events.send(SourceEditorEvent.NavigateBack)
+                    if (wasNew && savedType == SourceEditorType.OpenList) {
+                        val savedRouteId = requireNotNull(savedAccountId.toStorageRouteIdOrNull()) {
+                            "Saved source account must use a storage route"
+                        }
+                        _editorAccountId = savedAccountId.value
+                        _persistedEditorType.value = SourceEditorType.OpenList
+                        _draft.value = _draft.value.copy(id = savedRouteId)
+                        _title.value = _draft.value.alias
+                        prepareImportLibraryFolder(savedAccountId)
+                        _events.send(SourceEditorEvent.OpenLibraryFolderImport(savedAccountId))
+                    } else {
+                        _events.send(SourceEditorEvent.NavigateBack)
+                    }
                 }
             } catch (_: NeedsReauthenticationException) {
                 if (_draft.value.storageType == SourceEditorType.OpenList) {
@@ -477,7 +497,7 @@ class EditStorageVM constructor(
         prepareImportLibraryFolder(
             accountId = accountId,
         )
-        sendEvent(SourceEditorEvent.OpenLibraryFolderImport)
+        sendEvent(SourceEditorEvent.OpenLibraryFolderImport(accountId))
     }
 
     private fun prepareLocalImportAndNavigate() {
@@ -486,7 +506,7 @@ class EditStorageVM constructor(
             ?.accountId
             ?: return
         prepareImportLibraryFolder(accountId = localAccountId)
-        sendEvent(SourceEditorEvent.OpenLibraryFolderImport)
+        sendEvent(SourceEditorEvent.OpenLibraryFolderImport(localAccountId))
     }
 
     private fun syncCurrentServerAccount() {
@@ -544,11 +564,32 @@ class EditStorageVM constructor(
             viewModelScope.launch {
                 toastRepository.emit(UiMessageKey.LibraryImportStarted)
                 val result = runCatching {
-                    storageRepository.replaceAccountRootPaths(accountId, selections.map { it.path })
-                    if (sourceType == SourceEditorType.OneDrive) {
-                        syncSelectedOneDriveRoots(selections)
+                    if (sourceType == SourceEditorType.OpenList) {
+                        storageRepository.replaceAccountRootSelections(
+                            accountId,
+                            selections.map { selection ->
+                                SourceAccountRootSelection(
+                                    remoteId = selection.remoteId,
+                                    path = selection.path,
+                                )
+                            },
+                        )
                     } else {
-                        sourceAccountLibrarySyncController.sync(accountId)
+                        storageRepository.replaceAccountRootPaths(
+                            accountId,
+                            selections.map { it.path },
+                        )
+                    }
+                    when (sourceType) {
+                        SourceEditorType.OneDrive -> syncSelectedRoots(
+                            selections = selections,
+                            requireRemoteId = true,
+                        )
+                        SourceEditorType.OpenList -> syncSelectedRoots(
+                            selections = selections,
+                            requireRemoteId = false,
+                        )
+                        else -> sourceAccountLibrarySyncController.sync(accountId)
                     }
                 }
                 result.onSuccess { value ->
@@ -571,14 +612,15 @@ class EditStorageVM constructor(
         }
     }
 
-    private suspend fun syncSelectedOneDriveRoots(
+    private suspend fun syncSelectedRoots(
         selections: List<SourceDirectorySelection>,
+        requireRemoteId: Boolean,
     ): SourceAccountLibrarySyncResult {
         val metadataScanMode = settingsRepository.settings.first().metadataScanModeFor(isWebDav = false)
         var imported = 0L
         var skipped = 0L
         var failed = 0L
-        selections.filter { it.remoteId != null }.forEach { selection ->
+        selections.filter { !requireRemoteId || it.remoteId != null }.forEach { selection ->
             val result = librarySyncController.syncFolder(
                 LibrarySyncRequest(
                     accountId = selection.accountId,
@@ -615,9 +657,9 @@ class EditStorageVM constructor(
         }
     }
 
-    private suspend fun finish(): Boolean {
+    private suspend fun finish(): SourceAccountId? {
         if (!validate()) {
-            return false
+            return null
         }
         if (_draft.value.storageType == SourceEditorType.OpenList &&
             !_draft.value.isAnonymous &&
@@ -627,12 +669,11 @@ class EditStorageVM constructor(
             throw OpenListOtpRequiredException()
         }
 
-        if (_draft.value.storageType == SourceEditorType.OpenList) {
+        return if (_draft.value.storageType == SourceEditorType.OpenList) {
             storageRepository.upsertOpenListSource(_draft.value, openListOtpCode)
         } else {
             storageRepository.upsertSource(_draft.value)
         }
-        return true
     }
 
     private fun resetTestResult() {

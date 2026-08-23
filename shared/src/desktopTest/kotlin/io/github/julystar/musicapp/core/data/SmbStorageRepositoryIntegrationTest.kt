@@ -7,6 +7,7 @@ import io.github.julystar.musicapp.core.domain.model.SourceEditorDraft
 import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceAccountRootSelection
 import io.github.julystar.musicapp.source.api.OpenListAuthenticator
 import io.github.julystar.musicapp.source.api.OpenListProviderConfigurationCodec
 import io.github.julystar.musicapp.source.api.SourceAuthResult
@@ -234,6 +235,25 @@ class SmbStorageRepositoryIntegrationTest {
                     repository.setAccountRootPath(accountId, invalid)
                 }
             }
+            val rawSelections = listOf(
+                SourceAccountRootSelection(
+                    remoteId = "opaque::root-one?id=%2Fkeep",
+                    path = "/raw path/一?query-like=%2F",
+                ),
+                SourceAccountRootSelection(
+                    remoteId = "opaque://root-two/未解码",
+                    path = "/raw path/二#fragment-like",
+                ),
+            )
+            repository.replaceAccountRootSelections(accountId, rawSelections)
+            val selectedRoots = database.libraryRootDao().listBySourceAccount(storageId)
+            assertEquals(rawSelections.map { it.remoteId }, selectedRoots.map { it.providerRootId })
+            assertEquals(rawSelections.map { it.path }, selectedRoots.map { it.canonicalPath })
+            assertEquals(rawSelections.map { it.path }, selectedRoots.map { it.displayName })
+            assertEquals(
+                rawSelections.first().path,
+                database.sourceAccountDao().get(storageId)?.rootPath,
+            )
             Unit
         } finally {
             scope.cancel()

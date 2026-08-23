@@ -59,23 +59,27 @@ fun SourcesScreen(
             modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (state.sources.isEmpty()) {
-                EmptySourcesCard(onClick = { onAction(SourcesAction.AddSource) })
-                return@Column
-            }
-            state.sources.forEach { source ->
-                SourceCard(
-                    source = source,
-                    onClick = { onAction(SourcesAction.OpenSource(source.id)) },
-                    onSync = { onAction(SourcesAction.SyncSource(source.id)) },
-                )
+            state.renderItems().forEach { item ->
+                when (item) {
+                    SourcesRenderItem.AddSource -> {
+                        AddSourceCard(onClick = { onAction(SourcesAction.AddSource) })
+                    }
+
+                    is SourcesRenderItem.Source -> {
+                        SourceCard(
+                            source = item.account,
+                            onClick = { onAction(SourcesAction.OpenSource(item.account.id)) },
+                            onSync = { onAction(SourcesAction.SyncSource(item.account.id)) },
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun EmptySourcesCard(onClick: () -> Unit) {
+private fun AddSourceCard(onClick: () -> Unit) {
     DesignCardSurface(
         modifier = Modifier.height(96.dp),
         contentPadding = PaddingValues(0.dp),
@@ -163,7 +167,7 @@ private fun SourceCard(
                 Text(
                     text = stringResource(
                         Res.string.sources_storage,
-                        source.subtitle.ifBlank { stringResource(Res.string.sources_default_library) },
+                        source.safeEndpoint ?: stringResource(Res.string.sources_default_library),
                     ),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     style = MiuixTheme.textStyles.footnote1,

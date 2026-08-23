@@ -1,8 +1,6 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import io.github.julystar.musicapp.core.presentation.components.DesignLoadingIndicator
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
@@ -21,11 +19,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,10 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -51,7 +45,11 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import io.github.julystar.musicapp.core.presentation.components.AppSwitch
+import io.github.julystar.musicapp.core.presentation.components.AppArrowPreference
+import io.github.julystar.musicapp.core.presentation.components.AppDropdownPreference
+import io.github.julystar.musicapp.core.presentation.components.AppPreference
+import io.github.julystar.musicapp.core.presentation.components.AppSliderPreference
+import io.github.julystar.musicapp.core.presentation.components.AppSwitchPreference
 import io.github.julystar.musicapp.core.presentation.components.AppTextField
 import io.github.julystar.musicapp.core.presentation.components.DesignChevron
 import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
@@ -59,7 +57,6 @@ import io.github.julystar.musicapp.core.presentation.components.DesignDialog
 import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
 import io.github.julystar.musicapp.core.presentation.components.DesignSettingsGroup
-import io.github.julystar.musicapp.core.presentation.components.DesignSlider
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
 import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
@@ -168,19 +165,20 @@ internal fun SettingsEntryCard(
     icon: DrawableResource,
     onClick: (() -> Unit)? = null,
 ) {
-    DesignPreferenceRow(
-        title = title,
-        summary = summary,
-        onClick = onClick,
-        leading = {
-            SettingsLeadingIcon(drawable = icon)
-        },
-        trailing = if (onClick != null) {
-            { DesignChevron(direction = DesignChevronDirection.Right) }
-        } else {
-            null
-        },
-    )
+    if (onClick != null) {
+        AppArrowPreference(
+            title = title,
+            summary = summary,
+            onClick = onClick,
+            leading = { SettingsLeadingIcon(drawable = icon) },
+        )
+    } else {
+        AppPreference(
+            title = title,
+            summary = summary,
+            leading = { SettingsLeadingIcon(drawable = icon) },
+        )
+    }
 }
 
 @Composable
@@ -243,20 +241,14 @@ internal fun SettingsSwitchRow(
     accentColor: Color = MiuixTheme.colorScheme.primary,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    DesignPreferenceRow(
+    AppSwitchPreference(
         title = title,
         summary = summary,
+        checked = checked,
         enabled = enabled,
-        onClick = { onCheckedChange(!checked) },
+        onCheckedChange = onCheckedChange,
         leading = marker?.let { iconMarker ->
             { SettingsLeadingIcon(marker = iconMarker, accentColor = accentColor) }
-        },
-        trailing = {
-            AppSwitch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-            )
         },
     )
 }
@@ -273,55 +265,18 @@ internal fun SettingsSliderRow(
     onValueChange: (Int) -> Unit,
 ) {
     var previewValue by remember(value) { mutableFloatStateOf(value.toFloat()) }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.45f),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.main,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = valueText,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.primary,
-                )
-            }
-            if (summary != null) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = summary,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            DesignSlider(
-                value = previewValue,
-                onValueChange = { previewValue = it },
-                onValueChangeFinished = { onValueChange(previewValue.roundToInt()) },
-                enabled = enabled,
-                valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
-                steps = (valueRange.last - valueRange.first - 1).coerceAtLeast(0),
-            )
-        }
-        if (showDivider) {
-            DesignListDivider()
-        }
-    }
+    AppSliderPreference(
+        title = title,
+        summary = summary,
+        value = previewValue,
+        valueText = valueText,
+        onValueChange = { previewValue = it },
+        onValueChangeFinished = { onValueChange(previewValue.roundToInt()) },
+        enabled = enabled,
+        valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
+        steps = (valueRange.last - valueRange.first - 1).coerceAtLeast(0),
+        showDivider = showDivider,
+    )
 }
 
 @Composable
@@ -333,22 +288,25 @@ internal fun SettingsInfoRow(
     accentColor: Color = MiuixTheme.colorScheme.primary,
     onClick: (() -> Unit)? = null,
 ) {
-    DesignPreferenceRow(
-        title = title,
-        summary = value,
-        enabled = enabled,
-        onClick = onClick,
-        leading = marker?.let { iconMarker ->
-            { SettingsLeadingIcon(marker = iconMarker, accentColor = accentColor) }
-        },
-        trailing = if (onClick != null) {
-            {
-                DesignChevron(direction = DesignChevronDirection.Right)
-            }
-        } else {
-            null
-        },
-    )
+    val leading = marker?.let { iconMarker ->
+        @Composable { SettingsLeadingIcon(marker = iconMarker, accentColor = accentColor) }
+    }
+    if (onClick != null) {
+        AppArrowPreference(
+            title = title,
+            summary = value,
+            enabled = enabled,
+            onClick = onClick,
+            leading = leading,
+        )
+    } else {
+        AppPreference(
+            title = title,
+            summary = value,
+            enabled = enabled,
+            leading = leading,
+        )
+    }
 }
 
 @Composable
@@ -550,9 +508,10 @@ private fun formatOneDecimal(value: Double): String {
     return if (decimal == 0L) whole.toString() else "$whole.$decimal"
 }
 
-// ── Select Row (popup choice menu) ──
+// ── Select Row ──
 
 @Composable
+@Suppress("UNUSED_PARAMETER")
 internal fun SettingsSelectRow(
     label: String,
     subtitle: String? = null,
@@ -563,123 +522,18 @@ internal fun SettingsSelectRow(
     menuMinWidth: Dp = 200.dp,
     onSelect: (String) -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.45f),
-    ) {
-        Box {
-            Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 68.dp)
-                .clickable(enabled = enabled) { menuOpen = true }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = label,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    style = MiuixTheme.textStyles.body1,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        style = MiuixTheme.textStyles.footnote1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            Text(
-                text = selectedLabel,
-                color = if (menuOpen) MiuixTheme.colorScheme.primary
-                else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                style = MiuixTheme.textStyles.body2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(end = 8.dp),
-            )
-            // Up/down chevron
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                DesignChevron(
-                    direction = DesignChevronDirection.Right,
-                    size = 10.dp,
-                    modifier = Modifier.graphicsLayer(rotationZ = -90f),
-                )
-                DesignChevron(
-                    direction = DesignChevronDirection.Right,
-                    size = 10.dp,
-                    modifier = Modifier.graphicsLayer(rotationZ = 90f),
-                )
-            }
-        }
-
-            if (menuOpen) {
-                Popup(
-                    alignment = Alignment.TopEnd,
-                    properties = PopupProperties(focusable = true),
-                    onDismissRequest = { menuOpen = false },
-                ) {
-                Column(
-                    modifier = Modifier
-                        .width(IntrinsicSize.Max)
-                        .widthIn(min = menuMinWidth, max = 300.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(MiuixTheme.colorScheme.surfaceContainerHighest)
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    options.forEach { option ->
-                        val isSelected = option.value == selectedValue
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .clickable {
-                                    onSelect(option.value)
-                                    menuOpen = false
-                                }
-                                .padding(horizontal = 20.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = option.label,
-                                color = if (isSelected) MiuixTheme.colorScheme.primary
-                                else MiuixTheme.colorScheme.onSurface,
-                                style = MiuixTheme.textStyles.body1,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            if (isSelected) {
-                                Icon(
-                                    painter = painterResource(CoreRes.drawable.icon_ok),
-                                    contentDescription = null,
-                                    tint = MiuixTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            }
-        }
-        DesignListDivider()
-    }
+    val selectedIndex = options.indexOfFirst { it.value == selectedValue }
+    AppDropdownPreference(
+        title = label,
+        summary = subtitle,
+        items = options.map(SettingsSelectOption::label),
+        selectedIndex = selectedIndex,
+        selectedLabel = selectedLabel,
+        enabled = enabled,
+        onSelectedIndexChange = { index ->
+            options.getOrNull(index)?.let { onSelect(it.value) }
+        },
+    )
 }
 
 @Immutable

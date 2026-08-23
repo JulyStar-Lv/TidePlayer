@@ -51,6 +51,8 @@ import io.github.julystar.musicapp.core.isRouteHome
 import io.github.julystar.musicapp.core.isRouteLyrics
 import io.github.julystar.musicapp.core.isRouteNowPlaying
 import io.github.julystar.musicapp.core.domain.model.AppSettings
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
@@ -409,8 +411,8 @@ internal fun RootNavHost(
         )
         sourcesGraph(
             onNavigateBack = { navController.navigateUp() },
-            onNavigateToLibraryFolderImport = {
-                navController.navigate(MusicGraph.Import(RouteImportType.LibraryFolder))
+            onNavigateToLibraryFolderImport = { accountId ->
+                libraryFolderImportDestination(accountId)?.let(navController::navigate)
             },
         )
         importGraph(
@@ -578,6 +580,12 @@ internal fun RootNavHost(
             )
         }
     }
+}
+
+internal fun libraryFolderImportDestination(
+    accountId: SourceAccountId,
+): MusicGraph.Import? = accountId.toStorageRouteIdOrNull()?.let {
+    MusicGraph.Import(RouteImportType.LibraryFolder)
 }
 
 private data class RootNavigationContentArgs(

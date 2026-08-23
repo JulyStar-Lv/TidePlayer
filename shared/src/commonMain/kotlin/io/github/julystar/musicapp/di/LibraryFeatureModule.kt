@@ -49,6 +49,7 @@ import io.github.julystar.musicapp.feature.radio.di.radioFeatureDiModule
 import io.github.julystar.musicapp.feature.recentlyadded.di.recentlyAddedFeatureDiModule
 import io.github.julystar.musicapp.feature.recentlyplayed.di.recentlyPlayedFeatureDiModule
 import io.github.julystar.musicapp.source.api.PlaylistImportTarget
+import okio.FileSystem
 import org.koin.dsl.module
 
 val libraryFeatureModule = module {
@@ -57,6 +58,7 @@ val libraryFeatureModule = module {
         queueFeatureModule,
     )
 
+    single<FileSystem> { FileSystem.SYSTEM }
     single { AssetRepository(get(), get(), get()) }
     single { PluginArtworkResolver(get(), get(), get(), get(), get(), get()) }
     single { NavidromeArtworkResolver(get(), get(), get(), get(), get(), get()) }

@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.feature.sources.presentation
 
 import androidx.compose.runtime.Immutable
+import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 
 @Immutable
 data class SourceEditorState(
@@ -156,18 +157,55 @@ sealed interface SourceEditorAction {
     data class SelectOneDriveDrive(val driveId: String) : SourceEditorAction
 }
 
-enum class SourceSelectorOption(val editorType: SourceEditorType?) {
-    Local(null),
-    WebDav(SourceEditorType.WebDav),
-    Smb(SourceEditorType.Smb),
-    OneDrive(SourceEditorType.OneDrive),
-    Navidrome(SourceEditorType.Navidrome),
-    OpenSubsonic(SourceEditorType.OpenSubsonic),
-    Emby(SourceEditorType.Emby),
-    OpenList(SourceEditorType.OpenList),
+enum class SourceSelectorGroup {
+    FileAndNetworkStorage,
+    MusicServers,
 }
 
-val sourceSelectorOptions: List<SourceSelectorOption> = SourceSelectorOption.entries
+enum class SourceSelectorOption(
+    val group: SourceSelectorGroup,
+    val editorType: SourceEditorType?,
+) {
+    Local(SourceSelectorGroup.FileAndNetworkStorage, null),
+    WebDav(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.WebDav),
+    Smb(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.Smb),
+    OneDrive(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.OneDrive),
+    OpenList(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.OpenList),
+    Navidrome(SourceSelectorGroup.MusicServers, SourceEditorType.Navidrome),
+    OpenSubsonic(SourceSelectorGroup.MusicServers, SourceEditorType.OpenSubsonic),
+    Emby(SourceSelectorGroup.MusicServers, SourceEditorType.Emby),
+}
+
+data class SourceSelectorSection(
+    val group: SourceSelectorGroup,
+    val options: List<SourceSelectorOption>,
+)
+
+val sourceSelectorSections: List<SourceSelectorSection> = listOf(
+    SourceSelectorSection(
+        group = SourceSelectorGroup.FileAndNetworkStorage,
+        options = listOf(
+            SourceSelectorOption.Local,
+            SourceSelectorOption.WebDav,
+            SourceSelectorOption.Smb,
+            SourceSelectorOption.OneDrive,
+            SourceSelectorOption.OpenList,
+        ),
+    ),
+    SourceSelectorSection(
+        group = SourceSelectorGroup.MusicServers,
+        options = listOf(
+            SourceSelectorOption.Navidrome,
+            SourceSelectorOption.OpenSubsonic,
+            SourceSelectorOption.Emby,
+        ),
+    ),
+)
+
+fun SourceSelectorOption.selectionAction(): SourceEditorAction = editorType
+    ?.let(SourceEditorAction::ChangeType)
+    ?: SourceEditorAction.ImportLocalLibraryFolder
+
 val sourceEditorBitRateChoices: List<Int> = listOf(0, 128, 192, 256, 320)
 val sourceEditorCoverArtSizeChoices: List<Int> = listOf(256, 512, 768, 1024)
 
@@ -187,6 +225,92 @@ enum class SourceEditorField {
     ConnectedAccount,
     LibraryRoot,
 }
+
+enum class RemoteServerConfigSection(
+    val fields: List<SourceEditorField>,
+    val initiallyExpanded: Boolean,
+) {
+    Basic(
+        fields = listOf(
+            SourceEditorField.Alias,
+            SourceEditorField.Address,
+            SourceEditorField.Username,
+            SourceEditorField.Password,
+        ),
+        initiallyExpanded = true,
+    ),
+    Advanced(
+        fields = listOf(
+            SourceEditorField.SecondaryAddress,
+            SourceEditorField.StreamBitRate,
+            SourceEditorField.DownloadBitRate,
+            SourceEditorField.CoverArtSize,
+            SourceEditorField.RemoteWrite,
+        ),
+        initiallyExpanded = false,
+    ),
+}
+
+data class EmbyEditorContract(
+    val editableFields: List<SourceEditorField>,
+    val readOnlyFields: List<SourceEditorField>,
+    val authenticationInputInitialValue: String,
+    val showAuthenticationRetentionHint: Boolean,
+) {
+    val visibleFields: Set<SourceEditorField> = (editableFields + readOnlyFields).toSet()
+}
+
+fun embyEditorContract(isCreated: Boolean): EmbyEditorContract = EmbyEditorContract(
+    editableFields = listOf(
+        SourceEditorField.Alias,
+        SourceEditorField.Address,
+        SourceEditorField.Username,
+        SourceEditorField.Password,
+        SourceEditorField.SecondaryAddress,
+    ),
+    readOnlyFields = if (isCreated) {
+        emptyList()
+    } else {
+        listOf(SourceEditorField.ServerName, SourceEditorField.ConnectedAccount)
+    },
+    authenticationInputInitialValue = "",
+    showAuthenticationRetentionHint = !isCreated,
+)
+
+enum class OpenListForbiddenField {
+    Cookie,
+    Authorization,
+    AccessToken,
+    RefreshToken,
+    Jwt,
+    UserAgent,
+    HttpHeaders,
+    BaiduCookie,
+    QuarkCookie,
+}
+
+data class OpenListEditorContract(
+    val visibleFields: List<SourceEditorField>,
+    val forbiddenFields: Set<OpenListForbiddenField>,
+    val otpInputInitialValue: String,
+    val otpMemoryOnly: Boolean,
+)
+
+fun openListEditorContract(
+    isGuest: Boolean,
+    showOtp: Boolean,
+): OpenListEditorContract = OpenListEditorContract(
+    visibleFields = buildList {
+        addAll(listOf(SourceEditorField.Alias, SourceEditorField.Address, SourceEditorField.Guest))
+        if (!isGuest) {
+            addAll(listOf(SourceEditorField.Username, SourceEditorField.Password))
+            if (showOtp) add(SourceEditorField.Otp)
+        }
+    },
+    forbiddenFields = OpenListForbiddenField.entries.toSet(),
+    otpInputInitialValue = "",
+    otpMemoryOnly = true,
+)
 
 fun sourceEditorVisibleFields(
     type: SourceEditorType,
@@ -218,22 +342,8 @@ fun sourceEditorVisibleFields(
                 SourceEditorField.RemoteWrite,
             )
         )
-        SourceEditorType.Emby -> addAll(
-            listOf(
-                SourceEditorField.Alias,
-                SourceEditorField.Address,
-                SourceEditorField.Username,
-                SourceEditorField.Password,
-                SourceEditorField.SecondaryAddress,
-                SourceEditorField.ServerName,
-                SourceEditorField.ConnectedAccount,
-            )
-        )
-        SourceEditorType.OpenList -> {
-            addAll(listOf(SourceEditorField.Alias, SourceEditorField.Address, SourceEditorField.Guest))
-            if (!isGuest) addAll(listOf(SourceEditorField.Username, SourceEditorField.Password))
-            if (!isGuest && showOtp) add(SourceEditorField.Otp)
-        }
+        SourceEditorType.Emby -> addAll(embyEditorContract(isCreated).visibleFields)
+        SourceEditorType.OpenList -> addAll(openListEditorContract(isGuest, showOtp).visibleFields)
     }
     if (!isCreated && type in setOf(
             SourceEditorType.WebDav,
@@ -248,7 +358,7 @@ fun sourceEditorVisibleFields(
 
 sealed interface SourceEditorEvent {
     data object NavigateBack : SourceEditorEvent
-    data object OpenLibraryFolderImport : SourceEditorEvent
+    data class OpenLibraryFolderImport(val accountId: SourceAccountId) : SourceEditorEvent
     data class OpenOneDriveOAuth(val authorizationUrl: String) : SourceEditorEvent {
         override fun toString(): String = "OpenOneDriveOAuth(authorizationUrl=<redacted>)"
     }

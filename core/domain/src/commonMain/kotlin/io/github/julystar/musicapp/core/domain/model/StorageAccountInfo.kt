@@ -19,6 +19,11 @@ data class OneDriveDriveInfo(
     val name: String,
 )
 
+data class SourceAccountRootSelection(
+    val remoteId: String?,
+    val path: String,
+)
+
 fun storageSourceAccountId(storageId: Long): SourceAccountId {
     return SourceAccountId("$STORAGE_ACCOUNT_PREFIX$storageId")
 }
