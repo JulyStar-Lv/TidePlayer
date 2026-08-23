@@ -2,9 +2,16 @@ package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.runtime.Composable
 import io.github.julystar.musicapp.core.domain.model.AUDIO_CACHE_LIMIT_PRESETS_BYTES
+import io.github.julystar.musicapp.core.domain.model.AUDIO_PRELOAD_PRESETS_BYTES
 import io.github.julystar.musicapp.core.domain.model.IMAGE_CACHE_LIMIT_PRESETS_BYTES
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 fun NetworkCacheSettingsSection(
@@ -20,8 +27,9 @@ fun NetworkCacheSettingsSection(
         onBack = onBack,
     ) {
         if (capabilities.networkStatusSupported || capabilities.backgroundScanSupported) {
-            SettingsSection(title = stringResource(Res.string.settings_network_section)) {
-                SettingsSwitchRow(
+            SmallTitle(text = stringResource(Res.string.settings_network_section))
+            Card {
+                SwitchPreference(
                     title = stringResource(Res.string.settings_allow_mobile_network),
                     summary = stringResource(Res.string.settings_allow_mobile_network_summary),
                     checked = settings.allowMeteredNetworkUsage,
@@ -30,7 +38,7 @@ fun NetworkCacheSettingsSection(
                     },
                 )
                 if (capabilities.networkStatusSupported) {
-                    SettingsSwitchRow(
+                    SwitchPreference(
                         title = stringResource(Res.string.settings_resume_network),
                         summary = stringResource(Res.string.settings_resume_network_summary),
                         checked = settings.resumePlaybackAfterNetworkRecovery,
@@ -42,8 +50,9 @@ fun NetworkCacheSettingsSection(
             }
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_audio_cache_section)) {
-            SettingsSwitchRow(
+        SmallTitle(text = stringResource(Res.string.settings_audio_cache_section))
+        Card {
+            SwitchPreference(
                 title = stringResource(Res.string.settings_listen_and_cache),
                 summary = stringResource(Res.string.settings_listen_and_cache_summary),
                 checked = settings.listenAndCacheEnabled,
@@ -59,7 +68,8 @@ fun NetworkCacheSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_image_cache_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_image_cache_section))
+        Card {
             CacheLimitChoices(
                 currentBytes = settings.imageCacheLimitBytes,
                 presets = IMAGE_CACHE_LIMIT_PRESETS_BYTES,
@@ -68,34 +78,43 @@ fun NetworkCacheSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_advanced_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_advanced_section))
+        Card {
             if (capabilities.audioPreloadSupported) {
-                val preloadOptions = listOf(2L, 4L, 8L).map { it * BYTES_PER_MB }
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_audio_preload),
-                    selected = settings.audioPreloadBytes,
-                    options = preloadOptions,
-                    optionLabel = { bytes -> formatBytes(bytes) },
-                    onSelect = { onAction(SettingsAction.SetAudioPreloadBytes(it)) },
+                OverlayDropdownPreference(
+                    title = stringResource(Res.string.settings_audio_preload),
+                    summary = stringResource(
+                        Res.string.settings_audio_preload_summary,
+                        settings.audioPreloadBytes.cacheLimitLabel(),
+                    ),
+                    entries = listOf(DropdownEntry(items = AUDIO_PRELOAD_PRESETS_BYTES.map { bytes ->
+                        DropdownItem(
+                            text = bytes.cacheLimitLabel(),
+                            selected = bytes == settings.audioPreloadBytes,
+                            onClick = { onAction(SettingsAction.SetAudioPreloadBytes(bytes)) },
+                        )
+                    })),
                 )
             }
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_timeout),
-                selected = settings.connectionTimeoutSeconds,
-                options = listOf(10, 20, 30, 60),
-                optionLabel = { seconds ->
-                    stringResource(Res.string.settings_timeout_value, seconds)
-                },
-                onSelect = { onAction(SettingsAction.SetConnectionTimeoutSeconds(it)) },
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_timeout),
+                entries = listOf(DropdownEntry(items = listOf(10, 20, 30, 60).map { seconds ->
+                    DropdownItem(
+                        text = stringResource(Res.string.settings_timeout_value, seconds),
+                        selected = seconds == settings.connectionTimeoutSeconds,
+                        onClick = { onAction(SettingsAction.SetConnectionTimeoutSeconds(seconds)) },
+                    )
+                })),
             )
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_retry_count),
-                selected = settings.networkRetryCount,
-                options = listOf(0, 1, 2, 3, 5),
-                optionLabel = { count ->
-                    stringResource(Res.string.settings_retry_count_value, count)
-                },
-                onSelect = { onAction(SettingsAction.SetNetworkRetryCount(it)) },
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_retry_count),
+                entries = listOf(DropdownEntry(items = listOf(0, 1, 2, 3, 5).map { count ->
+                    DropdownItem(
+                        text = stringResource(Res.string.settings_retry_count_value, count),
+                        selected = count == settings.networkRetryCount,
+                        onClick = { onAction(SettingsAction.SetNetworkRetryCount(count)) },
+                    )
+                })),
             )
         }
     }
@@ -120,37 +139,36 @@ private fun CacheLimitChoices(
     onAction: (SettingsAction) -> Unit,
 ) {
     val isCustom = currentBytes !in presets
-    SettingsSelectRow(
-        label = stringResource(
+    OverlayDropdownPreference(
+        title = stringResource(
             if (type == CacheLimitType.Audio) Res.string.settings_audio_cache_section
             else Res.string.settings_image_cache_section,
         ),
-        selectedValue = if (isCustom) CACHE_CUSTOM_VALUE else currentBytes.toString(),
-        selectedLabel = if (isCustom) {
-            stringResource(Res.string.settings_cache_custom)
-        } else {
-            currentBytes.cacheLimitLabel()
-        },
-        options = presets.map { bytes ->
-            SettingsSelectOption(value = bytes.toString(), label = bytes.cacheLimitLabel())
-        } + SettingsSelectOption(
-            value = CACHE_CUSTOM_VALUE,
-            label = stringResource(Res.string.settings_cache_custom),
-        ),
-        onSelect = { value ->
-            if (value == CACHE_CUSTOM_VALUE) {
-                onAction(SettingsAction.OpenCustomCacheLimitDialog(type))
-            } else {
-                value.toLongOrNull()?.let { bytes ->
-                    onAction(
-                        when (type) {
-                            CacheLimitType.Audio -> SettingsAction.SetAudioCacheLimitBytes(bytes)
-                            CacheLimitType.Image -> SettingsAction.SetImageCacheLimitBytes(bytes)
-                        }
-                    )
-                }
+        entries = listOf(DropdownEntry(items = buildList {
+            presets.forEach { bytes ->
+                add(
+                    DropdownItem(
+                        text = bytes.cacheLimitLabel(),
+                        selected = !isCustom && bytes == currentBytes,
+                        onClick = {
+                            onAction(
+                                when (type) {
+                                    CacheLimitType.Audio -> SettingsAction.SetAudioCacheLimitBytes(bytes)
+                                    CacheLimitType.Image -> SettingsAction.SetImageCacheLimitBytes(bytes)
+                                },
+                            )
+                        },
+                    ),
+                )
             }
-        },
+            add(
+                DropdownItem(
+                    text = stringResource(Res.string.settings_cache_custom),
+                    selected = isCustom,
+                    onClick = { onAction(SettingsAction.OpenCustomCacheLimitDialog(type)) },
+                ),
+            )
+        })),
     )
 }
 
@@ -160,6 +178,3 @@ private fun Long.cacheLimitLabel(): String = if (this == 0L) {
 } else {
     formatBytes(this)
 }
-
-private const val BYTES_PER_MB = 1_048_576L
-private const val CACHE_CUSTOM_VALUE = "custom"

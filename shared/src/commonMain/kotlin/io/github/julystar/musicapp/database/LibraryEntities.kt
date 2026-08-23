@@ -103,6 +103,7 @@ data class TrackEntity(
 
 object TrackMetadataSources {
     const val File = "FILE"
+    const val Filename = "FILENAME"
     const val Server = "SERVER"
     const val Plugin = "PLUGIN"
 }

@@ -126,6 +126,18 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
+    fun persistsDisabledAndSixteenMiBAudioPreloadTargets() = withRepository { dataStore, repository ->
+        repository.setAudioPreloadBytes(0L)
+        assertEquals(0L, DataStoreSettingsRepository(dataStore).settingsValue().audioPreloadBytes)
+
+        repository.setAudioPreloadBytes(16L * 1024L * 1024L)
+        assertEquals(
+            16L * 1024L * 1024L,
+            DataStoreSettingsRepository(dataStore).settingsValue().audioPreloadBytes,
+        )
+    }
+
+    @Test
     fun migratesLegacyPlaybackAndScanValues() = withRepository { dataStore, repository ->
         dataStore.edit { preferences ->
             preferences[ALLOW_MIXED_PLAYBACK_KEY] = true

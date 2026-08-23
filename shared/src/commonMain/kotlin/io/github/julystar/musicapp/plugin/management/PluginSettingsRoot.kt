@@ -68,10 +68,7 @@ import io.github.julystar.musicapp.core.presentation.components.OverlayBottomShe
 import io.github.julystar.musicapp.core.presentation.components.OverlayPresentationDefaults
 import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayHost
 import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayNavigationBarStyle
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.resolveOverlayMaxHeight
 import io.github.julystar.musicapp.core.presentation.components.shouldDismissOverlayBottomSheet
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
@@ -97,7 +94,9 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.core.presentation.generated.resources.icon_deleteseep
 import musicapp.core.presentation.generated.resources.icon_folder
@@ -117,6 +116,8 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -124,7 +125,10 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
@@ -248,18 +252,30 @@ fun PluginSettingsRoot(
         onDismiss = { editingPluginId = null },
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MiuixTheme.colorScheme.background),
-    ) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = pluginUiText("Metadata plugins"),
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(CoreRes.drawable.icon_chevron_left),
+                            contentDescription = null,
+                        )
+                    }
+                },
+            )
+        },
+    ) { contentPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(contentPadding)
                 .padding(
                     start = DesignTokens.spacing.pageCompact,
-                    top = DesignTokens.adaptive.compactHeaderHeight + 8.dp,
+                    top = 8.dp,
                     end = DesignTokens.spacing.pageCompact,
                     bottom = 8.dp + bottomContentInset,
                 ),
@@ -341,13 +357,6 @@ fun PluginSettingsRoot(
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
-        DesignStickyGlassActionBar(
-            title = pluginUiText("Metadata plugins"),
-            collapseFraction = 1f,
-            onNavigateBack = onBack,
-            compactTitle = true,
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
     }
 }
 
@@ -526,22 +535,39 @@ private fun PluginListRow(
                     contentAlignment = Alignment.TopEnd,
                     modifier = Modifier.offset(20.dp, 20.dp),
                 ) {
-                    ResourceDropdownMenu(
-                        expanded = moreMenuExpanded,
-                        onDismissRequest = { moreMenuExpanded = false },
-                        items = listOf(
-                            ResourceDropdownMenuItem(
-                                label = SharedRes.string.plugins_configure,
-                                icon = CoreRes.drawable.icon_settings_sliders,
-                                onClick = onConfigure,
-                            ),
-                            ResourceDropdownMenuItem(
-                                label = SharedRes.string.plugins_remove,
-                                icon = CoreRes.drawable.icon_deleteseep,
-                                isError = true,
-                                onClick = onUninstall,
+                    OverlayDropdownPopup(
+                        DropdownEntry(
+                            items = listOf(
+                                DropdownItem(
+                                    text = stringResource(SharedRes.string.plugins_configure),
+                                    icon = { modifier ->
+                                        Icon(
+                                            painter = painterResource(CoreRes.drawable.icon_settings_sliders),
+                                            contentDescription = null,
+                                            modifier = modifier,
+                                        )
+                                    },
+                                    onClick = onConfigure,
+                                ),
+                                DropdownItem(
+                                    text = stringResource(SharedRes.string.plugins_remove),
+                                    icon = { modifier ->
+                                        Icon(
+                                            painter = painterResource(CoreRes.drawable.icon_deleteseep),
+                                            contentDescription = null,
+                                            modifier = modifier,
+                                        )
+                                    },
+                                    onClick = onUninstall,
+                                ),
                             ),
                         ),
+                        show = moreMenuExpanded,
+                        onDismiss = { moreMenuExpanded = false },
+                        onDismissFinished = {},
+                        maxHeight = null,
+                        dropdownColors = DropdownDefaults.dropdownColors(),
+                        renderInRootScaffold = true,
                     )
                 }
             }
@@ -994,24 +1020,23 @@ private fun PluginConfigurationDialog(
                                     )
                                     .background(MiuixTheme.colorScheme.surfaceContainer),
                             ) {
-                                PermissionToggleRow(
+                                SwitchPreference(
                                     title = pluginUiText("Automatic lookup"),
                                     summary = pluginUiText("Use during background metadata refresh"),
                                     checked = dialogPlugin.allowAutomaticLookup,
                                     enabled = dialogVisible && dialogPlugin.enabled && !busy,
-                                    onChange = { value ->
+                                    onCheckedChange = { value ->
                                         onPermissionsChange(value, dialogPlugin.allowBatchLookup)
                                     },
                                 )
-                                PermissionToggleRow(
+                                SwitchPreference(
                                     title = pluginUiText("Batch lookup"),
                                     summary = pluginUiText("Use when updating multiple tracks"),
                                     checked = dialogPlugin.allowBatchLookup,
                                     enabled = dialogVisible && dialogPlugin.enabled && !busy,
-                                    onChange = { value ->
+                                    onCheckedChange = { value ->
                                         onPermissionsChange(dialogPlugin.allowAutomaticLookup, value)
                                     },
-                                    showDivider = false,
                                 )
                             }
                         }
@@ -1343,57 +1368,6 @@ private fun PluginRemovalDialog(
 // ── Config Field Helpers ──
 
 @Composable
-private fun PermissionToggleRow(
-    title: String,
-    summary: String,
-    checked: Boolean,
-    enabled: Boolean,
-    onChange: (Boolean) -> Unit,
-    showDivider: Boolean = true,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.45f),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 62.dp)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = title,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                )
-                Text(
-                    text = summary,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Switch(
-                checked = checked,
-                onCheckedChange = onChange,
-                enabled = enabled,
-            )
-        }
-        if (showDivider) {
-            HorizontalDivider()
-        }
-    }
-}
-
-@Composable
 private fun PluginConfigFieldCardRow(
     field: ManifestConfigField,
     value: String,
@@ -1403,13 +1377,12 @@ private fun PluginConfigFieldCardRow(
 ) {
     when {
         field.type == "switch" || field.type == "boolean" -> {
-            PermissionToggleRow(
+            SwitchPreference(
                 title = field.title,
                 summary = field.summary.orEmpty(),
                 checked = value.toBooleanStrictOrNull() == true,
                 enabled = enabled,
-                onChange = { onValueChange(it.toString()) },
-                showDivider = showDivider,
+                onCheckedChange = { onValueChange(it.toString()) },
             )
         }
         field.options.isNotEmpty() -> {

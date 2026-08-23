@@ -23,7 +23,13 @@ import io.github.julystar.musicapp.core.presentation.theme.canSelectManualThemeC
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 fun AppearanceSettingsSection(
@@ -40,20 +46,27 @@ fun AppearanceSettingsSection(
     }
 
     SettingsPageLayout(title = stringResource(Res.string.settings_appearance_title), onBack = onBack) {
-        SettingsSection(title = stringResource(Res.string.settings_theme_section)) {
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_theme_section),
-                subtitle = stringResource(settings.themeMode.summaryResource()),
-                selected = settings.themeMode,
-                options = AppThemeMode.entries.toList(),
-                optionLabel = { mode -> stringResource(mode.titleResource()) },
-                menuMinWidth = 0.dp,
-                onSelect = { onAction(SettingsAction.SetThemeMode(it)) },
+        SmallTitle(text = stringResource(Res.string.settings_theme_section))
+        Card {
+            val themeModes = AppThemeMode.entries.toList()
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_theme_section),
+                summary = stringResource(settings.themeMode.summaryResource()),
+                entries = listOf(DropdownEntry(
+                    items = themeModes.map { mode ->
+                        DropdownItem(
+                            text = stringResource(mode.titleResource()),
+                            selected = mode == settings.themeMode,
+                            onClick = { onAction(SettingsAction.SetThemeMode(mode)) },
+                        )
+                    },
+                )),
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_color_section)) {
-            SettingsSwitchRow(
+        SmallTitle(text = stringResource(Res.string.settings_color_section))
+        Card {
+            SwitchPreference(
                 title = stringResource(Res.string.settings_artwork_color),
                 summary = stringResource(Res.string.settings_artwork_color_summary),
                 checked = settings.artworkThemeEnabled,
@@ -101,15 +114,21 @@ fun AppearanceSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_language_section)) {
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_language_section),
-                subtitle = stringResource(settings.languageMode.summaryResource()),
-                selected = settings.languageMode,
-                options = AppLanguageMode.entries.toList(),
-                optionLabel = { mode -> stringResource(mode.titleResource()) },
-                menuMinWidth = 0.dp,
-                onSelect = { onAction(SettingsAction.SetLanguageMode(it)) },
+        SmallTitle(text = stringResource(Res.string.settings_language_section))
+        Card {
+            val languageModes = AppLanguageMode.entries.toList()
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_language_section),
+                summary = stringResource(settings.languageMode.summaryResource()),
+                entries = listOf(DropdownEntry(
+                    items = languageModes.map { mode ->
+                        DropdownItem(
+                            text = stringResource(mode.titleResource()),
+                            selected = mode == settings.languageMode,
+                            onClick = { onAction(SettingsAction.SetLanguageMode(mode)) },
+                        )
+                    },
+                )),
             )
         }
     }

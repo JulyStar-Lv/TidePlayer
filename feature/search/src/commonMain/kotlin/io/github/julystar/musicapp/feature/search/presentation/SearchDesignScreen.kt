@@ -46,9 +46,9 @@ import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.components.QualityBadge
 import io.github.julystar.musicapp.core.presentation.components.QualityBadgeType
-import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassScene
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
@@ -114,7 +114,7 @@ fun SearchDesignScreen(
         onAction(SearchAction.ClearHistory)
     }
 
-    DesignGlassScene(modifier = modifier.fillMaxSize()) {
+    LiquidGlassScene(modifier = modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -264,7 +264,7 @@ fun SearchDesignScreen(
                 }
             }
         }
-        DesignStickyGlassActionBar(
+        LiquidGlassActionBar(
             title = stringResource(Res.string.search_title),
             collapseFraction = actionBarProgress,
             modifier = Modifier.align(Alignment.TopCenter),

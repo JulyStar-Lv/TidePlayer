@@ -48,6 +48,7 @@ actual fun platformSettingsCapabilities() =
             highResolutionDspOutput = false,
         ),
         networkStatusSupported = true,
+        audioPreloadSupported = true,
         diagnosticsExportSupported = true,
         diagnosticsCenterSupported = true,
         safeModeSupported = true,

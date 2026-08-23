@@ -9,19 +9,15 @@ import com.mocharealm.accompanist.lyrics.core.parser.AutoParser
 import io.github.julystar.musicapp.core.domain.model.MetadataScanMode
 import io.github.julystar.musicapp.core.domain.model.toOptions
 import io.github.julystar.musicapp.core.data.media.PluginArtworkResolver
-import io.github.julystar.musicapp.database.AlbumArtistCrossRef
 import io.github.julystar.musicapp.database.AlbumEntity
-import io.github.julystar.musicapp.database.ArtistEntity
-import io.github.julystar.musicapp.database.GenreEntity
 import io.github.julystar.musicapp.database.LyricsEntity
 import io.github.julystar.musicapp.database.MetadataDao
 import io.github.julystar.musicapp.database.AppDatabase
-import io.github.julystar.musicapp.database.TrackArtistCrossRef
 import io.github.julystar.musicapp.database.TrackDao
-import io.github.julystar.musicapp.database.TrackGenreCrossRef
 import io.github.julystar.musicapp.database.TrackMetadataSources
 import io.github.julystar.musicapp.domain.importing.buildTrackEntity
 import io.github.julystar.musicapp.domain.importing.toStorageEntry
+import io.github.julystar.musicapp.metadata.MetadataGraphWriter
 import io.github.julystar.musicapp.platform.currentTimeMillis
 import io.github.julystar.musicapp.plugin.runtime.PluginLookupMode
 import io.github.julystar.musicapp.service.playback.data.PlayerRepository
@@ -46,6 +42,7 @@ class ManualMetadataService(
     private val metadataReader: RemoteMetadataReader,
     private val artworkResolver: PluginArtworkResolver,
 ) {
+    private val metadataGraphWriter = MetadataGraphWriter(metadataDao)
     suspend fun search(
         track: NowPlayingTrackItem,
         keyword: String,
@@ -240,50 +237,15 @@ class ManualMetadataService(
     }
 
     private suspend fun replaceTrackArtists(trackId: Long, names: List<String>) {
-        metadataDao.deleteTrackArtistsForTracks(listOf(trackId))
-        val normalizedNames = names
-            .map(String::trim)
-            .filter(String::isNotEmpty)
-            .distinctBy(::normalizeName)
-        if (normalizedNames.isEmpty()) return
-        metadataDao.insertArtists(
-            normalizedNames.map { name ->
-                ArtistEntity(
-                    name = name,
-                    normalizedName = normalizeName(name),
-                    sortName = null,
-                )
-            },
-        )
-        val artists = metadataDao.findArtistsByNormalizedNames(normalizedNames.map(::normalizeName))
-            .associateBy(ArtistEntity::normalizedName)
-        metadataDao.upsertTrackArtists(
-            normalizedNames.mapIndexedNotNull { index, name ->
-                artists[normalizeName(name)]?.let { artist ->
-                    TrackArtistCrossRef(trackId = trackId, artistId = artist.id, position = index)
-                }
-            },
-        )
+        metadataGraphWriter.replaceTrackArtists(trackId, names)
     }
 
     private suspend fun replaceTrackGenre(trackId: Long, rawGenre: String?) {
-        metadataDao.deleteTrackGenresForTracks(listOf(trackId))
-        val name = rawGenre?.trim()?.takeIf(String::isNotEmpty) ?: return
-        val normalized = normalizeName(name)
-        metadataDao.insertGenres(listOf(GenreEntity(name = name, normalizedName = normalized)))
-        val genre = metadataDao.findGenresByNormalizedNames(listOf(normalized)).single()
-        metadataDao.upsertTrackGenres(listOf(TrackGenreCrossRef(trackId, genre.id)))
+        metadataGraphWriter.replaceTrackGenre(trackId, rawGenre)
     }
 
     private suspend fun replaceAlbumArtist(albumId: Long, rawArtist: String?) {
-        metadataDao.deleteAlbumArtistsForAlbums(listOf(albumId))
-        val name = rawArtist?.trim()?.takeIf(String::isNotEmpty) ?: return
-        val normalized = normalizeName(name)
-        metadataDao.insertArtists(
-            listOf(ArtistEntity(name = name, normalizedName = normalized, sortName = null)),
-        )
-        val artist = metadataDao.findArtistsByNormalizedNames(listOf(normalized)).single()
-        metadataDao.upsertAlbumArtists(listOf(AlbumArtistCrossRef(albumId, artist.id, position = 0)))
+        metadataGraphWriter.replaceAlbumArtists(albumId, rawArtist)
     }
 }
 

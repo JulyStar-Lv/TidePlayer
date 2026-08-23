@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
@@ -131,7 +131,7 @@ fun ArtistScreen(
                 .fillMaxHeight(),
         ) {
             when {
-                state.isLoading -> DesignStatusCard(
+                state.isLoading -> StatusMessageCard(
                     title = stringResource(Res.string.artist_loading),
                     message = state.name.ifBlank { defaultTitle },
                     loading = true,
@@ -141,7 +141,7 @@ fun ArtistScreen(
                         .padding(horizontal = horizontalPadding, vertical = spacing.md),
                 )
 
-                state.error != null -> DesignStatusCard(
+                state.error != null -> StatusMessageCard(
                     title = stringResource(Res.string.artist_unavailable),
                     message = state.error.resolve(),
                     modifier = Modifier
@@ -243,7 +243,7 @@ fun ArtistScreen(
                 }
             }
 
-            DesignStickyGlassActionBar(
+            LiquidGlassActionBar(
                 title = state.name.ifBlank { defaultTitle },
                 collapseFraction = if (state.isLoading || state.error != null) {
                     1f
@@ -572,7 +572,7 @@ private fun ArtistEmptyState(
     title: String,
     message: String,
 ) {
-    DesignStatusCard(
+    StatusMessageCard(
         title = title,
         message = message,
         modifier = Modifier

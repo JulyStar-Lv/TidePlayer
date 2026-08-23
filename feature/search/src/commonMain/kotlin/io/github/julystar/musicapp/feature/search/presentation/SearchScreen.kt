@@ -32,9 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.TagChip
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
+import io.github.julystar.musicapp.core.presentation.components.StatusBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
+import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -116,9 +116,9 @@ fun SearchScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             if (state.failedSourceCount > 0) {
-                DesignStatusBadge(
+                StatusBadge(
                     label = stringResource(Res.string.search_source_failures, state.failedSourceCount),
-                    tone = DesignStatusTone.Error,
+                    tone = StatusTone.Error,
                 )
             }
             if (showSearchContent) {
@@ -147,7 +147,7 @@ private fun SearchBody(
     ) {
         when (state.loadState) {
             SearchLoadState.Searching -> item {
-                DesignStatusCard(
+                StatusMessageCard(
                     title = stringResource(Res.string.searching_library),
                     message = state.query.ifBlank { stringResource(Res.string.search_hint) },
                     loading = true,
@@ -156,7 +156,7 @@ private fun SearchBody(
 
             SearchLoadState.Error -> {
                 item {
-                    DesignStatusCard(
+                    StatusMessageCard(
                         title = stringResource(Res.string.search_sources_unavailable),
                         message = stringResource(Res.string.search_connection_retry),
                         actionText = stringResource(Res.string.search_retry),
@@ -168,7 +168,7 @@ private fun SearchBody(
 
             SearchLoadState.Empty -> {
                 item {
-                    DesignStatusCard(
+                    StatusMessageCard(
                         title = stringResource(Res.string.search_no_matches_yet),
                         message = stringResource(Res.string.search_try_query),
                         actionText = stringResource(Res.string.search_clear_search),
@@ -219,7 +219,7 @@ private fun SearchBody(
                 }
                 if (state.tracks.isEmpty() && state.albums.isEmpty() && state.artists.isEmpty()) {
                     item {
-                        DesignStatusCard(
+                        StatusMessageCard(
                             title = stringResource(Res.string.search_empty),
                             message = stringResource(Res.string.search_try_query),
                         )
@@ -261,7 +261,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.addDiscovery(
     }
     if (recent.isEmpty() && suggestions.isEmpty()) {
         item {
-            DesignStatusCard(
+            StatusMessageCard(
                 title = stringResource(Res.string.search_no_history),
                 message = stringResource(Res.string.search_try_query),
             )

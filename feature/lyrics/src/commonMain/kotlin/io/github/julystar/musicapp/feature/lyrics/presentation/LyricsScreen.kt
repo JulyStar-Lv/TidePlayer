@@ -51,8 +51,6 @@ import io.github.julystar.musicapp.core.domain.model.LyricFontChoice
 import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
 import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
@@ -87,6 +85,10 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val LyricsDismissDistanceFraction = 0.5f
@@ -296,20 +298,31 @@ private fun LyricsTrackHeader(
                     contentAlignment = Alignment.TopEnd,
                     modifier = Modifier.offset(20.dp, 20.dp),
                 ) {
-                    ResourceDropdownMenu(
-                        expanded = moreMenuExpanded,
-                        onDismissRequest = { moreMenuExpanded = false },
-                        compact = true,
-                        items = listOf(
-                            ResourceDropdownMenuItem(
-                                label = Res.string.music_lyric_remove,
-                                icon = CoreRes.drawable.icon_deleteseep,
-                                onClick = {
-                                    moreMenuExpanded = false
-                                    onPlayerAction(NowPlayingAction.RemoveLyric)
-                                },
+                    OverlayDropdownPopup(
+                        DropdownEntry(
+                            items = listOf(
+                                DropdownItem(
+                                    text = stringResource(Res.string.music_lyric_remove),
+                                    icon = { modifier ->
+                                        Icon(
+                                            painter = painterResource(CoreRes.drawable.icon_deleteseep),
+                                            contentDescription = null,
+                                            modifier = modifier,
+                                        )
+                                    },
+                                    onClick = {
+                                        moreMenuExpanded = false
+                                        onPlayerAction(NowPlayingAction.RemoveLyric)
+                                    },
+                                ),
                             ),
                         ),
+                        show = moreMenuExpanded,
+                        onDismiss = { moreMenuExpanded = false },
+                        onDismissFinished = {},
+                        maxHeight = 360.dp,
+                        dropdownColors = DropdownDefaults.dropdownColors(),
+                        renderInRootScaffold = true,
                     )
                 }
             }

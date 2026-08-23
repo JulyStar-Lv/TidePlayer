@@ -29,6 +29,7 @@ kotlin {
             // Required by the generated Res accessors used by localized UI.
             implementation(libs.components.resources)
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.preference)
             implementation(libs.kotlinx.collections.immutable)
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)

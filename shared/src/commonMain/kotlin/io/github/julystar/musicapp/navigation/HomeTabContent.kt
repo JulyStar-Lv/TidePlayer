@@ -10,8 +10,8 @@ import androidx.navigation.NavHostController
 import io.github.julystar.musicapp.core.LocalNavController
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderStateSink
+import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
+import io.github.julystar.musicapp.core.presentation.components.StickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.feature.home.presentation.HomeRoot
@@ -43,7 +43,7 @@ internal fun HomeTabContent(
     onNavigateToPlaylist: (Long) -> Unit,
     onNavigateToFavorites: () -> Unit,
     onNavigateToPlaylists: () -> Unit,
-    stickyHeaderStateSink: DesignStickyHeaderStateSink? = null,
+    stickyHeaderStateSink: StickyHeaderStateSink? = null,
 ) {
     val openSleepTimer = rememberOpenSleepTimer()
     val rootNavController = LocalNavController.current
@@ -118,23 +118,23 @@ internal fun shouldEnableDetailArtworkSharedElements(
     transitionRunning: Boolean,
 ): Boolean = currentTab == targetTab && !transitionRunning
 
-private object IgnoreStickyHeaderState : DesignStickyHeaderStateSink {
-    override fun update(owner: Any, state: DesignStickyHeaderState) = Unit
+private object IgnoreStickyHeaderState : StickyHeaderStateSink {
+    override fun update(owner: Any, state: StickyHeaderState) = Unit
 
     override fun clear(owner: Any) = Unit
 }
 
 internal class OwnedDesignStickyHeaderStateSink(
-    private val onStateChange: (DesignStickyHeaderState?) -> Unit,
-) : DesignStickyHeaderStateSink {
+    private val onStateChange: (StickyHeaderState?) -> Unit,
+) : StickyHeaderStateSink {
     private data class Registration(
         val owner: Any,
-        val state: DesignStickyHeaderState,
+        val state: StickyHeaderState,
     )
 
     private val registrations = mutableListOf<Registration>()
 
-    override fun update(owner: Any, state: DesignStickyHeaderState) {
+    override fun update(owner: Any, state: StickyHeaderState) {
         val existingIndex = registrations.indexOfFirst { registration -> registration.owner === owner }
         if (existingIndex >= 0) {
             registrations[existingIndex] = Registration(owner, state)

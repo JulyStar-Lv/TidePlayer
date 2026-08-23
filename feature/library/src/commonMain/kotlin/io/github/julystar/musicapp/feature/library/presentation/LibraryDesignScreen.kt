@@ -31,7 +31,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -68,9 +67,9 @@ import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryArtistItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
-import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassScene
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
@@ -102,6 +101,9 @@ import musicapp.feature.library.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -126,7 +128,7 @@ fun LibraryDesignScreen(
     var sortBy by remember { mutableStateOf(LibrarySortBy.Title) }
     val bottomContentInset = LocalDesignBottomContentInset.current
 
-    DesignGlassScene(modifier = Modifier.fillMaxSize()) {
+    LiquidGlassScene(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -502,7 +504,7 @@ private fun LibraryContent(
                     .padding(end = 4.dp, top = 44.dp),
             )
         }
-        DesignStickyGlassActionBar(
+        LiquidGlassActionBar(
             title = localizedLibraryText("Library"),
             collapseFraction = actionBarProgress,
             modifier = Modifier.align(Alignment.TopCenter),
@@ -597,10 +599,13 @@ private fun LazyListScope.LibraryCategoryItems(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                LibrarySongSearchBar(
-                    value = songQuery,
-                    onValueChange = onSongQueryChange,
-                    placeholder = if (selectedCategory == LibraryDesignCategory.Songs) {
+                InputField(
+                    query = songQuery,
+                    onQueryChange = onSongQueryChange,
+                    onSearch = {},
+                    expanded = false,
+                    onExpandedChange = {},
+                    label = if (selectedCategory == LibraryDesignCategory.Songs) {
                         "Search songs, artists, or albums"
                     } else {
                         "Search ${selectedCategory.label.lowercase()}"
@@ -621,10 +626,13 @@ private fun LazyListScope.LibraryCategoryItems(
         artistRows.isNotEmpty()
     ) {
         item {
-            LibrarySongSearchBar(
-                value = artistQuery,
-                onValueChange = onArtistQueryChange,
-                placeholder = stringResource(Res.string.library_search_category_hint, stringResource(Res.string.library_category_artists)),
+            InputField(
+                query = artistQuery,
+                onQueryChange = onArtistQueryChange,
+                onSearch = {},
+                expanded = false,
+                onExpandedChange = {},
+                label = stringResource(Res.string.library_search_category_hint, stringResource(Res.string.library_category_artists)),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -834,82 +842,45 @@ private fun CategorySectionHeader(
 
 @Composable
 private fun ShuffleButton(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .height(DesignTokens.adaptive.minimumTouchTarget)
-            .clip(RoundedCornerShape(DesignTokens.shapes.full))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
+    Button(onClick = onClick) {
         Icon(
             painter = painterResource(CoreRes.drawable.icon_dashboard),
             contentDescription = null,
-            tint = MiuixTheme.colorScheme.onSurface,
-            modifier = Modifier.size(15.dp),
+            modifier = Modifier.size(18.dp),
         )
         Text(
             text = localizedLibraryText("Shuffle"),
-            color = MiuixTheme.colorScheme.onSurface,
             style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
         )
     }
 }
 
 @Composable
 private fun PlayAllButton(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .width(88.dp)
-            .height(32.dp)
-            .clip(RoundedCornerShape(DesignTokens.shapes.full))
-            .background(MiuixTheme.colorScheme.primary)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-    ) {
+    Button(onClick = onClick) {
         Icon(
             painter = painterResource(CoreRes.drawable.icon_play),
             contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(18.dp),
         )
         Text(
             text = localizedLibraryText("Play all"),
-            color = Color.White,
             style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
         )
     }
 }
 
 @Composable
 private fun NewPlaylistButton(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .width(88.dp)
-            .height(32.dp)
-            .clip(RoundedCornerShape(DesignTokens.shapes.full))
-            .background(MiuixTheme.colorScheme.primary)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
+    Button(onClick = onClick) {
         Icon(
             painter = painterResource(CoreRes.drawable.icon_plus),
             contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(18.dp),
         )
         Text(
             text = localizedLibraryText("New"),
-            color = Color.White,
             style = MiuixTheme.textStyles.footnote1,
-            fontWeight = FontWeight.SemiBold,
         )
     }
 }
@@ -917,119 +888,20 @@ private fun NewPlaylistButton(onClick: () -> Unit) {
 // ── Song Search + Filter ──
 
 @Composable
-private fun LibrarySongSearchBar(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(16.dp)
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier
-            .height(40.dp)
-            .clip(shape)
-            .background(MiuixTheme.colorScheme.surface)
-            .border(1.dp, MiuixTheme.colorScheme.outline, shape)
-            .padding(horizontal = 14.dp),
-        singleLine = true,
-        textStyle = MiuixTheme.textStyles.body2.copy(
-            color = MiuixTheme.colorScheme.onSurface,
-            fontSize = 14.sp,
-            lineHeight = 18.sp,
-        ),
-        cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = {}),
-        decorationBox = { innerTextField ->
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    painter = painterResource(CoreRes.drawable.icon_search),
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.size(16.dp),
-                )
-                Box(
-                    modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    if (value.isEmpty()) {
-                        Text(
-                            text = localizedLibraryText(placeholder),
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            style = MiuixTheme.textStyles.body2.copy(
-                                fontSize = 14.sp,
-                                lineHeight = 18.sp,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    innerTextField()
-                }
-                if (value.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .clickable { onValueChange("") },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "×",
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            style = MiuixTheme.textStyles.body2,
-                        )
-                    }
-                }
-            }
-        },
-    )
-}
-
-@Composable
 private fun SongFilterButton(
     current: LibrarySortBy,
     onChange: (LibrarySortBy) -> Unit,
 ) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(shape)
-            .background(MiuixTheme.colorScheme.surface)
-            .border(1.dp, MiuixTheme.colorScheme.outline, shape)
-            .clickable {
-                val nextIndex = (LibrarySortBy.entries.indexOf(current) + 1) % LibrarySortBy.entries.size
-                onChange(LibrarySortBy.entries[nextIndex])
-            },
-        contentAlignment = Alignment.Center,
+    IconButton(
+        onClick = {
+            val nextIndex = (LibrarySortBy.entries.indexOf(current) + 1) % LibrarySortBy.entries.size
+            onChange(LibrarySortBy.entries[nextIndex])
+        },
     ) {
         Icon(
             painter = painterResource(CoreRes.drawable.icon_filter),
             contentDescription = localizedLibraryText("Filter songs, sorted by ${current.label}"),
-            tint = if (current == LibrarySortBy.Title) {
-                MiuixTheme.colorScheme.onSurfaceVariantSummary
-            } else {
-                MiuixTheme.colorScheme.primary
-            },
-            modifier = Modifier.size(16.dp),
         )
-        if (current != LibrarySortBy.Title) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 6.dp)
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.primary),
-            )
-        }
     }
 }
 

@@ -353,8 +353,8 @@
     <string name="settings_timeout_value">%1$d 秒</string>
     <string name="settings_retry_count">失败重试次数</string>
     <string name="settings_retry_count_value">重试 %1$d 次</string>
-    <string name="settings_audio_preload">音频预缓冲</string>
-    <string name="settings_audio_preload_summary">支持时预缓冲 %1$s</string>
+    <string name="settings_audio_preload">智能下一曲预加载</string>
+    <string name="settings_audio_preload_summary">音频目标：%1$s。先补全下一曲元数据、封面与歌词；关闭音频预加载不影响补全。</string>
 
     <string name="settings_usage_section">占用详情</string>
     <string name="settings_usage_audio">音频缓存</string>

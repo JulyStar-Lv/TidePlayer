@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.Composable
@@ -54,8 +53,6 @@ import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
 import io.github.julystar.musicapp.core.domain.model.sanitizeSourceEndpointForDisplay
 import io.github.julystar.musicapp.core.domain.model.sanitizeSourceTitleForDisplay
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -72,12 +69,23 @@ import musicapp.core.presentation.generated.resources.icon_vertialcal_more
 import musicapp.core.presentation.generated.resources.icon_chevron_right
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -101,8 +109,9 @@ fun SourceSettingsSection(
     ) {
         UnifiedLibraryCard(state = state, onAction = onAction)
 
-        SettingsSection(title = stringResource(Res.string.settings_download_persistence_section)) {
-            SettingsSwitchRow(
+        SmallTitle(text = stringResource(Res.string.settings_download_persistence_section))
+        Card {
+            SwitchPreference(
                 title = stringResource(Res.string.settings_enrich_downloaded_files),
                 summary = stringResource(Res.string.settings_enrich_downloaded_files_summary),
                 checked = settings.downloadFinalization.enrichMetadata,
@@ -114,7 +123,7 @@ fun SourceSettingsSection(
                     )
                 },
             )
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_save_sidecar_lyrics),
                 summary = stringResource(Res.string.settings_save_sidecar_lyrics_summary),
                 checked = settings.downloadFinalization.saveSidecarLyrics,
@@ -129,7 +138,8 @@ fun SourceSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_sources_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_sources_section))
+        Card {
             state.sourceAccounts.forEach { account ->
                 SourceAccountRow(
                     account = account,
@@ -155,22 +165,27 @@ fun SourceSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_automatic_scanning_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_automatic_scanning_section))
+        Card {
             val autoScanModes = if (state.capabilities.backgroundScanSupported) {
                 AutoScanMode.entries.toList()
             } else {
                 listOf(AutoScanMode.Off, AutoScanMode.OnStartup)
             }
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_auto_scan),
-                selected = settings.autoScanMode,
-                options = autoScanModes,
-                optionLabel = { mode -> stringResource(mode.titleResource()) },
-                onSelect = { onAction(SettingsAction.SetAutoScanMode(it)) },
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_auto_scan),
+                entries = listOf(DropdownEntry(items = autoScanModes.map { mode ->
+                    DropdownItem(
+                        text = stringResource(mode.titleResource()),
+                        selected = mode == settings.autoScanMode,
+                        onClick = { onAction(SettingsAction.SetAutoScanMode(mode)) },
+                    )
+                })),
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_import_rules_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_import_rules_section))
+        Card {
             MinimumDurationSelectRow(
                 selectedDurationMs = settings.minimumAudioDurationMs,
                 onSelectDuration = { onAction(SettingsAction.SetMinimumAudioDurationMs(it)) },
@@ -180,34 +195,39 @@ fun SourceSettingsSection(
                     customDurationDialogOpen = true
                 },
             )
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_missing_file),
-                subtitle = stringResource(Res.string.settings_missing_file_design_summary),
-                selected = settings.missingFilePolicy,
-                options = MissingFilePolicy.entries.toList(),
-                optionLabel = { policy -> stringResource(policy.titleResource()) },
-                onSelect = { onAction(SettingsAction.SetMissingFilePolicy(it)) },
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_missing_file),
+                summary = stringResource(Res.string.settings_missing_file_design_summary),
+                entries = listOf(DropdownEntry(items = MissingFilePolicy.entries.map { policy ->
+                    DropdownItem(
+                        text = stringResource(policy.titleResource()),
+                        selected = policy == settings.missingFilePolicy,
+                        onClick = { onAction(SettingsAction.SetMissingFilePolicy(policy)) },
+                    )
+                })),
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_maintenance_section)) {
-            SettingsInfoRow(
+        SmallTitle(text = stringResource(Res.string.settings_maintenance_section))
+        Card {
+            ArrowPreference(
                 title = stringResource(Res.string.settings_refresh_missing_artwork),
-                value = stringResource(Res.string.settings_refresh_missing_artwork_summary),
+                summary = stringResource(Res.string.settings_refresh_missing_artwork_summary),
                 enabled = !state.maintenanceOperationInProgress,
                 onClick = { onAction(SettingsAction.RefreshMissingArtwork) },
             )
-            SettingsInfoRow(
+            ArrowPreference(
                 title = stringResource(Res.string.settings_refresh_missing_lyrics),
-                value = stringResource(Res.string.settings_refresh_missing_lyrics_summary),
+                summary = stringResource(Res.string.settings_refresh_missing_lyrics_summary),
                 enabled = !state.maintenanceOperationInProgress,
                 onClick = { onAction(SettingsAction.RefreshMissingLyrics) },
             )
-            SettingsDangerRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_rebuild_library),
                 summary = stringResource(Res.string.settings_rebuild_library_summary),
                 enabled = !state.maintenanceOperationInProgress,
                 onClick = { onAction(SettingsAction.RequestRebuildLibrary) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
         }
     }
@@ -386,9 +406,10 @@ private fun UnifiedLibraryCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                SettingsIconBadge(
-                    drawable = Res.drawable.icon_source_layers,
-                    colors = DesignGradients.PinkPurple.colors,
+                Icon(
+                    painter = painterResource(Res.drawable.icon_source_layers),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
                 )
                 Column(
                     modifier = Modifier.weight(1f),
@@ -622,10 +643,12 @@ private fun SourceAccountRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            SettingsIconBadge(
-                drawable = visual.icon,
-                colors = visual.colors,
-                modifier = Modifier.padding(top = 2.dp),
+            Icon(
+                painter = painterResource(visual.icon),
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .size(24.dp),
             )
             Column(
                 modifier = Modifier
@@ -808,16 +831,14 @@ private fun SourceActionsButton(
                 modifier = Modifier.size(20.dp),
             )
         }
-        ResourceDropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false },
-            compact = true,
-            items = buildList {
+        OverlayDropdownPopup(
+            DropdownEntry(
+                items = buildList {
                 if (account.isLocal) {
                     add(
-                        ResourceDropdownMenuItem(
-                            icon = Res.drawable.icon_source_sliders,
-                            label = Res.string.settings_source_manage,
+                        DropdownItem(
+                            text = stringResource(Res.string.settings_source_manage),
+                            icon = { modifier -> Icon(painterResource(Res.drawable.icon_source_sliders), null, modifier) },
                             onClick = {
                                 menuOpen = false
                                 onManageLocal()
@@ -827,9 +848,9 @@ private fun SourceActionsButton(
                 }
                 if (!account.isLocal) {
                     add(
-                        ResourceDropdownMenuItem(
-                            icon = Res.drawable.icon_source_pencil,
-                            label = Res.string.settings_source_edit_action,
+                        DropdownItem(
+                            text = stringResource(Res.string.settings_source_edit_action),
+                            icon = { modifier -> Icon(painterResource(Res.drawable.icon_source_pencil), null, modifier) },
                             onClick = {
                                 menuOpen = false
                                 onOpenEditor()
@@ -839,9 +860,9 @@ private fun SourceActionsButton(
                 }
                 if (account.isWebDav || account.isSmb || account.isOpenList) {
                     add(
-                        ResourceDropdownMenuItem(
-                            icon = Res.drawable.icon_source_sliders,
-                            label = Res.string.settings_source_path_action,
+                        DropdownItem(
+                            text = stringResource(Res.string.settings_source_path_action),
+                            icon = { modifier -> Icon(painterResource(Res.drawable.icon_source_sliders), null, modifier) },
                             onClick = {
                                 menuOpen = false
                                 onAction(SettingsAction.ConfigureSourcePath(account.accountId))
@@ -851,9 +872,9 @@ private fun SourceActionsButton(
                 }
                 if (!account.isRemoteServer) {
                     add(
-                        ResourceDropdownMenuItem(
-                            icon = Res.drawable.icon_source_refresh,
-                            label = Res.string.settings_source_scan_action,
+                        DropdownItem(
+                            text = stringResource(Res.string.settings_source_scan_action),
+                            icon = { modifier -> Icon(painterResource(Res.drawable.icon_source_refresh), null, modifier) },
                             enabled = account.enabled &&
                                 (!account.isSmb || !account.rootPath.isNullOrBlank()),
                             onClick = {
@@ -864,9 +885,9 @@ private fun SourceActionsButton(
                     )
                 }
                 add(
-                    ResourceDropdownMenuItem(
-                        icon = Res.drawable.icon_log,
-                        label = Res.string.settings_source_scan_results,
+                    DropdownItem(
+                        text = stringResource(Res.string.settings_source_scan_results),
+                        icon = { modifier -> Icon(painterResource(Res.drawable.icon_log), null, modifier) },
                         onClick = {
                             menuOpen = false
                             onShowScanResults()
@@ -875,10 +896,9 @@ private fun SourceActionsButton(
                 )
                 if (account.isWebDav || account.isSmb) {
                     add(
-                        ResourceDropdownMenuItem(
-                            icon = Res.drawable.icon_source_trash,
-                            label = Res.string.settings_source_delete_action,
-                            isError = true,
+                        DropdownItem(
+                            text = stringResource(Res.string.settings_source_delete_action),
+                            icon = { modifier -> Icon(painterResource(Res.drawable.icon_source_trash), null, modifier) },
                             onClick = {
                                 menuOpen = false
                                 onAction(
@@ -899,6 +919,13 @@ private fun SourceActionsButton(
                     )
                 }
             },
+            ),
+            show = menuOpen,
+            onDismiss = { menuOpen = false },
+            onDismissFinished = {},
+            maxHeight = 360.dp,
+            dropdownColors = DropdownDefaults.dropdownColors(),
+            renderInRootScaffold = true,
         )
     }
 }
@@ -1029,9 +1056,10 @@ private fun AddSourceRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingsIconBadge(
-            drawable = Res.drawable.icon_source_plus,
-            colors = DesignGradients.PinkOrange.colors,
+        Icon(
+            painter = painterResource(Res.drawable.icon_source_plus),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
         )
         Column(
             modifier = Modifier.weight(1f),
@@ -1128,9 +1156,10 @@ private fun LocalDirectoryRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingsIconBadge(
-            drawable = Res.drawable.icon_source_hard_drive,
-            colors = DesignGradients.PinkOrange.colors,
+        Icon(
+            painter = painterResource(Res.drawable.icon_source_hard_drive),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
         )
         Column(
             modifier = Modifier.weight(1f),
@@ -1186,7 +1215,11 @@ private fun SourcePickerRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingsIconBadge(drawable = icon, colors = colors)
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -1424,43 +1457,43 @@ private fun WebDavAccountDialog(
                 color = MiuixTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(12.dp))
-            SourceDialogTextField(
+            TextField(
                 value = draft.name,
                 onValueChange = {
                     draft = draft.copy(name = it)
                     showConnectionTestResult = false
                 },
-                placeholder = stringResource(Res.string.settings_webdav_name),
+                label = stringResource(Res.string.settings_webdav_name),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SourceDialogTextField(
+            TextField(
                 value = draft.serverUrl,
                 onValueChange = {
                     draft = draft.copy(serverUrl = it)
                     showConnectionTestResult = false
                 },
-                placeholder = stringResource(Res.string.settings_webdav_url),
+                label = stringResource(Res.string.settings_webdav_url),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SourceDialogTextField(
+            TextField(
                 value = draft.username,
                 onValueChange = {
                     draft = draft.copy(username = it)
                     showConnectionTestResult = false
                 },
-                placeholder = stringResource(Res.string.settings_webdav_username),
+                label = stringResource(Res.string.settings_webdav_username),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SourceDialogTextField(
+            TextField(
                 value = password,
                 onValueChange = {
                     password = it
                     showConnectionTestResult = false
                 },
-                placeholder = stringResource(
+                label = stringResource(
                     if (draft.isEditing) Res.string.settings_webdav_password_edit
                     else Res.string.settings_webdav_password_new
                 ),
@@ -1538,38 +1571,38 @@ private fun SmbAccountDialog(
                 color = MiuixTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(12.dp))
-            SourceDialogTextField(
+            TextField(
                 value = draft.name,
                 onValueChange = {
                     draft = draft.copy(name = it)
                     showConnectionTestResult = false
                 },
-                placeholder = stringResource(Res.string.settings_smb_name),
+                label = stringResource(Res.string.settings_smb_name),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SourceDialogTextField(
+                TextField(
                     value = draft.host,
                     onValueChange = {
                         draft = draft.copy(host = it)
                         showConnectionTestResult = false
                     },
-                    placeholder = stringResource(Res.string.settings_smb_host),
+                    label = stringResource(Res.string.settings_smb_host),
                     modifier = Modifier.weight(0.72f),
                 )
-                SourceDialogTextField(
+                TextField(
                     value = draft.port,
                     onValueChange = {
                         draft = draft.copy(port = it.filter(Char::isDigit))
                         showConnectionTestResult = false
                     },
-                    placeholder = stringResource(Res.string.settings_smb_port),
+                    label = stringResource(Res.string.settings_smb_port),
                     modifier = Modifier.weight(0.28f),
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            SourceDialogSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_smb_guest),
                 checked = draft.guestAccess,
                 onCheckedChange = {
@@ -1580,23 +1613,23 @@ private fun SmbAccountDialog(
             )
             if (!draft.guestAccess) {
                 Spacer(modifier = Modifier.height(8.dp))
-                SourceDialogTextField(
+                TextField(
                     value = draft.username,
                     onValueChange = {
                         draft = draft.copy(username = it)
                         showConnectionTestResult = false
                     },
-                    placeholder = stringResource(Res.string.settings_smb_username),
+                    label = stringResource(Res.string.settings_smb_username),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                SourceDialogTextField(
+                TextField(
                     value = password,
                     onValueChange = {
                         password = it
                         showConnectionTestResult = false
                     },
-                    placeholder = stringResource(
+                    label = stringResource(
                         if (draft.isEditing) Res.string.settings_smb_password_edit
                         else Res.string.settings_smb_password_new,
                     ),
@@ -1661,81 +1694,6 @@ private fun SourceConnectionTestMessage(
     }
 }
 
-@Composable
-private fun SourceDialogTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(16.dp)
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        singleLine = true,
-        textStyle = MiuixTheme.textStyles.main.copy(
-            color = MiuixTheme.colorScheme.onSurface,
-        ),
-        cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
-        visualTransformation = visualTransformation,
-        interactionSource = interactionSource,
-        modifier = modifier
-            .heightIn(min = 56.dp)
-            .clip(shape)
-            .background(MiuixTheme.colorScheme.secondaryContainer)
-            .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) MiuixTheme.colorScheme.primary else Color.Transparent,
-                shape = shape,
-            )
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        decorationBox = { innerTextField ->
-            Box(contentAlignment = Alignment.CenterStart) {
-                if (value.isEmpty()) {
-                    Text(
-                        text = placeholder,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                innerTextField()
-            }
-        },
-    )
-}
-
-@Composable
-private fun SourceDialogSwitchRow(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            color = MiuixTheme.colorScheme.onSurface,
-            style = MiuixTheme.textStyles.body2,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f),
-        )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
 private fun LibrarySyncStatus.isActiveInSettings(): Boolean {
     return this == LibrarySyncStatus.Queued ||
         this == LibrarySyncStatus.Running ||
@@ -1749,27 +1707,26 @@ private fun MinimumDurationSelectRow(
     onSelectCustom: () -> Unit,
 ) {
     val selectedPreset = selectedDurationMs.takeIf { it in MINIMUM_DURATION_PRESETS_MS }
-    SettingsSelectRow(
-        label = stringResource(Res.string.settings_min_duration),
-        selectedValue = selectedPreset?.toString() ?: CUSTOM_DURATION_VALUE,
-        selectedLabel = if (selectedPreset == null) {
-            stringResource(Res.string.settings_min_duration_custom)
-        } else {
-            selectedPreset.durationLabel()
-        },
-        options = MINIMUM_DURATION_PRESETS_MS.map { durationMs ->
-            SettingsSelectOption(value = durationMs.toString(), label = durationMs.durationLabel())
-        } + SettingsSelectOption(
-            value = CUSTOM_DURATION_VALUE,
-            label = stringResource(Res.string.settings_min_duration_custom),
-        ),
-        onSelect = { value ->
-            if (value == CUSTOM_DURATION_VALUE) {
-                onSelectCustom()
-            } else {
-                value.toLongOrNull()?.let(onSelectDuration)
+    OverlayDropdownPreference(
+        title = stringResource(Res.string.settings_min_duration),
+        entries = listOf(DropdownEntry(items = buildList {
+            MINIMUM_DURATION_PRESETS_MS.forEach { durationMs ->
+                add(
+                    DropdownItem(
+                        text = durationMs.durationLabel(),
+                        selected = durationMs == selectedPreset,
+                        onClick = { onSelectDuration(durationMs) },
+                    ),
+                )
             }
-        },
+            add(
+                DropdownItem(
+                    text = stringResource(Res.string.settings_min_duration_custom),
+                    selected = selectedPreset == null,
+                    onClick = onSelectCustom,
+                ),
+            )
+        })),
     )
 }
 
@@ -1792,4 +1749,3 @@ private fun MissingFilePolicy.titleResource() = when (this) {
 }
 
 private val MINIMUM_DURATION_PRESETS_MS = listOf(0L, 15_000L, 30_000L, 60_000L)
-private const val CUSTOM_DURATION_VALUE = "custom"

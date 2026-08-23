@@ -59,7 +59,7 @@ class TrackDuplicateMergerTest {
     }
 
     @Test
-    fun strongRecordingIdCanMergeVersionedTitlesAndLockedMetadataWins() {
+    fun strongRecordingIdCannotMergeRemasterVersion() {
         val plans = buildTrackMergePlans(
             candidates = listOf(
                 candidate(1, title = "Song", recordingId = "recording-1", lastPlayedAt = 50),
@@ -75,10 +75,20 @@ class TrackDuplicateMergerTest {
             currentTrackId = 1,
         )
 
+        assertTrue(plans.isEmpty())
+    }
+
+    @Test
+    fun currentPlayingWinsFavoriteWhenNoLockedMetadataConflicts() {
+        val plans = buildTrackMergePlans(
+            candidates = listOf(candidate(1), candidate(2)),
+            sources = listOf(source(1, 10), source(2, 20)),
+            favoriteTrackIds = setOf(1),
+            currentTrackId = 2,
+        )
+
         assertEquals(2L, plans.single().targetTrackId)
         assertEquals(listOf(1L), plans.single().sourceTrackIds)
-        assertEquals(50L, plans.single().lastPlayedAt)
-        assertEquals(TrackMatchMethods.MusicBrainzRecordingId, plans.single().matchMethod)
     }
 
     private fun candidate(

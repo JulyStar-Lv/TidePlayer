@@ -2,7 +2,7 @@ package io.github.julystar.musicapp.navigation
 
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
+import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
 import kotlin.test.Test
@@ -352,16 +352,16 @@ class RootNavHostTest {
 
     @Test
     fun `disposing outgoing page does not clear incoming sticky header`() {
-        var currentState: DesignStickyHeaderState? = null
+        var currentState: StickyHeaderState? = null
         val sink = OwnedDesignStickyHeaderStateSink { state -> currentState = state }
         val outgoingOwner = Any()
         val incomingOwner = Any()
-        val outgoingState = DesignStickyHeaderState(
+        val outgoingState = StickyHeaderState(
             title = "Settings",
             subtitle = null,
             collapseFraction = 1f,
         )
-        val incomingState = DesignStickyHeaderState(
+        val incomingState = StickyHeaderState(
             title = "Appearance",
             subtitle = null,
             collapseFraction = 1f,

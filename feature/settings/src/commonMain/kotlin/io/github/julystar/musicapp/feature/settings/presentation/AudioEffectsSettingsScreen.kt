@@ -12,6 +12,10 @@ import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
 import io.github.julystar.musicapp.core.domain.model.withAudioEffectProfile
 import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun AudioEffectsSettingsScreen(
@@ -34,8 +38,9 @@ internal fun AudioEffectsSettingsScreen(
         title = stringResource(Res.string.settings_audio_effects_title),
         onBack = onBack,
     ) {
-        SettingsSection(title = stringResource(Res.string.settings_audio_effects_title)) {
-            SettingsSwitchRow(
+        SmallTitle(text = stringResource(Res.string.settings_audio_effects_title))
+        Card {
+            SwitchPreference(
                 title = stringResource(Res.string.settings_audio_effects_title),
                 summary = stringResource(Res.string.settings_audio_effects_subtitle),
                 checked = effects.enabled,
@@ -45,9 +50,9 @@ internal fun AudioEffectsSettingsScreen(
                     )
                 },
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_audio_effects_enabled),
-                value = if (!effects.enabled) {
+                summary = if (!effects.enabled) {
                     stringResource(Res.string.settings_audio_processing_off)
                 } else if (activeModules.isEmpty()) {
                     stringResource(Res.string.settings_audio_effects_none_enabled)

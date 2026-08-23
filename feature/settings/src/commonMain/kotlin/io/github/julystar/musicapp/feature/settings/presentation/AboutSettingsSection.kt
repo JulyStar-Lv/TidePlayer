@@ -3,6 +3,10 @@ package io.github.julystar.musicapp.feature.settings.presentation
 import androidx.compose.runtime.Composable
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 @Composable
 fun AboutSettingsSection(
@@ -16,43 +20,45 @@ fun AboutSettingsSection(
 ) {
     val unavailable = stringResource(Res.string.settings_unavailable)
     SettingsPageLayout(title = stringResource(Res.string.settings_about_title), onBack = onBack) {
-        SettingsSection(title = stringResource(Res.string.settings_about_app)) {
-            SettingsInfoRow(
+        SmallTitle(text = stringResource(Res.string.settings_about_app))
+        Card {
+            BasicComponent(
                 title = stringResource(Res.string.settings_about_name),
-                value = "Tide Player",
+                summary = "Tide Player",
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_about_version),
-                value = appVersion.ifBlank { unavailable },
+                summary = appVersion.ifBlank { unavailable },
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_about_build),
-                value = appBuildInfo.ifBlank { unavailable },
+                summary = appBuildInfo.ifBlank { unavailable },
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_about_commit),
-                value = gitCommitSha.ifBlank { unavailable },
+                summary = gitCommitSha.ifBlank { unavailable },
             )
         }
-        SettingsSection(title = stringResource(Res.string.settings_about_links)) {
-            SettingsInfoRow(
+        SmallTitle(text = stringResource(Res.string.settings_about_links))
+        Card {
+            ArrowPreference(
                 title = stringResource(Res.string.settings_about_licenses),
-                value = stringResource(Res.string.settings_licenses_title),
+                summary = stringResource(Res.string.settings_licenses_title),
                 onClick = onOpenLicenses,
             )
-            SettingsInfoRow(
+            ArrowPreference(
                 title = stringResource(Res.string.settings_about_repository),
-                value = APP_REPOSITORY_URL,
+                summary = APP_REPOSITORY_URL,
                 onClick = onOpenRepository,
             )
-            SettingsInfoRow(
+            ArrowPreference(
                 title = stringResource(Res.string.settings_about_issues),
-                value = APP_ISSUES_URL,
+                summary = APP_ISSUES_URL,
                 onClick = onOpenIssues,
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_about_privacy),
-                value = stringResource(Res.string.settings_about_privacy_summary),
+                summary = stringResource(Res.string.settings_about_privacy_summary),
             )
         }
     }
@@ -61,10 +67,11 @@ fun AboutSettingsSection(
 @Composable
 fun LicensesSettingsScreen(onBack: (() -> Unit)?) {
     SettingsPageLayout(title = stringResource(Res.string.settings_licenses_title), onBack = onBack) {
-        SettingsSection(title = stringResource(Res.string.settings_licenses_title)) {
-            SettingsInfoRow(
+        SmallTitle(text = stringResource(Res.string.settings_licenses_title))
+        Card {
+            BasicComponent(
                 title = stringResource(Res.string.settings_app_display_name),
-                value = stringResource(Res.string.settings_licenses_summary),
+                summary = stringResource(Res.string.settings_licenses_summary),
             )
         }
     }

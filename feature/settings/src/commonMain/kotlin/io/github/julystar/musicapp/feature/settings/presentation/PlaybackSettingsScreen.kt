@@ -1,6 +1,10 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
@@ -18,6 +22,15 @@ import io.github.julystar.musicapp.service.playback.domain.AudioOutputDeviceId
 import io.github.julystar.musicapp.service.playback.domain.AudioOutputState
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import kotlin.math.roundToInt
 
 @Composable
 fun PlaybackSettingsSection(
@@ -38,10 +51,11 @@ fun PlaybackSettingsSection(
             capabilities.audioOutputSelectionSupported ||
             capabilities.audioRoutePickerSupported
         ) {
-            SettingsSection(title = stringResource(Res.string.settings_audio_output_section)) {
-                SettingsInfoRow(
+            SmallTitle(text = stringResource(Res.string.settings_audio_output_section))
+            Card {
+                ArrowPreference(
                     title = stringResource(Res.string.settings_current_audio_output),
-                    value = audioOutputState.selectedDevice?.name
+                    summary = audioOutputState.selectedDevice?.name
                         ?: stringResource(Res.string.settings_audio_output_unavailable),
                     onClick = onRefreshAudioOutputs,
                 )
@@ -50,18 +64,21 @@ fun PlaybackSettingsSection(
                     audioOutputState.devices.isNotEmpty()
                 ) {
                     val selected = audioOutputState.selectedDevice ?: audioOutputState.devices.first()
-                    SettingsSelectRow(
-                        label = stringResource(Res.string.settings_select_audio_output),
-                        selected = selected,
-                        options = audioOutputState.devices,
-                        optionLabel = { device ->
-                            if (device.isSystemDefault) {
-                                stringResource(Res.string.settings_audio_output_default, device.name)
-                            } else {
-                                device.name
-                            }
-                        },
-                        onSelect = { onSelectAudioOutput(it.id) },
+                    OverlayDropdownPreference(
+                        title = stringResource(Res.string.settings_select_audio_output),
+                        entries = listOf(DropdownEntry(
+                            items = audioOutputState.devices.map { device ->
+                                DropdownItem(
+                                    text = if (device.isSystemDefault) {
+                                        stringResource(Res.string.settings_audio_output_default, device.name)
+                                    } else {
+                                        device.name
+                                    },
+                                    selected = device == selected,
+                                    onClick = { onSelectAudioOutput(device.id) },
+                                )
+                            },
+                        )),
                     )
                 }
                 if (capabilities.audioRoutePickerSupported) {
@@ -73,20 +90,28 @@ fun PlaybackSettingsSection(
         }
 
         if (capabilities.audioFocusSupported) {
-            SettingsSection(title = stringResource(Res.string.settings_audio_focus_section)) {
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_audio_focus_section),
-                    selected = settings.audioFocusMode,
-                    options = AudioFocusMode.entries.toList(),
-                    optionLabel = { mode -> stringResource(mode.titleResource()) },
-                    onSelect = { onAction(SettingsAction.SetAudioFocusMode(it)) },
+            SmallTitle(text = stringResource(Res.string.settings_audio_focus_section))
+            Card {
+                val modes = AudioFocusMode.entries.toList()
+                OverlayDropdownPreference(
+                    title = stringResource(Res.string.settings_audio_focus_section),
+                    entries = listOf(DropdownEntry(
+                        items = modes.map { mode ->
+                            DropdownItem(
+                                text = stringResource(mode.titleResource()),
+                                selected = mode == settings.audioFocusMode,
+                                onClick = { onAction(SettingsAction.SetAudioFocusMode(mode)) },
+                            )
+                        },
+                    )),
                 )
             }
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_playback_behavior_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_playback_behavior_section))
+        Card {
             if (capabilities.deviceDisconnectSupported) {
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_pause_disconnect),
                     summary = stringResource(Res.string.settings_pause_disconnect_summary),
                     checked = settings.pauseOnDisconnect,
@@ -94,21 +119,21 @@ fun PlaybackSettingsSection(
                 )
             }
             if (capabilities.gaplessPlaybackSupported) {
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_gapless),
                     summary = stringResource(Res.string.settings_gapless_summary),
                     checked = settings.gaplessPlaybackEnabled,
                     onCheckedChange = { onAction(SettingsAction.SetGaplessPlaybackEnabled(it)) },
                 )
             }
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_retry_playback),
                 summary = stringResource(Res.string.settings_retry_playback_summary),
                 checked = settings.retryPlaybackOnFailure,
                 onCheckedChange = { onAction(SettingsAction.SetRetryPlaybackOnFailure(it)) },
             )
             if (capabilities.networkStatusSupported) {
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_resume_network),
                     summary = stringResource(Res.string.settings_resume_network_summary),
                     checked = settings.resumePlaybackAfterNetworkRecovery,
@@ -117,7 +142,7 @@ fun PlaybackSettingsSection(
                     },
                 )
             }
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_keep_screen_on),
                 summary = stringResource(Res.string.settings_keep_screen_on_summary),
                 checked = settings.keepScreenOnInPlayer,
@@ -125,8 +150,9 @@ fun PlaybackSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_playback_advanced_section)) {
-            SettingsSwitchRow(
+        SmallTitle(text = stringResource(Res.string.settings_playback_advanced_section))
+        Card {
+            SwitchPreference(
                 title = stringResource(Res.string.settings_resume_playback_position),
                 summary = stringResource(Res.string.settings_resume_playback_position_summary),
                 checked = settings.playbackAdvanced.resumePlaybackPosition,
@@ -138,105 +164,115 @@ fun PlaybackSettingsSection(
                     )
                 },
             )
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_startup_playback),
-                selected = settings.playbackAdvanced.startupPlaybackMode,
-                options = StartupPlaybackMode.entries.toList(),
-                optionLabel = { mode -> stringResource(mode.titleResource()) },
-                onSelect = { mode ->
-                    onAction(
-                        SettingsAction.SetPlaybackAdvancedSettings(
-                            settings.playbackAdvanced.copy(startupPlaybackMode = mode)
-                        )
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_startup_playback),
+                entries = listOf(DropdownEntry(items = StartupPlaybackMode.entries.map { mode ->
+                    DropdownItem(
+                        text = stringResource(mode.titleResource()),
+                        selected = mode == settings.playbackAdvanced.startupPlaybackMode,
+                        onClick = { onAction(SettingsAction.SetPlaybackAdvancedSettings(
+                            settings.playbackAdvanced.copy(startupPlaybackMode = mode),
+                        )) },
                     )
-                },
+                })),
             )
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_previous_button_behavior),
-                selected = settings.playbackAdvanced.previousButtonBehavior,
-                options = PreviousButtonBehavior.entries.toList(),
-                optionLabel = { behavior -> stringResource(behavior.titleResource()) },
-                onSelect = { behavior ->
-                    onAction(
-                        SettingsAction.SetPlaybackAdvancedSettings(
-                            settings.playbackAdvanced.copy(previousButtonBehavior = behavior)
-                        )
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_previous_button_behavior),
+                entries = listOf(DropdownEntry(items = PreviousButtonBehavior.entries.map { behavior ->
+                    DropdownItem(
+                        text = stringResource(behavior.titleResource()),
+                        selected = behavior == settings.playbackAdvanced.previousButtonBehavior,
+                        onClick = { onAction(SettingsAction.SetPlaybackAdvancedSettings(
+                            settings.playbackAdvanced.copy(previousButtonBehavior = behavior),
+                        )) },
                     )
-                },
+                })),
             )
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_play_next_mode),
-                selected = settings.playbackAdvanced.playNextMode,
-                options = PlayNextMode.entries.toList(),
-                optionLabel = { mode -> stringResource(mode.titleResource()) },
-                onSelect = { mode ->
-                    onAction(
-                        SettingsAction.SetPlaybackAdvancedSettings(
-                            settings.playbackAdvanced.copy(playNextMode = mode)
-                        )
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_play_next_mode),
+                entries = listOf(DropdownEntry(items = PlayNextMode.entries.map { mode ->
+                    DropdownItem(
+                        text = stringResource(mode.titleResource()),
+                        selected = mode == settings.playbackAdvanced.playNextMode,
+                        onClick = { onAction(SettingsAction.SetPlaybackAdvancedSettings(
+                            settings.playbackAdvanced.copy(playNextMode = mode),
+                        )) },
                     )
-                },
+                })),
             )
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_shuffle_strategy),
-                selected = settings.playbackAdvanced.shuffleStrategy,
-                options = ShuffleStrategy.entries.toList(),
-                optionLabel = { strategy -> stringResource(strategy.titleResource()) },
-                onSelect = { strategy ->
-                    onAction(
-                        SettingsAction.SetPlaybackAdvancedSettings(
-                            settings.playbackAdvanced.copy(shuffleStrategy = strategy)
-                        )
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_shuffle_strategy),
+                entries = listOf(DropdownEntry(items = ShuffleStrategy.entries.map { strategy ->
+                    DropdownItem(
+                        text = stringResource(strategy.titleResource()),
+                        selected = strategy == settings.playbackAdvanced.shuffleStrategy,
+                        onClick = { onAction(SettingsAction.SetPlaybackAdvancedSettings(
+                            settings.playbackAdvanced.copy(shuffleStrategy = strategy),
+                        )) },
                     )
-                },
+                })),
             )
         }
 
         if (capabilities.crossfadeSupported || capabilities.replayGainSupported) {
-            SettingsSection(title = stringResource(Res.string.settings_playback_enhancement_section)) {
+            SmallTitle(text = stringResource(Res.string.settings_playback_enhancement_section))
+            Card {
                 if (capabilities.crossfadeSupported) {
-                    SettingsSliderRow(
+                    var crossfadePreview by remember(settings.playbackAdvanced.crossfadeDurationMs) {
+                        mutableFloatStateOf((settings.playbackAdvanced.crossfadeDurationMs / 1_000).toFloat())
+                    }
+                    SliderPreference(
                         title = stringResource(Res.string.settings_crossfade),
                         summary = stringResource(Res.string.settings_crossfade_summary),
-                        value = settings.playbackAdvanced.crossfadeDurationMs / 1_000,
-                        valueRange = 0..30,
+                        value = crossfadePreview,
+                        valueRange = 0f..30f,
+                        steps = 29,
                         valueText = stringResource(
                             Res.string.settings_seconds_value,
-                            settings.playbackAdvanced.crossfadeDurationMs / 1_000,
+                            crossfadePreview.roundToInt(),
                         ),
-                        onValueChange = {
+                        onValueChange = { crossfadePreview = it },
+                        onValueChangeFinished = {
                             onAction(
                                 SettingsAction.SetPlaybackAdvancedSettings(
-                                    settings.playbackAdvanced.copy(crossfadeDurationMs = it * 1_000)
+                                    settings.playbackAdvanced.copy(
+                                        crossfadeDurationMs = crossfadePreview.roundToInt() * 1_000,
+                                    ),
                                 )
                             )
                         },
                     )
                 }
                 if (capabilities.replayGainSupported) {
-                    SettingsSelectRow(
-                        label = stringResource(Res.string.settings_replay_gain),
-                        selected = settings.playbackAdvanced.replayGainMode,
-                        options = ReplayGainMode.entries.toList(),
-                        optionLabel = { mode -> stringResource(mode.titleResource()) },
-                        onSelect = { mode ->
-                            onAction(
-                                SettingsAction.SetPlaybackAdvancedSettings(
-                                    settings.playbackAdvanced.copy(replayGainMode = mode)
-                                )
+                    OverlayDropdownPreference(
+                        title = stringResource(Res.string.settings_replay_gain),
+                        entries = listOf(DropdownEntry(items = ReplayGainMode.entries.map { mode ->
+                            DropdownItem(
+                                text = stringResource(mode.titleResource()),
+                                selected = mode == settings.playbackAdvanced.replayGainMode,
+                                onClick = { onAction(SettingsAction.SetPlaybackAdvancedSettings(
+                                    settings.playbackAdvanced.copy(replayGainMode = mode),
+                                )) },
                             )
-                        },
+                        })),
                     )
-                    SettingsSliderRow(
+                    var preampPreview by remember(settings.playbackAdvanced.replayGainPreampTenthsDb) {
+                        mutableFloatStateOf(settings.playbackAdvanced.replayGainPreampTenthsDb.toFloat())
+                    }
+                    SliderPreference(
                         title = stringResource(Res.string.settings_replay_gain_preamp),
-                        value = settings.playbackAdvanced.replayGainPreampTenthsDb,
-                        valueRange = MIN_REPLAY_GAIN_PREAMP_TENTHS_DB..
-                            MAX_REPLAY_GAIN_PREAMP_TENTHS_DB,
-                        valueText = settings.playbackAdvanced.replayGainPreampTenthsDb.formatTenthsDb(),
-                        onValueChange = {
+                        value = preampPreview,
+                        valueRange = MIN_REPLAY_GAIN_PREAMP_TENTHS_DB.toFloat()..
+                            MAX_REPLAY_GAIN_PREAMP_TENTHS_DB.toFloat(),
+                        steps = MAX_REPLAY_GAIN_PREAMP_TENTHS_DB - MIN_REPLAY_GAIN_PREAMP_TENTHS_DB - 1,
+                        valueText = preampPreview.roundToInt().formatTenthsDb(),
+                        onValueChange = { preampPreview = it },
+                        onValueChangeFinished = {
                             onAction(
                                 SettingsAction.SetPlaybackAdvancedSettings(
-                                    settings.playbackAdvanced.copy(replayGainPreampTenthsDb = it)
+                                    settings.playbackAdvanced.copy(
+                                        replayGainPreampTenthsDb = preampPreview.roundToInt(),
+                                    ),
                                 )
                             )
                         },
@@ -245,9 +281,10 @@ fun PlaybackSettingsSection(
             }
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_player_interaction_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_player_interaction_section))
+        Card {
             val interaction = settings.playerInteraction
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_player_immersive_album_cover),
                 summary = stringResource(Res.string.settings_player_immersive_album_cover_summary),
                 checked = interaction.immersiveAlbumCoverEnabled,
@@ -259,7 +296,7 @@ fun PlaybackSettingsSection(
                     )
                 },
             )
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_player_audio_reactive_background),
                 summary = stringResource(Res.string.settings_player_audio_reactive_background_summary),
                 checked = interaction.audioReactiveBackgroundEnabled,
@@ -271,7 +308,7 @@ fun PlaybackSettingsSection(
                     )
                 },
             )
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_player_cover_swipe),
                 checked = interaction.coverSwipeEnabled,
                 onCheckedChange = {
@@ -282,7 +319,7 @@ fun PlaybackSettingsSection(
                     )
                 },
             )
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_player_total_duration),
                 checked = interaction.showTotalDuration,
                 onCheckedChange = {
@@ -293,7 +330,7 @@ fun PlaybackSettingsSection(
                     )
                 },
             )
-            SettingsSwitchRow(
+            SwitchPreference(
                 title = stringResource(Res.string.settings_player_audio_technical_info),
                 summary = stringResource(Res.string.settings_player_audio_technical_info_summary),
                 checked = interaction.showAudioTechnicalInfo,
@@ -306,7 +343,7 @@ fun PlaybackSettingsSection(
                 },
             )
             if (capabilities.desktopShortcutsSupported) {
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_desktop_shortcuts),
                     summary = stringResource(Res.string.settings_desktop_shortcuts_summary),
                     checked = interaction.desktopShortcutsEnabled,
@@ -323,15 +360,16 @@ fun PlaybackSettingsSection(
 
         if (capabilities.audioEffectsSupported) {
             val effects = settings.audioEffects
-            SettingsSection(title = stringResource(Res.string.settings_audio_processing_section)) {
-                SettingsInfoRow(
+            SmallTitle(text = stringResource(Res.string.settings_audio_processing_section))
+            Card {
+                ArrowPreference(
                     title = stringResource(Res.string.settings_equalizer_section),
-                    value = effects.localizedEqualizerSummary(),
+                    summary = effects.localizedEqualizerSummary(),
                     onClick = onNavigateToEqualizer,
                 )
-                SettingsInfoRow(
+                ArrowPreference(
                     title = stringResource(Res.string.settings_audio_effects_title),
-                    value = effects.localizedAudioEffectsSummary(),
+                    summary = effects.localizedAudioEffectsSummary(),
                     onClick = onNavigateToAudioEffects,
                 )
             }

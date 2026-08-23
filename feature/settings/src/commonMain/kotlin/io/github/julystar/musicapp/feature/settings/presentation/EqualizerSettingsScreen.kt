@@ -14,7 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
@@ -30,6 +34,16 @@ import musicapp.feature.settings.generated.resources.*
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -98,8 +112,9 @@ internal fun EqualizerSettingsScreen(
         compactHorizontalPadding = 12.dp,
         scrollable = false,
     ) {
-        SettingsSection(title = stringResource(Res.string.settings_equalizer_section)) {
-            SettingsSwitchRow(
+        SmallTitle(text = stringResource(Res.string.settings_equalizer_section))
+        Card {
+            SwitchPreference(
                 title = stringResource(Res.string.settings_equalizer_enabled),
                 summary = stringResource(Res.string.settings_equalizer_enabled_summary),
                 checked = equalizerEnabled,
@@ -227,7 +242,8 @@ private fun EqualizerModeSection(
         if (capabilities.parametricEqualizer) add(EqualizerMode.Parametric)
     }
     if (availableModes.isEmpty()) return
-    SettingsSection(title = stringResource(Res.string.settings_equalizer_mode)) {
+    SmallTitle(text = stringResource(Res.string.settings_equalizer_mode))
+    Card {
         TabRow(
             tabs = availableModes.map { mode ->
                 stringResource(
@@ -264,32 +280,36 @@ private fun EqualizerPresetSection(
             EqualizerPresetChoice(preset.id, equalizerPresetName(preset.id).orEmpty())
         }
     val selected = choices.firstOrNull { it.id == selectedPreset?.id } ?: choices.first()
-    SettingsSection(title = stringResource(Res.string.settings_eq_presets_section)) {
-        SettingsSelectRow(
-            label = stringResource(Res.string.settings_dsp_preset),
-            selected = selected,
-            options = choices,
-            optionLabel = { choice -> choice.name },
+    SmallTitle(text = stringResource(Res.string.settings_eq_presets_section))
+    Card {
+        OverlayDropdownPreference(
+            title = stringResource(Res.string.settings_dsp_preset),
             enabled = supported,
-            onSelect = { choice ->
-                val preset = BUILT_IN_EQUALIZER_PRESETS.firstOrNull { it.id == choice.id }
-                if (preset != null) {
-                    onUpdate(
-                        profile.copy(
-                            equalizerMode = EqualizerMode.Graphic,
-                            graphicEqualizer = profile.graphicEqualizer.applyPreset(preset),
-                            parametricEqualizer = profile.parametricEqualizer.copy(enabled = false),
-                        ),
-                    )
-                }
-            },
+            entries = listOf(DropdownEntry(items = choices.map { choice ->
+                DropdownItem(
+                    text = choice.name,
+                    selected = choice == selected,
+                    onClick = {
+                        BUILT_IN_EQUALIZER_PRESETS.firstOrNull { it.id == choice.id }?.let { preset ->
+                            onUpdate(
+                                profile.copy(
+                                    equalizerMode = EqualizerMode.Graphic,
+                                    graphicEqualizer = profile.graphicEqualizer.applyPreset(preset),
+                                    parametricEqualizer = profile.parametricEqualizer.copy(enabled = false),
+                                ),
+                            )
+                        }
+                    },
+                )
+            })),
         )
     }
 }
 
 @Composable
 private fun EqualizerResponseSection(state: SettingsUiState) {
-    SettingsSection(title = stringResource(Res.string.settings_eq_frequency_response)) {
+    SmallTitle(text = stringResource(Res.string.settings_eq_frequency_response))
+    Card {
         EqualizerFrequencyResponse(response = state.audioDspFrequencyResponse)
     }
 }
@@ -301,15 +321,16 @@ private fun EqualizerEditorSection(
     maxParametricBands: Int,
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
-    SettingsSection(
-        title = stringResource(
+    SmallTitle(
+        text = stringResource(
             if (profile.equalizerMode == EqualizerMode.Graphic) {
                 Res.string.settings_eq_editor_section
             } else {
                 Res.string.settings_equalizer_parametric
             },
         ),
-    ) {
+    )
+    Card {
         when (profile.equalizerMode) {
             EqualizerMode.Graphic -> GraphicEqualizerEditor(
                 settings = profile.graphicEqualizer,
@@ -337,33 +358,48 @@ private fun EqualizerAdvancedSection(
     supported: Boolean,
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
-    SettingsSection(title = stringResource(Res.string.settings_eq_advanced_section)) {
+    SmallTitle(text = stringResource(Res.string.settings_eq_advanced_section))
+    Card {
         when (profile.equalizerMode) {
             EqualizerMode.Graphic -> {
                 val equalizer = profile.graphicEqualizer
-                SettingsSliderRow(
+                var preampPreview by remember(equalizer.preampTenthsDb) {
+                    mutableFloatStateOf(equalizer.preampTenthsDb.toFloat())
+                }
+                SliderPreference(
                     title = stringResource(Res.string.settings_eq_preamp),
-                    value = equalizer.preampTenthsDb,
-                    valueRange = -240..120,
-                    valueText = formatTenthsDb(equalizer.preampTenthsDb),
+                    value = preampPreview,
+                    valueRange = -240f..120f,
+                    steps = 359,
+                    valueText = formatTenthsDb(preampPreview.roundToInt()),
                     enabled = supported && equalizer.enabled,
-                    onValueChange = { value ->
-                        onUpdate(profile.copy(graphicEqualizer = equalizer.copy(preampTenthsDb = value)))
+                    onValueChange = { preampPreview = it },
+                    onValueChangeFinished = {
+                        onUpdate(profile.copy(
+                            graphicEqualizer = equalizer.copy(preampTenthsDb = preampPreview.roundToInt()),
+                        ))
                     },
                 )
-                SettingsSliderRow(
+                var qPreview by remember(equalizer.qHundredths) {
+                    mutableFloatStateOf(equalizer.qHundredths.toFloat())
+                }
+                SliderPreference(
                     title = stringResource(Res.string.settings_eq_q),
-                    value = equalizer.qHundredths,
-                    valueRange = 10..1_000,
-                    valueText = formatHundredths(equalizer.qHundredths),
+                    value = qPreview,
+                    valueRange = 10f..1_000f,
+                    steps = 989,
+                    valueText = formatHundredths(qPreview.roundToInt()),
                     enabled = supported && equalizer.enabled,
-                    onValueChange = { value ->
-                        onUpdate(profile.copy(graphicEqualizer = equalizer.copy(qHundredths = value)))
+                    onValueChange = { qPreview = it },
+                    onValueChangeFinished = {
+                        onUpdate(profile.copy(
+                            graphicEqualizer = equalizer.copy(qHundredths = qPreview.roundToInt()),
+                        ))
                     },
                 )
-                SettingsInfoRow(
+                ArrowPreference(
                     title = stringResource(Res.string.settings_eq_reset),
-                    value = stringResource(Res.string.settings_eq_reset_summary),
+                    summary = stringResource(Res.string.settings_eq_reset_summary),
                     enabled = supported,
                     onClick = {
                         onUpdate(profile.copy(graphicEqualizer = equalizer.resetEqualizer()))
@@ -372,19 +408,26 @@ private fun EqualizerAdvancedSection(
             }
             EqualizerMode.Parametric -> {
                 val equalizer = profile.parametricEqualizer
-                SettingsSliderRow(
+                var preampPreview by remember(equalizer.preampTenthsDb) {
+                    mutableFloatStateOf(equalizer.preampTenthsDb.toFloat())
+                }
+                SliderPreference(
                     title = stringResource(Res.string.settings_eq_preamp),
-                    value = equalizer.preampTenthsDb,
-                    valueRange = -960..120,
-                    valueText = formatTenthsDb(equalizer.preampTenthsDb),
+                    value = preampPreview,
+                    valueRange = -960f..120f,
+                    steps = 1_079,
+                    valueText = formatTenthsDb(preampPreview.roundToInt()),
                     enabled = supported && equalizer.enabled,
-                    onValueChange = { value ->
-                        onUpdate(profile.copy(parametricEqualizer = equalizer.copy(preampTenthsDb = value)))
+                    onValueChange = { preampPreview = it },
+                    onValueChangeFinished = {
+                        onUpdate(profile.copy(
+                            parametricEqualizer = equalizer.copy(preampTenthsDb = preampPreview.roundToInt()),
+                        ))
                     },
                 )
-                SettingsInfoRow(
+                ArrowPreference(
                     title = stringResource(Res.string.settings_peq_reset),
-                    value = stringResource(Res.string.settings_peq_reset_summary),
+                    summary = stringResource(Res.string.settings_peq_reset_summary),
                     enabled = supported,
                     onClick = {
                         onUpdate(
@@ -399,9 +442,9 @@ private fun EqualizerAdvancedSection(
             }
         }
         if (state.settings.audioEffects.headroom.mode == HeadroomMode.Automatic) {
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_headroom_automatic_info),
-                value = "${formatMeter(state.audioDspMeter.appliedHeadroomDb)} · " +
+                summary = "${formatMeter(state.audioDspMeter.appliedHeadroomDb)} · " +
                     stringResource(Res.string.settings_eq_automatic_headroom_hint),
             )
         }

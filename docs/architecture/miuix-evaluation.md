@@ -45,7 +45,8 @@ feedback controls.
 | Existing component family | v0.9.3 equivalent | Decision | Reason |
 | --- | --- | --- | --- |
 | `AppPreference`, `AppArrowPreference`, `AppSwitchPreference`, `AppSliderPreference`, `AppDropdownPreference` | `BasicComponent`, `ArrowPreference`, `SwitchPreference`, `SliderPreference`, `OverlayDropdownPreference` | DELETE | No business behavior; they only overrode margins and dividers. |
-| Settings rows and groups | Preferences, `BasicComponent`, `SmallTitle`, `Card` | DIRECT_MIUix | Settings uses native defaults rather than the Tide row/container style. |
+| Settings rows and groups | Preferences, `BasicComponent`, `SmallTitle`, `Card`, `Scaffold`, `TopAppBar`, `SmallTopAppBar` | DIRECT_MIUix | Settings uses native defaults and native Miuix app bars; no settings screen uses the liquid-glass action bar. |
+| source and plugin configuration switches | `SwitchPreference` | DIRECT_MIUix | Removed hand-written rows, divider handling, disabled alpha, and switch interaction forwarding. |
 | `AppSnackbar*` | `SnackbarHostState`, `SnackbarHost`, `SnackbarDuration`, `SnackbarResult` | DELETE | Miuix owns queueing and result types. |
 | `DesignCheckbox`, `CompatCheckbox` | `Checkbox` / `CheckboxPreference` | DIRECT_MIUix | The old code duplicated checked drawing and checkbox semantics. |
 | `DesignSwitch`, `DesignTextField`, `DesignLinearProgressIndicator`, `DesignLoadingIndicator` | `Switch`, `TextField`, progress indicators | DIRECT_MIUix | Thin forwarding wrappers are being removed at call sites. |
@@ -54,20 +55,22 @@ feedback controls.
 | `DesignListDivider` | `HorizontalDivider`, `VerticalDivider` | DIRECT_MIUix | Deleted; complex rows now compose a real divider node. |
 | `DesignCardSurface` | `Card` | DIRECT_MIUix | Deleted after ordinary callers moved to native Miuix `Card`; artwork/glass remain specifically named product UI. |
 | `DesignTopBar`, `DesignPageHeader` | `SmallTopAppBar`, `TopAppBar`, `MiuixScrollBehavior` | DIRECT_MIUix | Deleted; ordinary pages use Miuix bars while immersive player headers remain product UI. |
-| `DesignSearchBar` | `SearchBar` / `InputField` | DIRECT_MIUix | Deleted; callers use `InputField` and its built-in clear behavior. |
-| `DesignSettingsGroup`, `DesignPreferenceRow` | `SmallTitle`, `Card`, `BasicComponent` | DIRECT_MIUix | Deleted; settings and diagnostics compose native controls directly. |
+| `DesignSearchBar`, library search fields | `SearchBar` / `InputField` | DIRECT_MIUix | Deleted; callers use `InputField` and its built-in search icon, clear behavior, and semantics. |
+| `DesignSettingsGroup`, `DesignPreferenceRow`, `SettingsEntryCard`, `SettingsActionRow`, `SettingsIconBadge` | `SmallTitle`, `Card`, `BasicComponent`, `Icon` | DIRECT_MIUix | Deleted; settings and diagnostics compose native controls directly, and settings start actions are plain Miuix icons rather than gradient tiles. |
 | `DesignChevron` | `Icon` with existing vector resources | DIRECT_MIUix | Deleted; it was only a resource/size forwarding wrapper. |
 | `DesignChipSection` | `SmallTitle`, `Text`, `FlowRow` | DIRECT_MIUix | Deleted; Search/Browse own their domain-specific tag layouts. |
 | `TagChip` | none | PRODUCT_SPECIFIC | The fixed Miuix version lacks a semantic equivalent for source/status/search tags; this is the minimal retained primitive. |
-| `DesignContextMenu` | Overlay dropdown/cascading menu APIs | DIRECT_MIUix | Per-item danger text is not a v0.9.3 API; use supported menu styling. |
+| `EmptyState`, `StatusMessageCard`, `StatusBadge`, `SkeletonBlock` | none | PRODUCT_SPECIFIC | Miuix 0.9.3 has no semantic empty-state, status-message, state-label, or skeleton primitive. The retained compositions use native `Card`, `Text`, progress, and color primitives; the `StatusBadge` expresses diagnostic/download/source state rather than notification state. Listening's insight icon is private to that product page; ordinary download rows and settings entries no longer use decorative gradient icon tiles. |
+| Context menus | `DropdownEntry`, `DropdownItem`, `OverlayDropdownPopup` | DIRECT_MIUix | Feature call sites construct native dropdown entries directly; v0.9.3 has no per-item danger-text API. |
 | `DesignBottomSheet` | `OverlayBottomSheet` | DIRECT_MIUix | Default sheet colors, radius, and margins are preferred. |
 | generic `DesignDialog` | `OverlayDialog` | DIRECT_MIUix | Deleted; confirmation, input, settings, and player source dialogs use Miuix overlays directly. |
-| HSV theme picker shell | `ColorPicker`, HSV controls, `OverlayDialog` | PRODUCT_SPECIFIC | Saved seeds, presets, preview, and persistence are theme-domain behavior. |
-| Navigation rail/sidebar | `NavigationRail`, `NavigationRailItem`, `NavigationRailState` | TEMP_EXCEPTION | Existing resource icons must first be converted through `vectorResource`; no painter icon slot exists in v0.9.3. |
-| Bottom navigation | `NavigationBar`, `NavigationBarItem` | TEMP_EXCEPTION | Same `ImageVector` limitation; MiniPlayer remains above navigation. |
+| HSV theme picker shell | `ColorPicker`, `TextField`, `OverlayDialog` | PRODUCT_SPECIFIC | Saved seeds, presets, preview, and persistence are theme-domain behavior; the HEX input uses Miuix `TextField`. |
+| Navigation rail/sidebar | `NavigationRail`, `NavigationRailItem`, `NavigationRailState` | DIRECT_MIUix | `HomeNavigationRail` is the sole desktop rail; it uses native state to select collapsed or expanded Miuix presentation and `vectorResource` for existing vector resources. |
+| Bottom navigation | `NavigationBar`, `NavigationBarItem` | DIRECT_MIUix | Existing vector resources use `vectorResource`; MiniPlayer remains above the native navigation bar. |
 | queue drag and plugin configuration overlays | none | TEMP_EXCEPTION | v0.9.3 has no equivalent for the draggable queue sheet or the plugin editor's large-screen layout. `OverlayPresentationSupport` and `PlatformOverlayHost` only supply that missing platform/layout behavior. |
 | playback slider and playback controls | none | PRODUCT_SPECIFIC | Buffered progress, seek handling, transport controls, and playback thumb are music behavior. |
-| MiniPlayer, Now Playing, lyrics, artwork, queue drag, EQ/DSP, visualization, Liquid Glass | none | PRODUCT_SPECIFIC | These are TidePlayer's product UI, not generic component styling. |
+| track-number badge | none | PRODUCT_SPECIFIC | Track sequence and active-playback state are music semantics; the retained `TrackNumberBadge` is not a generic list-row framework. |
+| MiniPlayer, Now Playing, lyrics, artwork, queue drag, EQ/DSP, visualization, `LiquidGlass*` / `StickyHeader*` | none | PRODUCT_SPECIFIC | These are TidePlayer's product UI, not generic component styling. The retained liquid-glass scene and sticky-header coordination are explicitly named for that visual behavior rather than exposing a generic `Design*` API. |
 | breadcrumb path navigation | none in v0.9.3 | TEMP_EXCEPTION | `BreadcrumbBar` is not in the fixed API baseline. |
 
 ## Rules
@@ -81,6 +84,23 @@ feedback controls.
 - `miuix-blur` and Navigation3 remain out of scope. No Kotlin, Compose, or
   Miuix version upgrade is part of this work.
 - Verify Android, iOS Simulator, and Desktop after each migration batch.
+
+## Latest verification
+
+- `:shared:compileDebugKotlinAndroid`, `:shared:compileKotlinIosSimulatorArm64`, and
+  `:desktopApp:compileKotlinDesktop` passed together on 2026-08-23.
+- The current Settings pass directly migrated the remaining generic controls in
+  playback, storage, source management, and diagnostics: groups now use
+  `SmallTitle` + `Card`; switches, selections, sliders, informational rows,
+  and destructive actions use their corresponding native Miuix preference or
+  basic component. Source-account scanning/editor cards remain product-specific
+  compositions. `:feature:settings:compileKotlinDesktop` passed after this
+  pass on 2026-08-23.
+- `:shared:desktopTest` currently runs 506 tests, with two unrelated data-layer failures:
+  `AppPreferencesRepositoryTest.remapsFavoritesAndPersistedPlaybackSession` and
+  `TrackDuplicateMergerTest.strongRecordingIdCanMergeVersionedTitlesAndLockedMetadataWins`.
+  They are outside this UI-only change scope and are not masked by changing preference,
+  database, or metadata business logic.
 
 ## Explicit default overrides
 

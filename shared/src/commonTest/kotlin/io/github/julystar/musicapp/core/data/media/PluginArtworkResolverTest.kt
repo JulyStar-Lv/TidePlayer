@@ -7,6 +7,7 @@ import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class PluginArtworkResolverTest {
     @Test
@@ -68,6 +69,20 @@ class PluginArtworkResolverTest {
         )
 
         assertEquals("https://example.test/large.jpg", selected)
+    }
+
+    @Test
+    fun matchedCandidateNeverRepeatsSongSearch() = runTest {
+        var searches = 0
+        val candidate = MetaSongCandidate(id = "matched", title = "Song", sourceId = "plugin")
+
+        val result = resolveArtworkSongCandidates(candidate) {
+            searches++
+            emptyList()
+        }
+
+        assertEquals(listOf(candidate), result)
+        assertEquals(0, searches)
     }
 }
 

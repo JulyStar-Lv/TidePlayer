@@ -5,7 +5,6 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,7 +35,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -44,12 +42,13 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -68,6 +67,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_adjust
 import musicapp.core.presentation.generated.resources.icon_album
+import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.icon_cloud
 import musicapp.core.presentation.generated.resources.icon_dashboard
 import musicapp.core.presentation.generated.resources.icon_download
@@ -106,120 +106,53 @@ internal fun SettingsPageLayout(
     val spacing = DesignTokens.spacing
     val bottomContentInset = LocalDesignBottomContentInset.current
     val pageScrollState = rememberScrollState()
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val pageWidth = minOf(maxWidth, 800.dp)
-        val pagePadding = if (maxWidth <= DesignTokens.adaptive.compactMaxWidth) {
-            compactHorizontalPadding ?: spacing.pageExpanded
-        } else {
-            spacing.pageExpanded
-        }
-        val showTopBar = maxWidth < 1024.dp || onBack != null
-        Box(
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = title,
+                navigationIcon = if (onBack == null) {
+                    {}
+                } else {
+                    {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                painter = painterResource(CoreRes.drawable.icon_chevron_left),
+                                contentDescription = null,
+                            )
+                        }
+                    }
+                },
+            )
+        },
+    ) { contentPadding ->
+        BoxWithConstraints(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .width(pageWidth)
-                .fillMaxHeight()
-                .background(MiuixTheme.colorScheme.background),
+                .fillMaxSize()
+                .padding(contentPadding),
         ) {
+            val pageWidth = minOf(maxWidth, 800.dp)
+            val pagePadding = if (maxWidth <= DesignTokens.adaptive.compactMaxWidth) {
+                compactHorizontalPadding ?: spacing.pageExpanded
+            } else {
+                spacing.pageExpanded
+            }
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .align(Alignment.TopCenter)
+                    .width(pageWidth)
+                    .fillMaxHeight()
                     .let { modifier ->
-                        if (scrollable) {
-                            modifier.verticalScroll(pageScrollState)
-                        } else {
-                            modifier
-                        }
+                        if (scrollable) modifier.verticalScroll(pageScrollState) else modifier
                     }
                     .padding(
                         start = pagePadding,
-                        top = if (showTopBar) {
-                            DesignTokens.adaptive.compactHeaderHeight + spacing.xs
-                        } else {
-                            spacing.xs
-                        },
+                        top = spacing.xs,
                         end = pagePadding,
                         bottom = maxOf(DesignTokens.player.miniBarHeight, bottomContentInset) + spacing.lg,
                     ),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 content = content,
-            )
-            if (showTopBar) {
-                DesignStickyGlassActionBar(
-                    title = title,
-                    collapseFraction = 1f,
-                    onNavigateBack = onBack,
-                    compactTitle = true,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun SettingsEntryCard(
-    title: String,
-    summary: String?,
-    icon: DrawableResource,
-    onClick: (() -> Unit)? = null,
-) {
-    if (onClick != null) {
-        ArrowPreference(
-            title = title,
-            summary = summary,
-            onClick = onClick,
-            startAction = { SettingsLeadingIcon(drawable = icon) },
-        )
-    } else {
-        BasicComponent(
-            title = title,
-            summary = summary,
-            startAction = { SettingsLeadingIcon(drawable = icon) },
-        )
-    }
-}
-
-@Composable
-private fun SettingsLeadingIcon(drawable: DrawableResource) {
-    SettingsIconBadge(drawable = drawable)
-}
-
-@Composable
-internal fun SettingsIconBadge(
-    drawable: DrawableResource,
-    colors: List<Color> = DesignGradients.Brand.colors,
-    modifier: Modifier = Modifier,
-    preserveDrawableColors: Boolean = false,
-) {
-    val shape = RoundedCornerShape(14.dp)
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .shadow(4.dp, shape, clip = false)
-            .clip(shape)
-            .then(
-                if (preserveDrawableColors) {
-                    Modifier
-                } else {
-                    Modifier.background(Brush.linearGradient(colors))
-                },
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (preserveDrawableColors) {
-            Image(
-                painter = painterResource(drawable),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Icon(
-                painter = painterResource(drawable),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(18.dp),
             )
         }
     }
@@ -333,40 +266,20 @@ private fun SettingsLeadingIcon(
 ) {
     val drawable = markerDrawable(marker)
     if (drawable != null) {
-        SettingsIconBadge(
-            drawable = drawable,
-            colors = markerGradient(marker, accentColor),
+        Icon(
+            painter = painterResource(drawable),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
         )
     } else {
-        val shape = RoundedCornerShape(14.dp)
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .shadow(4.dp, shape, clip = false)
-                .clip(shape)
-                .background(Brush.linearGradient(markerGradient(marker, accentColor))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = marker,
-                color = Color.White,
-                style = MiuixTheme.textStyles.body2,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-            )
-        }
+        Text(
+            text = marker,
+            color = accentColor,
+            style = MiuixTheme.textStyles.body2,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
     }
-}
-
-private fun markerGradient(marker: String, accentColor: Color): List<Color> = when (marker) {
-    "≋", "◎", "W", "G", "E", "P", "J", "N", "D", "C", "O" ->
-        DesignGradients.BluePurple.colors
-    "◠", "≡", "◈", "DS", "▢", "☾" -> DesignGradients.PurplePink.colors
-    "↓", "⌁", "S", "▦", "▣" -> DesignGradients.OrangeYellow.colors
-    "▷", "↻", "↺", "♫", "♪" -> DesignGradients.PinkOrange.colors
-    "◇", "文", "§", "◐", "◌", "⌕" -> DesignGradients.GreenBlue.colors
-    "●" -> listOf(accentColor, DesignPalette.BrandPink)
-    else -> DesignGradients.Brand.colors
 }
 
 private fun markerDrawable(marker: String): DrawableResource? = when (marker) {
@@ -555,112 +468,4 @@ internal fun <T> SettingsSelectRow(
             value.toIntOrNull()?.let(options::getOrNull)?.let(onSelect)
         },
     )
-}
-
-// ── Action Row (destructive actions with confirm states) ──
-
-@Composable
-internal fun SettingsActionRow(
-    label: String,
-    subtitle: String,
-    state: SettingsActionState,
-    actionLabel: String? = null,
-    onStateChange: (SettingsActionState) -> Unit,
-    onConfirm: () -> Unit,
-) {
-    val effectiveActionLabel = actionLabel ?: stringResource(SettingsRes.string.settings_action_clear)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = label,
-                color = MiuixTheme.colorScheme.onSurface,
-                style = MiuixTheme.textStyles.body1,
-                fontWeight = FontWeight.Medium,
-            )
-            val statusText = when (state) {
-                SettingsActionState.Busy -> stringResource(SettingsRes.string.settings_action_working)
-                SettingsActionState.Success -> stringResource(SettingsRes.string.settings_action_done)
-                SettingsActionState.Error -> stringResource(SettingsRes.string.settings_action_failed_retry)
-                else -> subtitle
-            }
-            Text(
-                text = statusText,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                style = MiuixTheme.textStyles.footnote1,
-            )
-
-            // Confirm buttons
-            if (state == SettingsActionState.Confirm) {
-                Row(
-                    modifier = Modifier.padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(SettingsRes.string.settings_action_confirm),
-                        color = Color.White,
-                        style = MiuixTheme.textStyles.footnote1,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier
-                            .heightIn(min = DesignTokens.adaptive.minimumTouchTarget)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MiuixTheme.colorScheme.error)
-                            .clickable { onConfirm() }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                    Text(
-                        text = stringResource(SettingsRes.string.settings_action_cancel),
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        style = MiuixTheme.textStyles.footnote1,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier
-                            .heightIn(min = DesignTokens.adaptive.minimumTouchTarget)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                            .clickable { onStateChange(SettingsActionState.Idle) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-            }
-        }
-
-        // Right side state indicator
-        when (state) {
-            SettingsActionState.Busy -> CircularProgressIndicator(size = 18.dp)
-            SettingsActionState.Success -> Icon(
-                painter = painterResource(CoreRes.drawable.icon_ok),
-                contentDescription = null,
-                tint = DesignPalette.SupportGreen,
-                modifier = Modifier.size(18.dp),
-            )
-            SettingsActionState.Idle -> Text(
-                text = effectiveActionLabel,
-                color = MiuixTheme.colorScheme.onSurface,
-                style = MiuixTheme.textStyles.footnote1,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .heightIn(min = DesignTokens.adaptive.minimumTouchTarget)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                    .clickable { onStateChange(SettingsActionState.Confirm) }
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-            )
-            else -> {}
-        }
-    }
-}
-
-internal enum class SettingsActionState {
-    Idle,
-    Confirm,
-    Busy,
-    Success,
-    Error,
 }

@@ -3,6 +3,8 @@ package io.github.julystar.musicapp.diagnostics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +27,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.DiagnosticExportBundleRequest
+import io.github.julystar.musicapp.core.presentation.components.StatusBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode
 import io.github.julystar.musicapp.platform.diagnosticExportPresenter
@@ -79,6 +83,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 @Suppress("DEPRECATION")
 fun SafeModeScreen(
     state: DiagnosticsBootstrapState,
@@ -122,32 +127,64 @@ fun SafeModeScreen(
             ) {
                 Text(
                     text = stringResource(Res.string.diagnostics_safe_mode_title),
+                    color = MiuixTheme.colorScheme.onBackground,
                     style = MiuixTheme.textStyles.title1.copy(fontWeight = FontWeight.Bold),
                 )
                 SmallTitle(text = stringResource(Res.string.diagnostics_safe_mode_reason))
                 Card {
-                    BasicComponent(
-                        title = state.startupPlan.reason
-                            ?: stringResource(Res.string.diagnostics_no_incident),
-                        summary = incident?.let {
-                            "${it.type} · ${it.detectedAtEpochMs.toIncidentTime()} · " +
-                                "${it.startupStage ?: "UNKNOWN"} · ×${it.occurrenceCount}"
-                        },
-                    )
-                    HorizontalDivider()
-                    if (showDetail && incident != null) {
-                        BasicComponent(
-                            title = incident.summary,
-                            summary = incident.detail ?: incident.artifactPaths.joinToString("\n"),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = state.startupPlan.reason
+                                ?: stringResource(Res.string.diagnostics_no_incident),
+                            style = MiuixTheme.textStyles.body1,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
                         )
-                        HorizontalDivider()
+                        incident?.let {
+                            Text(
+                                text = "${it.type} · ${it.detectedAtEpochMs.toIncidentTime()} · " +
+                                    "${it.startupStage ?: "UNKNOWN"} · ×${it.occurrenceCount}",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
+                        if (showDetail && incident != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                            Text(
+                                text = incident.summary,
+                                style = MiuixTheme.textStyles.body1,
+                                color = MiuixTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = incident.detail
+                                    ?: incident.artifactPaths.joinToString("\n"),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
                     }
                 }
                 SmallTitle(text = stringResource(Res.string.diagnostics_safe_mode_disabled))
                 Card {
-                    state.startupPlan.disabledComponents.sorted().forEach { component ->
-                        BasicComponent(title = component)
-                        HorizontalDivider()
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        state.startupPlan.disabledComponents.sorted().forEach { component ->
+                            StatusBadge(
+                                label = component,
+                                tone = StatusTone.Warning,
+                            )
+                        }
                     }
                 }
                 Text(
@@ -301,7 +338,12 @@ fun SafeModeScreen(
                         Text(stringResource(Res.string.diagnostics_try_normal))
                     }
                 }
-                status?.let { Text(it) }
+                status?.let {
+                    Text(
+                        text = it,
+                        color = MiuixTheme.colorScheme.onBackground,
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
             }
         }

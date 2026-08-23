@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.feature.radio.generated.resources.Res
@@ -72,20 +72,20 @@ fun RadioScreen(
                 },
             )
             when {
-                state.isLoading -> DesignStatusCard(
+                state.isLoading -> StatusMessageCard(
                     title = stringResource(Res.string.radio_generating),
                     message = stringResource(Res.string.radio_finding_tracks),
                     loading = true,
                     modifier = Modifier.weight(1f),
                 )
-                state.error != null -> DesignStatusCard(
+                state.error != null -> StatusMessageCard(
                     title = stringResource(Res.string.radio_unavailable),
                     message = stringResource(Res.string.radio_finding_tracks),
                     actionText = stringResource(Res.string.radio_refresh),
                     onAction = { onAction(RadioAction.Refresh) },
                     modifier = Modifier.weight(1f),
                 )
-                state.tracks.isEmpty() -> DesignStatusCard(
+                state.tracks.isEmpty() -> StatusMessageCard(
                     title = stringResource(Res.string.radio_no_tracks),
                     message = stringResource(Res.string.radio_empty_message),
                     modifier = Modifier.weight(1f),

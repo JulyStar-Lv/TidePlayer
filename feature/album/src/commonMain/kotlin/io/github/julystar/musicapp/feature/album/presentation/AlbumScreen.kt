@@ -42,10 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
@@ -87,6 +85,10 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -133,7 +135,7 @@ fun AlbumScreen(
                 .fillMaxHeight(),
         ) {
             when {
-                state.error != null -> DesignStatusCard(
+                state.error != null -> StatusMessageCard(
                     title = stringResource(Res.string.album_unavailable),
                     message = state.error.resolve(),
                     modifier = Modifier
@@ -182,7 +184,7 @@ fun AlbumScreen(
                         }
                         if (state.tracks.isEmpty()) {
                             item(key = "album-empty") {
-                                DesignStatusCard(
+                                StatusMessageCard(
                                     title = stringResource(Res.string.album_no_tracks),
                                     message = state.title.ifBlank { defaultTitle },
                                     modifier = Modifier
@@ -209,7 +211,7 @@ fun AlbumScreen(
                     }
                 }
             }
-            DesignStickyGlassActionBar(
+            LiquidGlassActionBar(
                 title = state.title.ifBlank { defaultTitle },
                 collapseFraction = if (state.error != null) {
                     1f
@@ -464,28 +466,45 @@ private fun AlbumTrackRow(
                         .align(Alignment.TopEnd)
                         .offset(x = 12.dp, y = 28.dp),
                 ) {
-                    ResourceDropdownMenu(
-                        expanded = moreMenuExpanded,
-                        onDismissRequest = { moreMenuExpanded = false },
-                        compact = true,
-                        items = buildList {
-                            add(
-                                ResourceDropdownMenuItem(
-                                    label = Res.string.album_play,
-                                    icon = CoreRes.drawable.icon_play,
-                                    onClick = onPlay,
-                                ),
-                            )
+                    OverlayDropdownPopup(
+                        DropdownEntry(
+                            items = buildList {
+                                add(
+                                    DropdownItem(
+                                        text = stringResource(Res.string.album_play),
+                                        icon = { modifier ->
+                                            Icon(
+                                                painter = painterResource(CoreRes.drawable.icon_play),
+                                                contentDescription = null,
+                                                modifier = modifier,
+                                            )
+                                        },
+                                        onClick = onPlay,
+                                    ),
+                                )
                             if (track.canDownload) {
                                 add(
-                                    ResourceDropdownMenuItem(
-                                        label = Res.string.album_download,
-                                        icon = CoreRes.drawable.icon_download,
+                                    DropdownItem(
+                                        text = stringResource(Res.string.album_download),
+                                        icon = { modifier ->
+                                            Icon(
+                                                painter = painterResource(CoreRes.drawable.icon_download),
+                                                contentDescription = null,
+                                                modifier = modifier,
+                                            )
+                                        },
                                         onClick = onDownload,
                                     ),
                                 )
                             }
                         },
+                        ),
+                        show = moreMenuExpanded,
+                        onDismiss = { moreMenuExpanded = false },
+                        onDismissFinished = {},
+                        maxHeight = 360.dp,
+                        dropdownColors = DropdownDefaults.dropdownColors(),
+                        renderInRootScaffold = true,
                     )
                 }
             }

@@ -23,8 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.TagChip
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
+import io.github.julystar.musicapp.core.presentation.components.StatusBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_chevron_right
@@ -146,9 +146,9 @@ private fun SourceCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesignStatusBadge(
+                    StatusBadge(
                         label = stringResource(Res.string.sources_configured),
-                        tone = DesignStatusTone.Success,
+                        tone = StatusTone.Success,
                     )
                     Text(
                         text = source.sourceType,

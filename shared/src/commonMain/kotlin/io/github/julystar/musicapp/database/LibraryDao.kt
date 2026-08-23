@@ -8,6 +8,10 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import io.github.julystar.musicapp.metadata.LyricsQualitySelector
+import io.github.julystar.musicapp.metadata.TrackIdentityMatcher
+import io.github.julystar.musicapp.metadata.TrackIdentitySnapshot
+import io.github.julystar.musicapp.metadata.TrackIdentitySource
 
 @Dao
 interface TrackDao {
@@ -171,7 +175,8 @@ interface TrackDao {
         JOIN source_item item ON item.id = ref.sourceItemId
         WHERE item.contentHash = :contentHash
           AND item.contentHash IS NOT NULL
-        LIMIT 2
+        ORDER BY t.id
+        LIMIT 32
         """
     )
     suspend fun findBySourceContentHash(contentHash: String): List<TrackEntity>
@@ -185,7 +190,8 @@ interface TrackDao {
         WHERE item.audioFingerprint = :audioFingerprint
           AND item.audioFingerprint IS NOT NULL
           AND t.durationMs BETWEEN :minDurationMs AND :maxDurationMs
-        LIMIT 2
+        ORDER BY t.id
+        LIMIT 32
         """
     )
     suspend fun findByAudioFingerprintWithinDuration(
@@ -199,7 +205,8 @@ interface TrackDao {
         SELECT * FROM track
         WHERE musicBrainzRecordingId = :recordingId
           AND musicBrainzRecordingId IS NOT NULL
-        LIMIT 2
+        ORDER BY id
+        LIMIT 32
         """
     )
     suspend fun findByMusicBrainzRecordingId(recordingId: String): List<TrackEntity>
@@ -210,7 +217,8 @@ interface TrackDao {
         WHERE isrc = :isrc
           AND isrc IS NOT NULL
           AND durationMs BETWEEN :minDurationMs AND :maxDurationMs
-        LIMIT 2
+        ORDER BY id
+        LIMIT 32
         """
     )
     suspend fun findByIsrcWithinDuration(
@@ -228,7 +236,8 @@ interface TrackDao {
           AND lower(trim(COALESCE(t.artist, ''))) = :artistKey
           AND lower(trim(COALESCE(a.name, ''))) = :albumKey
           AND t.durationMs BETWEEN :minDurationMs AND :maxDurationMs
-        LIMIT 2
+        ORDER BY t.id
+        LIMIT 32
         """
     )
     suspend fun findByStrictMetadata(
@@ -238,6 +247,19 @@ interface TrackDao {
         minDurationMs: Long,
         maxDurationMs: Long,
     ): List<TrackEntity>
+
+    @Query(
+        """
+        SELECT * FROM track
+        WHERE metadataSourceId = :sourceId
+          AND metadataExternalId = :externalId
+          AND metadataSourceId IS NOT NULL
+          AND metadataExternalId IS NOT NULL
+        ORDER BY id
+        LIMIT 32
+        """
+    )
+    suspend fun findByPluginExternalIdentity(sourceId: String, externalId: String): List<TrackEntity>
 
     @Query(
         """
@@ -422,6 +444,28 @@ data class TrackDeduplicationSource(
     val audioFingerprint: String?,
 )
 
+data class TrackMergeSourceChoice(
+    val trackId: Long,
+    val sourceItemId: Long,
+    val isPreferred: Boolean,
+    val isAvailable: Boolean,
+    val isDownloaded: Boolean,
+    val playable: Boolean,
+    val codec: String?,
+    val container: String?,
+    val bitRate: Int?,
+    val sampleRate: Int?,
+    val bitsPerSample: Int?,
+    val channels: Int?,
+    val channelLayout: String?,
+    val lossless: Boolean?,
+    val updatedAt: Long,
+    val providerType: String,
+    val sourcePriority: Int,
+    val itemDeleted: Boolean,
+    val accountEnabled: Boolean,
+)
+
 @Dao
 interface TrackMergeDao {
     @Query(
@@ -459,25 +503,101 @@ interface TrackMergeDao {
 
     @Query(
         """
-        UPDATE track_source_ref
-        SET trackId = :targetTrackId,
-            role = 'alternate',
-            matchMethod = :matchMethod,
-            matchConfidence = CASE
-                WHEN matchConfidence > :matchConfidence THEN matchConfidence
-                ELSE :matchConfidence
-            END,
-            updatedAt = :now
-        WHERE trackId = :sourceTrackId
+        SELECT t.*, album.name AS albumName
+        FROM track t
+        LEFT JOIN album ON album.id = t.albumId
+        WHERE t.id = :trackId
+        LIMIT 1
         """
     )
+    suspend fun getCandidate(trackId: Long): TrackDeduplicationCandidate?
+
+    @Query(
+        """
+        SELECT ref.trackId,
+               item.sourceAccountId,
+               item.contentHash,
+               item.audioFingerprint
+        FROM track_source_ref ref
+        JOIN source_item item ON item.id = ref.sourceItemId
+        WHERE ref.trackId IN (:trackIds)
+          AND ref.isAvailable = 1
+          AND item.isDeleted = 0
+        ORDER BY ref.trackId, ref.sourceItemId
+        """
+    )
+    suspend fun listSourcesForTracks(trackIds: List<Long>): List<TrackDeduplicationSource>
+
+    suspend fun identitySnapshot(trackId: Long): TrackIdentitySnapshot? {
+        val candidate = getCandidate(trackId) ?: return null
+        return TrackIdentitySnapshot(
+            track = candidate.track,
+            albumName = candidate.albumName,
+            sources = listSourcesForTracks(listOf(trackId)).map { source ->
+                TrackIdentitySource(source.sourceAccountId, source.contentHash, source.audioFingerprint)
+            },
+        )
+    }
+
+    @Query(
+        """
+        SELECT ref.trackId AS trackId,
+               ref.sourceItemId AS sourceItemId,
+               ref.isPreferred AS isPreferred,
+               ref.isAvailable AS isAvailable,
+               ref.isDownloaded AS isDownloaded,
+               ref.playable AS playable,
+               ref.codec AS codec,
+               ref.container AS container,
+               ref.bitRate AS bitRate,
+               ref.sampleRate AS sampleRate,
+               ref.bitsPerSample AS bitsPerSample,
+               ref.channels AS channels,
+               ref.channelLayout AS channelLayout,
+               ref.lossless AS lossless,
+               ref.updatedAt AS updatedAt,
+               account.providerType AS providerType,
+               account.priority AS sourcePriority,
+               item.isDeleted AS itemDeleted,
+               account.enabled AS accountEnabled
+        FROM track_source_ref ref
+        JOIN source_item item ON item.id = ref.sourceItemId
+        JOIN source_account account ON account.id = item.sourceAccountId
+        WHERE ref.trackId IN (:trackIds)
+        ORDER BY ref.trackId, ref.sourceItemId
+        """
+    )
+    suspend fun listMergeSourceChoices(trackIds: List<Long>): List<TrackMergeSourceChoice>
+
+    @Upsert
+    suspend fun upsertTrack(track: TrackEntity)
+
+    @Query("DELETE FROM track_source_ref WHERE trackId = :trackId")
+    suspend fun deleteSourceRefs(trackId: Long)
+
+    @Upsert
+    suspend fun upsertSourceRefs(values: List<TrackSourceRefEntity>)
+
+    @Transaction
     suspend fun moveSourceRefs(
         sourceTrackId: Long,
         targetTrackId: Long,
         matchMethod: String,
         matchConfidence: Int,
         now: Long,
-    )
+    ) {
+        val moved = listSourceRefs(sourceTrackId).map { ref ->
+            ref.copy(
+                trackId = targetTrackId,
+                role = "alternate",
+                matchMethod = matchMethod,
+                matchConfidence = maxOf(ref.matchConfidence, matchConfidence),
+                updatedAt = now,
+            )
+        }
+        deleteSourceRefs(sourceTrackId)
+        if (moved.isNotEmpty()) upsertSourceRefs(moved)
+    }
 
     @Query("SELECT * FROM playlist_track WHERE trackId = :trackId")
     suspend fun listPlaylistTracks(trackId: Long): List<PlaylistTrackCrossRef>
@@ -494,11 +614,29 @@ interface TrackMergeDao {
     @Query("DELETE FROM track_artist WHERE trackId = :sourceTrackId")
     suspend fun deleteRemainingTrackArtists(sourceTrackId: Long)
 
+    @Query("SELECT * FROM track_artist WHERE trackId = :trackId ORDER BY position, artistId")
+    suspend fun listTrackArtists(trackId: Long): List<TrackArtistCrossRef>
+
+    @Query("DELETE FROM track_artist WHERE trackId IN (:trackIds)")
+    suspend fun deleteTrackArtists(trackIds: List<Long>)
+
+    @Upsert
+    suspend fun upsertTrackArtists(values: List<TrackArtistCrossRef>)
+
     @Query("UPDATE OR IGNORE track_genre SET trackId = :targetTrackId WHERE trackId = :sourceTrackId")
     suspend fun moveTrackGenres(sourceTrackId: Long, targetTrackId: Long)
 
     @Query("DELETE FROM track_genre WHERE trackId = :sourceTrackId")
     suspend fun deleteRemainingTrackGenres(sourceTrackId: Long)
+
+    @Query("SELECT * FROM track_genre WHERE trackId = :trackId ORDER BY genreId")
+    suspend fun listTrackGenres(trackId: Long): List<TrackGenreCrossRef>
+
+    @Query("DELETE FROM track_genre WHERE trackId IN (:trackIds)")
+    suspend fun deleteTrackGenres(trackIds: List<Long>)
+
+    @Upsert
+    suspend fun upsertTrackGenres(values: List<TrackGenreCrossRef>)
 
     @Query("UPDATE OR IGNORE lyrics SET trackId = :targetTrackId WHERE trackId = :sourceTrackId")
     suspend fun moveLyrics(sourceTrackId: Long, targetTrackId: Long)
@@ -506,11 +644,38 @@ interface TrackMergeDao {
     @Query("DELETE FROM lyrics WHERE trackId = :sourceTrackId")
     suspend fun deleteRemainingLyrics(sourceTrackId: Long)
 
+    @Query("SELECT * FROM lyrics WHERE trackId = :trackId ORDER BY updatedAt DESC")
+    suspend fun listLyrics(trackId: Long): List<LyricsEntity>
+
+    @Query("SELECT * FROM track_source_ref WHERE trackId = :trackId")
+    suspend fun listSourceRefs(trackId: Long): List<TrackSourceRefEntity>
+
+    @Query("UPDATE track_source_ref SET isPreferred = 0 WHERE trackId = :trackId")
+    suspend fun clearPreferred(trackId: Long)
+
+    @Query("UPDATE track_source_ref SET isPreferred = 1 WHERE trackId = :trackId AND sourceItemId = :sourceItemId")
+    suspend fun setPreferred(trackId: Long, sourceItemId: Long)
+
+    @Query("DELETE FROM lyrics WHERE trackId = :trackId")
+    suspend fun deleteAllLyrics(trackId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLyrics(values: List<LyricsEntity>)
+
     @Query("UPDATE raw_metadata SET trackId = :targetTrackId WHERE trackId = :sourceTrackId")
     suspend fun moveRawMetadata(sourceTrackId: Long, targetTrackId: Long)
 
     @Query("UPDATE artwork SET trackId = :targetTrackId WHERE trackId = :sourceTrackId")
     suspend fun moveArtwork(sourceTrackId: Long, targetTrackId: Long)
+
+    @Query("SELECT * FROM artwork WHERE trackId = :trackId")
+    suspend fun listArtwork(trackId: Long): List<ArtworkEntity>
+
+    @Query("DELETE FROM artwork WHERE id = :id")
+    suspend fun deleteArtwork(id: Long)
+
+    @Query("UPDATE artwork SET trackId = :targetTrackId WHERE id = :id")
+    suspend fun moveArtworkRow(id: Long, targetTrackId: Long)
 
     @Query("UPDATE listening_history SET trackId = :targetTrackId WHERE trackId = :sourceTrackId")
     suspend fun moveListeningHistory(sourceTrackId: Long, targetTrackId: Long)
@@ -528,6 +693,9 @@ interface TrackMergeDao {
     )
     suspend fun updateLastPlayedAt(trackId: Long, lastPlayedAt: Long?, now: Long)
 
+    @Query("INSERT INTO track_fts(track_fts) VALUES('rebuild')")
+    suspend fun rebuildTrackFts()
+
     @Transaction
     suspend fun mergeTracks(
         targetTrackId: Long,
@@ -536,8 +704,49 @@ interface TrackMergeDao {
         matchConfidence: Int,
         lastPlayedAt: Long?,
         now: Long,
-    ) {
-        sourceTrackIds.forEach { sourceTrackId ->
+    ): Boolean {
+        val sourceIds = sourceTrackIds.distinct().filterNot { it == targetTrackId }
+        if (sourceIds.isEmpty()) return false
+        val allIds = listOf(targetTrackId) + sourceIds
+        val candidates = allIds.mapNotNull { getCandidate(it) }
+        if (candidates.size != allIds.size) return false
+        val sources = listSourcesForTracks(allIds)
+        val snapshots = candidates.map { candidate ->
+            TrackIdentitySnapshot(
+                track = candidate.track,
+                albumName = candidate.albumName,
+                sources = sources.filter { it.trackId == candidate.track.id }.map { source ->
+                    TrackIdentitySource(source.sourceAccountId, source.contentHash, source.audioFingerprint)
+                },
+            )
+        }
+        if (!TrackIdentityMatcher.pairwiseCompatible(snapshots)) return false
+        val target = candidates.single { it.track.id == targetTrackId }.track
+        if (!target.metadataLocked && candidates.any { it.track.id != targetTrackId && it.track.metadataLocked }) {
+            return false
+        }
+
+        val rankedTracks = candidates.map(TrackDeduplicationCandidate::track)
+            .sortedWith(trackMetadataWinnerComparator(targetTrackId))
+        val artistRefs = rankedTracks.firstNotNullOfOrNull { track ->
+            listTrackArtists(track.id).takeIf(List<TrackArtistCrossRef>::isNotEmpty)
+        }.orEmpty()
+        val genreRefs = rankedTracks.firstNotNullOfOrNull { track ->
+            listTrackGenres(track.id).takeIf(List<TrackGenreCrossRef>::isNotEmpty)
+        }.orEmpty()
+        val mergedLyrics = LyricsQualitySelector.selectBySourceKind(allIds.flatMap { listLyrics(it) })
+            .map { lyric -> lyric.copy(id = 0, trackId = targetTrackId) }
+        val sourceChoices = listMergeSourceChoices(allIds)
+        val preferred = choosePreferredMergeSource(sourceChoices)
+        upsertTrack(consolidateMergedTrack(
+            rankedTracks = rankedTracks,
+            targetTrackId = targetTrackId,
+            preferred = preferred,
+            requestedLastPlayedAt = lastPlayedAt,
+            now = now,
+        ))
+
+        sourceIds.forEach { sourceTrackId ->
             moveSourceRefs(sourceTrackId, targetTrackId, matchMethod, matchConfidence, now)
             val targetPlaylistTracks = listPlaylistTracks(targetTrackId).associateBy { it.playlistId }
             val mergedPlaylistTracks = listPlaylistTracks(sourceTrackId).map { sourceTrack ->
@@ -553,19 +762,157 @@ interface TrackMergeDao {
             }
             deleteRemainingPlaylistTracks(sourceTrackId)
             upsertPlaylistTracks(mergedPlaylistTracks)
-            moveTrackArtists(sourceTrackId, targetTrackId)
-            deleteRemainingTrackArtists(sourceTrackId)
-            moveTrackGenres(sourceTrackId, targetTrackId)
-            deleteRemainingTrackGenres(sourceTrackId)
-            moveLyrics(sourceTrackId, targetTrackId)
-            deleteRemainingLyrics(sourceTrackId)
             moveRawMetadata(sourceTrackId, targetTrackId)
-            moveArtwork(sourceTrackId, targetTrackId)
+            val targetArtwork = listArtwork(targetTrackId)
+            val targetHashes = targetArtwork.mapTo(mutableSetOf(), ArtworkEntity::contentHash)
+            listArtwork(sourceTrackId).forEach { artwork ->
+                if (artwork.contentHash in targetHashes) deleteArtwork(artwork.id)
+                else {
+                    moveArtworkRow(artwork.id, targetTrackId)
+                    targetHashes += artwork.contentHash
+                }
+            }
             moveListeningHistory(sourceTrackId, targetTrackId)
             deleteTrack(sourceTrackId)
         }
-        updateLastPlayedAt(targetTrackId, lastPlayedAt, now)
+
+        deleteTrackArtists(allIds)
+        if (artistRefs.isNotEmpty()) {
+            upsertTrackArtists(artistRefs.map { it.copy(trackId = targetTrackId) })
+        }
+        deleteTrackGenres(allIds)
+        if (genreRefs.isNotEmpty()) {
+            upsertTrackGenres(genreRefs.map { it.copy(trackId = targetTrackId) })
+        }
+        deleteAllLyrics(targetTrackId)
+        if (mergedLyrics.isNotEmpty()) insertLyrics(mergedLyrics)
+        clearPreferred(targetTrackId)
+        preferred?.let { setPreferred(targetTrackId, it.sourceItemId) }
+        rebuildTrackFts()
+        return true
     }
+}
+
+private fun trackMetadataWinnerComparator(targetTrackId: Long): Comparator<TrackEntity> =
+    compareByDescending<TrackEntity> { it.metadataLocked }
+        .thenByDescending { metadataSourcePriority(it.metadataSource) }
+        .thenByDescending { trackSemanticFieldCount(it) }
+        .thenByDescending { it.id == targetTrackId }
+        .thenByDescending { it.updatedAt }
+        .thenBy { it.id }
+
+private fun metadataSourcePriority(source: String): Int = when (source) {
+    TrackMetadataSources.File, TrackMetadataSources.Server -> 3
+    TrackMetadataSources.Plugin -> 2
+    TrackMetadataSources.Filename -> 1
+    else -> 0
+}
+
+private fun trackSemanticFieldCount(track: TrackEntity): Int = listOf(
+    track.title,
+    track.sortTitle,
+    track.artist,
+    track.albumArtist,
+    track.composer,
+    track.lyricist,
+    track.conductor,
+    track.date,
+    track.isrc,
+    track.musicBrainzRecordingId,
+    track.musicBrainzTrackId,
+    track.musicBrainzReleaseId,
+).count { !it.isNullOrBlank() }
+
+private fun choosePreferredMergeSource(values: List<TrackMergeSourceChoice>): TrackMergeSourceChoice? {
+    val playable = values.filter { value ->
+        value.isAvailable && value.playable && !value.itemDeleted && value.accountEnabled
+    }
+    val explicit = playable.filter(TrackMergeSourceChoice::isPreferred)
+    if (explicit.size == 1) return explicit.single()
+    return (explicit.ifEmpty { playable }).sortedWith(
+        compareByDescending<TrackMergeSourceChoice> { it.isDownloaded }
+            .thenByDescending { it.providerType == ProviderTypes.Local }
+            .thenByDescending { it.lossless ?: false }
+            .thenByDescending { it.bitsPerSample ?: 0 }
+            .thenByDescending { it.sampleRate ?: 0 }
+            .thenByDescending { it.bitRate ?: 0 }
+            .thenByDescending { it.sourcePriority }
+            .thenByDescending { it.updatedAt }
+            .thenBy { it.sourceItemId },
+    ).firstOrNull()
+}
+
+private fun consolidateMergedTrack(
+    rankedTracks: List<TrackEntity>,
+    targetTrackId: Long,
+    preferred: TrackMergeSourceChoice?,
+    requestedLastPlayedAt: Long?,
+    now: Long,
+): TrackEntity {
+    val winner = rankedTracks.first()
+    fun text(value: (TrackEntity) -> String?): String? = rankedTracks.firstNotNullOfOrNull { track ->
+        value(track)?.trim()?.takeIf(String::isNotEmpty)
+    }
+    fun <T> value(value: (TrackEntity) -> T?): T? = rankedTracks.firstNotNullOfOrNull(value)
+    val target = rankedTracks.single { it.id == targetTrackId }
+    val physicalDuration = rankedTracks.firstNotNullOfOrNull { track ->
+        track.durationMs.takeIf {
+            track.metadataSource == TrackMetadataSources.File || track.metadataSource == TrackMetadataSources.Server
+        }
+    } ?: target.durationMs ?: value(TrackEntity::durationMs)
+    return winner.copy(
+        id = targetTrackId,
+        title = text(TrackEntity::title) ?: target.title,
+        sortTitle = text(TrackEntity::sortTitle),
+        albumId = value(TrackEntity::albumId),
+        albumArtist = text(TrackEntity::albumArtist),
+        composer = text(TrackEntity::composer),
+        comment = text(TrackEntity::comment),
+        grouping = text(TrackEntity::grouping),
+        durationMs = physicalDuration,
+        discNumber = value(TrackEntity::discNumber),
+        discTotal = value(TrackEntity::discTotal),
+        trackNumber = value(TrackEntity::trackNumber),
+        trackTotal = value(TrackEntity::trackTotal),
+        year = value(TrackEntity::year),
+        date = text(TrackEntity::date),
+        sampleRate = preferred?.sampleRate ?: winner.sampleRate,
+        bitRate = preferred?.bitRate ?: winner.bitRate,
+        bitsPerSample = preferred?.bitsPerSample ?: winner.bitsPerSample,
+        channels = preferred?.channels ?: winner.channels,
+        channelLayout = preferred?.channelLayout ?: winner.channelLayout,
+        codec = preferred?.codec ?: winner.codec,
+        container = preferred?.container ?: winner.container,
+        lossless = preferred?.lossless ?: winner.lossless,
+        createdAt = rankedTracks.minOf(TrackEntity::createdAt),
+        updatedAt = now,
+        lastPlayedAt = (rankedTracks.mapNotNull(TrackEntity::lastPlayedAt) + listOfNotNull(requestedLastPlayedAt)).maxOrNull(),
+        artist = text(TrackEntity::artist),
+        lyricist = text(TrackEntity::lyricist),
+        conductor = text(TrackEntity::conductor),
+        copyright = text(TrackEntity::copyright),
+        publisher = text(TrackEntity::publisher),
+        originalReleaseDate = text(TrackEntity::originalReleaseDate),
+        bpm = value(TrackEntity::bpm),
+        musicalKey = text(TrackEntity::musicalKey),
+        isrc = text(TrackEntity::isrc),
+        musicBrainzRecordingId = text(TrackEntity::musicBrainzRecordingId),
+        musicBrainzTrackId = text(TrackEntity::musicBrainzTrackId),
+        musicBrainzReleaseId = text(TrackEntity::musicBrainzReleaseId),
+        musicBrainzReleaseGroupId = text(TrackEntity::musicBrainzReleaseGroupId),
+        musicBrainzArtistId = text(TrackEntity::musicBrainzArtistId),
+        musicBrainzReleaseArtistId = text(TrackEntity::musicBrainzReleaseArtistId),
+        musicBrainzWorkId = text(TrackEntity::musicBrainzWorkId),
+        replayGainTrackGain = value(TrackEntity::replayGainTrackGain),
+        replayGainTrackPeak = value(TrackEntity::replayGainTrackPeak),
+        replayGainAlbumGain = value(TrackEntity::replayGainAlbumGain),
+        replayGainAlbumPeak = value(TrackEntity::replayGainAlbumPeak),
+        metadataSource = winner.metadataSource,
+        metadataLocked = winner.metadataLocked,
+        metadataSourceId = winner.metadataSourceId,
+        metadataExternalId = winner.metadataExternalId,
+        metadataAppliedAt = winner.metadataAppliedAt,
+    )
 }
 
 data class PlaylistSummaryRow(
@@ -1010,7 +1357,20 @@ interface MetadataDao {
     @Upsert
     suspend fun upsertArtwork(values: List<ArtworkEntity>): List<Long>
 
-    @Query("SELECT * FROM artwork WHERE trackId = :trackId ORDER BY id DESC LIMIT 1")
+    @Query(
+        """
+        SELECT * FROM artwork
+        WHERE trackId = :trackId
+        ORDER BY
+          CASE WHEN trim(localPath) <> '' THEN 1 ELSE 0 END DESC,
+          COALESCE(width, 0) * COALESCE(height, 0) DESC,
+          CASE WHEN lower(COALESCE(mimeType, '')) LIKE 'image/%' THEN 1 ELSE 0 END DESC,
+          CASE WHEN lower(COALESCE(pictureType, '')) IN ('coverfront', 'front cover') THEN 1 ELSE 0 END DESC,
+          contentHash ASC,
+          id ASC
+        LIMIT 1
+        """
+    )
     suspend fun getArtworkForTrack(trackId: Long): ArtworkEntity?
 
     @Query(

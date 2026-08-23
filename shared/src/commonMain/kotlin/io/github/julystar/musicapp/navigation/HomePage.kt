@@ -34,10 +34,10 @@ import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeCl
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
-import io.github.julystar.musicapp.core.presentation.components.DesignGlassOverlayScene
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderStateSink
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
+import io.github.julystar.musicapp.core.presentation.components.StickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -46,8 +46,7 @@ import io.github.julystar.musicapp.feature.settings.presentation.navigation.navi
 import io.github.julystar.musicapp.service.playback.presentation.shell.PlaybackMiniPlayerHost
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberHasPlaybackItem
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
-import io.github.julystar.musicapp.widgets.appbar.NavigationRailBar
-import io.github.julystar.musicapp.widgets.appbar.SidebarBar
+import io.github.julystar.musicapp.widgets.appbar.HomeNavigationRail
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -147,7 +146,7 @@ fun HomePage(
             .asPaddingValues()
             .calculateTopPadding() + titleBarInset
         var stickyHeaderState by remember(currentTab) {
-            mutableStateOf<DesignStickyHeaderState?>(null)
+            mutableStateOf<StickyHeaderState?>(null)
         }
         val stickyHeaderStateSink = remember(currentTab) {
             OwnedDesignStickyHeaderStateSink { state -> stickyHeaderState = state }
@@ -156,7 +155,7 @@ fun HomePage(
         val tabContent: @Composable (
             HomeTab,
             PaddingValues,
-            DesignStickyHeaderStateSink?,
+            StickyHeaderStateSink?,
         ) -> Unit = { tab, contentPadding, stickyHeaderSink ->
             HomeTabContent(
                 currentTab = tab,
@@ -184,7 +183,7 @@ fun HomePage(
 
         when (windowSizeClass) {
             WindowSizeClass.Compact -> {
-                DesignGlassOverlayScene(
+                LiquidGlassOverlayScene(
                     modifier = Modifier.fillMaxSize(),
                     contentBottomInset = getBottomBarSpace(showMiniPlayer, scaffoldPadding),
                     backdropContent = {
@@ -206,7 +205,7 @@ fun HomePage(
                     },
                     overlayContent = {
                         stickyHeaderState?.let { state ->
-                            DesignStickyGlassActionBar(
+                            LiquidGlassActionBar(
                                 title = state.title,
                                 subtitle = state.subtitle,
                                 collapseFraction = state.collapseFraction,
@@ -236,11 +235,11 @@ fun HomePage(
                         .fillMaxSize()
                         .statusBarsPadding(),
                 ) {
-                    NavigationRailBar(
+                    HomeNavigationRail(
                         currentTab = currentTab,
                         onTabSelected = onTabSelected,
+                        expanded = false,
                         modifier = Modifier.fillMaxHeight(),
-                        windowSizeClass = windowSizeClass,
                     )
                     RootContentPane(
                         modifier = Modifier
@@ -262,11 +261,11 @@ fun HomePage(
                         .fillMaxSize()
                         .statusBarsPadding(),
                 ) {
-                    SidebarBar(
+                    HomeNavigationRail(
                         currentTab = currentTab,
                         onTabSelected = onTabSelected,
+                        expanded = true,
                         modifier = Modifier.fillMaxHeight(),
-                        windowSizeClass = windowSizeClass,
                     )
                     RootContentPane(
                         modifier = Modifier
@@ -304,7 +303,7 @@ internal fun RootContentPane(
         return
     }
 
-    DesignGlassOverlayScene(
+    LiquidGlassOverlayScene(
         modifier = modifier,
         contentBottomInset = DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs,
         backdropContent = { content() },

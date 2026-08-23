@@ -70,8 +70,17 @@ class PluginArtworkResolver(
         return resolved.cachePath != null
     }
 
-    suspend fun load(artwork: Artwork): ByteArray? {
-        val target = resolveTarget(artwork) ?: return null
+    suspend fun load(
+        artwork: Artwork,
+        matchedCandidate: MetaSongCandidate? = null,
+        canonicalTrackId: Long? = null,
+    ): ByteArray? {
+        val resolvedArtwork = canonicalTrackId?.let { Artwork.LibraryTrack(it) } ?: artwork
+        val target = resolveTarget(resolvedArtwork)?.let { value ->
+            matchedCandidate?.let { candidate ->
+                value.copy(query = value.query.copy(song = candidate))
+            } ?: value
+        } ?: return null
         val plugins = artworkPlugins(PluginLookupMode.AUTOMATIC)
         if (plugins.isEmpty()) return null
         val key = target.cacheKey(plugins)
@@ -87,6 +96,7 @@ class PluginArtworkResolver(
                         key = key,
                         mode = PluginLookupMode.AUTOMATIC,
                         refreshRegistry = true,
+                        matchedCandidate = matchedCandidate,
                     )
                     if (resolved != null) {
                         try {
@@ -210,6 +220,7 @@ class PluginArtworkResolver(
         key: String,
         mode: PluginLookupMode,
         refreshRegistry: Boolean,
+        matchedCandidate: MetaSongCandidate? = null,
     ): ResolvedPluginArtwork? {
         val cachePath = cacheDirectory / "$key.image"
         readCachedBytes(cachePath)
@@ -219,21 +230,21 @@ class PluginArtworkResolver(
         if (refreshRegistry) pluginRegistry.refresh()
         val songSourceIds = plugins.sourceIdsFor("searchSongs")
         val coverSourceIds = plugins.sourceIdsFor("searchCovers")
-        val songCandidates = if (songSourceIds.isEmpty()) {
-            emptyList()
-        } else {
-            lookup.searchSongs(
+        val songCandidates = resolveArtworkSongCandidates(matchedCandidate) {
+            if (songSourceIds.isEmpty()) emptyList() else lookup.searchSongs(
                 query = target.query,
                 mode = mode,
                 sourceIds = songSourceIds,
             ).items
         }
-        val songUrl = selectPluginSongArtworkUrl(target.query, songCandidates)
+        val songUrl = matchedCandidate?.pictureUrl?.trim()?.takeIf(String::isNotBlank)
+            ?: selectPluginSongArtworkUrl(target.query, songCandidates)
         val coverCandidates = if (songUrl != null || coverSourceIds.isEmpty()) {
             emptyList()
         } else {
+            val coverQuery = matchedCandidate?.let { target.query.copy(song = it) } ?: target.query
             lookup.searchCovers(
-                query = target.query,
+                query = coverQuery,
                 mode = mode,
                 sourceIds = coverSourceIds,
             ).items
@@ -306,6 +317,11 @@ class PluginArtworkResolver(
     }
 }
 
+internal suspend fun resolveArtworkSongCandidates(
+    matchedCandidate: MetaSongCandidate?,
+    search: suspend () -> List<MetaSongCandidate>,
+): List<MetaSongCandidate> = matchedCandidate?.let(::listOf) ?: search()
+
 private data class ResolvedPluginArtwork(
     val bytes: ByteArray,
     val cachePath: Path?,
@@ -329,6 +345,10 @@ private data class PluginArtworkTarget(
         append(query.artist)
         append('|')
         append(query.album)
+        append('|')
+        append(query.song?.id)
+        append('|')
+        append(query.song?.pictureUrl)
         plugins.sortedBy(PluginSummary::id).forEach { plugin ->
             append('|')
             append(plugin.id)

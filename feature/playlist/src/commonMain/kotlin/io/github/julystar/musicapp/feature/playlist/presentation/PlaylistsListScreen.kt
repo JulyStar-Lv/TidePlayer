@@ -28,7 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignEmptyState
+import io.github.julystar.musicapp.core.presentation.components.EmptyState
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -77,7 +77,7 @@ fun PlaylistsListScreen(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                DesignEmptyState(
+                EmptyState(
                     title = stringResource(Res.string.playlist_empty),
                     message = stringResource(Res.string.playlist_empty_message),
                     marker = "P",

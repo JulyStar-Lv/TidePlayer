@@ -94,8 +94,6 @@ import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlButton
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlSize
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlVariant
@@ -175,9 +173,13 @@ import musicapp.service.playback.presentation.generated.resources.player_single_
 import musicapp.service.playback.presentation.generated.resources.player_unknown_artist
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val DesktopPlayerBreakpoint = 860.dp
@@ -257,68 +259,72 @@ private fun NowPlayingMoreButton(
             contentAlignment = Alignment.TopEnd,
             modifier = Modifier.offset(20.dp, 20.dp),
         ) {
-            ResourceDropdownMenu(
-                expanded = moreMenuExpanded,
-                onDismissRequest = { moreMenuExpanded = false },
-                compact = compact,
-                items = listOfNotNull(
-                    ResourceDropdownMenuItem(
-                        label = Res.string.music_player_search_metadata,
-                        icon = CoreRes.drawable.icon_search,
-                        onClick = {
-                            moreMenuExpanded = false
-                            onAction(NowPlayingAction.SearchMetadata)
+            OverlayDropdownPopup(
+                DropdownEntry(
+                    items = listOfNotNull(
+                        DropdownItem(
+                            text = stringResource(Res.string.music_player_search_metadata),
+                            icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_search), null, modifier) },
+                            onClick = {
+                                moreMenuExpanded = false
+                                onAction(NowPlayingAction.SearchMetadata)
+                            },
+                        ),
+                        if (hasLyric) {
+                            DropdownItem(
+                                text = stringResource(Res.string.music_lyric_remove),
+                                icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_deleteseep), null, modifier) },
+                                onClick = {
+                                    moreMenuExpanded = false
+                                    onAction(NowPlayingAction.RemoveLyric)
+                                },
+                            )
+                        } else {
+                            DropdownItem(
+                                text = stringResource(Res.string.music_lyric_add),
+                                icon = { modifier -> Icon(painterResource(Res.drawable.icon_lyrics), null, modifier) },
+                                onClick = {
+                                    moreMenuExpanded = false
+                                    onAction(NowPlayingAction.AddLyric)
+                                },
+                            )
                         },
-                    ),
-                    if (hasLyric) {
-                        ResourceDropdownMenuItem(
-                            label = Res.string.music_lyric_remove,
-                            icon = CoreRes.drawable.icon_deleteseep,
+                        if (nowPlayingState.currentTrack?.canDownload == true) {
+                            DropdownItem(
+                                text = stringResource(Res.string.downloads_title),
+                                icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_download), null, modifier) },
+                                onClick = {
+                                    moreMenuExpanded = false
+                                    onAction(NowPlayingAction.DownloadCurrentTrack)
+                                },
+                            )
+                        } else null,
+                        if (nowPlayingState.playbackSources.size > 1) {
+                            DropdownItem(
+                                text = stringResource(Res.string.player_playback_source),
+                                icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_settings_sliders), null, modifier) },
+                                onClick = {
+                                    moreMenuExpanded = false
+                                    sourceDialogOpen = true
+                                },
+                            )
+                        } else null,
+                        DropdownItem(
+                            text = stringResource(Res.string.music_player_context_menu_remove),
+                            icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_deleteseep), null, modifier) },
                             onClick = {
                                 moreMenuExpanded = false
-                                onAction(NowPlayingAction.RemoveLyric)
+                                onAction(NowPlayingAction.RemoveCurrentTrack)
                             },
-                        )
-                    } else {
-                        ResourceDropdownMenuItem(
-                            label = Res.string.music_lyric_add,
-                            icon = Res.drawable.icon_lyrics,
-                            onClick = {
-                                moreMenuExpanded = false
-                                onAction(NowPlayingAction.AddLyric)
-                            },
-                        )
-                    },
-                    if (nowPlayingState.currentTrack?.canDownload == true) {
-                        ResourceDropdownMenuItem(
-                            label = Res.string.downloads_title,
-                            icon = CoreRes.drawable.icon_download,
-                            onClick = {
-                                moreMenuExpanded = false
-                                onAction(NowPlayingAction.DownloadCurrentTrack)
-                            },
-                        )
-                    } else null,
-                    if (nowPlayingState.playbackSources.size > 1) {
-                        ResourceDropdownMenuItem(
-                            label = Res.string.player_playback_source,
-                            icon = CoreRes.drawable.icon_settings_sliders,
-                            onClick = {
-                                moreMenuExpanded = false
-                                sourceDialogOpen = true
-                            },
-                        )
-                    } else null,
-                    ResourceDropdownMenuItem(
-                        label = Res.string.music_player_context_menu_remove,
-                        icon = CoreRes.drawable.icon_deleteseep,
-                        isError = true,
-                        onClick = {
-                            moreMenuExpanded = false
-                            onAction(NowPlayingAction.RemoveCurrentTrack)
-                        },
+                        ),
                     ),
                 ),
+                show = moreMenuExpanded,
+                onDismiss = { moreMenuExpanded = false },
+                onDismissFinished = {},
+                maxHeight = if (compact) 360.dp else null,
+                dropdownColors = DropdownDefaults.dropdownColors(),
+                renderInRootScaffold = true,
             )
         }
     }

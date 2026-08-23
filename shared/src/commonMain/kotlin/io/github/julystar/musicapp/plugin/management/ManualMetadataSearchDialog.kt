@@ -41,8 +41,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
+import io.github.julystar.musicapp.core.presentation.components.StatusBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.platform.byteArrayToImageBitmap
@@ -360,12 +360,12 @@ fun ManualMetadataSearchDialog(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 if (candidates.isNotEmpty()) {
-                    DesignStatusBadge(
+                    StatusBadge(
                         label = stringResource(
                             Res.string.manual_metadata_results,
                             candidates.size,
                         ),
-                        tone = DesignStatusTone.Accent,
+                        tone = StatusTone.Accent,
                     )
                 }
             }

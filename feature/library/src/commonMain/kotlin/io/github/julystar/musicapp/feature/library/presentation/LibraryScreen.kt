@@ -37,8 +37,8 @@ import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
 import io.github.julystar.musicapp.core.domain.model.RepositoryState
 import io.github.julystar.musicapp.core.domain.repository.LibraryFolderItem
-import io.github.julystar.musicapp.core.presentation.components.DesignEmptyState
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
+import io.github.julystar.musicapp.core.presentation.components.EmptyState
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res as CorePresentationRes
@@ -498,7 +498,7 @@ private fun NavigationRow(
 
 @Composable
 private fun RootEmpty() {
-    DesignEmptyState(
+    EmptyState(
         title = stringResource(Res.string.library_empty_title),
         message = stringResource(Res.string.library_empty_message),
         marker = "M",
@@ -508,7 +508,7 @@ private fun RootEmpty() {
 @Composable
 private fun CategoryEmpty(category: LibraryCategory, onClick: (() -> Unit)? = null) {
     val title = stringResource(category.labelRes)
-    DesignEmptyState(
+    EmptyState(
         title = title,
         message = stringResource(category.emptyMessageRes),
         marker = title.take(1),
@@ -525,7 +525,7 @@ private fun CategoryEmpty(category: LibraryCategory, onClick: (() -> Unit)? = nu
 
 @Composable
 private fun LoadingState() {
-    DesignStatusCard(
+    StatusMessageCard(
         title = stringResource(Res.string.library_loading),
         message = stringResource(Res.string.library_title),
         loading = true,
@@ -537,7 +537,7 @@ private fun LoadingState() {
 
 @Composable
 private fun ErrorState(onRetry: () -> Unit) {
-    DesignStatusCard(
+    StatusMessageCard(
         title = stringResource(Res.string.library_unavailable),
         message = stringResource(Res.string.library_empty_message),
         actionText = stringResource(Res.string.library_retry),

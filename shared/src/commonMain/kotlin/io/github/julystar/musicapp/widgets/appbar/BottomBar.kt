@@ -1,6 +1,5 @@
 package io.github.julystar.musicapp.widgets.appbar
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -12,15 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomNavigationBar
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomNavigationItem
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomNavigationGlassSurface
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
-import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.navigation.HomeTab
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import org.jetbrains.compose.resources.vectorResource
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
 
 @Composable
 fun BottomBarSpacer(
@@ -48,14 +44,6 @@ fun BoxScope.BottomBar(
         return
     }
 
-    val bottomItems = HomeTab.entries.map { tab ->
-        val label = stringResource(tab.labelRes)
-        DesignBottomNavigationItem(
-            label = label,
-            painter = painterResource(tab.painterRes),
-            contentDescription = label,
-        )
-    }
     Column(
         modifier = Modifier
             .align(Alignment.BottomStart)
@@ -66,27 +54,23 @@ fun BoxScope.BottomBar(
                 miniPlayerContent()
             }
         }
-        DesignBottomNavigationGlassSurface(
+        NavigationBar(
             modifier = Modifier.fillMaxWidth(),
+            defaultWindowInsetsPadding = false,
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(DesignTokens.navigation.compactBarDividerHeight)
-                    .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-            )
-            DesignBottomNavigationBar(
-                items = bottomItems,
-                selectedIndex = currentTab.index,
-                onItemSelected = { index ->
-                    HomeTab.entries.getOrNull(index)?.let(onTabSelected)
-                },
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(scaffoldPadding.calculateBottomPadding()),
-            )
+            HomeTab.entries.forEach { tab ->
+                NavigationBarItem(
+                    selected = currentTab == tab,
+                    onClick = { onTabSelected(tab) },
+                    icon = vectorResource(tab.painterRes),
+                    label = stringResource(tab.labelRes),
+                )
+            }
         }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(scaffoldPadding.calculateBottomPadding()),
+        )
     }
 }

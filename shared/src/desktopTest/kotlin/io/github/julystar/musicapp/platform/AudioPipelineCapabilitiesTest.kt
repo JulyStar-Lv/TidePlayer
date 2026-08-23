@@ -8,9 +8,11 @@ import kotlin.test.assertTrue
 class AudioPipelineCapabilitiesTest {
     @Test
     fun desktopPublishesFloat32DspPipeline() {
-        val pipeline = platformSettingsCapabilities().audioPipeline
+        val capabilities = platformSettingsCapabilities()
+        val pipeline = capabilities.audioPipeline
 
         assertEquals(setOf(AudioSampleFormat.Float32), pipeline.dspOutputSampleFormats)
         assertTrue(pipeline.highResolutionDspOutput)
+        assertTrue(capabilities.audioPreloadSupported)
     }
 }

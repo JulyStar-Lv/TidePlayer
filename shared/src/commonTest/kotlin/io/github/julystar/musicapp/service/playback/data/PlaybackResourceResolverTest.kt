@@ -586,6 +586,136 @@ class PlaybackResourceResolverTest {
     }
 
     @Test
+    fun preloadsResolvedRemoteCandidateWithItsPhysicalCacheIdentity() = runBlocking {
+        val remoteResource = PlaybackResource(uri = "https://server.invalid/audio")
+        val source = fakeMusicSource(BuiltInSourceIds.WebDav) {
+            SourcePlaybackResult.Success(remoteResource)
+        }
+        var preloadCalls = 0
+        val released = mutableListOf<String>()
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = "/Music/Track.flac", etag = "etag-v1"),
+            ),
+            sourceRegistry = MusicSourceRegistry(listOf(source)),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(released::add),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            playbackAudioCache = fakePlaybackAudioCache(
+                onPreloadRemote = { identity, resource, maxBytes ->
+                    preloadCalls += 1
+                    assertEquals(
+                        PlaybackCacheIdentity(42, "/Music/Track.flac", "etag-v1"),
+                        identity,
+                    )
+                    assertEquals(remoteResource, resource)
+                    assertEquals(2L * 1024 * 1024, maxBytes)
+                    PlaybackAudioPreloadResult.Completed
+                }
+            ),
+        )
+
+        assertTrue(resolver.preload(music(42, "/Legacy.flac"), 2L * 1024 * 1024))
+        assertEquals(1, preloadCalls)
+        assertEquals(listOf(remoteResource.uri), released)
+    }
+
+    @Test
+    fun actualPlaybackTakesPreloadedSessionBeforeResolvingSourceAgain() = runBlocking {
+        var sourceCalls = 0
+        val wrapped = PlaybackResource(uri = "http://127.0.0.1/preloaded.flac")
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(path = "/Music/Track.flac", etag = "etag-v1"),
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(
+                    fakeMusicSource(BuiltInSourceIds.WebDav) {
+                        sourceCalls += 1
+                        SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unavailable)
+                    }
+                )
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            playbackAudioCache = fakePlaybackAudioCache(
+                onResolvePreloaded = { identity, mimeType ->
+                    assertEquals(
+                        PlaybackCacheIdentity(42, "/Music/Track.flac", "etag-v1"),
+                        identity,
+                    )
+                    assertEquals("audio/flac", mimeType)
+                    wrapped
+                }
+            ),
+        )
+
+        assertEquals(
+            SourcePlaybackResult.Success(wrapped),
+            resolver.resolve(music(42, "/Legacy.flac")),
+        )
+        assertEquals(0, sourceCalls)
+    }
+
+    @Test
+    fun preloadReleasesCompletedCacheProbeWithoutResolvingRemoteSource() = runBlocking {
+        val cached = PlaybackResource(uri = "http://127.0.0.1/completed.flac", isLocal = true)
+        val released = mutableListOf<PlaybackResource>()
+        var sourceCalls = 0
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(candidate(path = "/Music/Track.flac")),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(
+                    fakeMusicSource(BuiltInSourceIds.WebDav) {
+                        sourceCalls += 1
+                        SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unavailable)
+                    }
+                )
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+            playbackAudioCache = fakePlaybackAudioCache(
+                onResolveCompleted = { _, _ -> cached },
+                onRelease = { resource -> released += resource; null },
+            ),
+        )
+
+        assertTrue(resolver.preload(music(42, "/Legacy.flac"), 2L * 1024 * 1024))
+        assertEquals(listOf(cached), released)
+        assertEquals(0, sourceCalls)
+    }
+
+    @Test
+    fun preloadReleasesLocalResourceUsedOnlyToSkipRemotePreload() = runBlocking {
+        val local = PlaybackResource(uri = "file:///Music/Track.flac", isLocal = true)
+        val released = mutableListOf<String>()
+        val resolver = PlaybackResourceResolver(
+            storageLookup = LegacyStorageLookup { null },
+            trackSourceRefDao = fakeTrackSourceRefDao(
+                candidate(
+                    path = "/Music/Track.flac",
+                    providerType = ProviderTypes.Local,
+                    sourceAccountId = 7,
+                )
+            ),
+            sourceRegistry = MusicSourceRegistry(
+                listOf(
+                    fakeMusicSource(BuiltInSourceIds.Local) {
+                        SourcePlaybackResult.Success(local)
+                    }
+                )
+            ),
+            legacyStoragePlaybackResolver = unusedPlaybackResolver(released::add),
+            sourceItemPropertyReader = SourceItemPropertyReader.Empty,
+        )
+
+        assertEquals(false, resolver.preload(music(42, "/Legacy.flac"), 2L * 1024 * 1024))
+        assertEquals(listOf(local.uri), released)
+    }
+
+    @Test
     fun missingStorageFailsBeforeCallingSource() = runBlocking {
         var sourceCalls = 0
         val source = fakeMusicSource(BuiltInSourceIds.Local) {
@@ -660,7 +790,9 @@ class PlaybackResourceResolverTest {
         }
     }
 
-    private fun unusedPlaybackResolver() = object : LegacyStoragePlaybackResolver {
+    private fun unusedPlaybackResolver(
+        onRelease: (String) -> Unit = {},
+    ) = object : LegacyStoragePlaybackResolver {
         override suspend fun resolve(
             accountId: SourceAccountId,
             path: String,
@@ -669,7 +801,7 @@ class PlaybackResourceResolverTest {
             return SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unavailable)
         }
 
-        override suspend fun release(uri: String) = Unit
+        override suspend fun release(uri: String) = onRelease(uri)
 
         override suspend fun releaseAll() = Unit
     }
@@ -680,6 +812,14 @@ class PlaybackResourceResolverTest {
         },
         onWrapRemote: suspend (PlaybackCacheIdentity, PlaybackResource) -> PlaybackResource =
             { _, resource -> resource },
+        onResolvePreloaded: suspend (PlaybackCacheIdentity, String?) -> PlaybackResource? =
+            { _, _ -> null },
+        onPreloadRemote: suspend (
+            PlaybackCacheIdentity,
+            PlaybackResource,
+            Long,
+        ) -> PlaybackAudioPreloadResult = { _, _, _ -> PlaybackAudioPreloadResult.Failed },
+        onRelease: suspend (PlaybackResource) -> PlaybackResource? = { it },
     ) = object : PlaybackAudioCache {
         override suspend fun resolveCompleted(
             identity: PlaybackCacheIdentity,
@@ -691,7 +831,18 @@ class PlaybackResourceResolverTest {
             resource: PlaybackResource,
         ): PlaybackResource = onWrapRemote(identity, resource)
 
-        override suspend fun release(resource: PlaybackResource): PlaybackResource = resource
+        override suspend fun resolvePreloaded(
+            identity: PlaybackCacheIdentity,
+            mimeType: String?,
+        ): PlaybackResource? = onResolvePreloaded(identity, mimeType)
+
+        override suspend fun preloadRemote(
+            identity: PlaybackCacheIdentity,
+            resource: PlaybackResource,
+            maxBytes: Long,
+        ): PlaybackAudioPreloadResult = onPreloadRemote(identity, resource, maxBytes)
+
+        override suspend fun release(resource: PlaybackResource): PlaybackResource? = onRelease(resource)
 
         override suspend fun releaseAll() = Unit
     }

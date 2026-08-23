@@ -39,6 +39,7 @@ import io.github.julystar.musicapp.service.librarysync.domain.LibrarySyncScanRul
 import io.github.julystar.musicapp.source.storage.RemoteMetadataReader
 import io.github.julystar.musicapp.source.storage.RemoteScannerRepository
 import io.github.julystar.musicapp.core.data.StorageRepositoryImpl
+import io.github.julystar.musicapp.metadata.TrackVersionTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
@@ -2928,8 +2929,7 @@ internal fun String?.normalizedTrackMatchKey(): String {
 }
 
 internal fun String.hasTrackVersionToken(): Boolean {
-    val value = normalizedTrackMatchKey()
-    return versionTokens.any { token -> value.contains(token) }
+    return TrackVersionTokens.hasAny(this)
 }
 
 private fun ULong.toLongOrNull(): Long? {
@@ -3015,24 +3015,12 @@ private const val WEBDAV_CAPABILITY_CURSOR_TYPE = "webdav_sync_capability"
 private const val WEBDAV_CAPABILITY_SUPPORTED = "sync_collection"
 private const val WEBDAV_CAPABILITY_UNSUPPORTED = "unsupported"
 
-private val versionTokens = listOf(
-    "live",
-    "remaster",
-    "remix",
-    "acoustic",
-    "instrumental",
-    "karaoke",
-    "demo",
-    "radio edit",
-    "extended mix",
-    "cover",
-)
-
 internal object TrackMatchMethods {
     const val SourceIdentity = "source_identity"
     const val ContentHash = "content_hash"
     const val AudioFingerprint = "audio_fingerprint"
     const val MusicBrainzRecordingId = "musicbrainz_recording_id"
+    const val PluginExternalIdentity = "plugin_external_identity"
     const val IsrcDuration = "isrc_duration"
     const val StrictMetadata = "strict_metadata"
 }

@@ -47,7 +47,7 @@ private val LocalDesignBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 val LocalDesignBottomContentInset = staticCompositionLocalOf { 0.dp }
 
 @Immutable
-data class DesignStickyHeaderState(
+data class StickyHeaderState(
     val title: String,
     val subtitle: String?,
     val collapseFraction: Float,
@@ -57,17 +57,17 @@ data class DesignStickyHeaderState(
     val compactTitle: Boolean = false,
 )
 
-interface DesignStickyHeaderStateSink {
-    fun update(owner: Any, state: DesignStickyHeaderState)
+interface StickyHeaderStateSink {
+    fun update(owner: Any, state: StickyHeaderState)
 
     fun clear(owner: Any)
 }
 
 val LocalDesignStickyHeaderStateSink =
-    staticCompositionLocalOf<DesignStickyHeaderStateSink?> { null }
+    staticCompositionLocalOf<StickyHeaderStateSink?> { null }
 
 @Immutable
-object DesignLiquidGlassDefaults {
+object LiquidGlassDefaults {
     const val contrast = 1.04f
     const val saturation = 1.10f
     val blurRadius = 18.dp
@@ -89,7 +89,7 @@ object DesignLiquidGlassDefaults {
  * slot, so recording it would include those components and create a recursive draw on iOS.
  */
 @Composable
-fun DesignGlassScene(
+fun LiquidGlassScene(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -106,7 +106,7 @@ fun DesignGlassScene(
  * Keeping the overlay outside the recorded layer avoids recursive backdrop rendering.
  */
 @Composable
-fun DesignGlassOverlayScene(
+fun LiquidGlassOverlayScene(
     modifier: Modifier = Modifier,
     contentBottomInset: Dp = 0.dp,
     captureBackdrop: Boolean = true,
@@ -140,7 +140,7 @@ fun DesignGlassOverlayScene(
  * A compact ActionBar that progressively applies the shared liquid-glass treatment.
  */
 @Composable
-fun DesignStickyGlassActionBar(
+fun LiquidGlassActionBar(
     title: String,
     subtitle: String? = null,
     collapseFraction: Float,
@@ -175,7 +175,7 @@ fun DesignStickyGlassActionBar(
         SideEffect {
             stateSink.update(
                 owner = stateOwner,
-                state = DesignStickyHeaderState(
+                state = StickyHeaderState(
                     title = title,
                     subtitle = subtitle,
                     collapseFraction = fraction,
@@ -269,7 +269,7 @@ fun Modifier.designLiquidGlass(
     val fraction = intensity.coerceIn(0f, 1f)
     if (fraction == 0f) return this
 
-    val defaults = DesignLiquidGlassDefaults
+    val defaults = LiquidGlassDefaults
     val surface = MiuixTheme.colorScheme.surfaceContainer
     val surfaceAlpha = if (MiuixTheme.colorScheme.background.luminance() < 0.5f) {
         defaults.darkSurfaceAlpha

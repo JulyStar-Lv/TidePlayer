@@ -38,6 +38,111 @@ class PlaybackResourceResolver(
     private val playbackAudioCache: PlaybackAudioCache = PlaybackAudioCache.Disabled,
     private val sourceItemPropertyReader: SourceItemPropertyReader,
 ) {
+    suspend fun preload(music: Music, maxBytes: Long): Boolean {
+        if (maxBytes <= 0L) return false
+        val candidates = trackSourceRefDao.playbackCandidates(music.meta.id.value)
+        val sourceMediaIds = mutableMapOf<Long, String?>()
+        suspend fun sourceMediaIdFor(candidate: TrackSourcePlaybackCandidate): String? {
+            if (candidate.account.providerType != ProviderTypes.Emby) return null
+            if (candidate.item.id !in sourceMediaIds) {
+                sourceMediaIds[candidate.item.id] = sourceItemPropertyReader
+                    .propertiesForItem(candidate.item.id)
+                    .firstOrNull { it.propertyKey == "sourceMediaId" }
+                    ?.stringValue
+                    ?.trim()
+                    ?.takeIf(String::isNotBlank)
+            }
+            return sourceMediaIds[candidate.item.id]
+        }
+        suspend fun preloadRemoteCandidate(
+            candidate: TrackSourcePlaybackCandidate,
+            checkCompleted: Boolean = true,
+        ): Boolean? {
+            val sourceMediaId = sourceMediaIdFor(candidate)
+            val identity = candidate.cacheIdentity(sourceMediaId) ?: return null
+            if (checkCompleted && completedCacheExists(identity, candidate.item.mimeType)) {
+                return true
+            }
+            return when (val result = resolveCandidate(candidate, sourceMediaId)) {
+                is SourcePlaybackResult.Success -> preloadResolvedResource(
+                    identity,
+                    result.resource,
+                    maxBytes,
+                )
+                is SourcePlaybackResult.Failure,
+                null -> null
+            }
+        }
+
+        val explicitlyPreferred = candidates
+            .filter { candidate -> candidate.ref.isPreferred }
+            .singleOrNull()
+        explicitlyPreferred?.let { candidate ->
+            if (candidate.account.providerType == ProviderTypes.Local) {
+                val result = resolveCandidate(candidate)
+                if (result is SourcePlaybackResult.Success) {
+                    legacyStoragePlaybackResolver.release(result.resource.uri)
+                    return false
+                }
+            } else {
+                preloadRemoteCandidate(candidate)?.let { return it }
+            }
+        }
+        val fallbackCandidates = candidates.filterNot { candidate ->
+            candidate.item.id == explicitlyPreferred?.item?.id
+        }
+        for (candidate in fallbackCandidates.filter { candidate ->
+            candidate.account.providerType == ProviderTypes.Local
+        }) {
+            val result = resolveCandidate(candidate)
+            if (result is SourcePlaybackResult.Success) {
+                legacyStoragePlaybackResolver.release(result.resource.uri)
+                return false
+            }
+        }
+
+        val storage = storageLookup.storageForPlayback(music.loc.storageId)
+        if (storage?.typ == StorageType.LOCAL) {
+            val result = resolveLegacyLocation(storage, music.loc.path)
+            if (result is SourcePlaybackResult.Success) {
+                legacyStoragePlaybackResolver.release(result.resource.uri)
+                return false
+            }
+        }
+
+        val remoteCandidates = fallbackCandidates.filterNot { candidate ->
+            candidate.account.providerType == ProviderTypes.Local
+        }
+        for (candidate in remoteCandidates) {
+            val identity = candidate.cacheIdentity(sourceMediaIdFor(candidate)) ?: continue
+            if (completedCacheExists(identity, candidate.item.mimeType)) return true
+        }
+        if (storage != null && storage.typ != StorageType.LOCAL) {
+            val identity = PlaybackCacheIdentity(storage.id.value, music.loc.path)
+            if (completedCacheExists(identity, mimeType = null)) return true
+        }
+        for (candidate in remoteCandidates) {
+            preloadRemoteCandidate(candidate, checkCompleted = false)?.let { return it }
+        }
+        if (storage != null && storage.typ != StorageType.LOCAL) {
+            val identity = PlaybackCacheIdentity(storage.id.value, music.loc.path)
+            val result = resolveLegacyLocation(storage, music.loc.path)
+            if (result is SourcePlaybackResult.Success) {
+                return preloadResolvedResource(identity, result.resource, maxBytes)
+            }
+        }
+        return false
+    }
+
+    private suspend fun completedCacheExists(
+        identity: PlaybackCacheIdentity,
+        mimeType: String?,
+    ): Boolean {
+        val resource = playbackAudioCache.resolveCompleted(identity, mimeType) ?: return false
+        playbackAudioCache.release(resource)
+        return true
+    }
+
     suspend fun resolve(music: Music): SourcePlaybackResult {
         val candidates = trackSourceRefDao.playbackCandidates(music.meta.id.value)
         val sourceMediaIds = mutableMapOf<Long, String?>()
@@ -101,6 +206,9 @@ class PlaybackResourceResolver(
         for (candidate in remoteCandidates) {
             val sourceMediaId = sourceMediaIdFor(candidate)
             val identity = candidate.cacheIdentity(sourceMediaId) ?: continue
+            playbackAudioCache.resolvePreloaded(identity, candidate.item.mimeType)?.let { resource ->
+                return SourcePlaybackResult.Success(resource)
+            }
             when (val result = resolveCandidate(candidate, sourceMediaId)) {
                 is SourcePlaybackResult.Success -> {
                     try {
@@ -119,6 +227,12 @@ class PlaybackResourceResolver(
         storage ?: return lastRemoteFailure ?: SourcePlaybackResult.Failure(
             SourcePlaybackFailureReason.UnsupportedAccount
         )
+        if (storage.typ != StorageType.LOCAL) {
+            val identity = PlaybackCacheIdentity(storage.id.value, music.loc.path)
+            playbackAudioCache.resolvePreloaded(identity, mimeType = null)?.let { resource ->
+                return SourcePlaybackResult.Success(resource)
+            }
+        }
         val result = resolveLegacyLocation(storage, music.loc.path)
             ?: return SourcePlaybackResult.Failure(SourcePlaybackFailureReason.Unavailable)
         if (result !is SourcePlaybackResult.Success || storage.typ == StorageType.LOCAL) {
@@ -147,6 +261,9 @@ class PlaybackResourceResolver(
         playbackAudioCache.resolveCompleted(identity, candidate.item.mimeType)?.let { resource ->
             return SourcePlaybackResult.Success(resource)
         }
+        playbackAudioCache.resolvePreloaded(identity, candidate.item.mimeType)?.let { resource ->
+            return SourcePlaybackResult.Success(resource)
+        }
         return when (val result = resolveCandidate(candidate, sourceMediaId)) {
             is SourcePlaybackResult.Success -> try {
                 SourcePlaybackResult.Success(
@@ -157,6 +274,27 @@ class PlaybackResourceResolver(
             }
             is SourcePlaybackResult.Failure,
             null -> result
+        }
+    }
+
+    private suspend fun preloadResolvedResource(
+        identity: PlaybackCacheIdentity,
+        resource: PlaybackResource,
+        maxBytes: Long,
+    ): Boolean {
+        var handedOff = false
+        return try {
+            when (playbackAudioCache.preloadRemote(identity, resource, maxBytes)) {
+                PlaybackAudioPreloadResult.Completed,
+                PlaybackAudioPreloadResult.Deduplicated -> true
+                PlaybackAudioPreloadResult.HandedOff -> {
+                    handedOff = true
+                    true
+                }
+                PlaybackAudioPreloadResult.Failed -> false
+            }
+        } finally {
+            if (!handedOff) legacyStoragePlaybackResolver.release(resource.uri)
         }
     }
 

@@ -50,8 +50,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
-import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassScene
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
@@ -125,7 +125,7 @@ fun HomeDesignScreen(
         ?: fallbackTrack?.title
         ?: stringResource(Res.string.home_no_track)
     val bottomContentInset = LocalDesignBottomContentInset.current
-    DesignGlassScene(modifier = Modifier.fillMaxSize()) {
+    LiquidGlassScene(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -322,7 +322,7 @@ fun HomeDesignScreen(
                     }
                 }
             }
-            DesignStickyGlassActionBar(
+            LiquidGlassActionBar(
                 title = stringResource(if (compact) Res.string.home_title else Res.string.home_good_evening),
                 collapseFraction = actionBarProgress,
                 modifier = Modifier.align(Alignment.TopCenter),

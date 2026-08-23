@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,9 +25,16 @@ import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.roundToInt
 
 @Composable
 internal fun ParametricEqualizerEditor(
@@ -64,9 +72,9 @@ internal fun ParametricEqualizerEditor(
             },
         )
     }
-    SettingsInfoRow(
+    ArrowPreference(
         title = stringResource(Res.string.settings_peq_add_band),
-        value = stringResource(
+        summary = stringResource(
             Res.string.settings_peq_band_count,
             settings.bands.size,
             maxBands,
@@ -123,43 +131,62 @@ private fun ParametricBandCard(
     )
     HorizontalDivider()
     if (expanded && band.enabled) {
-        SettingsSelectRow(
-            label = stringResource(Res.string.settings_peq_filter_type),
-            selected = band.type,
-            options = ParametricEqFilterType.entries.toList(),
-            optionLabel = { type -> stringResource(type.titleResource()) },
+        OverlayDropdownPreference(
+            title = stringResource(Res.string.settings_peq_filter_type),
             enabled = enabled,
-            onSelect = { type -> onUpdate(band.copy(type = type)) },
+            entries = listOf(DropdownEntry(items = ParametricEqFilterType.entries.map { type ->
+                DropdownItem(
+                    text = stringResource(type.titleResource()),
+                    selected = type == band.type,
+                    onClick = { onUpdate(band.copy(type = type)) },
+                )
+            })),
         )
-        SettingsSliderRow(
+        var frequencyPreview by remember(band.frequencyHz) { mutableFloatStateOf(band.frequencyHz.toFloat()) }
+        SliderPreference(
             title = stringResource(Res.string.settings_peq_frequency),
-            value = band.frequencyHz,
-            valueRange = 10..20_000,
-            valueText = formatHz(band.frequencyHz),
+            value = frequencyPreview,
+            valueRange = 10f..20_000f,
+            steps = 19_989,
+            valueText = formatHz(frequencyPreview.roundToInt()),
             enabled = enabled,
-            onValueChange = { value -> onUpdate(band.copy(frequencyHz = value)) },
+            onValueChange = { frequencyPreview = it },
+            onValueChangeFinished = {
+                onUpdate(band.copy(frequencyHz = frequencyPreview.roundToInt()))
+            },
         )
-        SettingsSliderRow(
+        var gainPreview by remember(band.gainTenthsDb) { mutableFloatStateOf(band.gainTenthsDb.toFloat()) }
+        SliderPreference(
             title = stringResource(Res.string.settings_peq_gain),
-            value = band.gainTenthsDb,
-            valueRange = -240..240,
-            valueText = formatTenthsDb(band.gainTenthsDb),
+            value = gainPreview,
+            valueRange = -240f..240f,
+            steps = 479,
+            valueText = formatTenthsDb(gainPreview.roundToInt()),
             enabled = enabled,
-            onValueChange = { value -> onUpdate(band.copy(gainTenthsDb = value)) },
+            onValueChange = { gainPreview = it },
+            onValueChangeFinished = {
+                onUpdate(band.copy(gainTenthsDb = gainPreview.roundToInt()))
+            },
         )
-        SettingsSliderRow(
+        var qPreview by remember(band.qHundredths) { mutableFloatStateOf(band.qHundredths.toFloat()) }
+        SliderPreference(
             title = stringResource(Res.string.settings_peq_q),
-            value = band.qHundredths,
-            valueRange = 5..2_400,
-            valueText = formatHundredths(band.qHundredths),
+            value = qPreview,
+            valueRange = 5f..2_400f,
+            steps = 2_394,
+            valueText = formatHundredths(qPreview.roundToInt()),
             enabled = enabled,
-            onValueChange = { value -> onUpdate(band.copy(qHundredths = value)) },
+            onValueChange = { qPreview = it },
+            onValueChangeFinished = {
+                onUpdate(band.copy(qHundredths = qPreview.roundToInt()))
+            },
         )
-        SettingsDangerRow(
+        BasicComponent(
             title = stringResource(Res.string.settings_peq_remove_band),
             summary = stringResource(Res.string.settings_peq_remove_band_summary, index + 1),
             enabled = enabled,
             onClick = onRemove,
+            titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
         )
     }
 }

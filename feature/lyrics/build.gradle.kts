@@ -30,6 +30,7 @@ kotlin {
             implementation(libs.runtime)
             implementation(libs.foundation)
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.preference)
             implementation(libs.components.resources)
             implementation(libs.animation)
             implementation(libs.kotlinx.collections.immutable)

@@ -10,9 +10,14 @@ import io.github.julystar.musicapp.domain.importing.MATCH_CONFIDENCE_FINGERPRINT
 import io.github.julystar.musicapp.domain.importing.MATCH_CONFIDENCE_ISRC
 import io.github.julystar.musicapp.domain.importing.MATCH_CONFIDENCE_STRICT_METADATA
 import io.github.julystar.musicapp.domain.importing.TrackMatchMethods
-import io.github.julystar.musicapp.domain.importing.hasTrackVersionToken
 import io.github.julystar.musicapp.domain.importing.normalizedTrackMatchKey
-import io.github.julystar.musicapp.platform.currentTimeMillis
+import io.github.julystar.musicapp.metadata.TrackIdentityMatcher
+import io.github.julystar.musicapp.metadata.TrackIdentitySnapshot
+import io.github.julystar.musicapp.metadata.TrackIdentitySource
+import io.github.julystar.musicapp.metadata.SafeTrackIdentityMergeExecutor
+import io.github.julystar.musicapp.metadata.TrackIdentityMergeRequest
+import io.github.julystar.musicapp.metadata.selectCanonicalTrackId
+import io.github.julystar.musicapp.metadata.TrackVersionTokens
 import kotlinx.coroutines.flow.first
 
 internal fun interface AutomaticTrackMerger {
@@ -23,6 +28,8 @@ internal class TrackDuplicateMerger(
     private val database: AppDatabase,
     private val preferencesRepository: AppPreferencesRepository,
 ) : AutomaticTrackMerger {
+    private val executor = SafeTrackIdentityMergeExecutor(database, preferencesRepository)
+
     override suspend fun merge() {
         val candidates = database.trackMergeDao().listCandidates()
         if (candidates.size < 2) return
@@ -37,22 +44,15 @@ internal class TrackDuplicateMerger(
         )
         if (plans.isEmpty()) return
 
-        val replacements = plans.flatMap { plan ->
-            plan.sourceTrackIds.map { sourceTrackId -> sourceTrackId to plan.targetTrackId }
-        }.toMap()
-        preferencesRepository.remapTrackIds(replacements)
-
         plans.forEach { plan ->
-            database.trackMergeDao().mergeTracks(
+            executor.execute(TrackIdentityMergeRequest(
                 targetTrackId = plan.targetTrackId,
                 sourceTrackIds = plan.sourceTrackIds,
                 matchMethod = plan.matchMethod,
                 matchConfidence = plan.matchConfidence,
                 lastPlayedAt = plan.lastPlayedAt,
-                now = currentTimeMillis(),
-            )
+            ))
         }
-        database.appDataDao().rebuildTrackFts()
     }
 }
 
@@ -74,6 +74,15 @@ internal fun buildTrackMergePlans(
     val candidatesById = candidates.associateBy { candidate -> candidate.track.id }
     val sourceAccountsByTrack = sources.groupBy(TrackDeduplicationSource::trackId)
         .mapValues { (_, values) -> values.mapTo(mutableSetOf(), TrackDeduplicationSource::sourceAccountId) }
+    val snapshotsById = candidates.associate { candidate ->
+        candidate.track.id to TrackIdentitySnapshot(
+            track = candidate.track,
+            albumName = candidate.albumName,
+            sources = sources.filter { it.trackId == candidate.track.id }.map { source ->
+                TrackIdentitySource(source.sourceAccountId, source.contentHash, source.audioFingerprint)
+            },
+        )
+    }
     val union = TrackIdUnion(candidatesById.keys)
     val evidence = mutableListOf<TrackMatchEvidence>()
 
@@ -82,11 +91,14 @@ internal fun buildTrackMergePlans(
         method: String,
         confidence: Int,
         priority: Int,
+        allowSameSourceAccount: Boolean = false,
     ) {
         val ids = trackIds.distinct().filter(candidatesById::containsKey)
         if (ids.size < 2) return
         val sourceAccounts = ids.flatMap { trackId -> sourceAccountsByTrack[trackId].orEmpty() }.toSet()
-        if (sourceAccounts.size < 2) return
+        if (!allowSameSourceAccount && sourceAccounts.size < 2) return
+        val snapshots = ids.map(snapshotsById::getValue)
+        if (!TrackIdentityMatcher.pairwiseCompatible(snapshots)) return
         ids.drop(1).forEach { trackId -> union.union(ids.first(), trackId) }
         evidence += TrackMatchEvidence(ids.toSet(), method, confidence, priority)
     }
@@ -94,7 +106,13 @@ internal fun buildTrackMergePlans(
     sources.mapNotNull { source ->
         source.contentHash?.trim()?.takeIf(String::isNotEmpty)?.let { hash -> hash to source.trackId }
     }.groupBy({ it.first }, { it.second }).values.forEach { trackIds ->
-        connect(trackIds, TrackMatchMethods.ContentHash, MATCH_CONFIDENCE_EXACT, priority = 6)
+        connect(
+            trackIds,
+            TrackMatchMethods.ContentHash,
+            MATCH_CONFIDENCE_EXACT,
+            priority = 6,
+            allowSameSourceAccount = true,
+        )
     }
 
     sources.mapNotNull { source ->
@@ -103,7 +121,13 @@ internal fun buildTrackMergePlans(
         }
     }.groupBy({ it.first }, { it.second }).values.forEach { trackIds ->
         durationClusters(trackIds, candidatesById).forEach { cluster ->
-            connect(cluster, TrackMatchMethods.AudioFingerprint, MATCH_CONFIDENCE_FINGERPRINT, priority = 5)
+            connect(
+                cluster,
+                TrackMatchMethods.AudioFingerprint,
+                MATCH_CONFIDENCE_FINGERPRINT,
+                priority = 5,
+                allowSameSourceAccount = true,
+            )
         }
     }
 
@@ -112,7 +136,7 @@ internal fun buildTrackMergePlans(
             ?.takeIf(String::isNotEmpty)
             ?.let { recordingId -> recordingId to candidate.track.id }
     }.groupBy({ it.first }, { it.second }).values.forEach { trackIds ->
-        connect(trackIds, TrackMatchMethods.MusicBrainzRecordingId, MATCH_CONFIDENCE_EXACT, priority = 4)
+        connect(trackIds, TrackMatchMethods.MusicBrainzRecordingId, MATCH_CONFIDENCE_EXACT, priority = 4, allowSameSourceAccount = true)
     }
 
     candidates.mapNotNull { candidate ->
@@ -126,7 +150,23 @@ internal fun buildTrackMergePlans(
     }
 
     candidates.mapNotNull { candidate ->
-        if (candidate.track.title.hasTrackVersionToken()) return@mapNotNull null
+        val sourceId = candidate.track.metadataSourceId?.trim()?.takeIf(String::isNotEmpty)
+            ?: return@mapNotNull null
+        val externalId = candidate.track.metadataExternalId?.trim()?.takeIf(String::isNotEmpty)
+            ?: return@mapNotNull null
+        (sourceId to externalId) to candidate.track.id
+    }.groupBy({ it.first }, { it.second }).values.forEach { trackIds ->
+        connect(
+            trackIds,
+            TrackMatchMethods.PluginExternalIdentity,
+            confidence = 88,
+            priority = 3,
+            allowSameSourceAccount = true,
+        )
+    }
+
+    candidates.mapNotNull { candidate ->
+        if (TrackVersionTokens.hasAny(candidate.track.title)) return@mapNotNull null
         val key = StrictMetadataKey(
             title = candidate.track.title.normalizedTrackMatchKey(),
             artist = candidate.track.artist.normalizedTrackMatchKey(),
@@ -147,24 +187,23 @@ internal fun buildTrackMergePlans(
     }
 
     return candidatesById.keys.groupBy(union::root).values
-        .filter { group -> group.size > 1 }
-        .map { trackIds ->
+        .filter { group ->
+            group.size > 1 && TrackIdentityMatcher.pairwiseCompatible(group.map(snapshotsById::getValue))
+        }
+        .mapNotNull { trackIds ->
             val groupCandidates = trackIds.mapNotNull(candidatesById::get)
-            val target = groupCandidates.sortedWith(
-                compareByDescending<TrackDeduplicationCandidate> { it.track.metadataLocked }
-                    .thenByDescending { it.track.id in favoriteTrackIds }
-                    .thenByDescending { it.track.id == currentTrackId }
-                    .thenByDescending { it.track.lastPlayedAt ?: Long.MIN_VALUE }
-                    .thenBy { it.track.createdAt }
-                    .thenBy { it.track.id }
-            ).first()
+            val targetId = selectCanonicalTrackId(
+                trackIds.map(snapshotsById::getValue),
+                favoriteTrackIds,
+                currentTrackId,
+            ) ?: return@mapNotNull null
             val strongestEvidence = evidence
                 .filter { item -> item.trackIds.count(trackIds::contains) >= 2 }
                 .maxWithOrNull(compareBy<TrackMatchEvidence> { it.confidence }.thenBy { it.priority })
                 ?: error("Merged track group has no matching evidence")
             TrackMergePlan(
-                targetTrackId = target.track.id,
-                sourceTrackIds = trackIds.filterNot { trackId -> trackId == target.track.id }.sorted(),
+                targetTrackId = targetId,
+                sourceTrackIds = trackIds.filterNot { trackId -> trackId == targetId }.sorted(),
                 matchMethod = strongestEvidence.method,
                 matchConfidence = strongestEvidence.confidence,
                 lastPlayedAt = groupCandidates.mapNotNull { it.track.lastPlayedAt }.maxOrNull(),

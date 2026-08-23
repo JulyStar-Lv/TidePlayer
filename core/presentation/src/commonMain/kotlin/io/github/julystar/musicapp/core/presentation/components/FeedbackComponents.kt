@@ -45,7 +45,7 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-fun DesignEmptyState(
+fun EmptyState(
     title: String,
     message: String? = null,
     modifier: Modifier = Modifier,
@@ -114,7 +114,7 @@ fun DesignEmptyState(
 }
 
 @Composable
-fun DesignStatusCard(
+fun StatusMessageCard(
     title: String,
     message: String,
     modifier: Modifier = Modifier,
@@ -123,25 +123,16 @@ fun DesignStatusCard(
     actionText: String? = null,
     onAction: (() -> Unit)? = null,
     minHeight: Dp = 240.dp,
-    cornerRadius: Dp = DesignTokens.shapes.lg,
-    surfaceAlpha: Float = 1f,
-    borderAlpha: Float = 1f,
     contentSpacing: Dp = 10.dp,
     messageMaxLines: Int = 2,
 ) {
-    val shape = RoundedCornerShape(cornerRadius)
-
-    Box(
+    Card(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = minHeight)
-            .clip(shape)
-            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = surfaceAlpha))
-            .border(1.dp, MiuixTheme.colorScheme.outline.copy(alpha = borderAlpha), shape)
-            .padding(24.dp),
-        contentAlignment = Alignment.Center,
+            .heightIn(min = minHeight),
     ) {
         Column(
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(contentSpacing),
         ) {
@@ -179,79 +170,7 @@ fun DesignStatusCard(
     }
 }
 
-enum class DesignIconBadgeVariant {
-    Neutral,
-    Surface,
-    Brand,
-}
-
-@Composable
-fun DesignIconBadge(
-    modifier: Modifier = Modifier,
-    variant: DesignIconBadgeVariant = DesignIconBadgeVariant.Surface,
-    marker: String? = null,
-    icon: Painter? = null,
-    iconContentDescription: String? = null,
-    accentColor: Color? = null,
-    content: (@Composable () -> Unit)? = null,
-) {
-    val shape = RoundedCornerShape(DesignTokens.shapes.md)
-    val surfaceBackgroundColor = accentColor?.copy(alpha = 0.16f)
-        ?: MiuixTheme.colorScheme.tertiaryContainer
-    val backgroundBrush = when (variant) {
-        DesignIconBadgeVariant.Neutral -> Brush.linearGradient(
-            listOf(
-                MiuixTheme.colorScheme.surfaceContainerHigh,
-                MiuixTheme.colorScheme.surfaceContainerHigh,
-            ),
-        )
-        DesignIconBadgeVariant.Surface -> Brush.linearGradient(
-            listOf(
-                surfaceBackgroundColor,
-                surfaceBackgroundColor,
-            ),
-        )
-        DesignIconBadgeVariant.Brand -> Brush.linearGradient(
-            listOf(
-                DesignPalette.BrandPink,
-                DesignPalette.Secondary,
-            ),
-        )
-    }
-    val contentColor = when (variant) {
-        DesignIconBadgeVariant.Neutral -> MiuixTheme.colorScheme.onSurfaceVariantSummary
-        DesignIconBadgeVariant.Surface -> accentColor ?: MiuixTheme.colorScheme.primary
-        DesignIconBadgeVariant.Brand -> Color.White
-    }
-
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(shape)
-            .background(backgroundBrush),
-        contentAlignment = Alignment.Center,
-    ) {
-        when {
-            content != null -> content()
-            icon != null -> Icon(
-                painter = icon,
-                contentDescription = iconContentDescription,
-                tint = contentColor,
-                modifier = Modifier.size(22.dp),
-            )
-            marker != null -> Text(
-                text = marker,
-                color = contentColor,
-                style = MiuixTheme.textStyles.body1,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-enum class DesignStatusTone {
+enum class StatusTone {
     Neutral,
     Info,
     Success,
@@ -261,13 +180,13 @@ enum class DesignStatusTone {
 }
 
 @Composable
-fun DesignStatusBadge(
+fun StatusBadge(
     label: String,
     modifier: Modifier = Modifier,
-    tone: DesignStatusTone = DesignStatusTone.Neutral,
+    tone: StatusTone = StatusTone.Neutral,
 ) {
     val shapes = DesignTokens.shapes
-    val colors = designStatusBadgeColors(tone)
+    val colors = statusBadgeColors(tone)
 
     Row(
         modifier = modifier
@@ -297,24 +216,24 @@ fun DesignStatusBadge(
 }
 
 @Composable
-private fun designStatusBadgeColors(tone: DesignStatusTone): DesignStatusBadgeColors {
+private fun statusBadgeColors(tone: StatusTone): StatusBadgeColors {
     val accent = when (tone) {
-        DesignStatusTone.Neutral -> MiuixTheme.colorScheme.onSurfaceVariantSummary
-        DesignStatusTone.Info -> DesignPalette.SupportBlue
-        DesignStatusTone.Success -> DesignPalette.SupportGreen
-        DesignStatusTone.Warning -> DesignPalette.SupportOrange
-        DesignStatusTone.Error -> MiuixTheme.colorScheme.error
-        DesignStatusTone.Accent -> MiuixTheme.colorScheme.primary
+        StatusTone.Neutral -> MiuixTheme.colorScheme.onSurfaceVariantSummary
+        StatusTone.Info -> DesignPalette.SupportBlue
+        StatusTone.Success -> DesignPalette.SupportGreen
+        StatusTone.Warning -> DesignPalette.SupportOrange
+        StatusTone.Error -> MiuixTheme.colorScheme.error
+        StatusTone.Accent -> MiuixTheme.colorScheme.primary
     }
-    return if (tone == DesignStatusTone.Neutral) {
-        DesignStatusBadgeColors(
+    return if (tone == StatusTone.Neutral) {
+        StatusBadgeColors(
             container = MiuixTheme.colorScheme.surfaceContainerHigh,
             border = MiuixTheme.colorScheme.outline,
             content = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             indicator = accent,
         )
     } else {
-        DesignStatusBadgeColors(
+        StatusBadgeColors(
             container = accent.copy(alpha = 0.14f),
             border = accent.copy(alpha = 0.38f),
             content = accent,
@@ -324,7 +243,7 @@ private fun designStatusBadgeColors(tone: DesignStatusTone): DesignStatusBadgeCo
 }
 
 @Immutable
-private data class DesignStatusBadgeColors(
+private data class StatusBadgeColors(
     val container: Color,
     val border: Color,
     val content: Color,

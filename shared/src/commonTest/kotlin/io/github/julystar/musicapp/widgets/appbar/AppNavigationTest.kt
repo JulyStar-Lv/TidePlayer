@@ -7,9 +7,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
-import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.navigation.HomeTab
-import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,51 +17,39 @@ class AppNavigationTest {
     @Test
     fun collapsedRailExposesSelectionAndSelectsTabs() = runComposeUiTest {
         var selected = HomeTab.HOME
-        var homeLabel = ""
-        var searchLabel = ""
         setContent {
             MiuixTheme {
-                homeLabel = stringResource(HomeTab.HOME.labelRes)
-                searchLabel = stringResource(HomeTab.SEARCH.labelRes)
-                NavigationRailBar(
+                HomeNavigationRail(
                     currentTab = selected,
                     onTabSelected = { selected = it },
-                    windowSizeClass = WindowSizeClass.Medium,
+                    expanded = false,
                 )
             }
         }
 
-        onNode(tabWithDescription(homeLabel)).assertIsSelected()
-        onNode(tabWithDescription(searchLabel)).assertIsNotSelected().performClick()
+        onAllNodes(tab()).get(HomeTab.HOME.index).assertIsSelected()
+        onAllNodes(tab()).get(HomeTab.SEARCH.index).assertIsNotSelected().performClick()
         assertEquals(HomeTab.SEARCH, selected)
     }
 
     @Test
     fun expandedSidebarExposesSelectionAndSelectsTabs() = runComposeUiTest {
         var selected = HomeTab.LIBRARY
-        var libraryLabel = ""
-        var settingsLabel = ""
         setContent {
             MiuixTheme {
-                libraryLabel = stringResource(HomeTab.LIBRARY.labelRes)
-                settingsLabel = stringResource(HomeTab.SETTINGS.labelRes)
-                SidebarBar(
+                HomeNavigationRail(
                     currentTab = selected,
                     onTabSelected = { selected = it },
-                    windowSizeClass = WindowSizeClass.Large,
+                    expanded = true,
                 )
             }
         }
 
-        onNode(tabWithDescription(libraryLabel)).assertIsSelected()
-        onNode(tabWithDescription(settingsLabel)).assertIsNotSelected().performClick()
+        onAllNodes(tab()).get(HomeTab.LIBRARY.index).assertIsSelected()
+        onAllNodes(tab()).get(HomeTab.SETTINGS.index).assertIsNotSelected().performClick()
         assertEquals(HomeTab.SETTINGS, selected)
     }
 
-    private fun tabWithDescription(description: String) =
-        SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, Role.Tab) and
-            SemanticsMatcher.expectValue(
-                androidx.compose.ui.semantics.SemanticsProperties.ContentDescription,
-                listOf(description),
-            )
+    private fun tab() =
+        SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, Role.Tab)
 }

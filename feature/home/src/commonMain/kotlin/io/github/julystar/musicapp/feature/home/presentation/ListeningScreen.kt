@@ -35,12 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignIconBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
@@ -103,6 +103,7 @@ import musicapp.feature.home.generated.resources.listening_top_tracks
 import musicapp.feature.home.generated.resources.listening_today
 import musicapp.feature.home.generated.resources.listening_unique_tracks
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -154,7 +155,7 @@ fun ListeningScreen(
             }
             if (state.isLoading) {
                 item {
-                    DesignStatusCard(
+                    StatusMessageCard(
                         title = stringResource(Res.string.listening_title),
                         message = stringResource(Res.string.listening_no_data),
                         loading = true,
@@ -168,7 +169,7 @@ fun ListeningScreen(
                 }
             }
         }
-        DesignStickyGlassActionBar(
+        LiquidGlassActionBar(
             title = stringResource(Res.string.listening_title),
             collapseFraction = 1f,
             onNavigateBack = { onAction(ListeningAction.NavigateBack) },
@@ -206,7 +207,7 @@ private fun LazyListScope.calendarItems(
     item { SectionTitle(stringResource(Res.string.listening_history)) }
     if (state.recentHistory.isEmpty()) {
         item {
-            DesignStatusCard(
+            StatusMessageCard(
                 title = stringResource(Res.string.listening_history),
                 message = stringResource(Res.string.listening_history_empty),
             )
@@ -274,9 +275,8 @@ private fun MonthlyListeningReport(state: ListeningState) {
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
-                DesignIconBadge(
-                    icon = painterResource(CoreRes.drawable.icon_settings_activity),
-                    accentColor = MiuixTheme.colorScheme.primary,
+                ListeningInsightIcon(
+                    painter = painterResource(CoreRes.drawable.icon_settings_activity),
                 )
             }
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -618,10 +618,9 @@ private fun HabitMetric(
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            DesignIconBadge(
+            ListeningInsightIcon(
                 modifier = Modifier.size(36.dp),
-                icon = painterResource(icon),
-                accentColor = MiuixTheme.colorScheme.primary,
+                painter = painterResource(icon),
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
@@ -798,10 +797,9 @@ private fun ListeningCardHeader(
                 )
             }
         }
-        DesignIconBadge(
+        ListeningInsightIcon(
             modifier = Modifier.size(36.dp),
-            icon = painterResource(icon),
-            accentColor = MiuixTheme.colorScheme.primary,
+            painter = painterResource(icon),
         )
     }
 }
@@ -817,10 +815,9 @@ private fun InsightRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DesignIconBadge(
+        ListeningInsightIcon(
             modifier = Modifier.size(34.dp),
-            icon = painterResource(icon),
-            accentColor = MiuixTheme.colorScheme.primary,
+            painter = painterResource(icon),
         )
         Column(Modifier.weight(1f)) {
             Text(
@@ -1098,10 +1095,9 @@ private fun SelectedListeningDayCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesignIconBadge(
+                    ListeningInsightIcon(
                         modifier = Modifier.size(36.dp),
-                        icon = painterResource(CoreRes.drawable.icon_settings_circle_play),
-                        accentColor = MiuixTheme.colorScheme.primary,
+                        painter = painterResource(CoreRes.drawable.icon_settings_circle_play),
                     )
                     Column {
                         Text(
@@ -1331,5 +1327,26 @@ private fun formatListeningTimestamp(epochMs: Long): String {
         append(value.hour.toString().padStart(2, '0'))
         append(':')
         append(value.minute.toString().padStart(2, '0'))
+    }
+}
+
+@Composable
+private fun ListeningInsightIcon(
+    painter: Painter,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(DesignTokens.shapes.md))
+            .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = null,
+            tint = MiuixTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }

@@ -17,11 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignEmptyState
-import io.github.julystar.musicapp.core.presentation.components.DesignIconBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignIconBadgeVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
+import io.github.julystar.musicapp.core.presentation.components.EmptyState
+import io.github.julystar.musicapp.core.presentation.components.StatusBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
@@ -75,7 +73,7 @@ fun DownloadsScreen(
                 subtitle = stringResource(Res.string.downloads_task_count, state.tasks.size),
             )
             if (state.tasks.isEmpty()) {
-                DesignEmptyState(
+                EmptyState(
                     title = stringResource(Res.string.downloads_empty),
                     message = stringResource(Res.string.downloads_empty_message),
                     modifier = Modifier.weight(1f),
@@ -112,7 +110,12 @@ private fun DownloadTaskRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DesignIconBadge(variant = DesignIconBadgeVariant.Neutral, marker = "D")
+                Text(
+                    text = "D",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.title3,
+                    fontWeight = FontWeight.Bold,
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = task.title,
@@ -130,7 +133,7 @@ private fun DownloadTaskRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                DesignStatusBadge(
+                StatusBadge(
                     label = stringResource(task.status.resource),
                     tone = task.status.statusTone,
                 )
@@ -243,10 +246,10 @@ private val DownloadStatus.resource: StringResource
         DownloadStatus.Cancelled -> Res.string.downloads_status_cancelled
     }
 
-private val DownloadStatus.statusTone: DesignStatusTone
+private val DownloadStatus.statusTone: StatusTone
     get() = when (this) {
-        DownloadStatus.Completed -> DesignStatusTone.Success
-        DownloadStatus.Failed -> DesignStatusTone.Error
-        DownloadStatus.Cancelled -> DesignStatusTone.Neutral
-        else -> DesignStatusTone.Info
+        DownloadStatus.Completed -> StatusTone.Success
+        DownloadStatus.Failed -> StatusTone.Error
+        DownloadStatus.Cancelled -> StatusTone.Neutral
+        else -> StatusTone.Info
     }

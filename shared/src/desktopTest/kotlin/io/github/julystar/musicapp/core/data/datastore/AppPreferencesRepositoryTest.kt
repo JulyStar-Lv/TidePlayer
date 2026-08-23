@@ -77,16 +77,16 @@ class AppPreferencesRepositoryTest {
                     playlistId = 7,
                     positionMs = 1_000,
                     wasPlaying = true,
-                    queueTrackIds = listOf(3L, 2L, 1L),
+                    queueTrackIds = listOf(2L, 2L, 1L),
                 )
             )
 
-            repository.remapTrackIds(mapOf(2L to 1L))
+            repository.remapTrackIds(mapOf(2L to 3L))
 
-            assertEquals(setOf(1L), withTimeout(5_000) { repository.favoriteTrackIds.first() })
+            assertEquals(setOf(1L, 3L), withTimeout(5_000) { repository.favoriteTrackIds.first() })
             val session = withTimeout(5_000) { repository.playbackSession.first() }
-            assertEquals(1L, session?.trackId)
-            assertEquals(listOf(3L, 1L), session?.queueTrackIds)
+            assertEquals(3L, session?.trackId)
+            assertEquals(listOf(3L, 3L, 1L), session?.queueTrackIds)
         } finally {
             file.delete()
         }

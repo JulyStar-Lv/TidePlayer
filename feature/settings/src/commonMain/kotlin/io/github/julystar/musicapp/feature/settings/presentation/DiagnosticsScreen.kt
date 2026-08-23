@@ -38,8 +38,8 @@ import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogEntry
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogLevel
 import io.github.julystar.musicapp.core.presentation.components.TagChip
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
+import io.github.julystar.musicapp.core.presentation.components.StatusBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -180,7 +180,8 @@ fun DiagnosticsScreen(
             onLoadMore = viewModel::loadMoreIncidents,
         )
         if (state.faultInjectionSupported) {
-            SettingsSection(title = stringResource(Res.string.diagnostics_fault_injection)) {
+            SmallTitle(text = stringResource(Res.string.diagnostics_fault_injection))
+            Card {
                 DiagnosticFaultInjection.entries.forEach { fault ->
                     BasicComponent(
                         title = fault.name,
@@ -294,10 +295,10 @@ private fun DiagnosticsOverviewCard(
         else -> stringResource(Res.string.diagnostics_ready)
     }
     val statusTone = when {
-        state.error != null -> DesignStatusTone.Error
-        hasCriticalIncident -> DesignStatusTone.Warning
-        state.loading -> DesignStatusTone.Info
-        else -> DesignStatusTone.Success
+        state.error != null -> StatusTone.Error
+        hasCriticalIncident -> StatusTone.Warning
+        state.loading -> StatusTone.Info
+        else -> StatusTone.Success
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -327,7 +328,7 @@ private fun DiagnosticsOverviewCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                DesignStatusBadge(label = statusLabel, tone = statusTone)
+                StatusBadge(label = statusLabel, tone = statusTone)
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -439,7 +440,8 @@ private fun DiagnosticsActions(
 @Composable
 private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
     val snapshot = state.snapshot
-    SettingsSection(title = stringResource(Res.string.diagnostics_startup)) {
+    SmallTitle(text = stringResource(Res.string.diagnostics_startup))
+    Card {
         BasicComponent(
             title = stringResource(Res.string.diagnostics_current_attempt),
             summary = snapshot?.startupAttempt?.let {
@@ -463,7 +465,7 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
                 title = stringResource(Res.string.diagnostics_history),
                 summary = "${previous.lastStage} · ${previous.attemptId}",
                 endActions = {
-                    DesignStatusBadge(
+                    StatusBadge(
                         label = stringResource(
                             if (previous.stable) {
                                 Res.string.diagnostics_stable
@@ -472,9 +474,9 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
                             },
                         ),
                         tone = if (previous.stable) {
-                            DesignStatusTone.Success
+                            StatusTone.Success
                         } else {
-                            DesignStatusTone.Warning
+                            StatusTone.Warning
                         },
                     )
                 },
@@ -485,7 +487,7 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
                 title = "${attempt.lastStage} · ${attempt.attemptId}",
                 summary = "safeMode=${attempt.safeMode} · graceful=${attempt.gracefulShutdown}",
                 endActions = {
-                    DesignStatusBadge(
+                    StatusBadge(
                         label = stringResource(
                             if (attempt.stable) {
                                 Res.string.diagnostics_stable
@@ -494,9 +496,9 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
                             },
                         ),
                         tone = if (attempt.stable) {
-                            DesignStatusTone.Success
+                            StatusTone.Success
                         } else {
-                            DesignStatusTone.Warning
+                            StatusTone.Warning
                         },
                     )
                 },
@@ -637,7 +639,7 @@ private fun DiagnosticsLogSection(
                     onClick = { onSession(session.sessionId) },
                     endActions = if (session.current || selected) {
                         {
-                            DesignStatusBadge(
+                            StatusBadge(
                                 label = stringResource(
                                     if (session.current) {
                                         Res.string.diagnostics_current
@@ -646,9 +648,9 @@ private fun DiagnosticsLogSection(
                                     },
                                 ),
                                 tone = if (session.current) {
-                                    DesignStatusTone.Success
+                                    StatusTone.Success
                                 } else {
-                                    DesignStatusTone.Accent
+                                    StatusTone.Accent
                                 },
                             )
                         }
@@ -743,12 +745,12 @@ private fun DiagnosticLogCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             ) {
-                DesignStatusBadge(
+                StatusBadge(
                     label = entry.level.name.uppercase(),
                     tone = entry.level.statusTone,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                DesignStatusBadge(label = entry.category.name)
+                StatusBadge(label = entry.category.name)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = formatDiagnosticTimestamp(entry.timestampEpochMs, timeOnly = true),
@@ -789,9 +791,9 @@ private fun DiagnosticLogCard(
 private fun DiagnosticNoticeCard(message: String) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            DesignStatusBadge(
+            StatusBadge(
                 label = stringResource(Res.string.diagnostics_warning),
-                tone = DesignStatusTone.Warning,
+                tone = StatusTone.Warning,
             )
             Text(
                 text = message,
@@ -947,17 +949,17 @@ private fun DiagnosticIncidentCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             ) {
-                DesignStatusBadge(
+                StatusBadge(
                     label = incident.severity.name.uppercase(),
                     tone = incident.severity.statusTone,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                DesignStatusBadge(
+                StatusBadge(
                     label = incident.state.name,
                     tone = if (incident.state in resolvedStates) {
-                        DesignStatusTone.Success
+                        StatusTone.Success
                     } else {
-                        DesignStatusTone.Neutral
+                        StatusTone.Neutral
                     },
                 )
                 Spacer(modifier = Modifier.weight(1f))
@@ -991,9 +993,9 @@ private fun DiagnosticIncidentCard(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
                 if (incident.requiresRecovery) {
-                    DesignStatusBadge(
+                    StatusBadge(
                         label = stringResource(Res.string.diagnostics_recovery_required),
-                        tone = DesignStatusTone.Warning,
+                        tone = StatusTone.Warning,
                     )
                 }
             }
@@ -1055,11 +1057,11 @@ private fun DiagnosticLogDetail(
         modifier = Modifier.padding(top = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        DesignStatusBadge(
+        StatusBadge(
             label = entry.level.name.uppercase(),
             tone = entry.level.statusTone,
         )
-        DesignStatusBadge(label = entry.category.name)
+        StatusBadge(label = entry.category.name)
     }
     SelectionContainer {
         Column(
@@ -1143,25 +1145,25 @@ private fun DiagnosticDetailField(
     }
 }
 
-private val DiagnosticLogLevel.statusTone: DesignStatusTone
+private val DiagnosticLogLevel.statusTone: StatusTone
     get() = when (this) {
         DiagnosticLogLevel.Trace,
         DiagnosticLogLevel.Debug,
-        -> DesignStatusTone.Neutral
-        DiagnosticLogLevel.Info -> DesignStatusTone.Info
-        DiagnosticLogLevel.Warn -> DesignStatusTone.Warning
+        -> StatusTone.Neutral
+        DiagnosticLogLevel.Info -> StatusTone.Info
+        DiagnosticLogLevel.Warn -> StatusTone.Warning
         DiagnosticLogLevel.Error,
         DiagnosticLogLevel.Fatal,
-        -> DesignStatusTone.Error
+        -> StatusTone.Error
     }
 
-private val DiagnosticIncidentSeverity.statusTone: DesignStatusTone
+private val DiagnosticIncidentSeverity.statusTone: StatusTone
     get() = when (this) {
-        DiagnosticIncidentSeverity.Info -> DesignStatusTone.Info
-        DiagnosticIncidentSeverity.Warning -> DesignStatusTone.Warning
+        DiagnosticIncidentSeverity.Info -> StatusTone.Info
+        DiagnosticIncidentSeverity.Warning -> StatusTone.Warning
         DiagnosticIncidentSeverity.Error,
         DiagnosticIncidentSeverity.Fatal,
-        -> DesignStatusTone.Error
+        -> StatusTone.Error
     }
 
 private fun formatDiagnosticTimestamp(epochMs: Long, timeOnly: Boolean = false): String =

@@ -353,8 +353,8 @@
     <string name="settings_timeout_value">%1$d seconds</string>
     <string name="settings_retry_count">Failure retries</string>
     <string name="settings_retry_count_value">%1$d retries</string>
-    <string name="settings_audio_preload">Audio preload</string>
-    <string name="settings_audio_preload_summary">Preload %1$s when supported</string>
+    <string name="settings_audio_preload">Smart next-track preload</string>
+    <string name="settings_audio_preload_summary">Audio target: %1$s. Prepare next-track metadata, artwork, and lyrics first; Off keeps that preparation enabled.</string>
 
     <string name="settings_usage_section">Usage</string>
     <string name="settings_usage_audio">Audio cache</string>

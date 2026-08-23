@@ -112,7 +112,7 @@
     <string name="debug_trigger_kt_async_exception">触发 Kotlin 异步异常</string>
     <string name="log_title">日志</string>
     <string name="debug_trigger_rs_panic">触发 Rust panic！</string>
-    <string name="diagnostics_safe_mode_title">Tide Player 安全模式</string>
+    <string name="diagnostics_safe_mode_title">安全模式</string>
     <string name="diagnostics_safe_mode_reason">进入安全模式的原因</string>
     <string name="diagnostics_safe_mode_disabled">暂时禁用的组件</string>
     <string name="diagnostics_safe_mode_privacy">诊断数据只保存在本机，绝不会自动上传。</string>

@@ -88,21 +88,37 @@ class AppPreferencesRepository(
         dataStore.edit { preferences ->
             val favoriteIds = preferences[FAVORITE_TRACK_IDS_KEY].orEmpty()
                 .mapNotNull(String::toLongOrNull)
-                .mapTo(mutableSetOf()) { trackId -> replacements[trackId] ?: trackId }
+                .mapTo(mutableSetOf()) { trackId -> TrackIdRemapper.resolve(trackId, replacements) }
             preferences[FAVORITE_TRACK_IDS_KEY] = favoriteIds.mapTo(mutableSetOf(), Long::toString)
 
             preferences[LAST_TRACK_ID_KEY]?.let { trackId ->
-                replacements[trackId]?.let { targetTrackId ->
+                TrackIdRemapper.resolveOrNull(trackId, replacements)?.let { targetTrackId ->
                     preferences[LAST_TRACK_ID_KEY] = targetTrackId
                 }
             }
             preferences[LAST_QUEUE_TRACK_IDS_KEY]?.let { encodedTrackIds ->
                 preferences[LAST_QUEUE_TRACK_IDS_KEY] = encodedTrackIds
                     .toTrackIds()
-                    .map { trackId -> replacements[trackId] ?: trackId }
-                    .distinct()
+                    .map { trackId -> TrackIdRemapper.resolve(trackId, replacements) }
                     .joinToString(separator = ",")
             }
+        }
+    }
+}
+
+/** Resolves replacement chains while preserving queue occurrences (queue is a sequence, not a set). */
+object TrackIdRemapper {
+    fun resolve(id: Long, replacements: Map<Long, Long>): Long =
+        resolveOrNull(id, replacements) ?: id
+
+    fun resolveOrNull(id: Long, replacements: Map<Long, Long>): Long? {
+        var current = id
+        val visited = mutableSetOf<Long>()
+        while (true) {
+            if (!visited.add(current)) return null
+            val next = replacements[current] ?: return if (current == id && id !in replacements) null else current
+            if (next == current) return current
+            current = next
         }
     }
 }

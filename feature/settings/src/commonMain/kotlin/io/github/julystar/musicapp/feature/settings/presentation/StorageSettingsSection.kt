@@ -9,6 +9,16 @@ import io.github.julystar.musicapp.core.domain.model.BackupSchedule
 import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun StorageSettingsSection(
@@ -25,34 +35,35 @@ fun StorageSettingsSection(
     }
 
     SettingsPageLayout(title = stringResource(Res.string.settings_storage_title), onBack = onBack) {
-        SettingsSection(title = stringResource(Res.string.settings_usage_section)) {
-            SettingsInfoRow(
+        SmallTitle(text = stringResource(Res.string.settings_usage_section))
+        Card {
+            BasicComponent(
                 title = stringResource(Res.string.settings_usage_audio),
-                value = formatBytes(usage.audioBytes),
+                summary = formatBytes(usage.audioBytes),
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_usage_image),
-                value = formatBytes(usage.imageBytes),
+                summary = formatBytes(usage.imageBytes),
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_usage_downloads),
-                value = formatBytes(usage.downloadBytes),
+                summary = formatBytes(usage.downloadBytes),
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_usage_database),
-                value = formatBytes(usage.databaseBytes),
+                summary = formatBytes(usage.databaseBytes),
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_usage_logs),
-                value = formatBytes(usage.logBytes),
+                summary = formatBytes(usage.logBytes),
             )
-            SettingsInfoRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_usage_total),
-                value = formatBytes(usage.totalBytes),
+                summary = formatBytes(usage.totalBytes),
             )
-            SettingsInfoRow(
+            ArrowPreference(
                 title = stringResource(Res.string.settings_usage_refresh),
-                value = if (state.storageRefreshing) {
+                summary = if (state.storageRefreshing) {
                     stringResource(Res.string.settings_usage_refreshing)
                 } else {
                     stringResource(Res.string.settings_usage_refresh)
@@ -62,47 +73,54 @@ fun StorageSettingsSection(
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_cleanup_section)) {
-            SettingsDangerRow(
+        SmallTitle(text = stringResource(Res.string.settings_cleanup_section))
+        Card {
+            BasicComponent(
                 title = stringResource(Res.string.settings_clear_audio),
                 summary = stringResource(Res.string.settings_clear_audio_summary),
                 enabled = !busy,
                 onClick = { onAction(SettingsAction.RequestClearAudio) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
-            SettingsDangerRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_clear_image),
                 summary = stringResource(Res.string.settings_clear_image_summary),
                 enabled = !busy,
                 onClick = { onAction(SettingsAction.RequestClearImage) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
-            SettingsDangerRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_clear_all),
                 summary = stringResource(Res.string.settings_clear_all_summary),
                 enabled = !busy,
                 onClick = { onAction(SettingsAction.RequestClearAllCaches) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_data_section)) {
+        SmallTitle(text = stringResource(Res.string.settings_data_section))
+        Card {
             if (state.capabilities.diagnosticsExportSupported) {
-                SettingsInfoRow(
+                ArrowPreference(
                     title = stringResource(Res.string.settings_export_diagnostics),
-                    value = stringResource(Res.string.settings_export_diagnostics_summary),
+                    summary = stringResource(Res.string.settings_export_diagnostics_summary),
                     enabled = !busy,
                     onClick = { onAction(SettingsAction.ExportDiagnostics) },
                 )
             }
-            SettingsDangerRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_reset_defaults),
                 summary = stringResource(Res.string.settings_reset_defaults_summary),
                 enabled = !busy,
                 onClick = { onAction(SettingsAction.RequestResetDefaults) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
         }
 
         if (state.capabilities.settingsBackupSupported) {
-            SettingsSection(title = stringResource(Res.string.settings_backup_section)) {
-                SettingsSwitchRow(
+            SmallTitle(text = stringResource(Res.string.settings_backup_section))
+            Card {
+                SwitchPreference(
                     title = stringResource(Res.string.settings_backup_appearance),
                     checked = backup.selection.appearance,
                     onCheckedChange = {
@@ -113,7 +131,7 @@ fun StorageSettingsSection(
                         )
                     },
                 )
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_backup_playback),
                     checked = backup.selection.playback,
                     onCheckedChange = {
@@ -124,7 +142,7 @@ fun StorageSettingsSection(
                         )
                     },
                 )
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_backup_lyrics),
                     checked = backup.selection.lyrics,
                     onCheckedChange = {
@@ -135,7 +153,7 @@ fun StorageSettingsSection(
                         )
                     },
                 )
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_backup_library),
                     checked = backup.selection.libraryAndMetadata,
                     onCheckedChange = {
@@ -148,7 +166,7 @@ fun StorageSettingsSection(
                         )
                     },
                 )
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = stringResource(Res.string.settings_backup_network),
                     checked = backup.selection.networkAndCache,
                     onCheckedChange = {
@@ -162,81 +180,97 @@ fun StorageSettingsSection(
                     },
                 )
                 if (state.capabilities.scheduledBackupSupported) {
-                    SettingsSelectRow(
-                        label = stringResource(Res.string.settings_backup_schedule),
-                        selected = backup.schedule,
-                        options = BackupSchedule.entries.toList(),
-                        optionLabel = { schedule -> stringResource(schedule.titleResource()) },
-                        onSelect = { schedule ->
-                            onAction(SettingsAction.SetBackupSettings(backup.copy(schedule = schedule)))
-                        },
+                    val schedules = BackupSchedule.entries.toList()
+                    OverlayDropdownPreference(
+                        title = stringResource(Res.string.settings_backup_schedule),
+                        entries = listOf(DropdownEntry(
+                            items = schedules.map { schedule ->
+                                DropdownItem(
+                                    text = stringResource(schedule.titleResource()),
+                                    selected = schedule == backup.schedule,
+                                    onClick = {
+                                        onAction(
+                                            SettingsAction.SetBackupSettings(
+                                                backup.copy(schedule = schedule),
+                                            ),
+                                        )
+                                    },
+                                )
+                            },
+                        )),
                     )
                     val webDavAccounts = state.sourceAccounts
                         .filter(SourceAccountSettingsItem::isWebDav)
                         .mapNotNull { account ->
                             account.accountId.toStorageRouteIdOrNull()?.let { accountId ->
-                                SettingsSelectOption(value = accountId.toString(), label = account.title)
+                                accountId to account.title
                             }
                         }
                     if (webDavAccounts.isNotEmpty()) {
                         val selectedAccount = webDavAccounts.firstOrNull {
-                            it.value == backup.webDavAccountId?.toString()
+                            it.first == backup.webDavAccountId
                         }
-                        SettingsSelectRow(
-                            label = stringResource(Res.string.settings_backup_webdav_account),
-                            selectedValue = selectedAccount?.value.orEmpty(),
-                            selectedLabel = selectedAccount?.label ?: "—",
-                            options = webDavAccounts,
-                            onSelect = { accountId ->
-                                accountId.toLongOrNull()?.let { storageAccountId ->
-                                    onAction(
-                                        SettingsAction.SetBackupSettings(
-                                            backup.copy(webDavAccountId = storageAccountId)
-                                        )
+                        OverlayDropdownPreference(
+                            title = stringResource(Res.string.settings_backup_webdav_account),
+                            entries = listOf(DropdownEntry(
+                                items = webDavAccounts.map { account ->
+                                    DropdownItem(
+                                        text = account.second,
+                                        selected = account == selectedAccount,
+                                        onClick = {
+                                            onAction(
+                                                SettingsAction.SetBackupSettings(
+                                                    backup.copy(webDavAccountId = account.first),
+                                                ),
+                                            )
+                                        },
                                     )
-                                }
-                            },
+                                },
+                            )),
                         )
                     }
-                    SettingsInfoRow(
+                    ArrowPreference(
                         title = stringResource(Res.string.settings_backup_remote_directory),
-                        value = backup.remoteDirectory,
+                        summary = backup.remoteDirectory,
                         onClick = {
                             remoteDirectoryInput = backup.remoteDirectory
                             editingRemoteDirectory = true
                         },
                     )
                 }
-                SettingsInfoRow(
+                ArrowPreference(
                     title = stringResource(Res.string.settings_backup_create),
-                    value = stringResource(Res.string.settings_backup_create_summary),
+                    summary = stringResource(Res.string.settings_backup_create_summary),
                     onClick = { onAction(SettingsAction.CreateSettingsBackup) },
                 )
-                SettingsInfoRow(
+                ArrowPreference(
                     title = stringResource(Res.string.settings_backup_restore),
-                    value = stringResource(Res.string.settings_backup_restore_summary),
+                    summary = stringResource(Res.string.settings_backup_restore_summary),
                     onClick = { onAction(SettingsAction.RestoreLatestSettingsBackup) },
                 )
             }
         }
 
-        SettingsSection(title = stringResource(Res.string.settings_danger_section)) {
-            SettingsDangerRow(
+        SmallTitle(text = stringResource(Res.string.settings_danger_section))
+        Card {
+            BasicComponent(
                 title = stringResource(Res.string.settings_clear_all_data),
                 summary = stringResource(Res.string.settings_clear_all_data_summary),
                 enabled = !busy,
                 onClick = { onAction(SettingsAction.RequestClearAllData) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
-            SettingsDangerRow(
+            BasicComponent(
                 title = stringResource(Res.string.settings_rebuild_library),
                 summary = stringResource(Res.string.settings_rebuild_library_summary),
                 enabled = !busy,
                 onClick = { onAction(SettingsAction.RequestRebuildLibrary) },
+                titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
             )
             if (busy) {
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_operation_running),
-                    value = state.rebuildState.failureMessage.orEmpty(),
+                    summary = state.rebuildState.failureMessage.orEmpty(),
                 )
             }
         }

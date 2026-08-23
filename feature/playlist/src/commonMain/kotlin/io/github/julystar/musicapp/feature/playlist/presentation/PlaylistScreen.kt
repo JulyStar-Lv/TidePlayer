@@ -43,9 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.presentation.components.BottomBarSpacer
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
-import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
@@ -98,11 +96,15 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -257,7 +259,7 @@ fun PlaylistScreen(
                     BottomBarSpacer(showMiniPlayer = true, scaffoldPadding = scaffoldPadding)
                 }
             }
-            DesignStickyGlassActionBar(
+            LiquidGlassActionBar(
                 title = title,
                 collapseFraction = actionBarProgress,
                 onNavigateBack = { onAction(PlaylistAction.NavigateBack) },
@@ -546,31 +548,47 @@ private fun PlaylistTrackRow(
                             .align(Alignment.TopEnd)
                             .offset(x = 12.dp, y = 28.dp),
                     ) {
-                        ResourceDropdownMenu(
-                            expanded = moreMenuExpanded,
-                            onDismissRequest = { moreMenuExpanded = false },
-                            compact = true,
-                            items = buildList {
+                        OverlayDropdownPopup(
+                            DropdownEntry(
+                                items = buildList {
                                 if (item.mediaId != null) {
                                     add(
-                                        ResourceDropdownMenuItem(
-                                            label = Res.string.playlist_download,
-                                            icon = CoreRes.drawable.icon_download,
+                                        DropdownItem(
+                                            text = stringResource(Res.string.playlist_download),
+                                            icon = { modifier ->
+                                                Icon(
+                                                    painter = painterResource(CoreRes.drawable.icon_download),
+                                                    contentDescription = null,
+                                                    modifier = modifier,
+                                                )
+                                            },
                                             onClick = onDownload,
                                         ),
                                     )
                                 }
                                 if (removable) {
                                     add(
-                                        ResourceDropdownMenuItem(
-                                            label = Res.string.playlist_context_menu_remove,
-                                            icon = CoreRes.drawable.icon_deleteseep,
-                                            isError = true,
+                                        DropdownItem(
+                                            text = stringResource(Res.string.playlist_context_menu_remove),
+                                            icon = { modifier ->
+                                                Icon(
+                                                    painter = painterResource(CoreRes.drawable.icon_deleteseep),
+                                                    contentDescription = null,
+                                                    modifier = modifier,
+                                                )
+                                            },
                                             onClick = onRemove,
                                         ),
                                     )
                                 }
                             },
+                            ),
+                            show = moreMenuExpanded,
+                            onDismiss = { moreMenuExpanded = false },
+                            onDismissFinished = {},
+                            maxHeight = 360.dp,
+                            dropdownColors = DropdownDefaults.dropdownColors(),
+                            renderInRootScaffold = true,
                         )
                     }
                 }

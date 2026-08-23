@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.TagChip
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
@@ -81,13 +81,13 @@ fun BrowseScreen(
                 ),
             )
             when {
-                state.isLoading -> DesignStatusCard(
+                state.isLoading -> StatusMessageCard(
                     title = stringResource(Res.string.browse_loading),
                     message = stringResource(Res.string.browse_loading_message),
                     loading = true,
                     modifier = Modifier.weight(1f),
                 )
-                state.error != null -> DesignStatusCard(
+                state.error != null -> StatusMessageCard(
                     title = stringResource(Res.string.browse_unavailable),
                     message = stringResource(Res.string.browse_loading_message),
                     actionText = stringResource(Res.string.browse_retry),
@@ -171,7 +171,7 @@ private fun BrowseContent(
         }
         if (state.albums.isEmpty() && state.artists.isEmpty() && state.genres.isEmpty()) {
             item {
-                DesignStatusCard(
+                StatusMessageCard(
                     title = stringResource(Res.string.browse_no_content),
                     message = stringResource(Res.string.browse_import_first),
                 )

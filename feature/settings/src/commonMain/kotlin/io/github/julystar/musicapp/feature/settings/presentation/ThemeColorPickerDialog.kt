@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +58,7 @@ import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ColorPicker
@@ -375,42 +375,23 @@ private fun PickerEditor(
 
         PickerSection(title = stringResource(Res.string.settings_theme_color_value)) {
             val error = parsedHex == null
-            Row(
+            TextField(
+                value = hexInput,
+                onValueChange = onHexChange,
+                label = "#$hexDescription",
+                useLabelAsPlaceholder = true,
+                singleLine = true,
+                textStyle = MiuixTheme.textStyles.body1.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MiuixTheme.colorScheme.surfaceVariant)
-                    .border(
-                        1.dp,
-                        if (error) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.outline,
-                        RoundedCornerShape(16.dp),
-                    )
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "#",
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontFamily = FontFamily.Monospace,
-                )
-                BasicTextField(
-                    value = hexInput,
-                    onValueChange = onHexChange,
-                    singleLine = true,
-                    textStyle = MiuixTheme.textStyles.body1.copy(
-                        color = MiuixTheme.colorScheme.onSurface,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics {
-                            contentDescription = hexDescription
-                            if (error) stateDescription = hexErrorDescription
-                        },
-                )
-            }
+                    .semantics {
+                        contentDescription = hexDescription
+                        if (error) stateDescription = hexErrorDescription
+                    },
+            )
             if (error) {
                 Text(
                     text = "⚠ ${stringResource(Res.string.settings_theme_color_hex_error)}",

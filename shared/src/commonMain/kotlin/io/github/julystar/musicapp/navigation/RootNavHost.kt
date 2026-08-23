@@ -54,9 +54,9 @@ import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
-import io.github.julystar.musicapp.core.presentation.components.DesignGlassOverlayScene
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignStickyHeaderState
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
@@ -100,10 +100,8 @@ import io.github.julystar.musicapp.service.playback.presentation.sleep.TimeToPau
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkSharedTransitionScope
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
-import io.github.julystar.musicapp.widgets.appbar.NavigationRailBar
-import io.github.julystar.musicapp.widgets.appbar.SidebarBar
-import io.github.julystar.musicapp.widgets.appbar.getNavigationRailWidth
-import io.github.julystar.musicapp.widgets.appbar.getSidebarWidth
+import io.github.julystar.musicapp.widgets.appbar.HomeNavigationRail
+import io.github.julystar.musicapp.widgets.appbar.getHomeNavigationRailWidth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -780,17 +778,17 @@ private fun SecondaryRootNavigationLayout(
             windowSizeClass = windowSizeClass,
         )
         var stickyHeaderState by remember(hoistStickyHeader) {
-            mutableStateOf<DesignStickyHeaderState?>(null)
+            mutableStateOf<StickyHeaderState?>(null)
         }
         val stickyHeaderStateSink = remember(hoistStickyHeader) {
             OwnedDesignStickyHeaderStateSink { state -> stickyHeaderState = state }
         }
         val sideNavigationWidth = when (windowSizeClass) {
             WindowSizeClass.Compact -> 0.dp
-            WindowSizeClass.Medium -> getNavigationRailWidth(windowSizeClass)
+            WindowSizeClass.Medium -> getHomeNavigationRailWidth(expanded = false)
             WindowSizeClass.Expanded,
             WindowSizeClass.Large,
-            WindowSizeClass.XL -> getSidebarWidth(windowSizeClass)
+            WindowSizeClass.XL -> getHomeNavigationRailWidth(expanded = true)
         }
         val contentModifier = if (contentUsesNavigationChrome) {
             Modifier
@@ -805,7 +803,7 @@ private fun SecondaryRootNavigationLayout(
             Modifier.fillMaxSize()
         }
 
-        DesignGlassOverlayScene(
+        LiquidGlassOverlayScene(
             modifier = Modifier.fillMaxSize(),
             captureBackdrop = contentUsesNavigationChrome,
             contentBottomInset = when {
@@ -843,7 +841,7 @@ private fun SecondaryRootNavigationLayout(
                             when (windowSizeClass) {
                                 WindowSizeClass.Compact -> {
                                     stickyHeaderState?.let { state ->
-                                        DesignStickyGlassActionBar(
+                                        LiquidGlassActionBar(
                                             title = state.title,
                                             subtitle = state.subtitle,
                                             collapseFraction = state.collapseFraction,
@@ -867,14 +865,14 @@ private fun SecondaryRootNavigationLayout(
                                 }
 
                                 WindowSizeClass.Medium -> {
-                                    NavigationRailBar(
+                                    HomeNavigationRail(
                                         currentTab = currentTab,
                                         onTabSelected = onTabSelected,
+                                        expanded = false,
                                         modifier = Modifier
                                             .align(Alignment.CenterStart)
                                             .fillMaxHeight()
                                             .statusBarsPadding(),
-                                        windowSizeClass = windowSizeClass,
                                     )
                                     if (hasPlaybackItem) {
                                         Box(
@@ -897,14 +895,14 @@ private fun SecondaryRootNavigationLayout(
                                 WindowSizeClass.Expanded,
                                 WindowSizeClass.Large,
                                 WindowSizeClass.XL -> {
-                                    SidebarBar(
+                                    HomeNavigationRail(
                                         currentTab = currentTab,
                                         onTabSelected = onTabSelected,
+                                        expanded = true,
                                         modifier = Modifier
                                             .align(Alignment.CenterStart)
                                             .fillMaxHeight()
                                             .statusBarsPadding(),
-                                        windowSizeClass = windowSizeClass,
                                     )
                                     if (hasPlaybackItem) {
                                         Box(

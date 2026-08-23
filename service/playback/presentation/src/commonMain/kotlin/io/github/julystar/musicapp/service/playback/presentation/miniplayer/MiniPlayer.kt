@@ -19,11 +19,12 @@ import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.presentation.components.MusicCover
-import io.github.julystar.musicapp.core.presentation.components.DesignCompactMiniPlayerBar
-import io.github.julystar.musicapp.core.presentation.components.DesignExpandedMiniPlayerBar
-import io.github.julystar.musicapp.core.presentation.components.DesignGradientPlayButton
-import io.github.julystar.musicapp.core.presentation.components.DesignMiniPlayerBar
+import io.github.julystar.musicapp.core.presentation.components.CompactMiniPlayerBar
+import io.github.julystar.musicapp.core.presentation.components.ExpandedMiniPlayerBar
+import io.github.julystar.musicapp.core.presentation.components.MiniPlayerBar
+import io.github.julystar.musicapp.core.presentation.components.PlaybackControlButton
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlSize
+import io.github.julystar.musicapp.core.presentation.components.PlaybackControlVariant
 import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -175,7 +176,7 @@ private fun MiniPlayerBar(
     val shapes = DesignTokens.shapes
     val actionTint = MiuixTheme.colorScheme.onSurface
 
-    DesignMiniPlayerBar(
+    MiniPlayerBar(
         title = title,
         subtitle = subtitle,
         progress = progress,
@@ -286,7 +287,7 @@ private fun ExpandedMiniPlayerBar(
         },
     )
 
-    DesignExpandedMiniPlayerBar(
+    ExpandedMiniPlayerBar(
         title = title,
         subtitle = subtitle,
         progress = progress,
@@ -392,7 +393,7 @@ private fun CompactMiniPlayer(
 ) {
     val shapes = DesignTokens.shapes
 
-    DesignCompactMiniPlayerBar(
+    CompactMiniPlayerBar(
         progress = progress,
         accessibilityLabel = stringResource(Res.string.now_playing_title),
         onClick = onClick,
@@ -405,10 +406,11 @@ private fun CompactMiniPlayer(
             )
         },
         overlayControls = {
-            DesignGradientPlayButton(
+            PlaybackControlButton(
                 painter = painterResource(if (isPlaying) Res.drawable.icon_pause else Res.drawable.icon_play),
                 enabled = !loading,
                 size = PlaybackControlSize.Mini,
+                variant = PlaybackControlVariant.Primary,
                 contentDescription = stringResource(
                     if (isPlaying) Res.string.player_pause else Res.string.player_play
                 ),

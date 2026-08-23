@@ -25,8 +25,8 @@ class PlaybackLyricsEnricher(
     private val timeoutMs: Long = DEFAULT_PLAYBACK_LYRICS_LOOKUP_TIMEOUT_MS,
 ) {
     private val stateMutex = Mutex()
-    private val inFlight = mutableSetOf<Long>()
-    private val attempted = mutableSetOf<Long>()
+    private val inFlight = mutableSetOf<LyricsAttemptKey>()
+    private val attempted = mutableSetOf<LyricsAttemptKey>()
 
     /**
      * Lets a changed lyric-source preference retry a lookup that previously completed without
@@ -34,20 +34,30 @@ class PlaybackLyricsEnricher(
      */
     suspend fun resetAttempt(trackId: Long) {
         stateMutex.withLock {
-            attempted -= trackId
+            attempted.removeAll { it.trackId == trackId }
         }
     }
 
-    suspend fun enrich(trackId: Long): Boolean {
+    suspend fun enrich(
+        trackId: Long,
+        matchedCandidate: MetaSongCandidate? = null,
+        canonicalTrackId: Long? = null,
+    ): Boolean {
+        val effectiveTrackId = canonicalTrackId ?: trackId
         val settings = settingsRepository.settings.first().lyrics
-        val candidates = metadataDao.getLyricsCandidates(trackId)
+        val candidates = metadataDao.getLyricsCandidates(effectiveTrackId)
         if (!candidates.shouldLookupPreferredExternalLyrics(settings)) return false
+        val attemptKey = LyricsAttemptKey(
+            trackId = effectiveTrackId,
+            sourceId = matchedCandidate?.sourceId,
+            externalId = matchedCandidate?.id,
+        )
 
         val acquired = stateMutex.withLock {
-            if (trackId in inFlight || trackId in attempted) {
+            if (attemptKey in inFlight || attemptKey in attempted) {
                 false
             } else {
-                inFlight += trackId
+                inFlight += attemptKey
                 true
             }
         }
@@ -56,7 +66,7 @@ class PlaybackLyricsEnricher(
         var completed = false
         return try {
             val updated = withTimeoutOrNull(timeoutMs.coerceAtLeast(1)) {
-                lookupAndPersist(trackId)
+                lookupAndPersist(effectiveTrackId, matchedCandidate)
             } ?: false
             completed = true
             updated
@@ -67,13 +77,13 @@ class PlaybackLyricsEnricher(
             false
         } finally {
             stateMutex.withLock {
-                inFlight -= trackId
-                if (completed) attempted += trackId
+                inFlight -= attemptKey
+                if (completed) attempted += attemptKey
             }
         }
     }
 
-    private suspend fun lookupAndPersist(trackId: Long): Boolean {
+    private suspend fun lookupAndPersist(trackId: Long, matchedCandidate: MetaSongCandidate?): Boolean {
         val track = trackDao.get(trackId) ?: return false
         val artist = metadataDao.artistNamesForTrack(trackId)
             .joinToString(" / ")
@@ -88,22 +98,26 @@ class PlaybackLyricsEnricher(
             pageSize = PLAYBACK_LYRICS_RESULTS_PER_SOURCE,
         )
         val plugins = pluginRepository.allSnapshot()
-        val sourceIds = plugins
+        val lyricsSourceIds = plugins
             .filter { plugin ->
                 val capabilities = plugin.capabilities.ifEmpty { listOf("searchSongs") }
                 plugin.enabled &&
                     plugin.allowAutomaticLookup &&
-                    "searchSongs" in capabilities &&
                     "getLyrics" in capabilities
             }
             .mapTo(mutableSetOf(), PluginSummary::id)
-        val candidate = sourceIds.takeIf(Set<String>::isNotEmpty)?.let {
-            findBestLyricsCandidate(query) { searchQuery ->
-                lookup.searchSongs(
-                    query = searchQuery,
-                    mode = PluginLookupMode.AUTOMATIC,
-                    sourceIds = sourceIds,
-                ).items
+        val searchSourceIds = plugins
+            .filter { plugin -> plugin.id in lyricsSourceIds && "searchSongs" in plugin.capabilities }
+            .mapTo(mutableSetOf(), PluginSummary::id)
+        val candidate = resolveLyricsSongCandidate(matchedCandidate, lyricsSourceIds) {
+            searchSourceIds.takeIf(Set<String>::isNotEmpty)?.let {
+                findBestLyricsCandidate(query) { searchQuery ->
+                    lookup.searchSongs(
+                        query = searchQuery,
+                        mode = PluginLookupMode.AUTOMATIC,
+                        sourceIds = searchSourceIds,
+                    ).items
+                }
             }
         }
         val matchedLyrics = candidate?.let { song ->
@@ -131,6 +145,22 @@ class PlaybackLyricsEnricher(
         metadataDao.upsertLyrics(listOf(entity))
         return true
     }
+}
+
+internal data class LyricsAttemptKey(
+    val trackId: Long,
+    val sourceId: String?,
+    val externalId: String?,
+)
+
+internal suspend fun resolveLyricsSongCandidate(
+    matchedCandidate: MetaSongCandidate?,
+    allowedLyricsSourceIds: Set<String>,
+    search: suspend () -> MetaSongCandidate?,
+): MetaSongCandidate? = if (matchedCandidate != null) {
+    matchedCandidate.takeIf { it.sourceId.isNullOrBlank() || it.sourceId in allowedLyricsSourceIds }
+} else {
+    search()
 }
 
 private fun List<MetaLyricsCandidate>.bestMatch(query: MetaSongQuery): MetaLyricsCandidate? =

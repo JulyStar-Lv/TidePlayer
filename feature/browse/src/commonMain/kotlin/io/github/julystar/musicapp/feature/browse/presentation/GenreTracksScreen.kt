@@ -17,8 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignTrackNumberBadge
+import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
+import io.github.julystar.musicapp.core.presentation.components.TrackNumberBadge
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.feature.browse.generated.resources.Res
@@ -66,20 +66,20 @@ fun GenreTracksScreen(
                 },
             )
             when {
-                state.isLoading -> DesignStatusCard(
+                state.isLoading -> StatusMessageCard(
                     title = stringResource(Res.string.genre_loading),
                     message = state.genre,
                     loading = true,
                     modifier = Modifier.weight(1f),
                 )
-                state.error != null -> DesignStatusCard(
+                state.error != null -> StatusMessageCard(
                     title = stringResource(Res.string.genre_unavailable),
                     message = state.genre,
                     actionText = stringResource(Res.string.genre_retry),
                     onAction = { onAction(GenreTracksAction.Retry) },
                     modifier = Modifier.weight(1f),
                 )
-                state.tracks.isEmpty() -> DesignStatusCard(
+                state.tracks.isEmpty() -> StatusMessageCard(
                     title = stringResource(Res.string.genre_no_tracks),
                     message = state.genre,
                     modifier = Modifier.weight(1f),
@@ -126,7 +126,7 @@ private fun GenreTrackRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DesignTrackNumberBadge(label = "")
+            TrackNumberBadge(label = "")
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),

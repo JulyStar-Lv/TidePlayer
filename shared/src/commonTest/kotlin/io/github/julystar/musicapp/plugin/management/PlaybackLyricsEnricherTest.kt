@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertNotEquals
 
 class PlaybackLyricsEnricherTest {
     @Test
@@ -125,5 +126,23 @@ class PlaybackLyricsEnricherTest {
 
         assertNotNull(candidate.matchScore(query))
         assertNull(candidate.copy(durationMs = 196_999).matchScore(query))
+    }
+
+    @Test
+    fun matchedCandidateNeverRepeatsSongSearch() = runTest {
+        var searches = 0
+        val candidate = MetaSongCandidate(id = "matched", title = "Song", sourceId = "plugin")
+
+        val result = resolveLyricsSongCandidate(candidate, setOf("plugin")) {
+            searches++
+            null
+        }
+
+        assertEquals(candidate, result)
+        assertEquals(0, searches)
+        assertNotEquals(
+            LyricsAttemptKey(1, null, null),
+            LyricsAttemptKey(1, "plugin", "matched"),
+        )
     }
 }

@@ -91,6 +91,29 @@ impl PlaybackSession {
         }
     }
 
+    pub async fn prefetch_prefix(&self, max_bytes: u64) -> BResult<u64> {
+        let target = max_bytes.min(self.source.total_size);
+        let mut block_start = 0;
+        while block_start < target {
+            if !self.source.active.load(Ordering::Acquire) {
+                return Err(BError::CustomError {
+                    message: "playback session is inactive".to_string(),
+                });
+            }
+            self.source
+                .block(block_start)
+                .await
+                .map_err(|message| BError::CustomError { message })?;
+            if !self.source.active.load(Ordering::Acquire) {
+                return Err(BError::CustomError {
+                    message: "playback session stopped during prefix prefetch".to_string(),
+                });
+            }
+            block_start = block_start.saturating_add(BLOCK_SIZE);
+        }
+        Ok(target)
+    }
+
     pub fn shutdown(&self) {
         self.close_internal();
     }
@@ -1122,6 +1145,20 @@ mod tests {
         released: AtomicU64,
     }
 
+    struct PrefixBackend {
+        total_size: u64,
+        ranges: Mutex<Vec<(u64, u64)>>,
+    }
+
+    impl PrefixBackend {
+        fn new(total_size: u64) -> Self {
+            Self {
+                total_size,
+                ranges: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
     impl StorageBackend for SizeChangingBackend {
         fn list(&self, _dir: String) -> BoxFuture<'_, StorageBackendResult<Vec<Entry>>> {
             Box::pin(async { Ok(Vec::new()) })
@@ -1201,6 +1238,43 @@ mod tests {
         }
     }
 
+    impl StorageBackend for PrefixBackend {
+        fn list(&self, _dir: String) -> BoxFuture<'_, StorageBackendResult<Vec<Entry>>> {
+            Box::pin(async { Ok(Vec::new()) })
+        }
+
+        fn get(
+            &self,
+            _path: String,
+            _byte_offset: u64,
+        ) -> BoxFuture<'_, StorageBackendResult<StreamFile>> {
+            Box::pin(async {
+                Err(StorageBackendError::UnsupportedFeature(
+                    "streaming is not used by this test".to_string(),
+                ))
+            })
+        }
+
+        fn get_range_response(
+            &self,
+            _path: String,
+            range: ByteRange,
+        ) -> BoxFuture<'_, StorageBackendResult<RangeResponse>> {
+            self.ranges
+                .lock()
+                .unwrap()
+                .push((range.start, range.end_inclusive));
+            let total_size = self.total_size;
+            Box::pin(async move {
+                Ok(RangeResponse {
+                    bytes: Bytes::from(vec![b'x'; range.len() as usize]),
+                    total_size,
+                    content_type: Some("audio/flac".to_string()),
+                })
+            })
+        }
+    }
+
     #[test]
     fn parses_http_ranges() {
         assert_eq!(resolve_range(None, 100), Ok((0, 99, false)));
@@ -1241,6 +1315,105 @@ mod tests {
         cached.shutdown();
         origin.shutdown();
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn prefetches_two_four_and_non_aligned_mib_prefixes_by_block() {
+        let cases = [
+            (2 * 1024 * 1024, 8_u64),
+            (4 * 1024 * 1024, 16_u64),
+            (2 * 1024 * 1024 + 1, 9_u64),
+        ];
+        for (index, (max_bytes, expected_blocks)) in cases.into_iter().enumerate() {
+            let root = std::env::temp_dir()
+                .join(format!("musicapp-prefix-size-{index}-{}", random_token()));
+            let total_size = 5 * 1024 * 1024 + 17;
+            let options = PlaybackCacheOptions {
+                directory: root.to_string_lossy().into_owned(),
+                key: format!("prefix-size-{index}"),
+                extension: "flac".to_string(),
+                write_enabled: true,
+                max_bytes: 16 * 1024 * 1024,
+            };
+            let backend = Arc::new(PrefixBackend::new(total_size));
+            let session =
+                start_cached_playback_gateway(backend, "/prefix.flac".to_string(), options)
+                    .await
+                    .unwrap();
+
+            assert_eq!(session.prefetch_prefix(max_bytes).await.unwrap(), max_bytes);
+            assert_eq!(session.stats().remote_requests, expected_blocks + 1);
+            session.shutdown();
+            let _ = fs::remove_dir_all(root);
+        }
+    }
+
+    #[tokio::test]
+    async fn prefix_prefetch_reuses_partial_blocks_and_promotes_full_cache() {
+        let root = std::env::temp_dir().join(format!("musicapp-prefix-resume-{}", random_token()));
+        let total_size = 4 * BLOCK_SIZE - 13;
+        let options = PlaybackCacheOptions {
+            directory: root.to_string_lossy().into_owned(),
+            key: "same-physical-resource".to_string(),
+            extension: "flac".to_string(),
+            write_enabled: true,
+            max_bytes: 16 * 1024 * 1024,
+        };
+        let backend = Arc::new(PrefixBackend::new(total_size));
+        let partial = start_cached_playback_gateway(
+            backend.clone(),
+            "/resume.flac".to_string(),
+            options.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            partial.prefetch_prefix(2 * BLOCK_SIZE).await.unwrap(),
+            2 * BLOCK_SIZE
+        );
+        assert_eq!(partial.stats().remote_requests, 3);
+        partial.shutdown();
+
+        let resumed =
+            start_cached_playback_gateway(backend, "/resume.flac".to_string(), options.clone())
+                .await
+                .unwrap();
+        assert_eq!(
+            resumed.prefetch_prefix(total_size).await.unwrap(),
+            total_size
+        );
+        assert_eq!(
+            resumed.stats().remote_requests,
+            3,
+            "probe plus only the two missing blocks should hit the remote source"
+        );
+        assert_eq!(
+            resumed.prefetch_prefix(total_size).await.unwrap(),
+            total_size
+        );
+        assert_eq!(
+            resumed.stats().remote_requests,
+            3,
+            "already cached blocks must not issue more remote requests"
+        );
+        let (complete, partial_path, index_path) = cache_paths(&options).unwrap();
+        assert_eq!(complete.metadata().unwrap().len(), total_size);
+        assert!(!partial_path.exists());
+        assert!(!index_path.exists());
+        resumed.shutdown();
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn prefix_prefetch_stops_when_session_is_inactive() {
+        let backend = Arc::new(PrefixBackend::new(2 * BLOCK_SIZE));
+        let session = start_playback_gateway(backend, "/inactive.flac".to_string())
+            .await
+            .unwrap();
+        session.shutdown();
+
+        assert!(session.prefetch_prefix(BLOCK_SIZE).await.is_err());
+        assert_eq!(session.stats().remote_requests, 1);
     }
 
     #[tokio::test]
