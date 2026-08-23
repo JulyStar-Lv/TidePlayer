@@ -46,14 +46,9 @@ import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.components.QualityBadge
 import io.github.julystar.musicapp.core.presentation.components.QualityBadgeType
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignLoadingIndicator
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignSearchBar
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.designListDivider
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
@@ -97,7 +92,12 @@ import musicapp.feature.search.generated.resources.searching_library
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_timelapse
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -154,7 +154,7 @@ fun SearchDesignScreen(
                 if (compact) {
                     SearchMobileHeader(modifier = Modifier.alpha(pageTitleAlpha))
                 } else {
-                    DesignPageHeader(
+                    TopAppBar(
                         title = stringResource(Res.string.search_title),
                         subtitle = stringResource(Res.string.search_subtitle),
                         modifier = Modifier.alpha(pageTitleAlpha),
@@ -162,12 +162,15 @@ fun SearchDesignScreen(
                 }
             }
             item {
-                DesignSearchBar(
-                    value = state.query,
-                    onValueChange = { onAction(SearchAction.QueryChanged(it)) },
-                    placeholder = stringResource(Res.string.search_hint),
+                InputField(
+                    query = state.query,
+                    onQueryChange = { query ->
+                        onAction(if (query.isEmpty()) SearchAction.ClearQuery else SearchAction.QueryChanged(query))
+                    },
                     onSearch = { onAction(SearchAction.SubmitSearch) },
-                    onClear = { onAction(SearchAction.ClearQuery) },
+                    label = stringResource(Res.string.search_hint),
+                    expanded = false,
+                    onExpandedChange = {},
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -439,10 +442,10 @@ private fun SearchTrendingRow(
     track: SearchTrendingTrack,
     onClick: () -> Unit,
 ) {
+    Column {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .designListDivider()
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 10.dp),
@@ -484,6 +487,8 @@ private fun SearchTrendingRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+    HorizontalDivider()
     }
 }
 
@@ -546,10 +551,10 @@ private fun SearchResultRow(
     track: SearchTrackItem,
     onOpen: () -> Unit,
 ) {
+    Column {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .designListDivider()
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onOpen)
             .padding(horizontal = 12.dp, vertical = 9.dp),
@@ -617,6 +622,8 @@ private fun SearchResultRow(
             style = MiuixTheme.textStyles.footnote1.copy(fontFamily = DesignFontFamilies.Mono),
         )
     }
+    HorizontalDivider()
+    }
 }
 
 @Composable
@@ -625,10 +632,10 @@ private fun SearchAlbumResultRow(
     album: SearchAlbumItem,
     onClick: () -> Unit,
 ) {
+    Column {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .designListDivider()
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
@@ -690,6 +697,8 @@ private fun SearchAlbumResultRow(
             style = MiuixTheme.textStyles.footnote1,
         )
     }
+    HorizontalDivider()
+    }
 }
 
 @Composable
@@ -697,10 +706,10 @@ private fun SearchArtistResultRow(
     artist: SearchArtistItem,
     onClick: () -> Unit,
 ) {
+    Column {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .designListDivider()
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
@@ -744,6 +753,8 @@ private fun SearchArtistResultRow(
             style = MiuixTheme.textStyles.footnote1,
         )
     }
+    HorizontalDivider()
+    }
 }
 
 @Composable
@@ -754,7 +765,7 @@ private fun SearchStatus(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    DesignCardSurface(contentPadding = PaddingValues(18.dp)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -768,7 +779,7 @@ private fun SearchStatus(
                 contentAlignment = Alignment.Center,
             ) {
                 if (loading) {
-                    DesignLoadingIndicator(size = 22.dp)
+                    CircularProgressIndicator(size = 22.dp)
                 } else {
                     Icon(
                         painter = painterResource(Res.drawable.icon_search),

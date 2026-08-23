@@ -33,7 +33,14 @@ import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import musicapp.core.presentation.generated.resources.Res
+import musicapp.core.presentation.generated.resources.icon_chevron_left
+import org.jetbrains.compose.resources.painterResource
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.IconButton
 
 private val LocalDesignBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
@@ -219,27 +226,28 @@ fun DesignStickyGlassActionBar(
             contentAlignment = Alignment.Center,
         ) {
             if (stableOnNavigateBack != null) {
-                DesignTopBar(
+                SmallTopAppBar(
                     title = title,
-                    height = adaptive.compactHeaderHeight,
-                    titleStyle = actionBarTitleStyle,
-                    titleAlpha = titleFraction,
-                    centerTitle = centerTitle,
+                    modifier = Modifier.alpha(titleFraction),
+                    defaultWindowInsetsPadding = false,
                     navigationIcon = {
-                        DesignTopBarBackButton(
+                        IconButton(
                             onClick = stableOnNavigateBack,
-                            contentDescription = backContentDescription,
-                        )
+                        ) {
+                            Icon(
+                                painter = painterResource(Res.drawable.icon_chevron_left),
+                                contentDescription = backContentDescription,
+                            )
+                        }
                     },
-                    actions = stableActions,
+                    actions = { stableActions?.invoke() },
                 )
             } else {
-                DesignPageHeader(
+                TopAppBar(
                     title = title,
-                    subtitle = subtitle,
-                    compact = true,
-                    centered = centerTitle,
-                    titleStyle = actionBarTitleStyle,
+                    subtitle = subtitle.orEmpty(),
+                    largeTitle = title,
+                    defaultWindowInsetsPadding = false,
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .alpha(titleFraction),

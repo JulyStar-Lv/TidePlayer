@@ -18,6 +18,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -37,7 +41,7 @@ fun SimpleFormText(
                 letterSpacing = 1.sp,
             )
         }
-        DesignTextField(
+        TextField(
             modifier = Modifier
                 .fillMaxWidth(),
             value = value,
@@ -79,14 +83,14 @@ fun FormText(
         label = label
     ) {
         if (!isPassword) {
-            DesignTextField(
+            TextField(
                 modifier = Modifier
                     .fillMaxWidth(),
                 value = value,
                 onValueChange = onChange,
             )
         } else {
-            DesignTextField(
+            TextField(
                 modifier = Modifier
                     .fillMaxWidth(),
                 value = value,
@@ -100,14 +104,11 @@ fun FormText(
                         painterResource(Res.drawable.icon_visibility_off)
                     }
 
-                    DesignIconButton(
-                        size = DesignIconButtonSize.Medium,
-                        variant = DesignIconButtonVariant.Default,
-                        painter = painter,
+                    IconButton(
                         onClick = {
                             passwordVisibleState.value = !passwordVisible
                         },
-                    )
+                    ) { Icon(painter = painter, contentDescription = null) }
                 }
             )
         }
@@ -130,7 +131,7 @@ fun FormSwitch(
     FormWidget(
         label = label
     ) {
-        AppSwitch(
+        Switch(
             checked = value,
             onCheckedChange = onChange
         )

@@ -55,17 +55,17 @@ fun DesignGradientPlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    size: DesignPlayerControlSize = DesignPlayerControlSize.Mini,
+    size: PlaybackControlSize = PlaybackControlSize.Mini,
     contentDescription: String? = null,
     showClickIndication: Boolean = true,
 ) {
-    DesignPlayerControlButton(
+    PlaybackControlButton(
         painter = painter,
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
         size = size,
-        variant = DesignPlayerControlVariant.Primary,
+        variant = PlaybackControlVariant.Primary,
         contentDescription = contentDescription,
         showClickIndication = showClickIndication,
     )

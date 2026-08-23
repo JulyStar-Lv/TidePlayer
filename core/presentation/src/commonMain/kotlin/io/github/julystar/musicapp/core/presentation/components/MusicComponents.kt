@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -156,9 +157,8 @@ fun DesignTrackListRow(
     onClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    DesignCardSurface(
+    Card(
         modifier = modifier,
-        contentPadding = PaddingValues(12.dp),
         onClick = onClick,
     ) {
         Row(
@@ -245,20 +245,8 @@ fun DesignTrackRow(
         MiuixTheme.colorScheme.onSurfaceVariantSummary
     }
 
-    DesignCardSurface(
+    Card(
         modifier = modifier,
-        cornerRadius = DesignTokens.shapes.md,
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-        backgroundColor = if (active) {
-            MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.72f)
-        } else {
-            null
-        },
-        borderColor = if (active) {
-            MiuixTheme.colorScheme.primary.copy(alpha = 0.36f)
-        } else {
-            null
-        },
         onClick = onClick,
     ) {
         Row(

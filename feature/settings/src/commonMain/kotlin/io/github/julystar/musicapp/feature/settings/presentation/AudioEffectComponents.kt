@@ -34,14 +34,17 @@ import io.github.julystar.musicapp.core.domain.model.LoudnessSettings
 import io.github.julystar.musicapp.core.domain.model.ReplayGainMode
 import io.github.julystar.musicapp.core.domain.model.SpatialAudioMode
 import io.github.julystar.musicapp.core.domain.model.withAudioEffectProfile
-import io.github.julystar.musicapp.core.presentation.components.AppSwitch
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.feature.settings.generated.resources.*
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -55,18 +58,18 @@ internal fun DspEffectCard(
 ) {
     var expanded by remember(title) { mutableStateOf(false) }
     val canExpand = enabled && checked != false
-    DesignPreferenceRow(
+    BasicComponent(
         title = title,
         summary = summary,
         enabled = enabled,
         onClick = { if (canExpand) expanded = !expanded },
-        trailing = {
+        endActions = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (checked != null && onCheckedChange != null) {
-                    AppSwitch(
+                    Switch(
                         checked = checked,
                         enabled = enabled,
                         onCheckedChange = { value ->
@@ -75,8 +78,9 @@ internal fun DspEffectCard(
                         },
                     )
                 }
-                DesignChevron(
-                    direction = DesignChevronDirection.Right,
+                Icon(
+                    painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                    contentDescription = null,
                     modifier = Modifier
                         .size(18.dp)
                         .graphicsLayer(rotationZ = if (expanded) 90f else 0f),
@@ -84,6 +88,7 @@ internal fun DspEffectCard(
             }
         },
     )
+    HorizontalDivider()
     if (expanded && canExpand) content()
 }
 

@@ -53,16 +53,15 @@ import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.MAX_CUSTOM_THEME_SEEDS
 import io.github.julystar.musicapp.core.domain.model.normalizeCustomThemeSeedArgbValues
 import io.github.julystar.musicapp.core.domain.model.normalizeThemeSeedArgb
-import io.github.julystar.musicapp.core.presentation.components.DesignButton
-import io.github.julystar.musicapp.core.presentation.components.DesignButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.AppHsvColorPicker
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.theme.ThemeSeedPreviewTheme
 import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ColorPicker
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.pow
 
@@ -110,13 +109,12 @@ internal fun ThemeColorPickerDialog(
         hexInput = formatThemeSeedHex(argb).removePrefix("#")
     }
 
-    DesignDialog(
+    OverlayDialog(
         show = show,
-        onDismiss = onDismiss,
+        onDismissRequest = onDismiss,
         modifier = Modifier.fillMaxWidth(),
-        maxWidth = DesignTokens.colorPicker.dialogMaxWidth,
-        maxHeight = DesignTokens.colorPicker.contentMaxHeight,
     ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.settings_theme_color_picker_title),
             style = MiuixTheme.textStyles.title3,
@@ -201,39 +199,32 @@ internal fun ThemeColorPickerDialog(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesignButton(
-                        text = stringResource(Res.string.settings_cancel),
-                        variant = DesignButtonVariant.Secondary,
+                    Button(
                         onClick = onDismiss,
-                    )
+                    ) { Text(stringResource(Res.string.settings_cancel)) }
                     Spacer(modifier = Modifier.width(8.dp))
-                    DesignButton(
-                        text = stringResource(Res.string.settings_theme_color_apply),
-                        variant = DesignButtonVariant.Primary,
+                    Button(
                         enabled = parsedHex != null,
                         onClick = { onApply(draftArgb) },
-                    )
+                    ) { Text(stringResource(Res.string.settings_theme_color_apply)) }
                 }
             } else {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    DesignButton(
-                        text = stringResource(Res.string.settings_theme_color_apply),
-                        variant = DesignButtonVariant.Primary,
+                    Button(
                         enabled = parsedHex != null,
                         onClick = { onApply(draftArgb) },
                         modifier = Modifier.fillMaxWidth(),
-                    )
-                    DesignButton(
-                        text = stringResource(Res.string.settings_cancel),
-                        variant = DesignButtonVariant.Secondary,
+                    ) { Text(stringResource(Res.string.settings_theme_color_apply)) }
+                    Button(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth(),
-                    )
+                    ) { Text(stringResource(Res.string.settings_cancel)) }
                 }
             }
+        }
         }
     }
 }
@@ -364,9 +355,7 @@ private fun PickerEditor(
                 isAtLimit -> Res.string.settings_theme_color_palette_limit
                 else -> Res.string.settings_theme_color_add_palette
             }
-            DesignButton(
-                text = stringResource(addLabel),
-                variant = DesignButtonVariant.Secondary,
+            Button(
                 enabled = !isDuplicate && !isAtLimit && parsedHex != null,
                 onClick = {
                     onCustomColorsChange(
@@ -374,13 +363,13 @@ private fun PickerEditor(
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-            )
+            ) { Text(stringResource(addLabel)) }
         }
 
         PickerSection(title = stringResource(Res.string.settings_theme_color_custom_hsv)) {
-            AppHsvColorPicker(
+            ColorPicker(
                 color = Color(draftArgb.toInt()),
-                onColorChange = { onDraftChange(it.toArgb().toLong() and 0xFFFFFFFFL) },
+                onColorChanged = { onDraftChange(it.toArgb().toLong() and 0xFFFFFFFFL) },
             )
         }
 
@@ -648,18 +637,16 @@ private fun ThemePreviewCard(dark: Boolean) {
             }
             Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DesignButton(
-                    text = stringResource(Res.string.settings_theme_color_preview_primary),
-                    variant = DesignButtonVariant.Primary,
+                Button(
                     onClick = {},
-                )
-                DesignButton(
-                    text = stringResource(
-                        Res.string.settings_theme_color_preview_secondary_action,
-                    ),
-                    variant = DesignButtonVariant.Secondary,
+                ) { Text(stringResource(Res.string.settings_theme_color_preview_primary)) }
+                Button(
                     onClick = {},
-                )
+                ) {
+                    Text(
+                        stringResource(Res.string.settings_theme_color_preview_secondary_action),
+                    )
+                }
             }
         }
     }

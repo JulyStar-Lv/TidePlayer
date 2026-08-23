@@ -36,8 +36,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -53,10 +57,7 @@ fun DesignEmptyState(
     val shapes = DesignTokens.shapes
     val spacing = DesignTokens.spacing
 
-    DesignCardSurface(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = spacing.lg, vertical = spacing.lg),
-    ) {
+    Card(modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -145,7 +146,11 @@ fun DesignStatusCard(
             verticalArrangement = Arrangement.spacedBy(contentSpacing),
         ) {
             if (loading) {
-                DesignLoadingIndicator(color = loadingColor)
+                CircularProgressIndicator(
+                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                        foregroundColor = loadingColor,
+                    ),
+                )
             }
             Text(
                 text = title,
@@ -165,10 +170,8 @@ fun DesignStatusCard(
                 overflow = TextOverflow.Ellipsis,
             )
             if (actionText != null && onAction != null) {
-                DesignTextButton(
+                TextButton(
                     text = actionText,
-                    variant = DesignTextButtonVariant.Primary,
-                    size = DesignTextButtonSize.Small,
                     onClick = onAction,
                 )
             }

@@ -13,10 +13,10 @@ import androidx.core.view.WindowCompat
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-actual fun DesignDialogHost(
+actual fun PlatformOverlayHost(
     onDismissRequest: () -> Unit,
     dismissOnClickOutside: Boolean,
-    navigationBarStyle: DesignDialogNavigationBarStyle,
+    navigationBarStyle: PlatformOverlayNavigationBarStyle,
     content: @Composable () -> Unit,
 ) {
     Dialog(
@@ -27,15 +27,15 @@ actual fun DesignDialogHost(
             decorFitsSystemWindows = false,
         ),
     ) {
-        DesignDialogSystemBarsEffect(navigationBarStyle)
+        PlatformOverlaySystemBarsEffect(navigationBarStyle)
         content()
     }
 }
 
 @Composable
 @Suppress("DEPRECATION")
-internal actual fun DesignDialogSystemBarsEffect(
-    navigationBarStyle: DesignDialogNavigationBarStyle,
+internal actual fun PlatformOverlaySystemBarsEffect(
+    navigationBarStyle: PlatformOverlayNavigationBarStyle,
 ) {
     val view = LocalView.current
     if (view.isInEditMode) return
@@ -58,7 +58,7 @@ internal actual fun DesignDialogSystemBarsEffect(
         window.isNavigationBarContrastEnforced = false
         insetsController.isAppearanceLightStatusBars = false
         insetsController.isAppearanceLightNavigationBars =
-            navigationBarStyle == DesignDialogNavigationBarStyle.Surface &&
+            navigationBarStyle == PlatformOverlayNavigationBarStyle.Surface &&
                 surfaceColor.luminance() > 0.5f
 
         onDispose {

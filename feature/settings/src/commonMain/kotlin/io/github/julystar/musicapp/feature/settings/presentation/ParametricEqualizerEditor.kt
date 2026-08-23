@@ -16,13 +16,16 @@ import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.ParametricEqBand
 import io.github.julystar.musicapp.core.domain.model.ParametricEqFilterType
 import io.github.julystar.musicapp.core.domain.model.ParametricEqualizerSettings
-import io.github.julystar.musicapp.core.presentation.components.AppSwitch
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.feature.settings.generated.resources.*
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -90,17 +93,17 @@ private fun ParametricBandCard(
         formatTenthsDb(band.gainTenthsDb),
         "$qLabel ${formatHundredths(band.qHundredths)}",
     ).joinToString(" · ")
-    DesignPreferenceRow(
+    BasicComponent(
         title = stringResource(Res.string.settings_peq_band, index + 1),
         summary = summary,
         enabled = enabled,
         onClick = { if (band.enabled) expanded = !expanded },
-        trailing = {
+        endActions = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AppSwitch(
+                Switch(
                     checked = band.enabled,
                     enabled = enabled,
                     onCheckedChange = { checked ->
@@ -108,8 +111,9 @@ private fun ParametricBandCard(
                         onUpdate(band.copy(enabled = checked))
                     },
                 )
-                DesignChevron(
-                    direction = DesignChevronDirection.Right,
+                Icon(
+                    painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                    contentDescription = null,
                     modifier = Modifier
                         .size(18.dp)
                         .graphicsLayer(rotationZ = if (expanded) 90f else 0f),
@@ -117,6 +121,7 @@ private fun ParametricBandCard(
             }
         },
     )
+    HorizontalDivider()
     if (expanded && band.enabled) {
         SettingsSelectRow(
             label = stringResource(Res.string.settings_peq_filter_type),

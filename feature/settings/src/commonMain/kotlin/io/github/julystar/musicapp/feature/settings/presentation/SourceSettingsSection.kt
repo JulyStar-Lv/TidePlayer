@@ -54,22 +54,8 @@ import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
 import io.github.julystar.musicapp.core.domain.model.sanitizeSourceEndpointForDisplay
 import io.github.julystar.musicapp.core.domain.model.sanitizeSourceTitleForDisplay
-import io.github.julystar.musicapp.core.presentation.components.AppSwitch
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignLinearProgressIndicator
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -83,8 +69,16 @@ import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
 import musicapp.core.presentation.generated.resources.Res as CorePresentationRes
 import musicapp.core.presentation.generated.resources.icon_vertialcal_more
+import musicapp.core.presentation.generated.resources.icon_chevron_right
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -386,16 +380,7 @@ private fun UnifiedLibraryCard(
     }
     val canScan = state.enabledSourceCount > 0 && !state.maintenanceOperationInProgress
 
-    DesignCardSurface(
-        cornerRadius = 28.dp,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        backgroundColor = if (active) {
-            MiuixTheme.colorScheme.primary.copy(alpha = 0.06f)
-        } else {
-            MiuixTheme.colorScheme.surfaceContainer
-        },
-        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.15f),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -485,22 +470,7 @@ private fun UnifiedLibraryCard(
                             },
                         ),
                 )
-                DesignIconButton(
-                    size = DesignIconButtonSize.Medium,
-                    variant = if (active) {
-                        DesignIconButtonVariant.Error
-                    } else {
-                        DesignIconButtonVariant.Default
-                    },
-                    colors = if (active) null else DesignIconButtonColors(
-                        iconTint = MiuixTheme.colorScheme.primary,
-                    ),
-                    painter = painterResource(
-                        if (active) Res.drawable.icon_close else Res.drawable.icon_source_refresh,
-                    ),
-                    contentDescription = stringResource(
-                        if (active) Res.string.settings_cancel else Res.string.settings_scan_now,
-                    ),
+                IconButton(
                     enabled = active || canScan,
                     onClick = {
                         onAction(
@@ -508,15 +478,25 @@ private fun UnifiedLibraryCard(
                             else SettingsAction.ScanAllSources,
                         )
                     },
-                )
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (active) Res.drawable.icon_close else Res.drawable.icon_source_refresh,
+                        ),
+                        contentDescription = stringResource(
+                            if (active) Res.string.settings_cancel else Res.string.settings_scan_now,
+                        ),
+                        tint = if (active) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.primary,
+                    )
+                }
             }
         }
         if (active) {
-            DesignLinearProgressIndicator(
+            LinearProgressIndicator(
                 progress = progress,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.CenterHorizontally)
                     .offset(y = 12.dp),
             )
         }
@@ -701,7 +681,7 @@ private fun SourceAccountRow(
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AppSwitch(
+                Switch(
                     checked = account.enabled,
                     onCheckedChange = {
                         onAction(SettingsAction.SetAccountEnabled(account.accountId, it))
@@ -717,7 +697,7 @@ private fun SourceAccountRow(
                 )
             }
         }
-        DesignListDivider()
+        HorizontalDivider()
     }
 }
 
@@ -828,14 +808,14 @@ private fun SourceActionsButton(
                 modifier = Modifier.size(20.dp),
             )
         }
-        DesignContextMenu(
+        ResourceDropdownMenu(
             expanded = menuOpen,
             onDismissRequest = { menuOpen = false },
             compact = true,
             items = buildList {
                 if (account.isLocal) {
                     add(
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             icon = Res.drawable.icon_source_sliders,
                             label = Res.string.settings_source_manage,
                             onClick = {
@@ -847,7 +827,7 @@ private fun SourceActionsButton(
                 }
                 if (!account.isLocal) {
                     add(
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             icon = Res.drawable.icon_source_pencil,
                             label = Res.string.settings_source_edit_action,
                             onClick = {
@@ -859,7 +839,7 @@ private fun SourceActionsButton(
                 }
                 if (account.isWebDav || account.isSmb || account.isOpenList) {
                     add(
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             icon = Res.drawable.icon_source_sliders,
                             label = Res.string.settings_source_path_action,
                             onClick = {
@@ -871,7 +851,7 @@ private fun SourceActionsButton(
                 }
                 if (!account.isRemoteServer) {
                     add(
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             icon = Res.drawable.icon_source_refresh,
                             label = Res.string.settings_source_scan_action,
                             enabled = account.enabled &&
@@ -884,7 +864,7 @@ private fun SourceActionsButton(
                     )
                 }
                 add(
-                    DesignContextMenuItem(
+                    ResourceDropdownMenuItem(
                         icon = Res.drawable.icon_log,
                         label = Res.string.settings_source_scan_results,
                         onClick = {
@@ -895,7 +875,7 @@ private fun SourceActionsButton(
                 )
                 if (account.isWebDav || account.isSmb) {
                     add(
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             icon = Res.drawable.icon_source_trash,
                             label = Res.string.settings_source_delete_action,
                             isError = true,
@@ -931,7 +911,7 @@ private fun SourceScanResultsDialog(
     onOpenFailures: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DesignDialog(show = show, onDismiss = onDismiss) {
+    OverlayDialog(show = show, onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -991,21 +971,17 @@ private fun SourceScanResultsDialog(
                 horizontalArrangement = Arrangement.End,
             ) {
                 task?.takeIf { it.failedCount > 0L }?.let { failedTask ->
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(
                             Res.string.settings_scan_failure_count,
                             failedTask.failedCount.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
                         ),
-                        variant = DesignTextButtonVariant.Default,
-                        size = DesignTextButtonSize.Medium,
                         onClick = { onOpenFailures(failedTask.id) },
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_close),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
                     onClick = onDismiss,
                 )
             }
@@ -1087,7 +1063,7 @@ private fun LocalDirectoriesDialog(
     onRemove: (LocalMusicDirectory) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DesignDialog(show = show, onDismiss = onDismiss) {
+    OverlayDialog(show = show, onDismissRequest = onDismiss) {
         Text(
             text = stringResource(Res.string.settings_source_manage),
             color = MiuixTheme.colorScheme.onSurface,
@@ -1112,11 +1088,11 @@ private fun LocalDirectoriesDialog(
             directories.forEachIndexed { index, directory ->
                 LocalDirectoryRow(directory = directory, onRemove = { onRemove(directory) })
                 if (index != directories.lastIndex) {
-                    DesignListDivider()
+                    HorizontalDivider()
                 }
             }
             if (directories.isNotEmpty()) {
-                DesignListDivider()
+                HorizontalDivider()
             }
             SourcePickerRow(
                 icon = Res.drawable.icon_source_plus,
@@ -1131,10 +1107,8 @@ private fun LocalDirectoriesDialog(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.settings_close),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
                 onClick = onDismiss,
             )
         }
@@ -1241,7 +1215,10 @@ private fun SourceTrailingChevron() {
         modifier = Modifier.size(DesignTokens.adaptive.minimumTouchTarget),
         contentAlignment = Alignment.Center,
     ) {
-        DesignChevron(direction = DesignChevronDirection.Right)
+        Icon(
+            painter = painterResource(CorePresentationRes.drawable.icon_chevron_right),
+            contentDescription = null,
+        )
     }
 }
 
@@ -1314,7 +1291,7 @@ private fun ScanFailureDialog(
     failures: List<LibrarySyncFailure>,
     onDismiss: () -> Unit,
 ) {
-    DesignDialog(show = show, onDismiss = onDismiss) {
+    OverlayDialog(show = show, onDismissRequest = onDismiss) {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
                 text = stringResource(Res.string.settings_failure_dialog_title),
@@ -1336,10 +1313,8 @@ private fun ScanFailureDialog(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_close),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
                     onClick = onDismiss,
                 )
             }
@@ -1435,9 +1410,9 @@ private fun WebDavAccountDialog(
             showConnectionTestResult = false
         }
     }
-    DesignDialog(
+    OverlayDialog(
         show = dialogVisible,
-        onDismiss = { onAction(SettingsAction.DismissWebDavDialog) },
+        onDismissRequest = { onAction(SettingsAction.DismissWebDavDialog) },
     ) {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
@@ -1503,25 +1478,19 @@ private fun WebDavAccountDialog(
                     status = state.webDavConnectionTestStatus,
                     modifier = Modifier.weight(1f),
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_cancel),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
                     onClick = { onAction(SettingsAction.DismissWebDavDialog) },
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_test),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
                     onClick = {
                         showConnectionTestResult = true
                         onAction(SettingsAction.TestWebDavConnection(password, draft))
                     },
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_save),
-                    variant = DesignTextButtonVariant.Primary,
-                    size = DesignTextButtonSize.Medium,
                     onClick = { onAction(SettingsAction.SaveWebDavAccount(password, draft)) },
                 )
             }
@@ -1555,9 +1524,9 @@ private fun SmbAccountDialog(
             showConnectionTestResult = false
         }
     }
-    DesignDialog(
+    OverlayDialog(
         show = dialogVisible,
-        onDismiss = { onAction(SettingsAction.DismissSmbDialog) },
+        onDismissRequest = { onAction(SettingsAction.DismissSmbDialog) },
     ) {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
@@ -1646,25 +1615,19 @@ private fun SmbAccountDialog(
                     status = state.smbConnectionTestStatus,
                     modifier = Modifier.weight(1f),
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_cancel),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
                     onClick = { onAction(SettingsAction.DismissSmbDialog) },
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_test),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
                     onClick = {
                         showConnectionTestResult = true
                         onAction(SettingsAction.TestSmbConnection(password, draft))
                     },
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.settings_save),
-                    variant = DesignTextButtonVariant.Primary,
-                    size = DesignTextButtonSize.Medium,
                     onClick = { onAction(SettingsAction.SaveSmbAccount(password, draft)) },
                 )
             }
@@ -1769,7 +1732,7 @@ private fun SourceDialogSwitchRow(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
         )
-        AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

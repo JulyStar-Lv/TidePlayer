@@ -68,16 +68,9 @@ import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryArtistItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
-import io.github.julystar.musicapp.core.presentation.components.DesignTabs
-import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
-import io.github.julystar.musicapp.core.presentation.components.designListDivider
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
@@ -107,8 +100,12 @@ import musicapp.core.presentation.generated.resources.icon_search
 import musicapp.core.presentation.generated.resources.icon_vertialcal_more
 import musicapp.feature.library.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -399,13 +396,10 @@ private fun LibraryMobileTabs(
     selected: LibraryDesignCategory,
     onSelect: (LibraryDesignCategory) -> Unit,
 ) {
-    DesignTabs(
-        items = primaryLibraryCategories.map { category ->
-            DesignTabItem(label = localizedLibraryText(category.label))
-        },
-        selectedIndex = primaryLibraryCategories.indexOf(selected).coerceAtLeast(0),
-        onSelectedIndexChange = { index -> onSelect(primaryLibraryCategories[index]) },
-        variant = DesignTabsVariant.Filled,
+    TabRow(
+        tabs = primaryLibraryCategories.map { category -> localizedLibraryText(category.label) },
+        selectedTabIndex = primaryLibraryCategories.indexOf(selected).coerceAtLeast(0),
+        onTabSelected = { index -> onSelect(primaryLibraryCategories[index]) },
     )
 }
 
@@ -461,9 +455,9 @@ private fun LibraryContent(
         ) {
             if (!compact) {
                 item {
-                    DesignPageHeader(
+                    TopAppBar(
                         title = localizedLibraryText("Library"),
-                        subtitle = null,
+                        subtitle = "",
                         modifier = Modifier.alpha(pageTitleAlpha),
                     )
                 }
@@ -646,7 +640,7 @@ private fun LazyListScope.LibraryCategoryItems(
         LibraryDesignCategory.HiRes -> {
             if (filteredTracks.isEmpty()) {
                 item {
-                    DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
                         LibraryEmptyContent(
                             title = if (songQuery.isNotBlank()) "No matches"
                             else "No tracks",
@@ -694,7 +688,7 @@ private fun LazyListScope.LibraryCategoryItems(
                     LibraryCategoryEmptyCard(LibraryDesignCategory.Artists)
                 }
                 filteredArtistRows.isEmpty() -> item {
-                    DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
                         LibraryEmptyContent(
                             title = stringResource(Res.string.library_no_matches),
                             message = stringResource(Res.string.library_try_different_search),
@@ -732,7 +726,7 @@ private fun LazyListScope.LibraryCategoryItems(
         }
 
         LibraryDesignCategory.Folders -> item {
-            DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 LibraryEmptyContent(
                     title = stringResource(Res.string.library_no_folders_added),
                     message = stringResource(Res.string.library_import_folder_message),
@@ -764,7 +758,7 @@ private fun LazyListScope.LibraryCategoryItems(
         }
 
         LibraryDesignCategory.Downloads -> item {
-            DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 LibraryEmptyContent(
                     title = stringResource(Res.string.library_no_downloads_yet),
                     message = stringResource(Res.string.library_offline_message),
@@ -776,7 +770,7 @@ private fun LazyListScope.LibraryCategoryItems(
         }
 
         LibraryDesignCategory.Sources -> item {
-            DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 LibraryEmptyContent(
                     title = stringResource(Res.string.library_sources_title),
                     message = stringResource(Res.string.library_sources_message),
@@ -1051,17 +1045,17 @@ private fun LibrarySongRow(
     onToggleFavorite: () -> Unit,
     onMore: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .background(
-                if (playing) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
-                else Color.Transparent,
-            )
-            .designListDivider()
-            .padding(end = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(
+                    if (playing) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
+                    else Color.Transparent,
+                )
+                .padding(end = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             modifier = Modifier
@@ -1161,6 +1155,8 @@ private fun LibrarySongRow(
                 )
             }
         }
+        }
+        HorizontalDivider()
     }
 }
 
@@ -1292,16 +1288,16 @@ private fun LibraryArtistRow(
     onOpenArtist: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(68.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onOpenArtist)
-            .designListDivider()
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(onClick = onOpenArtist)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier = Modifier
@@ -1343,6 +1339,8 @@ private fun LibraryArtistRow(
             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
             modifier = Modifier.size(16.dp),
         )
+        }
+        HorizontalDivider()
     }
 }
 
@@ -1606,7 +1604,7 @@ private fun PlaylistListView(
                 Spacer(modifier = Modifier.width(8.dp))
             }
             if (index < playlists.lastIndex) {
-                DesignListDivider()
+                HorizontalDivider()
             }
         }
     }
@@ -1678,7 +1676,7 @@ private fun LibraryEmptyContent(
 
 @Composable
 private fun LibraryCategoryEmptyCard(category: LibraryDesignCategory) {
-    DesignCardSurface(contentPadding = PaddingValues(24.dp)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         LibraryEmptyContent(
             title = "No ${category.label.lowercase()}",
             message = category.emptyMessage,

@@ -41,14 +41,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignLoadingIndicator
-import io.github.julystar.musicapp.core.presentation.components.DesignSearchBar
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.platform.byteArrayToImageBitmap
@@ -64,6 +58,10 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import musicapp.shared.generated.resources.Res
 import musicapp.shared.generated.resources.manual_metadata_applied_without_lyrics
@@ -267,9 +265,9 @@ fun ManualMetadataSearchDialog(
         }
     }
 
-    DesignDialog(
+    OverlayDialog(
         show = dialogVisible,
-        onDismiss = onDismiss,
+        onDismissRequest = onDismiss,
     ) {
         Column(
             modifier = Modifier
@@ -331,19 +329,18 @@ fun ManualMetadataSearchDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DesignSearchBar(
-                    value = keyword,
-                    onValueChange = { keyword = it },
-                    placeholder = stringResource(Res.string.manual_metadata_keyword),
-                    onSearch = ::search,
-                    onClear = { keyword = "" },
+                InputField(
+                    query = keyword,
+                    onQueryChange = { keyword = it },
+                    onSearch = { search() },
+                    label = stringResource(Res.string.manual_metadata_keyword),
+                    expanded = false,
+                    onExpandedChange = {},
                     enabled = !searching && !applying && !resetting,
                     modifier = Modifier.weight(1f),
                 )
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.manual_metadata_search),
-                    variant = DesignTextButtonVariant.PrimaryFilled,
-                    size = DesignTextButtonSize.Medium,
                     modifier = Modifier.widthIn(min = 72.dp),
                     enabled = keyword.isNotBlank() && !searching && !applying && !resetting,
                     onClick = ::search,
@@ -411,26 +408,22 @@ fun ManualMetadataSearchDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DesignTextButton(
+                TextButton(
                     text = if (resetting) {
                         stringResource(Res.string.manual_metadata_resetting)
                     } else {
                         stringResource(Res.string.manual_metadata_reset)
                     },
-                    variant = DesignTextButtonVariant.Tonal,
-                    size = DesignTextButtonSize.Medium,
                     modifier = Modifier.widthIn(min = 120.dp),
                     enabled = !searching && !applying && !resetting,
                     onClick = ::resetFromFile,
                 )
-                DesignTextButton(
+                TextButton(
                     text = if (applying) {
                         stringResource(Res.string.manual_metadata_applying)
                     } else {
                         stringResource(Res.string.manual_metadata_apply)
                     },
-                    variant = DesignTextButtonVariant.PrimaryFilled,
-                    size = DesignTextButtonSize.Medium,
                     modifier = Modifier.widthIn(min = 88.dp),
                     enabled = selected != null && !searching && !applying && !resetting,
                     onClick = ::applySelected,
@@ -712,7 +705,7 @@ private fun MetadataSearchState(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (loading) {
-                DesignLoadingIndicator(size = 24.dp, strokeWidth = 2.dp)
+                CircularProgressIndicator(size = 24.dp, strokeWidth = 2.dp)
             }
             Text(
                 text = text,

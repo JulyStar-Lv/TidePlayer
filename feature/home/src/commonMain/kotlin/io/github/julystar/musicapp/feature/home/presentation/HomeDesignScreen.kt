@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
@@ -104,6 +103,7 @@ import musicapp.feature.home.generated.resources.home_your_listening
 import musicapp.feature.home.generated.resources.listening_plays
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -174,7 +174,7 @@ fun HomeDesignScreen(
                     if (compact) {
                         HomeMobileHeader(modifier = Modifier.alpha(pageTitleAlpha))
                     } else {
-                        DesignPageHeader(
+                        TopAppBar(
                             title = stringResource(Res.string.home_good_evening),
                             subtitle = stringResource(Res.string.home_subtitle),
                             modifier = Modifier.alpha(pageTitleAlpha),

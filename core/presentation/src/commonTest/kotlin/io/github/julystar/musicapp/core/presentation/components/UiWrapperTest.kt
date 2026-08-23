@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasProgressBarRangeInfo
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -43,6 +44,16 @@ import musicapp.core.presentation.generated.resources.search_title
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.basic.SnackbarDuration
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -56,7 +67,7 @@ class UiWrapperTest {
         var checked = false
         setContent {
             MiuixTheme {
-                AppSwitchPreference(
+                SwitchPreference(
                     title = "Switch title",
                     summary = "Switch summary",
                     checked = checked,
@@ -75,7 +86,7 @@ class UiWrapperTest {
         var checked = false
         setContent {
             MiuixTheme {
-                AppSwitchPreference(
+                SwitchPreference(
                     title = "Disabled switch",
                     checked = checked,
                     enabled = false,
@@ -94,7 +105,7 @@ class UiWrapperTest {
         var value by mutableStateOf(1f)
         setContent {
             MiuixTheme {
-                AppSliderPreference(
+                SliderPreference(
                     title = "Slider title",
                     summary = "Slider summary",
                     value = value,
@@ -119,11 +130,14 @@ class UiWrapperTest {
         setContent {
             MiuixTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) {
-                    AppDropdownPreference(
+                    OverlayDropdownPreference(
                         title = "Quality",
-                        items = listOf("Low", "High"),
-                        selectedIndex = selectedIndex,
-                        onSelectedIndexChange = { selectedIndex = it },
+                        entry = DropdownEntry(
+                            items = listOf(
+                                DropdownItem(text = "Low", selected = selectedIndex == 0, onClick = { selectedIndex = 0 }),
+                                DropdownItem(text = "High", selected = selectedIndex == 1, onClick = { selectedIndex = 1 }),
+                            ),
+                        ),
                     )
                 }
             }
@@ -140,20 +154,20 @@ class UiWrapperTest {
     }
 
     @Test
-    fun designPreferenceCompatibilityRowExposesSummaryAndHandlesClick() = runComposeUiTest {
+    fun basicComponentExposesSummaryAndHandlesClick() = runComposeUiTest {
         var clicked = false
         setContent {
             MiuixTheme {
-                DesignPreferenceRow(
-                    title = "Compatibility preference",
-                    summary = "Compatibility summary",
+                BasicComponent(
+                    title = "Basic component",
+                    summary = "Basic summary",
                     onClick = { clicked = true },
                 )
             }
         }
 
-        onNodeWithText("Compatibility summary").assertExists()
-        onNodeWithText("Compatibility preference").performClick()
+        onNodeWithText("Basic summary").assertExists()
+        onNodeWithText("Basic component").performClick()
         assertTrue(clicked)
     }
 
@@ -177,22 +191,22 @@ class UiWrapperTest {
                             .testTag("menu-trigger")
                             .clickable { expanded = true },
                     ) {
-                        DesignContextMenu(
+                        ResourceDropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false },
                             items = listOf(
-                                DesignContextMenuItem(
+                                ResourceDropdownMenuItem(
                                     label = Res.string.search_title,
                                     icon = Res.drawable.icon_search,
                                     enabled = false,
                                     onClick = { error("Disabled item invoked") },
                                 ),
-                                DesignContextMenuItem(
+                                ResourceDropdownMenuItem(
                                     label = Res.string.app_name,
                                     icon = Res.drawable.icon_info,
                                     onClick = { regularInvoked = true },
                                 ),
-                                DesignContextMenuItem(
+                                ResourceDropdownMenuItem(
                                     label = Res.string.dashboard_import_cancel,
                                     icon = Res.drawable.icon_warning,
                                     onClick = { dangerInvoked = true },
@@ -237,16 +251,16 @@ class UiWrapperTest {
                             .testTag("submenu-trigger")
                             .clickable { expanded = true },
                     ) {
-                        DesignContextMenu(
+                        ResourceDropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false },
                             items = listOf(
-                                DesignContextMenuItem(
+                                ResourceDropdownMenuItem(
                                     label = Res.string.app_name,
                                     icon = Res.drawable.icon_info,
                                     onClick = {},
                                     children = listOf(
-                                        DesignContextMenuItem(
+                                        ResourceDropdownMenuItem(
                                             label = Res.string.search_title,
                                             icon = Res.drawable.icon_search,
                                             onClick = { childInvoked = true },
@@ -276,13 +290,14 @@ class UiWrapperTest {
         var enabled by mutableStateOf(true)
         setContent {
             MiuixTheme {
-                DesignSearchBar(
-                    value = value,
-                    onValueChange = { value = it },
-                    placeholder = "Search library",
+                InputField(
+                    query = value,
+                    onQueryChange = { value = it },
                     onSearch = { submitted = true },
+                    label = "Search library",
+                    expanded = false,
+                    onExpandedChange = {},
                     enabled = enabled,
-                    onClear = { value = "" },
                 )
             }
         }
@@ -292,10 +307,7 @@ class UiWrapperTest {
         onNode(hasSetTextAction()).performImeAction()
         assertTrue(submitted)
         waitForIdle()
-        onNode(
-            SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button),
-            useUnmergedTree = true,
-        ).performClick()
+        onNodeWithContentDescription("Search Cleanup", useUnmergedTree = true).performClick()
         assertEquals("", value)
 
         enabled = false
@@ -305,18 +317,18 @@ class UiWrapperTest {
 
     @Test
     fun snackbarStateQueuesAndDismissesMessagesInOrder() = runTest {
-        val state = AppSnackbarHostState()
+        val state = SnackbarHostState()
         val first = async(start = CoroutineStart.UNDISPATCHED) {
-            state.showMessage("first", duration = AppSnackbarDuration.Indefinite)
+            state.showSnackbar("first", duration = SnackbarDuration.Indefinite)
         }
         val second = async(start = CoroutineStart.UNDISPATCHED) {
-            state.showMessage("second", duration = AppSnackbarDuration.Indefinite)
+            state.showSnackbar("second", duration = SnackbarDuration.Indefinite)
         }
 
-        state.dismissOldest()
-        assertEquals(AppSnackbarResult.Dismissed, first.await())
+        state.oldestSnackbarData()?.dismiss()
+        assertEquals(SnackbarResult.Dismissed, first.await())
         assertFalse(second.isCompleted)
-        state.dismissOldest()
-        assertEquals(AppSnackbarResult.Dismissed, second.await())
+        state.oldestSnackbarData()?.dismiss()
+        assertEquals(SnackbarResult.Dismissed, second.await())
     }
 }

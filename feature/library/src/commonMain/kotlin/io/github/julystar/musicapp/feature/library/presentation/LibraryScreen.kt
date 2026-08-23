@@ -37,16 +37,8 @@ import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
 import io.github.julystar.musicapp.core.domain.model.RepositoryState
 import io.github.julystar.musicapp.core.domain.repository.LibraryFolderItem
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
 import io.github.julystar.musicapp.core.presentation.components.DesignEmptyState
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
-import io.github.julystar.musicapp.core.presentation.components.DesignTabs
-import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res as CorePresentationRes
@@ -104,7 +96,11 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -135,17 +131,16 @@ fun LibraryScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            DesignPageHeader(
+            TopAppBar(
                 title = stringResource(Res.string.library_title),
-                subtitle = null,
+                subtitle = "",
             )
         }
         item {
-            DesignTabs(
-                items = labels.map { DesignTabItem(label = it, enabled = true) },
-                selectedIndex = categories.indexOf(category),
-                onSelectedIndexChange = { category = categories[it] },
-                variant = DesignTabsVariant.Pill,
+            TabRow(
+                tabs = labels,
+                selectedTabIndex = categories.indexOf(category),
+                onTabSelected = { category = categories[it] },
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }
@@ -219,10 +214,8 @@ fun LibraryScreen(
                     }
                 }
                 item {
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(Res.string.library_add_folder),
-                        variant = DesignTextButtonVariant.Tonal,
-                        size = DesignTextButtonSize.Medium,
                         onClick = onNavigateToLibraryFolderImport,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -451,8 +444,8 @@ private fun NavigationRow(
     onClick: () -> Unit,
     subtitle: String? = null,
 ) {
-    DesignCardSurface(
-        contentPadding = PaddingValues(14.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
     ) {
         Row(
@@ -521,10 +514,8 @@ private fun CategoryEmpty(category: LibraryCategory, onClick: (() -> Unit)? = nu
         marker = title.take(1),
         action = onClick?.let { click ->
             {
-                DesignTextButton(
+                TextButton(
                     text = title,
-                    variant = DesignTextButtonVariant.Tonal,
-                    size = DesignTextButtonSize.Medium,
                     onClick = click,
                 )
             }

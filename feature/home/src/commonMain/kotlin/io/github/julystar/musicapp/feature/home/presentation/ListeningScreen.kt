@@ -38,13 +38,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
 import io.github.julystar.musicapp.core.presentation.components.DesignIconBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
-import io.github.julystar.musicapp.core.presentation.components.DesignTabs
-import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
@@ -106,7 +102,9 @@ import musicapp.feature.home.generated.resources.listening_title
 import musicapp.feature.home.generated.resources.listening_top_tracks
 import musicapp.feature.home.generated.resources.listening_today
 import musicapp.feature.home.generated.resources.listening_unique_tracks
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.time.Instant
 
@@ -142,17 +140,16 @@ fun ListeningScreen(
             ),
         ) {
             item {
-                DesignTabs(
-                    items = listOf(
-                        DesignTabItem(stringResource(Res.string.listening_overview)),
-                        DesignTabItem(stringResource(Res.string.listening_calendar)),
-                        DesignTabItem(stringResource(Res.string.listening_rankings)),
+                TabRow(
+                    tabs = listOf(
+                        stringResource(Res.string.listening_overview),
+                        stringResource(Res.string.listening_calendar),
+                        stringResource(Res.string.listening_rankings),
                     ),
-                    selectedIndex = state.selectedTab.ordinal,
-                    onSelectedIndexChange = { index ->
+                    selectedTabIndex = state.selectedTab.ordinal,
+                    onTabSelected = { index ->
                         onAction(ListeningAction.SelectTab(ListeningTab.entries[index]))
                     },
-                    variant = DesignTabsVariant.Pill,
                 )
             }
             if (state.isLoading) {
@@ -237,11 +234,7 @@ private fun LazyListScope.rankingItems(
 private fun MonthlyListeningReport(state: ListeningState) {
     val peakLabel = state.peakTimePeriod?.localizedLabel()
         ?: stringResource(Res.string.listening_no_data)
-    DesignCardSurface(
-        contentPadding = PaddingValues(22.dp),
-        backgroundColor = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.30f),
-        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.22f),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -490,10 +483,7 @@ private fun OverviewInsightGrid(state: ListeningState) {
 
 @Composable
 private fun MonthlyFavoritesCard(state: ListeningState, modifier: Modifier = Modifier) {
-    DesignCardSurface(
-        modifier = modifier,
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ListeningCardHeader(
                 title = stringResource(Res.string.listening_favorites),
@@ -522,10 +512,7 @@ private fun MonthlyFavoritesCard(state: ListeningState, modifier: Modifier = Mod
 private fun ListeningActivityCard(days: List<ListeningDay>, modifier: Modifier = Modifier) {
     val visibleDays = days.takeLast(28)
     val maxListenedMs = visibleDays.maxOfOrNull(ListeningDay::listenedMs)?.coerceAtLeast(1L) ?: 1L
-    DesignCardSurface(
-        modifier = modifier,
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ListeningCardHeader(
                 title = stringResource(Res.string.listening_activity),
@@ -629,11 +616,7 @@ private fun HabitMetric(
     icon: DrawableResource,
     modifier: Modifier = Modifier,
 ) {
-    DesignCardSurface(
-        modifier = modifier,
-        contentPadding = PaddingValues(16.dp),
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             DesignIconBadge(
                 modifier = Modifier.size(36.dp),
@@ -684,23 +667,19 @@ private fun ListeningRankingCard(
         }
     }?.coerceAtLeast(1L) ?: 1L
 
-    DesignCardSurface(
-        contentPadding = PaddingValues(20.dp),
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val tabs: @Composable (Modifier) -> Unit = { modifier ->
-                    DesignTabs(
-                        items = listOf(
-                            DesignTabItem(stringResource(Res.string.listening_rank_by_time)),
-                            DesignTabItem(stringResource(Res.string.listening_rank_by_plays)),
+                    TabRow(
+                        tabs = listOf(
+                            stringResource(Res.string.listening_rank_by_time),
+                            stringResource(Res.string.listening_rank_by_plays),
                         ),
-                        selectedIndex = metric.ordinal,
-                        onSelectedIndexChange = { index ->
+                        selectedTabIndex = metric.ordinal,
+                        onTabSelected = { index ->
                             metric = ListeningRankingMetric.entries[index]
                         },
-                        variant = DesignTabsVariant.Segmented,
                         modifier = modifier,
                     )
                 }
@@ -881,10 +860,7 @@ private fun DistributionCard(
     modifier: Modifier = Modifier,
 ) {
     val total = buckets.sumOf(ListeningDistributionBucket::trackCount).coerceAtLeast(1)
-    DesignCardSurface(
-        modifier = modifier,
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ListeningCardHeader(title = title, icon = icon)
             if (buckets.isEmpty()) {
@@ -982,11 +958,7 @@ private fun CalendarHeatmapCard(
     modifier: Modifier = Modifier,
 ) {
     val maxListenedMs = days.maxOfOrNull(ListeningDay::listenedMs)?.coerceAtLeast(1L) ?: 1L
-    DesignCardSurface(
-        modifier = modifier,
-        contentPadding = PaddingValues(20.dp),
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.58f),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
             ListeningCardHeader(
                 title = stringResource(Res.string.listening_calendar),
@@ -1095,12 +1067,7 @@ private fun SelectedListeningDayCard(
     day: ListeningDay?,
     modifier: Modifier = Modifier,
 ) {
-    DesignCardSurface(
-        modifier = modifier,
-        contentPadding = PaddingValues(20.dp),
-        backgroundColor = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.26f),
-        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.18f),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         if (day == null) {
             Text(
                 text = stringResource(Res.string.listening_no_data),
@@ -1168,9 +1135,8 @@ private fun HistoryRow(
     item: ListeningHistoryItem,
     onPlay: () -> Unit,
 ) {
-    DesignCardSurface(
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-        borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onPlay,
     ) {
         Row(

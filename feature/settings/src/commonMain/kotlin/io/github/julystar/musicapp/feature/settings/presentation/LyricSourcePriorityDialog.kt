@@ -48,18 +48,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import io.github.julystar.musicapp.core.domain.model.LyricSourceKind
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogDefaults
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
-import io.github.julystar.musicapp.core.presentation.components.designListDivider
+import io.github.julystar.musicapp.core.presentation.components.OverlayPresentationDefaults
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_mode_list
+import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.feature.settings.generated.resources.Res
 import musicapp.feature.settings.generated.resources.icon_close
 import musicapp.feature.settings.generated.resources.icon_move_to_top
@@ -86,14 +86,14 @@ internal fun LyricSourcePrioritySettingsRow(
     priority: List<LyricSourceKind>,
     onClick: () -> Unit,
 ) {
-    DesignPreferenceRow(
+    BasicComponent(
         title = stringResource(Res.string.settings_lyrics_priority),
         summary = stringResource(
             Res.string.settings_lyrics_priority_summary,
             priority.size,
         ),
         onClick = onClick,
-        trailing = {
+        endActions = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -106,10 +106,14 @@ internal fun LyricSourcePrioritySettingsRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 176.dp),
                 )
-                DesignChevron()
+                Icon(
+                    painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                    contentDescription = null,
+                )
             }
         },
     )
+    HorizontalDivider()
 }
 
 @Composable
@@ -122,7 +126,7 @@ internal fun LyricSourcePriorityDialog(
     var displayedPriority by remember(show) { mutableStateOf(priority) }
     var dragState by remember(show) { mutableStateOf<LyricPriorityDragState?>(null) }
     val rowHeightPx = with(LocalDensity.current) { PriorityRowHeight.toPx() }
-    val compact = DesignDialogDefaults.isCompactWindow(
+    val compact = OverlayPresentationDefaults.isCompactWindow(
         LocalWindowInfo.current.containerDpSize.width,
     )
 
@@ -157,12 +161,11 @@ internal fun LyricSourcePriorityDialog(
         if (updated !== displayedPriority) displayedPriority = updated
     }
 
-    DesignDialog(
+    OverlayDialog(
         show = show,
-        onDismiss = onDismiss,
-        maxWidth = 560.dp,
-        maxHeight = 560.dp,
+        onDismissRequest = onDismiss,
     ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top,
@@ -248,6 +251,7 @@ internal fun LyricSourcePriorityDialog(
                 }
             }
         }
+        }
     }
 }
 
@@ -267,7 +271,7 @@ private fun LyricSourcePriorityRow(
 ) {
     val sourceTitle = stringResource(source.titleResource())
     val rowShape = RoundedCornerShape(12.dp)
-    Row(
+    Column(
         modifier = Modifier
             .zIndex(if (isDragged) 1f else 0f)
             .graphicsLayer {
@@ -278,19 +282,22 @@ private fun LyricSourcePriorityRow(
                 shape = rowShape
             }
             .fillMaxWidth()
-            .height(PriorityRowHeight)
-            .background(
-                color = if (isDragged) {
-                    MiuixTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    MiuixTheme.colorScheme.surfaceContainer
-                },
-                shape = rowShape,
-            )
-            .designListDivider()
-            .padding(end = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(PriorityRowHeight)
+                .background(
+                    color = if (isDragged) {
+                        MiuixTheme.colorScheme.surfaceContainerHigh
+                    } else {
+                        MiuixTheme.colorScheme.surfaceContainer
+                    },
+                    shape = rowShape,
+                )
+                .padding(end = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         Box(
             modifier = Modifier.width(40.dp),
             contentAlignment = Alignment.Center,
@@ -344,6 +351,8 @@ private fun LyricSourcePriorityRow(
             onDrag = onDrag,
             onDragEnd = onDragEnd,
         )
+        }
+        HorizontalDivider()
     }
 }
 

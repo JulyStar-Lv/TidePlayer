@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -36,20 +37,19 @@ import io.github.julystar.musicapp.core.domain.model.DiagnosticFaultInjection
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogCategory
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogEntry
 import io.github.julystar.musicapp.core.domain.model.DiagnosticLogLevel
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignChip
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
-import io.github.julystar.musicapp.core.presentation.components.DesignSearchBar
-import io.github.julystar.musicapp.core.presentation.components.DesignSectionHeader
-import io.github.julystar.musicapp.core.presentation.components.DesignSettingsGroup
+import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.InputField
 import musicapp.feature.settings.generated.resources.Res
 import musicapp.feature.settings.generated.resources.diagnostics_acknowledge
 import musicapp.feature.settings.generated.resources.diagnostics_all
@@ -115,7 +115,6 @@ import musicapp.feature.settings.generated.resources.settings_cancel
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -183,7 +182,7 @@ fun DiagnosticsScreen(
         if (state.faultInjectionSupported) {
             SettingsSection(title = stringResource(Res.string.diagnostics_fault_injection)) {
                 DiagnosticFaultInjection.entries.forEach { fault ->
-                    DesignPreferenceRow(
+                    BasicComponent(
                         title = fault.name,
                         summary = stringResource(Res.string.diagnostics_fault_warning),
                         onClick = {
@@ -196,9 +195,9 @@ fun DiagnosticsScreen(
     }
 
     val pendingConfirmation = confirmation
-    DesignDialog(
+    OverlayDialog(
         show = pendingConfirmation != null,
-        onDismiss = { confirmation = null },
+        onDismissRequest = { confirmation = null },
     ) {
         Text(
             text = if (pendingConfirmation is DiagnosticsConfirmation.DebugFault) {
@@ -226,7 +225,6 @@ fun DiagnosticsScreen(
             )
             ActionButton(
                 text = stringResource(Res.string.diagnostics_delete),
-                variant = DesignTextButtonVariant.Error,
                 onClick = {
                     when (pendingConfirmation) {
                         DiagnosticsConfirmation.ClearSelected -> viewModel.clearSelectedSession()
@@ -251,9 +249,9 @@ fun DiagnosticsScreen(
         }
     }
 
-    DesignDialog(
+    OverlayDialog(
         show = state.artifactText != null,
-        onDismiss = viewModel::clearArtifact,
+        onDismissRequest = viewModel::clearArtifact,
     ) {
         Text(
             text = state.artifactText.orEmpty(),
@@ -262,9 +260,9 @@ fun DiagnosticsScreen(
     }
 
     val logEntry = selectedLog
-    DesignDialog(
+    OverlayDialog(
         show = logEntry != null,
-        onDismiss = { selectedLog = null },
+        onDismissRequest = { selectedLog = null },
     ) {
         if (logEntry != null) {
             DiagnosticLogDetail(
@@ -302,11 +300,7 @@ private fun DiagnosticsOverviewCard(
         else -> DesignStatusTone.Success
     }
 
-    DesignCardSurface(
-        backgroundColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.08f),
-        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.18f),
-        contentPadding = PaddingValues(20.dp),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -361,7 +355,6 @@ private fun DiagnosticsOverviewCard(
             ) {
                 ActionButton(
                     text = stringResource(Res.string.diagnostics_refresh),
-                    variant = DesignTextButtonVariant.Default,
                     onClick = onRefresh,
                 )
                 ActionButton(
@@ -408,39 +401,37 @@ private fun DiagnosticsActions(
     onEnforceRetention: () -> Unit,
     onRequestSafeMode: () -> Unit,
 ) {
-    DesignSettingsGroup(title = stringResource(Res.string.diagnostics_tools)) {
+    SmallTitle(text = stringResource(Res.string.diagnostics_tools))
+    Card {
         if (state.lastExportPath != null) {
-            DesignPreferenceRow(
+            BasicComponent(
                 title = stringResource(Res.string.diagnostics_save_as),
                 summary = state.lastExportPath,
                 onClick = onSave,
             )
-            DesignPreferenceRow(
+            BasicComponent(
                 title = stringResource(Res.string.diagnostics_reveal),
                 onClick = onReveal,
             )
-            DesignPreferenceRow(
+            BasicComponent(
                 title = stringResource(Res.string.diagnostics_copy_path),
                 onClick = onCopyPath,
-                showDivider = false,
             )
         }
-        DesignPreferenceRow(
+        BasicComponent(
             title = stringResource(Res.string.diagnostics_clear_exports),
             summary = state.storage?.let { formatBytes(it.exportBytes) },
             onClick = onClearExports,
         )
-        DesignPreferenceRow(
+        BasicComponent(
             title = stringResource(Res.string.diagnostics_enforce_retention),
             summary = "${state.retention.retentionDays} d · " +
                 "${formatBytes(state.retention.maxTotalBytes)}",
             onClick = onEnforceRetention,
-            showDivider = false,
         )
-        DesignPreferenceRow(
+        BasicComponent(
             title = stringResource(Res.string.diagnostics_request_safe_mode),
             onClick = onRequestSafeMode,
-            showDivider = false,
         )
     }
 }
@@ -449,18 +440,18 @@ private fun DiagnosticsActions(
 private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
     val snapshot = state.snapshot
     SettingsSection(title = stringResource(Res.string.diagnostics_startup)) {
-        DesignPreferenceRow(
+        BasicComponent(
             title = stringResource(Res.string.diagnostics_current_attempt),
             summary = snapshot?.startupAttempt?.let {
                 "${it.attemptId} · ${it.lastStage} · safeMode=${it.safeMode}"
             } ?: "—",
         )
-        DesignPreferenceRow(
+        BasicComponent(
             title = stringResource(Res.string.diagnostics_disabled_components),
             summary = snapshot?.startupAttempt?.disabledComponents?.joinToString().orEmpty()
                 .ifBlank { "—" },
         )
-        DesignPreferenceRow(
+        BasicComponent(
             title = stringResource(Res.string.diagnostics_storage),
             summary = state.storage?.let {
                 "logs=${formatBytes(it.logBytes)}, incidents=${formatBytes(it.incidentBytes)}, " +
@@ -468,10 +459,10 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
             } ?: "—",
         )
         snapshot?.previousStartupAttempt?.let { previous ->
-            DesignPreferenceRow(
+            BasicComponent(
                 title = stringResource(Res.string.diagnostics_history),
                 summary = "${previous.lastStage} · ${previous.attemptId}",
-                trailing = {
+                endActions = {
                     DesignStatusBadge(
                         label = stringResource(
                             if (previous.stable) {
@@ -489,11 +480,11 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
                 },
             )
         }
-        state.startupHistory.take(10).forEachIndexed { index, attempt ->
-            DesignPreferenceRow(
+        state.startupHistory.take(10).forEach { attempt ->
+            BasicComponent(
                 title = "${attempt.lastStage} · ${attempt.attemptId}",
                 summary = "safeMode=${attempt.safeMode} · graceful=${attempt.gracefulShutdown}",
-                trailing = {
+                endActions = {
                     DesignStatusBadge(
                         label = stringResource(
                             if (attempt.stable) {
@@ -509,7 +500,6 @@ private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
                         },
                     )
                 },
-                showDivider = index != state.startupHistory.take(10).lastIndex,
             )
         }
     }
@@ -533,21 +523,32 @@ private fun DiagnosticsLogSection(
     onRetention: (Long) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        DesignSectionHeader(
-            title = stringResource(Res.string.diagnostics_logs),
-            metadata = state.logEntries.size.toString(),
-        )
-        DesignCardSurface(contentPadding = PaddingValues(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SmallTitle(
+                text = stringResource(Res.string.diagnostics_logs),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = state.logEntries.size.toString(),
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                style = MiuixTheme.textStyles.footnote1,
+            )
+        }
+        Card(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                DesignSearchBar(
-                    value = state.logKeyword,
-                    onValueChange = onKeywordChange,
-                    placeholder = stringResource(Res.string.diagnostics_logs),
-                    onSearch = onSearch,
-                    onClear = {
-                        onKeywordChange("")
-                        onSearch()
+                InputField(
+                    query = state.logKeyword,
+                    onQueryChange = { query ->
+                        onKeywordChange(query)
+                        if (query.isEmpty()) onSearch()
                     },
+                    onSearch = { onSearch() },
+                    label = stringResource(Res.string.diagnostics_logs),
+                    expanded = false,
+                    onExpandedChange = {},
                 )
                 DiagnosticFilterRow(
                     label = stringResource(Res.string.diagnostics_level),
@@ -611,31 +612,30 @@ private fun DiagnosticsLogSection(
                 ) {
                     ActionButton(
                         text = stringResource(Res.string.diagnostics_clear_selected),
-                        variant = DesignTextButtonVariant.Default,
                         onClick = onClearSelected,
                     )
                     ActionButton(
                         text = stringResource(Res.string.diagnostics_clear_all),
-                        variant = DesignTextButtonVariant.Error,
                         onClick = onClearAll,
                     )
                 }
             }
         }
-        DesignSettingsGroup(title = stringResource(Res.string.diagnostics_sessions)) {
-            state.sessions.forEachIndexed { index, session ->
+        SmallTitle(text = stringResource(Res.string.diagnostics_sessions))
+        Card {
+            state.sessions.forEach { session ->
                 val selected = state.selectedSessionId == session.sessionId
-                DesignPreferenceRow(
+                BasicComponent(
                     title = session.sessionId,
-                    titleColor = if (selected) {
+                    titleColor = BasicComponentDefaults.titleColor(if (selected) {
                         MiuixTheme.colorScheme.primary
                     } else {
                         MiuixTheme.colorScheme.onSurface
-                    },
+                    }),
                     summary = "${session.platform} · ${session.appVersion} · " +
                         formatBytes(session.logBytes),
                     onClick = { onSession(session.sessionId) },
-                    trailing = if (session.current || selected) {
+                    endActions = if (session.current || selected) {
                         {
                             DesignStatusBadge(
                                 label = stringResource(
@@ -655,14 +655,12 @@ private fun DiagnosticsLogSection(
                     } else {
                         null
                     },
-                    showDivider = index != state.sessions.lastIndex || state.sessionHasMore,
                 )
             }
             if (state.sessionHasMore) {
-                DesignPreferenceRow(
+                BasicComponent(
                     title = stringResource(Res.string.diagnostics_load_more),
                     onClick = onLoadMoreSessions,
-                    showDivider = false,
                 )
             }
         }
@@ -683,7 +681,6 @@ private fun DiagnosticsLogSection(
             ) {
                 ActionButton(
                     text = stringResource(Res.string.diagnostics_load_more),
-                    variant = DesignTextButtonVariant.Default,
                     onClick = onLoadMoreLogs,
                 )
             }
@@ -722,7 +719,7 @@ private fun DiagnosticFilterRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             options.forEach { option ->
-                DesignChip(
+                TagChip(
                     label = option.label,
                     selected = option.selected,
                     onClick = option.onClick,
@@ -737,8 +734,8 @@ private fun DiagnosticLogCard(
     entry: DiagnosticLogEntry,
     onClick: () -> Unit,
 ) {
-    DesignCardSurface(
-        contentPadding = PaddingValues(16.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -790,11 +787,7 @@ private fun DiagnosticLogCard(
 
 @Composable
 private fun DiagnosticNoticeCard(message: String) {
-    DesignCardSurface(
-        backgroundColor = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.42f),
-        borderColor = MiuixTheme.colorScheme.tertiaryContainer,
-        elevation = 0.dp,
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             DesignStatusBadge(
                 label = stringResource(Res.string.diagnostics_warning),
@@ -811,7 +804,7 @@ private fun DiagnosticNoticeCard(message: String) {
 
 @Composable
 private fun DiagnosticEmptyCard(message: String) {
-    DesignCardSurface(elevation = 0.dp) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = message,
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -837,11 +830,21 @@ private fun DiagnosticsIncidentSection(
     onLoadMore: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        DesignSectionHeader(
-            title = stringResource(Res.string.diagnostics_incidents),
-            metadata = state.incidents.size.toString(),
-        )
-        DesignCardSurface(contentPadding = PaddingValues(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SmallTitle(
+                text = stringResource(Res.string.diagnostics_incidents),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = state.incidents.size.toString(),
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                style = MiuixTheme.textStyles.footnote1,
+            )
+        }
+        Card(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 DiagnosticFilterRow(
                     label = stringResource(Res.string.diagnostics_incident_type),
@@ -916,16 +919,13 @@ private fun DiagnosticsIncidentSection(
             ) {
                 ActionButton(
                     text = stringResource(Res.string.diagnostics_load_more),
-                    variant = DesignTextButtonVariant.Default,
                     onClick = onLoadMore,
                 )
             }
         }
-        DesignTextButton(
+        TextButton(
             text = stringResource(Res.string.diagnostics_delete_resolved),
             modifier = Modifier.fillMaxWidth(),
-            variant = DesignTextButtonVariant.Error,
-            size = DesignTextButtonSize.Small,
             onClick = onDeleteResolved,
         )
     }
@@ -941,7 +941,7 @@ private fun DiagnosticIncidentCard(
     onReadArtifact: (() -> Unit)?,
     onDelete: () -> Unit,
 ) {
-    DesignCardSurface(contentPadding = PaddingValues(16.dp)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1003,12 +1003,10 @@ private fun DiagnosticIncidentCard(
             ) {
                 ActionButton(
                     text = stringResource(Res.string.diagnostics_acknowledge),
-                    variant = DesignTextButtonVariant.Default,
                     onClick = onAcknowledge,
                 )
                 ActionButton(
                     text = stringResource(Res.string.diagnostics_copy_incident),
-                    variant = DesignTextButtonVariant.Default,
                     onClick = onCopy,
                 )
                 ActionButton(
@@ -1018,13 +1016,11 @@ private fun DiagnosticIncidentCard(
                 if (onReadArtifact != null) {
                     ActionButton(
                         text = stringResource(Res.string.diagnostics_artifact),
-                        variant = DesignTextButtonVariant.Default,
                         onClick = onReadArtifact,
                     )
                 }
                 ActionButton(
                     text = stringResource(Res.string.diagnostics_delete),
-                    variant = DesignTextButtonVariant.Error,
                     onClick = onDelete,
                 )
             }
@@ -1036,12 +1032,9 @@ private fun DiagnosticIncidentCard(
 private fun ActionButton(
     text: String,
     onClick: () -> Unit,
-    variant: DesignTextButtonVariant = DesignTextButtonVariant.Primary,
 ) {
-    DesignTextButton(
+    TextButton(
         text = text,
-        variant = variant,
-        size = DesignTextButtonSize.Small,
         onClick = onClick,
     )
 }
@@ -1119,7 +1112,6 @@ private fun DiagnosticLogDetail(
     ) {
         ActionButton(
             text = stringResource(Res.string.settings_cancel),
-            variant = DesignTextButtonVariant.Default,
             onClick = onDismiss,
         )
         ActionButton(

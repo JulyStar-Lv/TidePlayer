@@ -22,12 +22,8 @@ import io.github.julystar.musicapp.core.presentation.components.MusicCover
 import io.github.julystar.musicapp.core.presentation.components.DesignCompactMiniPlayerBar
 import io.github.julystar.musicapp.core.presentation.components.DesignExpandedMiniPlayerBar
 import io.github.julystar.musicapp.core.presentation.components.DesignGradientPlayButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.DesignMiniPlayerBar
-import io.github.julystar.musicapp.core.presentation.components.DesignPlayerControlSize
+import io.github.julystar.musicapp.core.presentation.components.PlaybackControlSize
 import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -37,6 +33,8 @@ import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import musicapp.service.playback.presentation.generated.resources.Res
@@ -368,17 +366,18 @@ private fun MiniPlayerIconButton(
     enabled: Boolean = true,
     emphasized: Boolean = false,
 ) {
-    DesignIconButton(
+    IconButton(
         modifier = Modifier.width(if (emphasized) 48.dp else 44.dp),
-        size = if (emphasized) DesignIconButtonSize.Touch else DesignIconButtonSize.Medium,
-        variant = DesignIconButtonVariant.Default,
-        painter = painter,
         onClick = onClick,
-        contentDescription = contentDescription,
-        colors = DesignIconButtonColors(iconTint = tint),
         enabled = enabled,
-        showClickIndication = false,
-    )
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(if (emphasized) 24.dp else 16.dp),
+        )
+    }
 }
 
 @Composable
@@ -409,7 +408,7 @@ private fun CompactMiniPlayer(
             DesignGradientPlayButton(
                 painter = painterResource(if (isPlaying) Res.drawable.icon_pause else Res.drawable.icon_play),
                 enabled = !loading,
-                size = DesignPlayerControlSize.Mini,
+                size = PlaybackControlSize.Mini,
                 contentDescription = stringResource(
                     if (isPlaying) Res.string.player_pause else Res.string.player_play
                 ),

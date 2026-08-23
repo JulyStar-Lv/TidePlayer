@@ -25,13 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.ImportCover
 import io.github.julystar.musicapp.core.presentation.components.SimpleFormText
-import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
-import io.github.julystar.musicapp.core.presentation.components.DesignTabs
-import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -49,6 +42,9 @@ import musicapp.feature.playlist.generated.resources.playlists_dialog_tab_empty
 import musicapp.feature.playlist.generated.resources.playlists_dialog_tab_full
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -56,21 +52,21 @@ fun CreatePlaylistScreen(
     state: CreatePlaylistState,
     onAction: (CreatePlaylistAction) -> Unit,
 ) {
-    DesignDialog(
+    OverlayDialog(
         show = state.isOpen,
-        onDismiss = { onAction(CreatePlaylistAction.Close) },
+        onDismissRequest = { onAction(CreatePlaylistAction.Close) },
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            DesignTabs(
-                items = listOf(
-                    DesignTabItem(label = stringResource(Res.string.playlists_dialog_tab_full)),
-                    DesignTabItem(label = stringResource(Res.string.playlists_dialog_tab_empty)),
+            TabRow(
+                tabs = listOf(
+                    stringResource(Res.string.playlists_dialog_tab_full),
+                    stringResource(Res.string.playlists_dialog_tab_empty),
                 ),
-                selectedIndex = if (state.mode == CreatePlaylistTab.Full) 0 else 1,
-                onSelectedIndexChange = { index ->
+                selectedTabIndex = if (state.mode == CreatePlaylistTab.Full) 0 else 1,
+                onTabSelected = { index ->
                     onAction(
                         if (index == 0) {
                             CreatePlaylistAction.SwitchToFull
@@ -79,7 +75,6 @@ fun CreatePlaylistScreen(
                         },
                     )
                 },
-                variant = DesignTabsVariant.Segmented,
             )
             if (state.mode == CreatePlaylistTab.Full) {
                 FullImportSection(state = state, onAction = onAction)
@@ -96,25 +91,19 @@ fun CreatePlaylistScreen(
             ) {
                 Row {
                     if (state.fullImported && state.mode == CreatePlaylistTab.Full) {
-                        DesignTextButton(
+                        TextButton(
                             text = stringResource(Res.string.playlists_dialog_button_reset),
-                            variant = DesignTextButtonVariant.Default,
-                            size = DesignTextButtonSize.Medium,
                             onClick = { onAction(CreatePlaylistAction.Reset) },
                         )
                     }
                 }
                 Row {
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(Res.string.playlists_dialog_button_cancel),
-                        variant = DesignTextButtonVariant.Default,
-                        size = DesignTextButtonSize.Medium,
                         onClick = { onAction(CreatePlaylistAction.Close) },
                     )
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(Res.string.playlists_dialog_button_ok),
-                        variant = DesignTextButtonVariant.Primary,
-                        size = DesignTextButtonSize.Medium,
                         enabled = state.canSubmit,
                         onClick = { onAction(CreatePlaylistAction.Submit) },
                     )
@@ -186,11 +175,9 @@ private fun FullImportSection(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 for (name in state.recommendNames) {
-                    DesignTextButton(
+                    TextButton(
                         modifier = Modifier.widthIn(max = 120.dp),
                         text = name,
-                        variant = DesignTextButtonVariant.Default,
-                        size = DesignTextButtonSize.Small,
                         enabled = true,
                         onClick = { onAction(CreatePlaylistAction.UpdateName(name)) },
                     )

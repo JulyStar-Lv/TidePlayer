@@ -52,13 +52,11 @@ import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.GraphicEqualizerSettings
 import io.github.julystar.musicapp.core.domain.model.MAX_EQ_BAND_GAIN_DB
 import io.github.julystar.musicapp.core.domain.model.MIN_EQ_BAND_GAIN_DB
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
@@ -182,68 +180,64 @@ internal fun GraphicEqualizerEditor(
     val selectedIndex = preciseBandIndex
     val decreaseGainDescription = stringResource(Res.string.settings_eq_decrease_gain)
     val increaseGainDescription = stringResource(Res.string.settings_eq_increase_gain)
-    DesignDialog(
+    OverlayDialog(
         show = selectedIndex != null,
-        onDismiss = { preciseBandIndex = null },
+        onDismissRequest = { preciseBandIndex = null },
     ) {
         if (selectedIndex != null) {
-            Text(
-                text = formatHz(GRAPHIC_EQ_FREQUENCIES_HZ[selectedIndex]),
-                style = MiuixTheme.textStyles.title3,
-                color = MiuixTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(Res.string.settings_eq_precise_adjustment),
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                DesignTextButton(
-                    text = "−",
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
-                    enabled = preciseGain > MIN_EQ_BAND_GAIN_DB,
-                    modifier = Modifier.semantics {
-                        contentDescription = decreaseGainDescription
-                    },
-                    onClick = {
-                        preciseGain = (preciseGain - 1).coerceAtLeast(MIN_EQ_BAND_GAIN_DB)
-                        updateBand(selectedIndex, preciseGain)
-                    },
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = formatHz(GRAPHIC_EQ_FREQUENCIES_HZ[selectedIndex]),
+                    style = MiuixTheme.textStyles.title3,
+                    color = MiuixTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = formatDb(preciseGain),
-                    style = MiuixTheme.textStyles.title2,
-                    color = MiuixTheme.colorScheme.primary,
+                    text = stringResource(Res.string.settings_eq_precise_adjustment),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
-                DesignTextButton(
-                    text = "+",
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Medium,
-                    enabled = preciseGain < MAX_EQ_BAND_GAIN_DB,
-                    modifier = Modifier.semantics {
-                        contentDescription = increaseGainDescription
-                    },
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        text = "−",
+                        enabled = preciseGain > MIN_EQ_BAND_GAIN_DB,
+                        modifier = Modifier.semantics {
+                            contentDescription = decreaseGainDescription
+                        },
+                        onClick = {
+                            preciseGain = (preciseGain - 1).coerceAtLeast(MIN_EQ_BAND_GAIN_DB)
+                            updateBand(selectedIndex, preciseGain)
+                        },
+                    )
+                    Text(
+                        text = formatDb(preciseGain),
+                        style = MiuixTheme.textStyles.title2,
+                        color = MiuixTheme.colorScheme.primary,
+                    )
+                    TextButton(
+                        text = "+",
+                        enabled = preciseGain < MAX_EQ_BAND_GAIN_DB,
+                        modifier = Modifier.semantics {
+                            contentDescription = increaseGainDescription
+                        },
+                        onClick = {
+                            preciseGain = (preciseGain + 1).coerceAtMost(MAX_EQ_BAND_GAIN_DB)
+                            updateBand(selectedIndex, preciseGain)
+                        },
+                    )
+                }
+                TextButton(
+                    text = stringResource(Res.string.settings_eq_reset_band),
+                    modifier = Modifier.align(Alignment.End),
                     onClick = {
-                        preciseGain = (preciseGain + 1).coerceAtMost(MAX_EQ_BAND_GAIN_DB)
-                        updateBand(selectedIndex, preciseGain)
+                        preciseGain = 0
+                        updateBand(selectedIndex, 0)
                     },
                 )
             }
-            DesignTextButton(
-                text = stringResource(Res.string.settings_eq_reset_band),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
-                modifier = Modifier.align(Alignment.End),
-                onClick = {
-                    preciseGain = 0
-                    updateBand(selectedIndex, 0)
-                },
-            )
         }
     }
 }

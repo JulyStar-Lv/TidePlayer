@@ -1,7 +1,6 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.runtime.Immutable
-import io.github.julystar.musicapp.core.presentation.components.DesignLoadingIndicator
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import androidx.compose.foundation.background
@@ -45,26 +44,26 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import io.github.julystar.musicapp.core.presentation.components.AppArrowPreference
-import io.github.julystar.musicapp.core.presentation.components.AppDropdownPreference
-import io.github.julystar.musicapp.core.presentation.components.AppPreference
-import io.github.julystar.musicapp.core.presentation.components.AppSliderPreference
-import io.github.julystar.musicapp.core.presentation.components.AppSwitchPreference
-import io.github.julystar.musicapp.core.presentation.components.AppTextField
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
-import io.github.julystar.musicapp.core.presentation.components.DesignSettingsGroup
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_adjust
@@ -166,17 +165,17 @@ internal fun SettingsEntryCard(
     onClick: (() -> Unit)? = null,
 ) {
     if (onClick != null) {
-        AppArrowPreference(
+        ArrowPreference(
             title = title,
             summary = summary,
             onClick = onClick,
-            leading = { SettingsLeadingIcon(drawable = icon) },
+            startAction = { SettingsLeadingIcon(drawable = icon) },
         )
     } else {
-        AppPreference(
+        BasicComponent(
             title = title,
             summary = summary,
-            leading = { SettingsLeadingIcon(drawable = icon) },
+            startAction = { SettingsLeadingIcon(drawable = icon) },
         )
     }
 }
@@ -228,7 +227,10 @@ internal fun SettingsIconBadge(
 
 @Composable
 internal fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    DesignSettingsGroup(title = title, content = content)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SmallTitle(text = title)
+        Card(content = content)
+    }
 }
 
 @Composable
@@ -241,13 +243,13 @@ internal fun SettingsSwitchRow(
     accentColor: Color = MiuixTheme.colorScheme.primary,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    AppSwitchPreference(
+    SwitchPreference(
         title = title,
         summary = summary,
         checked = checked,
         enabled = enabled,
         onCheckedChange = onCheckedChange,
-        leading = marker?.let { iconMarker ->
+        startAction = marker?.let { iconMarker ->
             { SettingsLeadingIcon(marker = iconMarker, accentColor = accentColor) }
         },
     )
@@ -265,7 +267,7 @@ internal fun SettingsSliderRow(
     onValueChange: (Int) -> Unit,
 ) {
     var previewValue by remember(value) { mutableFloatStateOf(value.toFloat()) }
-    AppSliderPreference(
+    SliderPreference(
         title = title,
         summary = summary,
         value = previewValue,
@@ -275,7 +277,6 @@ internal fun SettingsSliderRow(
         enabled = enabled,
         valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
         steps = (valueRange.last - valueRange.first - 1).coerceAtLeast(0),
-        showDivider = showDivider,
     )
 }
 
@@ -292,19 +293,19 @@ internal fun SettingsInfoRow(
         @Composable { SettingsLeadingIcon(marker = iconMarker, accentColor = accentColor) }
     }
     if (onClick != null) {
-        AppArrowPreference(
+        ArrowPreference(
             title = title,
             summary = value,
             enabled = enabled,
             onClick = onClick,
-            leading = leading,
+            startAction = leading,
         )
     } else {
-        AppPreference(
+        BasicComponent(
             title = title,
             summary = value,
             enabled = enabled,
-            leading = leading,
+            startAction = leading,
         )
     }
 }
@@ -316,12 +317,12 @@ internal fun SettingsDangerRow(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    DesignPreferenceRow(
+    BasicComponent(
         title = title,
         summary = summary,
         enabled = enabled,
         onClick = onClick,
-        titleColor = MiuixTheme.colorScheme.error,
+        titleColor = BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
     )
 }
 
@@ -399,36 +400,25 @@ internal fun SettingsConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DesignDialog(
+    OverlayDialog(
         show = show,
-        onDismiss = onDismiss,
+        title = title,
+        summary = message,
+        onDismissRequest = onDismiss,
     ) {
-        Text(
-            text = title,
-            style = MiuixTheme.textStyles.title3,
-            color = MiuixTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(DesignTokens.spacing.xs))
-        Text(
-            text = message,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-        Spacer(modifier = Modifier.height(DesignTokens.spacing.md))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(SettingsRes.string.settings_cancel),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
                 onClick = onDismiss,
             )
-            DesignTextButton(
+            TextButton(
                 text = confirmText,
-                variant = DesignTextButtonVariant.Error,
-                size = DesignTextButtonSize.Medium,
+                colors = ButtonDefaults.textButtonColors(
+                    textColor = MiuixTheme.colorScheme.error,
+                ),
                 onClick = onConfirm,
             )
         }
@@ -447,44 +437,30 @@ internal fun SettingsInputDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DesignDialog(
+    OverlayDialog(
         show = show,
-        onDismiss = onDismiss,
+        title = title,
+        summary = message,
+        onDismissRequest = onDismiss,
     ) {
-        Text(
-            text = title,
-            style = MiuixTheme.textStyles.title3,
-            color = MiuixTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(DesignTokens.spacing.xs))
-        Text(
-            text = message,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-        Spacer(modifier = Modifier.height(DesignTokens.spacing.sm))
-        AppTextField(
+        TextField(
             value = value,
             onValueChange = onValueChange,
             label = label,
             singleLine = singleLine,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(DesignTokens.spacing.md))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(SettingsRes.string.settings_cancel),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
                 onClick = onDismiss,
             )
-            DesignTextButton(
+            TextButton(
                 text = stringResource(SettingsRes.string.settings_save),
-                variant = DesignTextButtonVariant.Primary,
-                size = DesignTextButtonSize.Medium,
+                colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = onConfirm,
             )
         }
@@ -523,16 +499,27 @@ internal fun SettingsSelectRow(
     onSelect: (String) -> Unit,
 ) {
     val selectedIndex = options.indexOfFirst { it.value == selectedValue }
-    AppDropdownPreference(
+    val entry = DropdownEntry(
+        items = buildList {
+            if (selectedIndex !in options.indices) {
+                add(DropdownItem(text = selectedLabel, enabled = false, selected = true))
+            }
+            options.forEachIndexed { index, option ->
+                add(
+                    DropdownItem(
+                        text = option.label,
+                        selected = index == selectedIndex,
+                        onClick = { onSelect(option.value) },
+                    ),
+                )
+            }
+        },
+    )
+    OverlayDropdownPreference(
         title = label,
         summary = subtitle,
-        items = options.map(SettingsSelectOption::label),
-        selectedIndex = selectedIndex,
-        selectedLabel = selectedLabel,
+        entry = entry,
         enabled = enabled,
-        onSelectedIndexChange = { index ->
-            options.getOrNull(index)?.let { onSelect(it.value) }
-        },
     )
 }
 
@@ -646,7 +633,7 @@ internal fun SettingsActionRow(
 
         // Right side state indicator
         when (state) {
-            SettingsActionState.Busy -> DesignLoadingIndicator(size = 18.dp)
+            SettingsActionState.Busy -> CircularProgressIndicator(size = 18.dp)
             SettingsActionState.Success -> Icon(
                 painter = painterResource(CoreRes.drawable.icon_ok),
                 contentDescription = null,

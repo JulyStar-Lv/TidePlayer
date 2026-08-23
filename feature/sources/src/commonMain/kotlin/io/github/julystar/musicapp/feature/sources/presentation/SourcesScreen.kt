@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,13 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignChevronDirection
-import io.github.julystar.musicapp.core.presentation.components.DesignChip
+import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.feature.sources.generated.resources.Res
 import musicapp.feature.sources.generated.resources.dashboard_devices_add
 import musicapp.feature.sources.generated.resources.icon_cloud
@@ -42,6 +42,7 @@ import musicapp.feature.sources.generated.resources.sources_sync
 import musicapp.feature.sources.generated.resources.sources_syncing
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -80,14 +81,14 @@ fun SourcesScreen(
 
 @Composable
 private fun AddSourceCard(onClick: () -> Unit) {
-    DesignCardSurface(
-        modifier = Modifier.height(96.dp),
-        contentPadding = PaddingValues(0.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth().height(96.dp),
         onClick = onClick,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.Center),
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize(),
         ) {
             Icon(
                 modifier = Modifier.size(12.dp),
@@ -112,8 +113,8 @@ private fun SourceCard(
     onSync: () -> Unit,
 ) {
     val shapes = DesignTokens.shapes
-    DesignCardSurface(
-        contentPadding = PaddingValues(0.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
     ) {
         Row(
@@ -183,8 +184,9 @@ private fun SourceCard(
                 )
                 SourceActionStrip(source = source, onSync = onSync)
             }
-            DesignChevron(
-                direction = DesignChevronDirection.Right,
+            Icon(
+                painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                contentDescription = null,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -200,7 +202,7 @@ private fun SourceActionStrip(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DesignChip(
+        TagChip(
             label = stringResource(
                 if (source.isSyncing) Res.string.sources_syncing else Res.string.sources_sync,
             ),
@@ -208,11 +210,11 @@ private fun SourceActionStrip(
             enabled = source.syncEnabled && !source.isSyncing,
             onClick = onSync,
         )
-        DesignChip(
+        TagChip(
             label = stringResource(Res.string.sources_logs),
             enabled = false,
         )
-        DesignChip(
+        TagChip(
             label = stringResource(Res.string.sources_settings),
             selected = true,
         )

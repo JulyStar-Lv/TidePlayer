@@ -29,11 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.DesignEmptyState
-import io.github.julystar.musicapp.core.presentation.components.DesignFab
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -60,6 +55,9 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ScrollMoveMode
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -112,26 +110,28 @@ fun PlaylistsListScreen(
                         .fillMaxSize()
                         .padding(horizontal = horizontalPadding, vertical = 18.dp),
                 ) {
-                    DesignPageHeader(
+                    TopAppBar(
                         title = stringResource(Res.string.playlist_list_title),
                         subtitle = stringResource(Res.string.playlist_list_count, state.playlists.size),
-                        trailing = {
-                            DesignIconButton(
-                                size = DesignIconButtonSize.Medium,
-                                variant = DesignIconButtonVariant.Default,
-                                painter = painterResource(Res.drawable.icon_adjust),
-                                contentDescription = stringResource(Res.string.playlist_adjust),
+                        actions = {
+                            IconButton(
                                 enabled = state.mode != PlaylistsListMode.Adjust,
                                 onClick = { onAction(PlaylistsListAction.ToggleMode) },
-                            )
-                            DesignIconButton(
-                                size = DesignIconButtonSize.Medium,
-                                variant = DesignIconButtonVariant.Default,
-                                painter = painterResource(Res.drawable.icon_plus),
-                                contentDescription = stringResource(Res.string.playlist_add),
+                            ) {
+                                Icon(
+                                    painterResource(Res.drawable.icon_adjust),
+                                    stringResource(Res.string.playlist_adjust),
+                                )
+                            }
+                            IconButton(
                                 enabled = state.mode != PlaylistsListMode.Adjust,
                                 onClick = { onAction(PlaylistsListAction.CreatePlaylist) },
-                            )
+                            ) {
+                                Icon(
+                                    painterResource(Res.drawable.icon_plus),
+                                    stringResource(Res.string.playlist_add),
+                                )
+                            }
                         },
                     )
                     GridPlaylists(
@@ -141,7 +141,7 @@ fun PlaylistsListScreen(
                     )
                 }
                 if (state.mode == PlaylistsListMode.Adjust) {
-                    DesignFab(
+                    FloatingActionButton(
                         onClick = { onAction(PlaylistsListAction.SetModeNormal) },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)

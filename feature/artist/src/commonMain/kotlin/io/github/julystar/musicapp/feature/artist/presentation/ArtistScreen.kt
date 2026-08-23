@@ -45,15 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
-import io.github.julystar.musicapp.core.presentation.components.DesignTabs
-import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
@@ -83,7 +76,10 @@ import musicapp.feature.artist.generated.resources.artist_unknown_album
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -352,22 +348,15 @@ private fun ArtistSectionTabs(
             .background(MiuixTheme.colorScheme.background.copy(alpha = 0.96f))
             .padding(vertical = 10.dp),
     ) {
-        DesignTabs(
-            items = listOf(
-                DesignTabItem(
-                    label = stringResource(Res.string.artist_albums),
-                    badge = albumCount.toString(),
-                ),
-                DesignTabItem(
-                    label = stringResource(Res.string.artist_all_songs),
-                    badge = trackCount.toString(),
-                ),
+        TabRow(
+            tabs = listOf(
+                stringResource(Res.string.artist_albums),
+                stringResource(Res.string.artist_all_songs),
             ),
-            selectedIndex = selectedSection.ordinal,
-            onSelectedIndexChange = { index ->
+            selectedTabIndex = selectedSection.ordinal,
+            onTabSelected = { index ->
                 onSectionSelected(ArtistSection.entries[index])
             },
-            variant = DesignTabsVariant.Filled,
         )
     }
 }
@@ -564,16 +553,17 @@ private fun ArtistTrackRow(
                 }
             }
             if (track.canDownload) {
-                DesignIconButton(
-                    size = DesignIconButtonSize.Medium,
-                    variant = DesignIconButtonVariant.Default,
-                    painter = painterResource(CoreRes.drawable.icon_download),
-                    contentDescription = stringResource(Res.string.artist_download_track, track.title),
+                IconButton(
                     onClick = onDownload,
-                )
+                ) {
+                    Icon(
+                        painter = painterResource(CoreRes.drawable.icon_download),
+                        contentDescription = stringResource(Res.string.artist_download_track, track.title),
+                    )
+                }
             }
         }
-        DesignListDivider(modifier = Modifier.align(Alignment.BottomCenter))
+        HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

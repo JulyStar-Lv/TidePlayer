@@ -3,8 +3,8 @@ package io.github.julystar.musicapp.core.presentation.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -23,7 +23,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-fun DesignChip(
+fun TagChip(
     label: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
@@ -32,7 +32,7 @@ fun DesignChip(
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(DesignTokens.shapes.full)
-    val colors = designChipColors(selected = selected, enabled = enabled)
+    val colors = tagChipColors(selected = selected, enabled = enabled)
 
     Box(
         modifier = modifier
@@ -40,13 +40,7 @@ fun DesignChip(
             .clip(shape)
             .background(colors.container)
             .border(1.dp, colors.border, shape)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(enabled = enabled, onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
+            .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -68,31 +62,26 @@ fun DesignChip(
 }
 
 @Composable
-private fun designChipColors(
-    selected: Boolean,
-    enabled: Boolean,
-): DesignChipColors {
-    return when {
-        !enabled -> DesignChipColors(
-            container = MiuixTheme.colorScheme.disabledSecondary,
-            border = MiuixTheme.colorScheme.disabledSecondaryVariant,
-            content = MiuixTheme.colorScheme.disabledOnSurface,
-        )
-        selected -> DesignChipColors(
-            container = MiuixTheme.colorScheme.primary,
-            border = MiuixTheme.colorScheme.primary,
-            content = MiuixTheme.colorScheme.onPrimary,
-        )
-        else -> DesignChipColors(
-            container = MiuixTheme.colorScheme.surfaceContainerHigh,
-            border = Color.Transparent,
-            content = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-    }
+private fun tagChipColors(selected: Boolean, enabled: Boolean): TagChipColors = when {
+    !enabled -> TagChipColors(
+        container = MiuixTheme.colorScheme.disabledSecondary,
+        border = MiuixTheme.colorScheme.disabledSecondaryVariant,
+        content = MiuixTheme.colorScheme.disabledOnSurface,
+    )
+    selected -> TagChipColors(
+        container = MiuixTheme.colorScheme.primary,
+        border = MiuixTheme.colorScheme.primary,
+        content = MiuixTheme.colorScheme.onPrimary,
+    )
+    else -> TagChipColors(
+        container = MiuixTheme.colorScheme.surfaceContainerHigh,
+        border = Color.Transparent,
+        content = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+    )
 }
 
 @Immutable
-private data class DesignChipColors(
+private data class TagChipColors(
     val container: Color,
     val border: Color,
     val content: Color,

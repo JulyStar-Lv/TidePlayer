@@ -78,17 +78,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogHost
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogNavigationBarStyle
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogDefaults
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomSheetDefaults
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomSheetHandle
-import io.github.julystar.musicapp.core.presentation.components.designListDivider
-import io.github.julystar.musicapp.core.presentation.components.shouldDismissBottomSheet
+import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayHost
+import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayNavigationBarStyle
+import io.github.julystar.musicapp.core.presentation.components.OverlayPresentationDefaults
+import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetDefaults
+import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetHandle
+import io.github.julystar.musicapp.core.presentation.components.shouldDismissOverlayBottomSheet
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -110,6 +105,8 @@ import musicapp.feature.queue.generated.resources.queue_reorder_item
 import musicapp.feature.queue.generated.resources.queue_remove_item
 import musicapp.feature.queue.generated.resources.queue_title
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
@@ -154,8 +151,8 @@ fun QueueDialog(
     val density = LocalDensity.current
     val autoScrollEdgePx = with(density) { 48.dp.toPx() }
     val autoScrollStepPx = with(density) { 8.dp.toPx() }
-    val dismissDistancePx = with(density) { DesignBottomSheetDefaults.dismissDistance.toPx() }
-    val dismissVelocityPxPerSecond = with(density) { DesignBottomSheetDefaults.dismissVelocity.toPx() }
+    val dismissDistancePx = with(density) { OverlayBottomSheetDefaults.dismissDistance.toPx() }
+    val dismissVelocityPxPerSecond = with(density) { OverlayBottomSheetDefaults.dismissVelocity.toPx() }
     var displayItems: List<QueueItemUi> by remember { mutableStateOf(state.items) }
     var dragState by remember { mutableStateOf<QueueDragState?>(null) }
     val hasCurrentItem = state.currentIndex in state.items.indices
@@ -179,7 +176,7 @@ fun QueueDialog(
         dismissing = true
         contentVisible = false
         coroutineScope.launch {
-            delay(DesignBottomSheetDefaults.exitDurationMillis.toLong())
+            delay(OverlayBottomSheetDefaults.exitDurationMillis.toLong())
             onDismiss()
         }
     }
@@ -201,23 +198,23 @@ fun QueueDialog(
         }
     }
 
-    DesignDialogHost(
+    PlatformOverlayHost(
         onDismissRequest = ::requestDismiss,
         dismissOnClickOutside = false,
-        navigationBarStyle = DesignDialogNavigationBarStyle.Surface,
+        navigationBarStyle = PlatformOverlayNavigationBarStyle.Surface,
     ) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize(),
         ) {
             AnimatedVisibility(
                 visible = contentVisible,
-                enter = fadeIn(tween(DesignBottomSheetDefaults.enterDurationMillis)),
-                exit = fadeOut(tween(DesignBottomSheetDefaults.exitDurationMillis)),
+                enter = fadeIn(tween(OverlayBottomSheetDefaults.enterDurationMillis)),
+                exit = fadeOut(tween(OverlayBottomSheetDefaults.exitDurationMillis)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(DesignDialogDefaults.scrimColor)
+                        .background(OverlayPresentationDefaults.scrimColor)
                         .pointerInput(Unit) {
                             detectTapGestures(onTap = { requestDismiss() })
                         },
@@ -264,7 +261,7 @@ fun QueueDialog(
                     },
                     onDragStopped = { velocity ->
                         if (
-                            shouldDismissBottomSheet(
+                            shouldDismissOverlayBottomSheet(
                                 dragOffsetPx = sheetDragOffsetPx,
                                 velocityPxPerSecond = velocity,
                                 distanceThresholdPx = dismissDistancePx,
@@ -300,7 +297,7 @@ fun QueueDialog(
                         ),
                     ) + fadeIn(tween(QueueSideDialogEnterDurationMillis))
                 } else {
-                    DesignBottomSheetDefaults.surfaceEnterTransition()
+                    OverlayBottomSheetDefaults.surfaceEnterTransition()
                 },
                 exit = if (sideDialog) {
                     slideOutHorizontally(
@@ -311,7 +308,7 @@ fun QueueDialog(
                         ),
                     ) + fadeOut(tween(QueueSideDialogExitDurationMillis))
                 } else {
-                    DesignBottomSheetDefaults.surfaceExitTransition()
+                    OverlayBottomSheetDefaults.surfaceExitTransition()
                 },
             ) {
                 Column(
@@ -343,7 +340,7 @@ fun QueueDialog(
                         .navigationBarsPadding(),
                 ) {
                     if (!sideDialog) {
-                        DesignBottomSheetHandle(sheetHandleDragModifier)
+                        OverlayBottomSheetHandle(sheetHandleDragModifier)
                     }
 
                     QueueHeader(
@@ -504,23 +501,27 @@ private fun QueueHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            DesignIconButton(
-                size = DesignIconButtonSize.Medium,
-                variant = DesignIconButtonVariant.Default,
-                painter = painterResource(QueueRes.drawable.icon_locate),
-                contentDescription = stringResource(QueueRes.string.queue_locate_current),
-                colors = QueueHeaderActionColors(),
+            IconButton(
+                backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
                 enabled = canLocateCurrent,
                 onClick = onLocateCurrent,
-            )
-            DesignIconButton(
-                size = DesignIconButtonSize.Medium,
-                variant = DesignIconButtonVariant.Default,
-                painter = painterResource(QueueRes.drawable.icon_queue_trash),
-                contentDescription = stringResource(QueueRes.string.queue_clear),
-                colors = QueueHeaderActionColors(),
+            ) {
+                Icon(
+                    painterResource(QueueRes.drawable.icon_locate),
+                    stringResource(QueueRes.string.queue_locate_current),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+            IconButton(
+                backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
                 onClick = onClear,
-            )
+            ) {
+                Icon(
+                    painterResource(QueueRes.drawable.icon_queue_trash),
+                    stringResource(QueueRes.string.queue_clear),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
     }
 }
@@ -552,7 +553,7 @@ private fun QueueTrackRow(
     }
     val subtitle = item.subtitle()
 
-    Row(
+    Column(
         modifier = Modifier
             .zIndex(if (isDragged) 1f else 0f)
             .graphicsLayer {
@@ -563,12 +564,15 @@ private fun QueueTrackRow(
                 shape = rowShape
             }
             .fillMaxWidth()
-            .height(56.dp)
-            .background(color = rowBackground, shape = rowShape)
-            .designListDivider()
-            .padding(end = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(color = rowBackground, shape = rowShape)
+                .padding(end = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -658,6 +662,8 @@ private fun QueueTrackRow(
                 onDragCancel = onDragCancel,
             )
         }
+        }
+        HorizontalDivider()
     }
 }
 
@@ -781,12 +787,6 @@ private fun QueuePlayingIndicator() {
         }
     }
 }
-
-@Composable
-private fun QueueHeaderActionColors() = DesignIconButtonColors(
-    buttonBg = MiuixTheme.colorScheme.surfaceContainerHigh,
-    iconTint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-)
 
 @Composable
 private fun QueueEmptyState(modifier: Modifier = Modifier) {

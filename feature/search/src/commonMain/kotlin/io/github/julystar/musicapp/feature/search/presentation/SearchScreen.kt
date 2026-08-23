@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,16 +31,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignChipSection
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
-import io.github.julystar.musicapp.core.presentation.components.DesignSearchBar
+import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -76,8 +72,13 @@ import musicapp.feature.search.generated.resources.search_unknown_artist
 import musicapp.feature.search.generated.resources.searching_library
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -99,16 +100,19 @@ fun SearchScreen(
                 .padding(horizontal = horizontalPadding, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            DesignPageHeader(
+            TopAppBar(
                 title = stringResource(Res.string.search_title),
                 subtitle = stringResource(Res.string.search_subtitle),
             )
-            DesignSearchBar(
-                value = state.query,
-                onValueChange = { onAction(SearchAction.QueryChanged(it)) },
-                placeholder = stringResource(Res.string.search_hint),
+            InputField(
+                query = state.query,
+                onQueryChange = { query ->
+                    onAction(if (query.isEmpty()) SearchAction.ClearQuery else SearchAction.QueryChanged(query))
+                },
                 onSearch = { onAction(SearchAction.SubmitSearch) },
-                onClear = { onAction(SearchAction.ClearQuery) },
+                label = stringResource(Res.string.search_hint),
+                expanded = false,
+                onExpandedChange = {},
                 modifier = Modifier.fillMaxWidth(),
             )
             if (state.failedSourceCount > 0) {
@@ -240,43 +244,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.addDiscovery(
 
     if (recent.isNotEmpty()) {
         item {
-            DesignChipSection(
-                title = stringResource(Res.string.search_recent_searches),
+            SearchHistoryTags(
                 labels = recent,
-                trailing = {
-                    DesignTextButton(
-                        text = stringResource(Res.string.search_clear),
-                        variant = DesignTextButtonVariant.Default,
-                        size = DesignTextButtonSize.Small,
-                        onClick = { onAction(SearchAction.ClearHistory) },
-                    )
-                },
-                chipLeading = {
-                    Icon(
-                        painter = painterResource(Res.drawable.icon_search),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                    )
-                },
-                onLabelClick = { onAction(SearchAction.SelectSuggestion(it)) },
+                onSelect = { onAction(SearchAction.SelectSuggestion(it)) },
+                onClear = { onAction(SearchAction.ClearHistory) },
             )
         }
     }
     if (suggestions.isNotEmpty()) {
         item {
-            DesignChipSection(
-                title = stringResource(Res.string.search_suggestions),
+            SearchSuggestionTags(
                 labels = suggestions,
-                chipLeading = {
-                    Icon(
-                        painter = painterResource(Res.drawable.icon_search),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                    )
-                },
-                onLabelClick = { onAction(SearchAction.SelectSuggestion(it)) },
+                onSelect = { onAction(SearchAction.SelectSuggestion(it)) },
             )
         }
     }
@@ -285,6 +264,64 @@ private fun androidx.compose.foundation.lazy.LazyListScope.addDiscovery(
             DesignStatusCard(
                 title = stringResource(Res.string.search_no_history),
                 message = stringResource(Res.string.search_try_query),
+            )
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun SearchHistoryTags(
+    labels: List<String>,
+    onSelect: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            SmallTitle(
+                text = stringResource(Res.string.search_recent_searches),
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                text = stringResource(Res.string.search_clear),
+                onClick = onClear,
+            )
+        }
+        SearchTagFlow(labels = labels, onSelect = onSelect)
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun SearchSuggestionTags(
+    labels: List<String>,
+    onSelect: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SmallTitle(text = stringResource(Res.string.search_suggestions))
+        SearchTagFlow(labels = labels, onSelect = onSelect)
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun SearchTagFlow(labels: List<String>, onSelect: (String) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        labels.forEach { label ->
+            TagChip(
+                label = label,
+                leading = {
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_search),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                    )
+                },
+                onClick = { onSelect(label) },
             )
         }
     }
@@ -395,8 +432,8 @@ private fun TrackResult(
 
 @Composable
 private fun AlbumResult(album: SearchAlbumItem, onOpen: () -> Unit) {
-    DesignCardSurface(
-        contentPadding = PaddingValues(14.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onOpen,
     ) {
         Row(
@@ -430,8 +467,8 @@ private fun AlbumResult(album: SearchAlbumItem, onOpen: () -> Unit) {
 
 @Composable
 private fun ArtistResult(artist: SearchArtistItem, onOpen: () -> Unit) {
-    DesignCardSurface(
-        contentPadding = PaddingValues(14.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onOpen,
     ) {
         Row(

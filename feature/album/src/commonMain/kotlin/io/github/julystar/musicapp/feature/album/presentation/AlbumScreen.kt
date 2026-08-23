@@ -42,13 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
@@ -89,6 +84,8 @@ import musicapp.feature.album.generated.resources.album_unknown_artist
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -349,18 +346,17 @@ private fun AlbumActionBar(
             )
         }
         Box(modifier = Modifier.weight(1f))
-        DesignIconButton(
-            size = DesignIconButtonSize.Medium,
-            variant = DesignIconButtonVariant.Default,
-            painter = painterResource(CoreRes.drawable.icon_locate_fixed),
-            contentDescription = stringResource(Res.string.album_locate_current),
-            colors = DesignIconButtonColors(
-                buttonBg = MiuixTheme.colorScheme.surfaceContainerHigh,
-                iconTint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            ),
+        IconButton(
+            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
             enabled = canLocate,
             onClick = onLocateCurrent,
-        )
+        ) {
+            Icon(
+                painterResource(CoreRes.drawable.icon_locate_fixed),
+                stringResource(Res.string.album_locate_current),
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
     }
 }
 
@@ -468,13 +464,13 @@ private fun AlbumTrackRow(
                         .align(Alignment.TopEnd)
                         .offset(x = 12.dp, y = 28.dp),
                 ) {
-                    DesignContextMenu(
+                    ResourceDropdownMenu(
                         expanded = moreMenuExpanded,
                         onDismissRequest = { moreMenuExpanded = false },
                         compact = true,
                         items = buildList {
                             add(
-                                DesignContextMenuItem(
+                                ResourceDropdownMenuItem(
                                     label = Res.string.album_play,
                                     icon = CoreRes.drawable.icon_play,
                                     onClick = onPlay,
@@ -482,7 +478,7 @@ private fun AlbumTrackRow(
                             )
                             if (track.canDownload) {
                                 add(
-                                    DesignContextMenuItem(
+                                    ResourceDropdownMenuItem(
                                         label = Res.string.album_download,
                                         icon = CoreRes.drawable.icon_download,
                                         onClick = onDownload,
@@ -494,7 +490,7 @@ private fun AlbumTrackRow(
                 }
             }
         }
-        DesignListDivider(modifier = Modifier.align(Alignment.BottomCenter))
+        HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

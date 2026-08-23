@@ -18,21 +18,21 @@ import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
 import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-data class DesignContextMenuItem(
+data class ResourceDropdownMenuItem(
     val label: StringResource,
     val icon: DrawableResource,
     val onClick: () -> Unit,
     val isError: Boolean = false,
     val enabled: Boolean = true,
-    val children: List<DesignContextMenuItem> = emptyList(),
+    val children: List<ResourceDropdownMenuItem> = emptyList(),
 ) {
 }
 
 @Composable
-fun DesignContextMenu(
+fun ResourceDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
-    items: List<DesignContextMenuItem>,
+    items: List<ResourceDropdownMenuItem>,
     compact: Boolean = false,
 ) {
     val entries = listOf(DropdownEntry(items = items.map { item -> item.toDropdownItem() }))
@@ -63,7 +63,7 @@ fun DesignContextMenu(
 }
 
 @Composable
-private fun DesignContextMenuItem.toDropdownItem(): DropdownItem {
+private fun ResourceDropdownMenuItem.toDropdownItem(): DropdownItem {
     val iconTint = if (isError) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurface
     return DropdownItem(
         text = stringResource(label),

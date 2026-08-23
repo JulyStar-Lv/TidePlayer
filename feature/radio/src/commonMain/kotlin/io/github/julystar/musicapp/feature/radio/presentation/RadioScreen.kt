@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,12 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.feature.radio.generated.resources.Res
@@ -38,7 +32,10 @@ import musicapp.feature.radio.generated.resources.radio_title
 import musicapp.feature.radio.generated.resources.radio_track_count
 import musicapp.feature.radio.generated.resources.radio_unavailable
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -58,21 +55,17 @@ fun RadioScreen(
                 .padding(horizontal = horizontalPadding, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            DesignPageHeader(
+            TopAppBar(
                 title = stringResource(Res.string.radio_title),
                 subtitle = stringResource(Res.string.radio_track_count, state.tracks.size),
-                trailing = {
-                    DesignTextButton(
+                actions = {
+                    TextButton(
                         text = stringResource(Res.string.radio_refresh),
-                        variant = DesignTextButtonVariant.PrimaryFilled,
-                        size = DesignTextButtonSize.Small,
                         onClick = { onAction(RadioAction.Refresh) },
                     )
                     if (!state.isLoading && state.tracks.isNotEmpty()) {
-                        DesignTextButton(
+                        TextButton(
                             text = stringResource(Res.string.radio_play_all),
-                            variant = DesignTextButtonVariant.PrimaryFilled,
-                            size = DesignTextButtonSize.Small,
                             onClick = { onAction(RadioAction.PlayAll) },
                         )
                     }
@@ -126,9 +119,8 @@ private fun RadioTrackRow(
     onPlay: () -> Unit,
     onDownload: () -> Unit,
 ) {
-    DesignCardSurface(
-        modifier = Modifier.heightIn(min = 58.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onPlay,
     ) {
         Row(
@@ -166,10 +158,8 @@ private fun RadioTrackRow(
                 )
             }
             if (track.canDownload) {
-                DesignTextButton(
+                TextButton(
                     text = stringResource(Res.string.radio_download),
-                    variant = DesignTextButtonVariant.Default,
-                    size = DesignTextButtonSize.Small,
                     onClick = onDownload,
                 )
             }

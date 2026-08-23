@@ -39,7 +39,8 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
-object DesignSliderDefaults {
+/** Defaults for TidePlayer's buffered, tappable playback progress control. */
+object PlaybackSliderDefaults {
     val Height = 16.dp
     val TrackHeight = 4.dp
     val ThumbSize = 12.dp
@@ -47,7 +48,7 @@ object DesignSliderDefaults {
 }
 
 @Composable
-fun DesignSlider(
+fun PlaybackSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -58,10 +59,10 @@ fun DesignSlider(
     bufferedValue: Float? = null,
     onValueChangeStarted: (() -> Unit)? = null,
     onValueChangeFinished: (() -> Unit)? = null,
-    height: Dp = DesignSliderDefaults.Height,
-    trackHeight: Dp = DesignSliderDefaults.TrackHeight,
-    thumbSize: Dp = DesignSliderDefaults.ThumbSize,
-    activeThumbSize: Dp = DesignSliderDefaults.ActiveThumbSize,
+    height: Dp = PlaybackSliderDefaults.Height,
+    trackHeight: Dp = PlaybackSliderDefaults.TrackHeight,
+    thumbSize: Dp = PlaybackSliderDefaults.ThumbSize,
+    activeThumbSize: Dp = PlaybackSliderDefaults.ActiveThumbSize,
     trackColorOverride: Color? = null,
     bufferColorOverride: Color? = null,
     activeTrackColorOverride: Color? = null,
@@ -88,7 +89,7 @@ fun DesignSlider(
     val currentThumbSize by animateDpAsState(
         targetValue = if (isChanging) activeThumbSize else thumbSize,
         animationSpec = tween(durationMillis = motion.fastMillis),
-        label = "designSliderThumbSize",
+        label = "playbackSliderThumbSize",
     )
     val sliderWidthDp = with(density) { sliderWidthPx.toDp() }
 

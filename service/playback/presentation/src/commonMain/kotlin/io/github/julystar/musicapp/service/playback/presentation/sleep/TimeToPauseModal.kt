@@ -42,11 +42,9 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -196,7 +194,7 @@ private fun TimeToPauseModalCore(
         minutes = initMinutes
     }
 
-    DesignDialog(show = isOpen, onDismiss = onCancel) {
+    OverlayDialog(show = isOpen, onDismissRequest = onCancel) {
         Column(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -233,10 +231,8 @@ private fun TimeToPauseModalCore(
                     .fillMaxWidth()
             ) {
                 Row {
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(Res.string.time_to_pause_delete),
-                        variant = DesignTextButtonVariant.Error,
-                        size = DesignTextButtonSize.Medium,
                         enabled = deleteEnabled,
                         onClick = {
                             onDelete()
@@ -244,18 +240,14 @@ private fun TimeToPauseModalCore(
                     )
                 }
                 Row {
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(Res.string.playlists_dialog_button_cancel),
-                        variant = DesignTextButtonVariant.Primary,
-                        size = DesignTextButtonSize.Medium,
                         onClick = {
                             onCancel()
                         }
                     )
-                    DesignTextButton(
+                    TextButton(
                         text = stringResource(Res.string.playlists_dialog_button_ok),
-                        variant = DesignTextButtonVariant.Primary,
-                        size = DesignTextButtonSize.Medium,
                         enabled = !(minutes == 0 && hours == 0),
                         onClick = {
                             onConfirm(hours, minutes)

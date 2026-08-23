@@ -26,12 +26,10 @@ import io.github.julystar.musicapp.core.domain.model.applyPreset
 import io.github.julystar.musicapp.core.domain.model.matchingPreset
 import io.github.julystar.musicapp.core.domain.model.resetEqualizer
 import io.github.julystar.musicapp.core.domain.model.withAudioEffectProfile
-import io.github.julystar.musicapp.core.presentation.components.DesignTabItem
-import io.github.julystar.musicapp.core.presentation.components.DesignTabs
-import io.github.julystar.musicapp.core.presentation.components.DesignTabsVariant
 import musicapp.feature.settings.generated.resources.*
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.TabRow
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -224,21 +222,24 @@ private fun EqualizerModeSection(
     capabilities: io.github.julystar.musicapp.core.domain.model.AudioDspCapabilities,
     onModeSelected: (Int) -> Unit,
 ) {
+    val availableModes = buildList {
+        if (capabilities.graphicEqualizer) add(EqualizerMode.Graphic)
+        if (capabilities.parametricEqualizer) add(EqualizerMode.Parametric)
+    }
+    if (availableModes.isEmpty()) return
     SettingsSection(title = stringResource(Res.string.settings_equalizer_mode)) {
-        DesignTabs(
-            items = listOf(
-                DesignTabItem(
-                    label = stringResource(Res.string.settings_equalizer_graphic),
-                    enabled = capabilities.graphicEqualizer,
-                ),
-                DesignTabItem(
-                    label = stringResource(Res.string.settings_equalizer_parametric),
-                    enabled = capabilities.parametricEqualizer,
-                ),
-            ),
-            selectedIndex = selectedMode.ordinal,
-            onSelectedIndexChange = onModeSelected,
-            variant = DesignTabsVariant.Filled,
+        TabRow(
+            tabs = availableModes.map { mode ->
+                stringResource(
+                    if (mode == EqualizerMode.Graphic) {
+                        Res.string.settings_equalizer_graphic
+                    } else {
+                        Res.string.settings_equalizer_parametric
+                    },
+                )
+            },
+            selectedTabIndex = availableModes.indexOf(selectedMode).coerceAtLeast(0),
+            onTabSelected = { index -> onModeSelected(availableModes[index].ordinal) },
             modifier = Modifier.padding(12.dp),
         )
     }

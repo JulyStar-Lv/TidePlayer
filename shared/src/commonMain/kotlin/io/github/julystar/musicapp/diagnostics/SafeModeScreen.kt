@@ -25,11 +25,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.DiagnosticExportBundleRequest
-import io.github.julystar.musicapp.core.presentation.components.AppButton
-import io.github.julystar.musicapp.core.presentation.components.AppText
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
-import io.github.julystar.musicapp.core.presentation.components.DesignSettingsGroup
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode
 import io.github.julystar.musicapp.platform.diagnosticExportPresenter
@@ -75,6 +70,13 @@ import musicapp.shared.generated.resources.diagnostics_summary_copied
 import musicapp.shared.generated.resources.diagnostics_try_normal
 import musicapp.shared.generated.resources.diagnostics_view_incident
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
 @Composable
 @Suppress("DEPRECATION")
@@ -118,14 +120,13 @@ fun SafeModeScreen(
                 modifier = Modifier.widthIn(max = 760.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                AppText(
+                Text(
                     text = stringResource(Res.string.diagnostics_safe_mode_title),
                     style = MiuixTheme.textStyles.title1.copy(fontWeight = FontWeight.Bold),
                 )
-                DesignSettingsGroup(
-                    title = stringResource(Res.string.diagnostics_safe_mode_reason),
-                ) {
-                    DesignPreferenceRow(
+                SmallTitle(text = stringResource(Res.string.diagnostics_safe_mode_reason))
+                Card {
+                    BasicComponent(
                         title = state.startupPlan.reason
                             ?: stringResource(Res.string.diagnostics_no_incident),
                         summary = incident?.let {
@@ -133,27 +134,28 @@ fun SafeModeScreen(
                                 "${it.startupStage ?: "UNKNOWN"} · ×${it.occurrenceCount}"
                         },
                     )
+                    HorizontalDivider()
                     if (showDetail && incident != null) {
-                        DesignPreferenceRow(
+                        BasicComponent(
                             title = incident.summary,
                             summary = incident.detail ?: incident.artifactPaths.joinToString("\n"),
                         )
+                        HorizontalDivider()
                     }
                 }
-                DesignSettingsGroup(
-                    title = stringResource(Res.string.diagnostics_safe_mode_disabled),
-                ) {
+                SmallTitle(text = stringResource(Res.string.diagnostics_safe_mode_disabled))
+                Card {
                     state.startupPlan.disabledComponents.sorted().forEach { component ->
-                        DesignPreferenceRow(title = component)
+                        BasicComponent(title = component)
+                        HorizontalDivider()
                     }
                 }
-                AppText(
+                Text(
                     text = stringResource(Res.string.diagnostics_safe_mode_privacy),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
-                DesignSettingsGroup(
-                    title = stringResource(Res.string.diagnostics_recovery_actions),
-                ) {
+                SmallTitle(text = stringResource(Res.string.diagnostics_recovery_actions))
+                Card {
                     RecoveryRow(
                         title = stringResource(Res.string.diagnostics_backup_settings),
                         onClick = {
@@ -222,7 +224,7 @@ fun SafeModeScreen(
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AppButton(
+                    Button(
                         onClick = {
                             scope.launch {
                                 val result = runCatching {
@@ -255,27 +257,27 @@ fun SafeModeScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        AppText(stringResource(Res.string.diagnostics_export_bundle))
+                        Text(stringResource(Res.string.diagnostics_export_bundle))
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        AppButton(
+                        Button(
                             onClick = {
                                 clipboard.setText(AnnotatedString(summary))
                                 status = summaryCopiedText
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            AppText(stringResource(Res.string.diagnostics_copy_summary))
+                            Text(stringResource(Res.string.diagnostics_copy_summary))
                         }
-                        AppButton(
+                        Button(
                             onClick = { showDetail = !showDetail },
                             modifier = Modifier.weight(1f),
                             enabled = incident != null,
                         ) {
-                            AppText(
+                            Text(
                                 stringResource(
                                     if (showDetail) {
                                         Res.string.diagnostics_hide_incident
@@ -286,7 +288,7 @@ fun SafeModeScreen(
                             )
                         }
                     }
-                    AppButton(
+                    Button(
                         onClick = {
                             if (!recoveryInProgress) {
                                 recoveryInProgress = true
@@ -296,23 +298,23 @@ fun SafeModeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !recoveryInProgress,
                     ) {
-                        AppText(stringResource(Res.string.diagnostics_try_normal))
+                        Text(stringResource(Res.string.diagnostics_try_normal))
                     }
                 }
-                status?.let { AppText(it) }
+                status?.let { Text(it) }
                 Spacer(Modifier.height(8.dp))
             }
         }
 
-        DesignDialog(
+        OverlayDialog(
             show = pendingAction != null,
-            onDismiss = { pendingAction = null },
+            onDismissRequest = { pendingAction = null },
         ) {
-            AppText(
+            Text(
                 text = stringResource(Res.string.diagnostics_confirm_action),
                 style = MiuixTheme.textStyles.title3,
             )
-            AppText(
+            Text(
                 text = stringResource(Res.string.diagnostics_confirm_action_message),
                 modifier = Modifier.padding(vertical = 12.dp),
             )
@@ -320,10 +322,10 @@ fun SafeModeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                AppButton(onClick = { pendingAction = null }) {
-                    AppText(stringResource(Res.string.diagnostics_cancel))
+                Button(onClick = { pendingAction = null }) {
+                    Text(stringResource(Res.string.diagnostics_cancel))
                 }
-                AppButton(
+                Button(
                     onClick = {
                         when (val action = pendingAction) {
                             is SafeModeAction.Option -> {
@@ -355,7 +357,7 @@ fun SafeModeScreen(
                         pendingAction = null
                     },
                 ) {
-                    AppText(stringResource(Res.string.diagnostics_confirm))
+                    Text(stringResource(Res.string.diagnostics_confirm))
                 }
             }
         }
@@ -368,7 +370,7 @@ private fun RecoveryRow(
     selected: Boolean = false,
     onClick: () -> Unit,
 ) {
-    DesignPreferenceRow(
+    BasicComponent(
         title = if (selected) "✓ $title" else title,
         summary = if (selected) {
             stringResource(Res.string.diagnostics_selected)
@@ -377,6 +379,7 @@ private fun RecoveryRow(
         },
         onClick = onClick,
     )
+    HorizontalDivider()
 }
 
 private sealed interface SafeModeAction {

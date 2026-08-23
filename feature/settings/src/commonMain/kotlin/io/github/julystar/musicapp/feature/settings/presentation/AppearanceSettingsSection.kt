@@ -17,13 +17,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.AppLanguageMode
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
-import io.github.julystar.musicapp.core.presentation.components.AppArrowPreference
 import io.github.julystar.musicapp.core.presentation.theme.ArtworkThemeSeedStatus
 import io.github.julystar.musicapp.core.presentation.theme.LocalThemeSeedState
 import io.github.julystar.musicapp.core.presentation.theme.canSelectManualThemeColor
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 @Composable
 fun AppearanceSettingsSection(
@@ -59,7 +59,7 @@ fun AppearanceSettingsSection(
                 checked = settings.artworkThemeEnabled,
                 onCheckedChange = { onAction(SettingsAction.SetArtworkThemeEnabled(it)) },
             )
-            AppArrowPreference(
+            ArrowPreference(
                 title = stringResource(Res.string.settings_theme_color),
                 summary = if (settings.artworkThemeEnabled) {
                     val artworkSummary = when (themeSeedState.artworkStatus) {
@@ -89,7 +89,6 @@ fun AppearanceSettingsSection(
                 onClick = {
                     if (manualThemeColorEnabled) colorPickerOpen = true
                 },
-                showDivider = false,
                 endActions = {
                     Box(
                         modifier = Modifier

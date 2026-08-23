@@ -5,10 +5,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 @Composable
-actual fun DesignDialogHost(
+actual fun PlatformOverlayHost(
     onDismissRequest: () -> Unit,
     dismissOnClickOutside: Boolean,
-    navigationBarStyle: DesignDialogNavigationBarStyle,
+    navigationBarStyle: PlatformOverlayNavigationBarStyle,
     content: @Composable () -> Unit,
 ) {
     Dialog(
@@ -22,6 +22,6 @@ actual fun DesignDialogHost(
 }
 
 @Composable
-internal actual fun DesignDialogSystemBarsEffect(
-    navigationBarStyle: DesignDialogNavigationBarStyle,
+internal actual fun PlatformOverlaySystemBarsEffect(
+    navigationBarStyle: PlatformOverlayNavigationBarStyle,
 ) = Unit

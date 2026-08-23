@@ -17,17 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
 import io.github.julystar.musicapp.core.presentation.components.DesignEmptyState
 import io.github.julystar.musicapp.core.presentation.components.DesignIconBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignIconBadgeVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignLinearProgressIndicator
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusBadge
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusTone
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.service.download.domain.DownloadStatus
@@ -52,6 +46,10 @@ import musicapp.feature.downloads.generated.resources.downloads_title
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -72,7 +70,7 @@ fun DownloadsScreen(
                 .padding(horizontal = horizontalPadding, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            DesignPageHeader(
+            TopAppBar(
                 title = stringResource(Res.string.downloads_title),
                 subtitle = stringResource(Res.string.downloads_task_count, state.tasks.size),
             )
@@ -107,7 +105,7 @@ private fun DownloadTaskRow(
     task: DownloadTaskUi,
     onAction: (DownloadsAction) -> Unit,
 ) {
-    DesignCardSurface(contentPadding = PaddingValues(14.dp)) {
+    Card {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -138,7 +136,7 @@ private fun DownloadTaskRow(
                 )
             }
             task.progressFraction?.let { progress ->
-                DesignLinearProgressIndicator(progress = progress)
+                LinearProgressIndicator(progress = progress)
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -207,34 +205,26 @@ private fun DownloadTaskActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (task.canPause) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.downloads_pause),
-                variant = DesignTextButtonVariant.Primary,
-                size = DesignTextButtonSize.Small,
                 onClick = { onAction(DownloadsAction.Pause(task.id)) },
             )
         }
         if (task.canResume) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.downloads_resume),
-                variant = DesignTextButtonVariant.Primary,
-                size = DesignTextButtonSize.Small,
                 onClick = { onAction(DownloadsAction.Resume(task.id)) },
             )
         }
         if (task.canRetry) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.downloads_retry),
-                variant = DesignTextButtonVariant.Primary,
-                size = DesignTextButtonSize.Small,
                 onClick = { onAction(DownloadsAction.Retry(task.id)) },
             )
         }
         if (task.canCancel) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.downloads_cancel),
-                variant = DesignTextButtonVariant.Error,
-                size = DesignTextButtonSize.Small,
                 onClick = { onAction(DownloadsAction.Cancel(task.id)) },
             )
         }

@@ -19,10 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
 import musicapp.feature.sources.generated.resources.Res
 import musicapp.feature.sources.generated.resources.icon_back
 import musicapp.feature.sources.generated.resources.icon_deleteseep
@@ -37,6 +33,8 @@ import musicapp.feature.sources.generated.resources.source_editor_source
 import musicapp.feature.sources.generated.resources.source_editor_test
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -52,17 +50,11 @@ fun LocalizedSourceEditorScreen(
     state: SourceEditorState,
     onAction: (SourceEditorAction) -> Unit,
 ) {
-    val testColors = when (state.testStatus) {
-        SourceConnectionTestStatus.None -> null
-        SourceConnectionTestStatus.Testing -> DesignIconButtonColors(
-            iconTint = MiuixTheme.colorScheme.onTertiaryContainer,
-        )
-        SourceConnectionTestStatus.Success -> DesignIconButtonColors(
-            iconTint = MiuixTheme.colorScheme.primary,
-        )
-        else -> DesignIconButtonColors(
-            iconTint = MiuixTheme.colorScheme.error,
-        )
+    val testTint = when (state.testStatus) {
+        SourceConnectionTestStatus.None -> MiuixTheme.colorScheme.onSurface
+        SourceConnectionTestStatus.Testing -> MiuixTheme.colorScheme.onTertiaryContainer
+        SourceConnectionTestStatus.Success -> MiuixTheme.colorScheme.primary
+        else -> MiuixTheme.colorScheme.error
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -76,13 +68,9 @@ fun LocalizedSourceEditorScreen(
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DesignIconButton(
-                size = DesignIconButtonSize.Medium,
-                variant = DesignIconButtonVariant.Default,
-                painter = painterResource(Res.drawable.icon_back),
-                contentDescription = stringResource(Res.string.source_editor_back),
+            IconButton(
                 onClick = { onAction(SourceEditorAction.NavigateBack) },
-            )
+            ) { Icon(painterResource(Res.drawable.icon_back), stringResource(Res.string.source_editor_back)) }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -113,30 +101,36 @@ fun LocalizedSourceEditorScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (!state.isCreated) {
-                    DesignIconButton(
-                        size = DesignIconButtonSize.Medium,
-                        variant = DesignIconButtonVariant.Error,
-                        painter = painterResource(Res.drawable.icon_deleteseep),
-                        contentDescription = stringResource(Res.string.source_editor_delete),
+                    IconButton(
                         onClick = { onAction(SourceEditorAction.OpenRemoveDialog) },
-                    )
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.icon_deleteseep),
+                            contentDescription = stringResource(Res.string.source_editor_delete),
+                            tint = MiuixTheme.colorScheme.error,
+                        )
+                    }
                 }
-                DesignIconButton(
-                    size = DesignIconButtonSize.Medium,
-                    variant = DesignIconButtonVariant.Default,
-                    painter = painterResource(Res.drawable.icon_wifitethering),
-                    contentDescription = stringResource(Res.string.source_editor_test),
-                    colors = testColors,
+                IconButton(
                     enabled = state.testStatus != SourceConnectionTestStatus.Testing,
                     onClick = { onAction(SourceEditorAction.TestConnection) },
-                )
-                DesignIconButton(
-                    size = DesignIconButtonSize.Medium,
-                    variant = DesignIconButtonVariant.Primary,
-                    painter = painterResource(Res.drawable.icon_ok),
-                    contentDescription = stringResource(Res.string.source_editor_save),
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_wifitethering),
+                        contentDescription = stringResource(Res.string.source_editor_test),
+                        tint = testTint,
+                    )
+                }
+                IconButton(
+                    backgroundColor = MiuixTheme.colorScheme.primary,
                     onClick = { onAction(SourceEditorAction.Save) },
-                )
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_ok),
+                        contentDescription = stringResource(Res.string.source_editor_save),
+                        tint = MiuixTheme.colorScheme.onPrimary,
+                    )
+                }
             }
         }
     }

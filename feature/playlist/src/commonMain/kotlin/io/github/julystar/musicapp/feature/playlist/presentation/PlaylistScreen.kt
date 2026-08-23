@@ -43,16 +43,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.presentation.components.BottomBarSpacer
-import io.github.julystar.musicapp.core.presentation.components.ConfirmDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignCheckbox
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
@@ -63,6 +55,9 @@ import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkS
 import kotlinx.coroutines.launch
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.cover_default_playlist_image
+import musicapp.core.presentation.generated.resources.confirm_dialog_btn_cancel
+import musicapp.core.presentation.generated.resources.confirm_dialog_btn_ok
+import musicapp.core.presentation.generated.resources.confirm_dialog_title
 import musicapp.core.presentation.generated.resources.icon_deleteseep
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_drag
@@ -102,6 +97,12 @@ import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Checkbox
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -369,9 +370,9 @@ private fun PlaylistActionBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (editing) {
-            DesignCheckbox(
-                checked = allSelected,
-                onCheckedChange = { onToggleSelectAll() },
+            Checkbox(
+                state = if (allSelected) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off,
+                onClick = onToggleSelectAll,
             )
             Text(
                 text = buildString {
@@ -412,32 +413,33 @@ private fun PlaylistActionBar(
             }
         }
         Box(modifier = Modifier.weight(1f))
-        DesignIconButton(
-            size = DesignIconButtonSize.Medium,
-            variant = DesignIconButtonVariant.Default,
-            painter = painterResource(CoreRes.drawable.icon_locate_fixed),
-            contentDescription = stringResource(Res.string.playlist_locate_current),
-            colors = DesignIconButtonColors(
-                buttonBg = MiuixTheme.colorScheme.surfaceContainerHigh,
-                iconTint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            ),
+        IconButton(
+            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
             enabled = canLocate,
             onClick = onLocateCurrent,
-        )
+        ) {
+            Icon(
+                painterResource(CoreRes.drawable.icon_locate_fixed),
+                stringResource(Res.string.playlist_locate_current),
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
         if (editable) {
             Box(modifier = Modifier.width(4.dp))
-            DesignIconButton(
-                size = DesignIconButtonSize.Touch,
-                variant = if (editing) DesignIconButtonVariant.Primary else DesignIconButtonVariant.Surface,
-                painter = painterResource(
-                    if (editing) CoreRes.drawable.icon_ok else CoreRes.drawable.icon_pencil,
-                ),
-                contentDescription = stringResource(
-                    if (editing) Res.string.playlist_finish_editing else Res.string.playlist_edit_tracks,
-                ),
-                colors = if (editing) null else DesignIconButtonColors(iconTint = MiuixTheme.colorScheme.primary),
+            IconButton(
+                backgroundColor = if (editing) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.surfaceContainerHigh,
                 onClick = onToggleEditing,
-            )
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (editing) CoreRes.drawable.icon_ok else CoreRes.drawable.icon_pencil,
+                    ),
+                    contentDescription = stringResource(
+                        if (editing) Res.string.playlist_finish_editing else Res.string.playlist_edit_tracks,
+                    ),
+                    tint = if (editing) MiuixTheme.colorScheme.onPrimary else MiuixTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
@@ -544,14 +546,14 @@ private fun PlaylistTrackRow(
                             .align(Alignment.TopEnd)
                             .offset(x = 12.dp, y = 28.dp),
                     ) {
-                        DesignContextMenu(
+                        ResourceDropdownMenu(
                             expanded = moreMenuExpanded,
                             onDismissRequest = { moreMenuExpanded = false },
                             compact = true,
                             items = buildList {
                                 if (item.mediaId != null) {
                                     add(
-                                        DesignContextMenuItem(
+                                        ResourceDropdownMenuItem(
                                             label = Res.string.playlist_download,
                                             icon = CoreRes.drawable.icon_download,
                                             onClick = onDownload,
@@ -560,7 +562,7 @@ private fun PlaylistTrackRow(
                                 }
                                 if (removable) {
                                     add(
-                                        DesignContextMenuItem(
+                                        ResourceDropdownMenuItem(
                                             label = Res.string.playlist_context_menu_remove,
                                             icon = CoreRes.drawable.icon_deleteseep,
                                             isError = true,
@@ -574,7 +576,7 @@ private fun PlaylistTrackRow(
                 }
             }
         }
-        DesignListDivider(modifier = Modifier.align(Alignment.BottomCenter))
+        HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -596,9 +598,9 @@ private fun ReorderableCollectionItemScope.PlaylistEditingTrackRow(
                 .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DesignCheckbox(
-                checked = selected,
-                onCheckedChange = onSelectedChange,
+            Checkbox(
+                state = if (selected) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off,
+                onClick = { onSelectedChange(!selected) },
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -634,7 +636,7 @@ private fun ReorderableCollectionItemScope.PlaylistEditingTrackRow(
                 )
             }
         }
-        DesignListDivider(modifier = Modifier.align(Alignment.BottomCenter))
+        HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -643,21 +645,32 @@ private fun RemovePlaylistDialog(
     state: PlaylistState,
     onAction: (PlaylistAction) -> Unit,
 ) {
-    ConfirmDialog(
-        open = state.isRemoveDialogOpen,
-        onConfirm = { onAction(PlaylistAction.ConfirmRemovePlaylist) },
-        onCancel = { onAction(PlaylistAction.CloseRemoveDialog) },
+    OverlayDialog(
+        show = state.isRemoveDialogOpen,
+        title = stringResource(CoreRes.string.confirm_dialog_title),
+        onDismissRequest = { onAction(PlaylistAction.CloseRemoveDialog) },
     ) {
         Text(text = "${stringResource(Res.string.playlist_remove_dialog_text)} \"${state.title}\"")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(
+                text = stringResource(CoreRes.string.confirm_dialog_btn_cancel),
+                onClick = { onAction(PlaylistAction.CloseRemoveDialog) },
+            )
+            TextButton(
+                text = stringResource(CoreRes.string.confirm_dialog_btn_ok),
+                onClick = { onAction(PlaylistAction.ConfirmRemovePlaylist) },
+            )
+        }
     }
 }
 
 @Composable
 private fun EmptyPlaylist(modifier: Modifier = Modifier) {
-    DesignCardSurface(
+    Card(
         modifier = modifier,
-        cornerRadius = DesignTokens.shapes.lg,
-        contentPadding = PaddingValues(24.dp),
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(

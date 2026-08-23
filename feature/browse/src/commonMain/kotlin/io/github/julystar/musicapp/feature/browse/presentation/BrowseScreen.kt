@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,12 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignChipSection
-import io.github.julystar.musicapp.core.presentation.components.DesignPageHeader
-import io.github.julystar.musicapp.core.presentation.components.DesignSectionHeader
-import io.github.julystar.musicapp.core.presentation.components.DesignSectionHeaderMetadataTone
-import io.github.julystar.musicapp.core.presentation.components.DesignSectionHeaderVariant
+import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.components.DesignStatusCard
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
@@ -51,7 +49,10 @@ import musicapp.feature.browse.generated.resources.browse_title
 import musicapp.feature.browse.generated.resources.browse_track_count
 import musicapp.feature.browse.generated.resources.browse_unavailable
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -70,7 +71,7 @@ fun BrowseScreen(
                 .padding(horizontal = horizontalPadding, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            DesignPageHeader(
+            TopAppBar(
                 title = stringResource(Res.string.browse_title),
                 subtitle = stringResource(
                     Res.string.browse_summary,
@@ -162,12 +163,9 @@ private fun BrowseContent(
         }
         if (state.genres.isNotEmpty()) {
             item {
-                DesignChipSection(
-                    title = stringResource(Res.string.browse_genres),
-                    labels = state.genres,
-                    metadata = state.genres.size.toString(),
-                    metadataTone = DesignSectionHeaderMetadataTone.Accent,
-                    onLabelClick = { genre -> onAction(BrowseAction.NavigateToGenre(genre)) },
+                BrowseGenreTags(
+                    genres = state.genres,
+                    onGenreClick = { genre -> onAction(BrowseAction.NavigateToGenre(genre)) },
                 )
             }
         }
@@ -183,22 +181,55 @@ private fun BrowseContent(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun BrowseGenreTags(
+    genres: List<String>,
+    onGenreClick: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            SmallTitle(
+                text = stringResource(Res.string.browse_genres),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = genres.size.toString(),
+                color = MiuixTheme.colorScheme.primary,
+                style = MiuixTheme.textStyles.footnote1,
+            )
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            genres.forEach { genre ->
+                TagChip(label = genre, onClick = { onGenreClick(genre) })
+            }
+        }
+    }
+}
+
+@Composable
 private fun BrowseSectionTitle(title: String, count: Int) {
-    DesignSectionHeader(
-        title = title,
-        metadata = count.toString(),
-        variant = DesignSectionHeaderVariant.Compact,
-        metadataTone = DesignSectionHeaderMetadataTone.Accent,
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SmallTitle(text = title)
+        Text(
+            text = count.toString(),
+            color = MiuixTheme.colorScheme.primary,
+            style = MiuixTheme.textStyles.footnote1,
+        )
+    }
 }
 
 @Composable
 private fun BrowseAlbumCard(album: BrowseAlbumItem, onClick: () -> Unit) {
     val shapes = DesignTokens.shapes
-    DesignCardSurface(
+    Card(
         modifier = Modifier.width(156.dp),
-        contentPadding = PaddingValues(10.dp),
-        fillMaxWidth = false,
         onClick = onClick,
     ) {
         Column(
@@ -240,10 +271,8 @@ private fun BrowseAlbumCard(album: BrowseAlbumItem, onClick: () -> Unit) {
 @Composable
 private fun BrowseArtistCard(artist: BrowseArtistItem, onClick: () -> Unit) {
     val shapes = DesignTokens.shapes
-    DesignCardSurface(
+    Card(
         modifier = Modifier.width(140.dp),
-        contentPadding = PaddingValues(12.dp),
-        fillMaxWidth = false,
         onClick = onClick,
     ) {
         Column(

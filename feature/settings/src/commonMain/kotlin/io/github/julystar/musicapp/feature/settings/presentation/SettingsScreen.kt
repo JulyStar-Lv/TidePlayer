@@ -32,11 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.julystar.musicapp.core.presentation.components.DesignSearchBar
 import io.github.julystar.musicapp.core.presentation.components.DesignGlassScene
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignSettingsGroup
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
 import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -56,6 +53,10 @@ import musicapp.core.presentation.generated.resources.icon_settings_puzzle
 import musicapp.core.presentation.generated.resources.icon_settings_wifi
 import musicapp.feature.settings.generated.resources.*
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -128,12 +129,13 @@ fun SettingsScreen(
         }
 
         // Search bar
-        DesignSearchBar(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = stringResource(Res.string.settings_search_hint),
+        InputField(
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
             onSearch = {},
-            onClear = { searchQuery = "" },
+            label = stringResource(Res.string.settings_search_hint),
+            expanded = false,
+            onExpandedChange = {},
         )
 
         // Personalization
@@ -359,11 +361,8 @@ private fun SettingsSectionCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    DesignSettingsGroup(
-        title = title,
-        maskBottomDivider = false,
-        content = content,
-    )
+    SmallTitle(text = title)
+    Card(content = content)
 }
 
 // ── Nav Row ──
@@ -436,6 +435,6 @@ private fun SettingsNavRow(
         )
     }
     if (showDivider) {
-        DesignListDivider()
+        HorizontalDivider()
     }
 }

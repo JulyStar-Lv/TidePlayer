@@ -63,31 +63,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
-import io.github.julystar.musicapp.core.presentation.components.AppDropdownPreference
-import io.github.julystar.musicapp.core.presentation.components.AppSwitch
-import io.github.julystar.musicapp.core.presentation.components.AppTextField
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomSheetDefaults
-import io.github.julystar.musicapp.core.presentation.components.DesignBottomSheetHandle
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogDefaults
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogHost
-import io.github.julystar.musicapp.core.presentation.components.DesignDialogNavigationBarStyle
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignLoadingIndicator
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
+import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetDefaults
+import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetHandle
+import io.github.julystar.musicapp.core.presentation.components.OverlayPresentationDefaults
+import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayHost
+import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayNavigationBarStyle
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignPreferenceRow
-import io.github.julystar.musicapp.core.presentation.components.DesignSettingsGroup
 import io.github.julystar.musicapp.core.presentation.components.DesignStickyGlassActionBar
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.resolveDialogMaxHeight
-import io.github.julystar.musicapp.core.presentation.components.shouldDismissBottomSheet
+import io.github.julystar.musicapp.core.presentation.components.resolveOverlayMaxHeight
+import io.github.julystar.musicapp.core.presentation.components.shouldDismissOverlayBottomSheet
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import androidx.compose.ui.graphics.Color
@@ -124,7 +110,21 @@ import musicapp.shared.generated.resources.Res as SharedRes
 import musicapp.shared.generated.resources.plugins_configure
 import musicapp.shared.generated.resources.plugins_remove
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
@@ -270,7 +270,8 @@ fun PluginSettingsRoot(
                 enabledCount = plugins.count(PluginSummary::enabled),
             )
 
-            DesignSettingsGroup(title = pluginUiText("Installed plugins")) {
+            SmallTitle(text = pluginUiText("Installed plugins"))
+            Card {
                 if (plugins.isEmpty()) {
                     EmptyPluginsRow()
                 } else {
@@ -329,12 +330,12 @@ fun PluginSettingsRoot(
             )
 
             operationError?.let { message ->
-                DesignSettingsGroup(title = pluginUiText("Status")) {
-                    DesignPreferenceRow(
+                SmallTitle(text = pluginUiText("Status"))
+                Card {
+                    BasicComponent(
                         title = pluginUiText("Plugin operation failed"),
                         summary = message,
-                        titleColor = MiuixTheme.colorScheme.error,
-                        showDivider = false,
+                        titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
                     )
                 }
             }
@@ -505,35 +506,36 @@ private fun PluginListRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            AppSwitch(
+            Switch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
                 enabled = !busy,
             )
             Spacer(modifier = Modifier.width(4.dp))
             Box {
-                DesignIconButton(
-                    size = DesignIconButtonSize.Touch,
-                    variant = DesignIconButtonVariant.Default,
-                    painter = painterResource(CoreRes.drawable.icon_vertialcal_more),
-                    contentDescription = pluginUiText("More options for ${plugin.name}"),
+                IconButton(
                     enabled = !busy,
                     onClick = { moreMenuExpanded = true },
-                )
+                ) {
+                    Icon(
+                        painter = painterResource(CoreRes.drawable.icon_vertialcal_more),
+                        contentDescription = pluginUiText("More options for ${plugin.name}"),
+                    )
+                }
                 Box(
                     contentAlignment = Alignment.TopEnd,
                     modifier = Modifier.offset(20.dp, 20.dp),
                 ) {
-                    DesignContextMenu(
+                    ResourceDropdownMenu(
                         expanded = moreMenuExpanded,
                         onDismissRequest = { moreMenuExpanded = false },
                         items = listOf(
-                            DesignContextMenuItem(
+                            ResourceDropdownMenuItem(
                                 label = SharedRes.string.plugins_configure,
                                 icon = CoreRes.drawable.icon_settings_sliders,
                                 onClick = onConfigure,
                             ),
-                            DesignContextMenuItem(
+                            ResourceDropdownMenuItem(
                                 label = SharedRes.string.plugins_remove,
                                 icon = CoreRes.drawable.icon_deleteseep,
                                 isError = true,
@@ -596,7 +598,8 @@ private fun PluginImportCard(
     onCancel: () -> Unit,
     onInstall: () -> Unit,
 ) {
-    DesignSettingsGroup(title = pluginUiText("Import")) {
+    SmallTitle(text = pluginUiText("Import"))
+    Card {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -661,31 +664,25 @@ private fun PluginImportCard(
                 )
             }
             when (state) {
-                PluginImportState.Idle -> DesignTextButton(
+                PluginImportState.Idle -> TextButton(
                     text = pluginUiText("Choose ZIP"),
-                    variant = DesignTextButtonVariant.PrimaryFilled,
-                    size = DesignTextButtonSize.Medium,
                     enabled = !busy,
                     onClick = onChooseArchive,
                 )
                 PluginImportState.Selected -> Row {
-                    DesignTextButton(
+                    TextButton(
                         text = pluginUiText("Cancel"),
-                        variant = DesignTextButtonVariant.Default,
-                        size = DesignTextButtonSize.Small,
                         enabled = !busy,
                         onClick = onCancel,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    DesignTextButton(
+                    TextButton(
                         text = pluginUiText("Install"),
-                        variant = DesignTextButtonVariant.PrimaryFilled,
-                        size = DesignTextButtonSize.Small,
                         enabled = !busy,
                         onClick = onInstall,
                     )
                 }
-                PluginImportState.Installing -> DesignLoadingIndicator(size = 16.dp)
+                PluginImportState.Installing -> CircularProgressIndicator(size = 16.dp)
                 PluginImportState.Success -> {} // success icon only
             }
         }
@@ -732,7 +729,7 @@ private fun PluginConfigurationDialog(
     val windowSize = LocalWindowInfo.current.containerDpSize
     val compact = windowSize.isSpecified &&
         isCompactPluginConfigurationDialog(windowSize.width)
-    val dialogMaxHeight = resolveDialogMaxHeight(
+    val dialogMaxHeight = resolveOverlayMaxHeight(
         requestedMaxHeight = null,
         viewportHeight = windowSize.height,
     )
@@ -754,8 +751,8 @@ private fun PluginConfigurationDialog(
         Modifier.padding(24.dp)
     }
     val density = LocalDensity.current
-    val dismissDistancePx = with(density) { DesignBottomSheetDefaults.dismissDistance.toPx() }
-    val dismissVelocityPxPerSecond = with(density) { DesignBottomSheetDefaults.dismissVelocity.toPx() }
+    val dismissDistancePx = with(density) { OverlayBottomSheetDefaults.dismissDistance.toPx() }
+    val dismissVelocityPxPerSecond = with(density) { OverlayBottomSheetDefaults.dismissVelocity.toPx() }
     val dragAnimationScope = rememberCoroutineScope()
     var sheetDragOffsetPx by remember { mutableFloatStateOf(0f) }
     var dragAnimationJob by remember { mutableStateOf<Job?>(null) }
@@ -777,7 +774,7 @@ private fun PluginConfigurationDialog(
             },
             onDragStopped = { velocity ->
                 if (
-                    shouldDismissBottomSheet(
+                    shouldDismissOverlayBottomSheet(
                         dragOffsetPx = sheetDragOffsetPx,
                         velocityPxPerSecond = velocity,
                         distanceThresholdPx = dismissDistancePx,
@@ -803,14 +800,14 @@ private fun PluginConfigurationDialog(
         Modifier
     }
 
-    DesignDialogHost(
+    PlatformOverlayHost(
         onDismissRequest = {
             if (dialogVisible) onDismiss()
         },
         navigationBarStyle = if (compact) {
-            DesignDialogNavigationBarStyle.Surface
+            PlatformOverlayNavigationBarStyle.Surface
         } else {
-            DesignDialogNavigationBarStyle.Dimmed
+            PlatformOverlayNavigationBarStyle.Dimmed
         },
     ) {
         Box(
@@ -819,13 +816,13 @@ private fun PluginConfigurationDialog(
             AnimatedVisibility(
                 visibleState = visibilityState,
                 modifier = Modifier.fillMaxSize(),
-                enter = DesignDialogDefaults.scrimEnterTransition(),
-                exit = DesignDialogDefaults.scrimExitTransition(),
+                enter = OverlayPresentationDefaults.scrimEnterTransition(),
+                exit = OverlayPresentationDefaults.scrimExitTransition(),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(DesignDialogDefaults.scrimColor)
+                        .background(OverlayPresentationDefaults.scrimColor)
                         .clickable(
                             enabled = dialogVisible,
                             indication = null,
@@ -838,14 +835,14 @@ private fun PluginConfigurationDialog(
                 visible = dialogVisible,
                 modifier = Modifier.align(verticalAlign),
                 enter = if (compact) {
-                    DesignBottomSheetDefaults.surfaceEnterTransition()
+                    OverlayBottomSheetDefaults.surfaceEnterTransition()
                 } else {
-                    DesignDialogDefaults.surfaceEnterTransition()
+                    OverlayPresentationDefaults.surfaceEnterTransition()
                 },
                 exit = if (compact) {
-                    DesignBottomSheetDefaults.surfaceExitTransition()
+                    OverlayBottomSheetDefaults.surfaceExitTransition()
                 } else {
-                    DesignDialogDefaults.surfaceExitTransition()
+                    OverlayPresentationDefaults.surfaceExitTransition()
                 },
             ) {
                 Column(
@@ -890,7 +887,7 @@ private fun PluginConfigurationDialog(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            DesignBottomSheetHandle()
+                            OverlayBottomSheetHandle()
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1041,10 +1038,8 @@ private fun PluginConfigurationDialog(
                                     enabled = dialogVisible && !busy,
                                     onClick = onClearCache,
                                 )
-                                DesignTextButton(
+                                TextButton(
                                     text = pluginUiText(if (visibleEditable.isNotEmpty()) "Save" else "Done"),
-                                    variant = DesignTextButtonVariant.PrimaryFilled,
-                                    size = DesignTextButtonSize.Medium,
                                     enabled = dialogVisible && !busy,
                                     onClick = onSave,
                                 )
@@ -1281,7 +1276,7 @@ private fun buildPluginMarkdownInlineText(
 }
 
 internal fun isCompactPluginConfigurationDialog(windowWidth: Dp): Boolean =
-    DesignDialogDefaults.isCompactWindow(windowWidth)
+    OverlayPresentationDefaults.isCompactWindow(windowWidth)
 
 @Composable
 private fun PluginRemovalDialog(
@@ -1295,10 +1290,9 @@ private fun PluginRemovalDialog(
         if (plugin != null) retainedPlugin = plugin
     }
     val dialogPlugin = plugin ?: retainedPlugin ?: return
-    DesignDialog(
+    OverlayDialog(
         show = dialogVisible,
-        onDismiss = onDismiss,
-        maxWidth = 400.dp,
+        onDismissRequest = onDismiss,
     ) {
         Box(
             modifier = Modifier
@@ -1333,17 +1327,13 @@ private fun PluginRemovalDialog(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DesignTextButton(
+            TextButton(
                 text = pluginUiText("Cancel"),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
                 onClick = onDismiss,
             )
             Spacer(modifier = Modifier.width(8.dp))
-            DesignTextButton(
+            TextButton(
                 text = pluginUiText("Uninstall"),
-                variant = DesignTextButtonVariant.Error,
-                size = DesignTextButtonSize.Medium,
                 onClick = onConfirm,
             )
         }
@@ -1391,14 +1381,14 @@ private fun PermissionToggleRow(
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            AppSwitch(
+            Switch(
                 checked = checked,
                 onCheckedChange = onChange,
                 enabled = enabled,
             )
         }
         if (showDivider) {
-            DesignListDivider()
+            HorizontalDivider()
         }
     }
 }
@@ -1449,7 +1439,7 @@ private fun PluginConfigFieldCardRow(
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
                     )
-                    AppTextField(
+                    TextField(
                         value = value,
                         onValueChange = onValueChange,
                         modifier = Modifier.fillMaxWidth(),
@@ -1464,7 +1454,7 @@ private fun PluginConfigFieldCardRow(
                     )
                 }
                 if (showDivider) {
-                    DesignListDivider()
+                    HorizontalDivider()
                 }
             }
         }
@@ -1480,18 +1470,29 @@ private fun PluginConfigSelectRow(
     showDivider: Boolean = true,
 ) {
     val selectedIndex = field.options.indexOfFirst { it.value == value }
-    AppDropdownPreference(
-        title = field.title,
-        summary = field.summary,
-        items = field.options.map { it.label },
-        selectedIndex = selectedIndex,
-        selectedLabel = value.takeIf { selectedIndex == -1 },
-        enabled = enabled,
-        showDivider = showDivider,
-        onSelectedIndexChange = { index ->
-            field.options.getOrNull(index)?.let { onValueChange(it.value) }
+    val entry = DropdownEntry(
+        items = buildList {
+            if (selectedIndex !in field.options.indices) {
+                add(DropdownItem(text = value, enabled = false, selected = true))
+            }
+            field.options.forEachIndexed { index, option ->
+                add(
+                    DropdownItem(
+                        text = option.label,
+                        selected = index == selectedIndex,
+                        onClick = { onValueChange(option.value) },
+                    ),
+                )
+            }
         },
     )
+    OverlayDropdownPreference(
+        title = field.title,
+        summary = field.summary,
+        entry = entry,
+        enabled = enabled,
+    )
+    if (showDivider) HorizontalDivider()
 }
 
 internal fun isPluginConfigFieldVisible(

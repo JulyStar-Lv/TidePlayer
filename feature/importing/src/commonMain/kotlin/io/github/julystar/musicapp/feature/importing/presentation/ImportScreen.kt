@@ -27,6 +27,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Checkbox
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -52,20 +58,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignButton
-import io.github.julystar.musicapp.core.presentation.components.DesignButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignCheckbox
-import io.github.julystar.musicapp.core.presentation.components.DesignChevron
-import io.github.julystar.musicapp.core.presentation.components.DesignFab
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignListDivider
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.domain.model.ImportSelectionMode
 import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandler
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_right
 import io.github.julystar.musicapp.source.api.SourceNode
 import io.github.julystar.musicapp.source.api.SourceNodeType
 import musicapp.feature.importing.generated.resources.Res
@@ -214,8 +212,8 @@ private fun ImportEntry(
         onClickEntry(entry)
     }
 
-    DesignCardSurface(
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
     ) {
         Row(
@@ -240,15 +238,17 @@ private fun ImportEntry(
             }
             Box(modifier = Modifier.width(12.dp))
             if (canCheck) {
-                DesignCheckbox(
-                    checked = checked,
-                    onCheckedChange = {
+                Checkbox(
+                    state = if (checked) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off,
+                    onClick = {
                         onClick()
                     },
                 )
             } else if (canOpen) {
-                DesignChevron(
-                    size = 12.dp,
+                Icon(
+                    painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
                     tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                 )
             }
@@ -301,8 +301,8 @@ private fun ImportSectionLabel(
 
 @Composable
 private fun EmptyLibraryFolderHint() {
-    DesignCardSurface(
-        contentPadding = PaddingValues(18.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -343,7 +343,7 @@ private fun CurrentDirectoryAction(
 ) {
     val bottomContentInset = LocalDesignBottomContentInset.current
 
-    DesignCardSurface(
+    Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(
@@ -351,10 +351,6 @@ private fun CurrentDirectoryAction(
                 end = horizontalPadding,
                 bottom = 12.dp + bottomContentInset,
             ),
-        cornerRadius = 22.dp,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        backgroundColor = MiuixTheme.colorScheme.surfaceContainerHighest,
-        borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.14f),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -379,13 +375,11 @@ private fun CurrentDirectoryAction(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            DesignButton(
-                text = stringResource(Res.string.import_library_select_current),
-                variant = DesignButtonVariant.Primary,
+            Button(
                 minWidth = 132.dp,
                 enabled = enabled,
                 onClick = onClick,
-            )
+            ) { Text(stringResource(Res.string.import_library_select_current)) }
         }
     }
 }
@@ -473,8 +467,10 @@ private fun ImportEntries(
                     disabled = state.splitPaths.isEmpty()
                 )
                 for ((index, v) in state.splitPaths.withIndex()) {
-                    DesignChevron(
-                        size = 8.dp,
+                    Icon(
+                        painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                        contentDescription = null,
+                        modifier = Modifier.size(8.dp),
                         tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                     PathTab(
@@ -528,7 +524,7 @@ private fun ImportEntries(
                 onClick = { onAction(ImportAction.FinishCurrentDirectory) },
             )
         } else if (state.selectedCount > 0) {
-            DesignFab(
+            FloatingActionButton(
                 onClick = {
                     onAction(ImportAction.FinishSelection)
                 },
@@ -584,8 +580,10 @@ private fun FolderPickerEntries(
                         state.splitPaths
                     }
                     if (visibleParts.size != state.splitPaths.size) {
-                        DesignChevron(
-                            size = 8.dp,
+                        Icon(
+                            painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                            contentDescription = null,
+                            modifier = Modifier.size(8.dp),
                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                         Text(
@@ -595,8 +593,10 @@ private fun FolderPickerEntries(
                         )
                     }
                     visibleParts.forEach { part ->
-                        DesignChevron(
-                            size = 8.dp,
+                        Icon(
+                            painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                            contentDescription = null,
+                            modifier = Modifier.size(8.dp),
                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                         FolderBreadcrumb(
@@ -608,12 +608,10 @@ private fun FolderPickerEntries(
                 }
             }
 
-            DesignCardSurface(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                contentPadding = PaddingValues(0.dp),
-                elevation = 0.dp,
             ) {
                 if (folders.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -633,7 +631,7 @@ private fun FolderPickerEntries(
                                 onOpen = { onAction(ImportAction.OpenEntry(folder)) },
                                 onToggle = { onAction(ImportAction.ToggleFolderSelection(folder)) },
                             )
-                            if (index != folders.lastIndex) DesignListDivider()
+                            if (index != folders.lastIndex) HorizontalDivider()
                         }
                     }
                 }
@@ -641,7 +639,7 @@ private fun FolderPickerEntries(
             Spacer(Modifier.height(104.dp + bottomContentInset))
         }
 
-        DesignCardSurface(
+        Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(
@@ -649,10 +647,6 @@ private fun FolderPickerEntries(
                     end = horizontalPadding,
                     bottom = 12.dp + bottomContentInset,
                 ),
-            cornerRadius = 22.dp,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHighest,
-            borderColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.14f),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 Row(
@@ -711,12 +705,10 @@ private fun FolderPickerEntries(
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         )
                     }
-                    DesignButton(
-                        text = stringResource(Res.string.import_folder_save),
-                        variant = DesignButtonVariant.Primary,
+                    Button(
                         minWidth = 112.dp,
                         onClick = { onAction(ImportAction.FinishCurrentDirectory) },
-                    )
+                    ) { Text(stringResource(Res.string.import_folder_save)) }
                 }
             }
         }
@@ -975,14 +967,9 @@ private fun ImportMusicsWarningImpl(
             .fillMaxSize()
             .padding(horizontal = horizontalPadding, vertical = spacing.lg),
     ) {
-        DesignCardSurface(
+        Card(
             modifier = Modifier
                 .widthIn(max = 336.dp),
-            cornerRadius = 28.dp,
-            contentPadding = PaddingValues(24.dp),
-            backgroundColor = color.copy(alpha = 0.06f),
-            borderColor = color.copy(alpha = 0.16f),
-            elevation = 0.dp,
             onClick = if (actionLabel == null) onClick else null,
         ) {
             Column(
@@ -1024,12 +1011,10 @@ private fun ImportMusicsWarningImpl(
                     overflow = TextOverflow.Ellipsis,
                 )
                 actionLabel?.let { label ->
-                    DesignButton(
-                        text = label,
-                        variant = DesignButtonVariant.Primary,
+                    Button(
                         minWidth = 144.dp,
                         onClick = onClick,
-                    )
+                    ) { Text(label) }
                 }
             }
         }
@@ -1125,14 +1110,11 @@ fun ImportScreen(
                     horizontalArrangement = Arrangement.spacedBy(spacing.xs),
                     modifier = Modifier.weight(1f),
                 ) {
-                    DesignIconButton(
-                        size = DesignIconButtonSize.Medium,
-                        variant = DesignIconButtonVariant.Default,
-                        painter = painterResource(Res.drawable.icon_back),
+                    IconButton(
                         onClick = {
                             onAction(ImportAction.NavigateBack)
-                        }
-                    )
+                        },
+                    ) { Icon(painterResource(Res.drawable.icon_back), contentDescription = null) }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = titleText,
@@ -1167,15 +1149,12 @@ fun ImportScreen(
                             .padding(horizontal = 8.dp, vertical = 12.dp),
                     )
                 } else {
-                    DesignIconButton(
-                        size = DesignIconButtonSize.Medium,
-                        variant = DesignIconButtonVariant.Default,
-                        painter = painterResource(Res.drawable.icon_toggle_all),
+                    IconButton(
                         enabled = !state.disabledToggleAll,
                         onClick = {
                             onAction(ImportAction.ToggleAll)
-                        }
-                    )
+                        },
+                    ) { Icon(painterResource(Res.drawable.icon_toggle_all), contentDescription = null) }
                 }
             }
             if (state.selectionMode != ImportSelectionMode.CurrentDirectory) {

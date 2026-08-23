@@ -94,19 +94,12 @@ import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenu
-import io.github.julystar.musicapp.core.presentation.components.DesignContextMenuItem
-import io.github.julystar.musicapp.core.presentation.components.DesignDialog
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignPlayerControlButton
-import io.github.julystar.musicapp.core.presentation.components.DesignPlayerControlSize
-import io.github.julystar.musicapp.core.presentation.components.DesignPlayerControlVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignSlider
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenu
+import io.github.julystar.musicapp.core.presentation.components.ResourceDropdownMenuItem
+import io.github.julystar.musicapp.core.presentation.components.PlaybackControlButton
+import io.github.julystar.musicapp.core.presentation.components.PlaybackControlSize
+import io.github.julystar.musicapp.core.presentation.components.PlaybackControlVariant
+import io.github.julystar.musicapp.core.presentation.components.PlaybackSlider
 import io.github.julystar.musicapp.core.presentation.components.dropShadow
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.PlayerBackgroundArtworkImage
@@ -181,7 +174,10 @@ import musicapp.service.playback.presentation.generated.resources.player_shuffle
 import musicapp.service.playback.presentation.generated.resources.player_single_repeat
 import musicapp.service.playback.presentation.generated.resources.player_unknown_artist
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val DesktopPlayerBreakpoint = 860.dp
@@ -208,12 +204,9 @@ private fun MusicPlayerHeader(
             .padding(horizontal = 20.dp, vertical = 12.dp)
             .fillMaxWidth(),
     ) {
-        DesignIconButton(
-            size = DesignIconButtonSize.Medium,
-            variant = DesignIconButtonVariant.Default,
-            painter = painterResource(Res.drawable.icon_back),
+        IconButton(
             onClick = { onAction(NowPlayingAction.NavigateBack) },
-        )
+        ) { Icon(painterResource(Res.drawable.icon_back), contentDescription = null) }
         Text(
             text = stringResource(Res.string.now_playing_title),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -251,24 +244,25 @@ private fun NowPlayingMoreButton(
                 )
             }
         } else {
-            DesignIconButton(
-                size = DesignIconButtonSize.Medium,
-                variant = DesignIconButtonVariant.Default,
-                painter = painterResource(Res.drawable.icon_vertialcal_more),
-                contentDescription = stringResource(Res.string.player_more_options),
+            IconButton(
                 onClick = { moreMenuExpanded = true },
-            )
+            ) {
+                Icon(
+                    painterResource(Res.drawable.icon_vertialcal_more),
+                    stringResource(Res.string.player_more_options),
+                )
+            }
         }
         Box(
             contentAlignment = Alignment.TopEnd,
             modifier = Modifier.offset(20.dp, 20.dp),
         ) {
-            DesignContextMenu(
+            ResourceDropdownMenu(
                 expanded = moreMenuExpanded,
                 onDismissRequest = { moreMenuExpanded = false },
                 compact = compact,
                 items = listOfNotNull(
-                    DesignContextMenuItem(
+                    ResourceDropdownMenuItem(
                         label = Res.string.music_player_search_metadata,
                         icon = CoreRes.drawable.icon_search,
                         onClick = {
@@ -277,7 +271,7 @@ private fun NowPlayingMoreButton(
                         },
                     ),
                     if (hasLyric) {
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             label = Res.string.music_lyric_remove,
                             icon = CoreRes.drawable.icon_deleteseep,
                             onClick = {
@@ -286,7 +280,7 @@ private fun NowPlayingMoreButton(
                             },
                         )
                     } else {
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             label = Res.string.music_lyric_add,
                             icon = Res.drawable.icon_lyrics,
                             onClick = {
@@ -296,7 +290,7 @@ private fun NowPlayingMoreButton(
                         )
                     },
                     if (nowPlayingState.currentTrack?.canDownload == true) {
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             label = Res.string.downloads_title,
                             icon = CoreRes.drawable.icon_download,
                             onClick = {
@@ -306,7 +300,7 @@ private fun NowPlayingMoreButton(
                         )
                     } else null,
                     if (nowPlayingState.playbackSources.size > 1) {
-                        DesignContextMenuItem(
+                        ResourceDropdownMenuItem(
                             label = Res.string.player_playback_source,
                             icon = CoreRes.drawable.icon_settings_sliders,
                             onClick = {
@@ -315,7 +309,7 @@ private fun NowPlayingMoreButton(
                             },
                         )
                     } else null,
-                    DesignContextMenuItem(
+                    ResourceDropdownMenuItem(
                         label = Res.string.music_player_context_menu_remove,
                         icon = CoreRes.drawable.icon_deleteseep,
                         isError = true,
@@ -346,7 +340,7 @@ private fun PlaybackSourceDialog(
     onSelect: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DesignDialog(show = show, onDismiss = onDismiss) {
+    OverlayDialog(show = show, onDismissRequest = onDismiss) {
         Text(
             text = stringResource(Res.string.player_playback_source_title),
             style = MiuixTheme.textStyles.title3,
@@ -400,10 +394,8 @@ private fun PlaybackSourceDialog(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.player_playback_source_cancel),
-                variant = DesignTextButtonVariant.Default,
-                size = DesignTextButtonSize.Medium,
                 onClick = onDismiss,
             )
         }
@@ -437,7 +429,7 @@ private fun MusicSlider(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        DesignSlider(
+        PlaybackSlider(
             value = displayedDurationMs.toFloat(),
             onValueChange = { value ->
                 scrubbingDurationMs = value.toLong()
@@ -942,10 +934,8 @@ private fun LyricsSurface(
                     )
                     if (loadState == LyricsLoadState.Missing) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        DesignTextButton(
+                        TextButton(
                             text = stringResource(Res.string.music_lyric_try_add_desc),
-                            variant = DesignTextButtonVariant.Primary,
-                            size = DesignTextButtonSize.Medium,
                             onClick = { onAction(NowPlayingAction.AddLyric) },
                         )
                     }

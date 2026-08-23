@@ -30,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -38,21 +37,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.ConfirmDialog
 import io.github.julystar.musicapp.core.presentation.components.FormSwitch
 import io.github.julystar.musicapp.core.presentation.components.FormText
 import io.github.julystar.musicapp.core.presentation.components.FormWidget
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
-import io.github.julystar.musicapp.core.presentation.components.DesignCardSurface
-import io.github.julystar.musicapp.core.presentation.components.DesignChip
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButton
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonColors
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignIconButtonVariant
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButton
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonSize
-import io.github.julystar.musicapp.core.presentation.components.DesignTextButtonVariant
+import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.confirm_dialog_btn_cancel
+import musicapp.core.presentation.generated.resources.confirm_dialog_btn_ok
+import musicapp.core.presentation.generated.resources.confirm_dialog_title
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.sources.generated.resources.Res
@@ -140,8 +134,12 @@ import musicapp.feature.sources.generated.resources.storage_test_timeout
 import musicapp.feature.sources.generated.resources.storage_test_unauthorized
 import musicapp.feature.sources.generated.resources.storage_test_unavailable
 import musicapp.feature.sources.generated.resources.storage_test_unsupported
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private fun buildStr(s: String): AnnotatedString {
@@ -174,14 +172,10 @@ private fun RemoveDialog(
             .replace("E_MCNT", state.musicCount.toString())
     )
 
-    ConfirmDialog(
-        open = state.removeDialogOpen,
-        onConfirm = {
-            onAction(SourceEditorAction.ConfirmRemove)
-        },
-        onCancel = {
-            onAction(SourceEditorAction.CloseRemoveDialog)
-        },
+    OverlayDialog(
+        show = state.removeDialogOpen,
+        title = stringResource(CoreRes.string.confirm_dialog_title),
+        onDismissRequest = { onAction(SourceEditorAction.CloseRemoveDialog) },
     ) {
         Text(
             text = mainDesc,
@@ -198,6 +192,19 @@ private fun RemoveDialog(
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             style = MiuixTheme.textStyles.footnote1,
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(
+                text = stringResource(CoreRes.string.confirm_dialog_btn_cancel),
+                onClick = { onAction(SourceEditorAction.CloseRemoveDialog) },
+            )
+            TextButton(
+                text = stringResource(CoreRes.string.confirm_dialog_btn_ok),
+                onClick = { onAction(SourceEditorAction.ConfirmRemove) },
+            )
+        }
     }
 }
 
@@ -384,7 +391,7 @@ private fun RemoteServerConfig(
             }
 
             RemoteServerConfigSection.Advanced -> {
-                DesignTextButton(
+                TextButton(
                     text = stringResource(
                         if (advancedExpanded) {
                             Res.string.storage_edit_hide_advanced_settings
@@ -392,12 +399,6 @@ private fun RemoteServerConfig(
                             Res.string.storage_edit_show_advanced_settings
                         }
                     ),
-                    variant = if (advancedExpanded) {
-                        DesignTextButtonVariant.Primary
-                    } else {
-                        DesignTextButtonVariant.Tonal
-                    },
-                    size = DesignTextButtonSize.Medium,
                     onClick = { advancedExpanded = !advancedExpanded },
                 )
                 if (advancedExpanded) {
@@ -603,7 +604,7 @@ private fun IntegerChoices(
             values.chunked(3).forEach { rowValues ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     rowValues.forEach { option ->
-                        DesignChip(
+                        TagChip(
                             label = if (option == 0) {
                                 stringResource(Res.string.storage_edit_original)
                             } else {
@@ -827,10 +828,8 @@ private fun OneDriveConfig(
         label = stringResource(Res.string.storage_edit_oauth),
     ) {
         if (!state.connected) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.storage_edit_onedrive_connect),
-                variant = DesignTextButtonVariant.PrimaryFilled,
-                size = DesignTextButtonSize.Medium,
                 onClick = {
                     onAction(SourceEditorAction.ConnectOneDrive)
                 },
@@ -848,10 +847,8 @@ private fun OneDriveConfig(
             }
         }
         if (state.connected) {
-            DesignTextButton(
+            TextButton(
                 text = stringResource(Res.string.storage_edit_onedrive_disconnect),
-                variant = DesignTextButtonVariant.Error,
-                size = DesignTextButtonSize.Medium,
                 onClick = {
                     onAction(SourceEditorAction.DisconnectOneDrive)
                 },
@@ -872,14 +869,8 @@ private fun OneDriveConfig(
                 }
                 state.drives.forEach { drive ->
                     val selected = drive.id == state.selectedDriveId
-                    DesignTextButton(
+                    TextButton(
                         text = drive.name,
-                        variant = if (selected) {
-                            DesignTextButtonVariant.Primary
-                        } else {
-                            DesignTextButtonVariant.Default
-                        },
-                        size = DesignTextButtonSize.Medium,
                         onClick = {
                             onAction(SourceEditorAction.SelectOneDriveDrive(drive.id))
                         },
@@ -907,16 +898,10 @@ fun SourceEditorScreen(
     val shapes = DesignTokens.shapes
     val bottomContentInset = LocalDesignBottomContentInset.current
 
-    val testingColors = when (state.testStatus) {
-        SourceConnectionTestStatus.None -> null
-        SourceConnectionTestStatus.Testing -> DesignIconButtonColors(
-            buttonBg = Color.Transparent,
-            iconTint = MiuixTheme.colorScheme.onTertiaryContainer,
-        )
-        SourceConnectionTestStatus.Success -> DesignIconButtonColors(
-            buttonBg = Color.Transparent,
-            iconTint = MiuixTheme.colorScheme.primary,
-        )
+    val testTint = when (state.testStatus) {
+        SourceConnectionTestStatus.None -> MiuixTheme.colorScheme.onSurface
+        SourceConnectionTestStatus.Testing -> MiuixTheme.colorScheme.onTertiaryContainer
+        SourceConnectionTestStatus.Success -> MiuixTheme.colorScheme.primary
         SourceConnectionTestStatus.Unauthorized,
         SourceConnectionTestStatus.OtpRequired,
         SourceConnectionTestStatus.Timeout,
@@ -925,10 +910,7 @@ fun SourceEditorScreen(
         SourceConnectionTestStatus.InvalidAddress,
         SourceConnectionTestStatus.Unavailable,
         SourceConnectionTestStatus.UnsupportedSecurityPolicy,
-        SourceConnectionTestStatus.Error -> DesignIconButtonColors(
-            buttonBg = Color.Transparent,
-            iconTint = MiuixTheme.colorScheme.error,
-        )
+        SourceConnectionTestStatus.Error -> MiuixTheme.colorScheme.error
     }
     val testStatusText = when (state.testStatus) {
         SourceConnectionTestStatus.None -> null
@@ -962,14 +944,11 @@ fun SourceEditorScreen(
                     .padding(horizontal = horizontalPadding, vertical = 12.dp)
                     .fillMaxWidth(),
             ) {
-                DesignIconButton(
-                    size = DesignIconButtonSize.Medium,
-                    variant = DesignIconButtonVariant.Default,
-                    painter = painterResource(Res.drawable.icon_back),
+                IconButton(
                     onClick = {
                         onAction(SourceEditorAction.NavigateBack)
                     },
-                )
+                ) { Icon(painterResource(Res.drawable.icon_back), contentDescription = null) }
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -997,33 +976,35 @@ fun SourceEditorScreen(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (!state.isCreated) {
-                        DesignIconButton(
-                            size = DesignIconButtonSize.Medium,
-                            variant = DesignIconButtonVariant.Error,
-                            painter = painterResource(Res.drawable.icon_deleteseep),
+                        IconButton(
                             onClick = {
                                 onAction(SourceEditorAction.OpenRemoveDialog)
                             },
-                        )
+                        ) {
+                            Icon(
+                                painterResource(Res.drawable.icon_deleteseep),
+                                contentDescription = null,
+                                tint = MiuixTheme.colorScheme.error,
+                            )
+                        }
                     }
-                    DesignIconButton(
-                        size = DesignIconButtonSize.Medium,
-                        variant = DesignIconButtonVariant.Default,
+                    IconButton(
                         enabled = state.testStatus != SourceConnectionTestStatus.Testing,
-                        painter = painterResource(Res.drawable.icon_wifitethering),
-                        colors = testingColors,
                         onClick = {
                             onAction(SourceEditorAction.TestConnection)
                         },
-                    )
-                    DesignIconButton(
-                        size = DesignIconButtonSize.Medium,
-                        variant = DesignIconButtonVariant.Default,
-                        painter = painterResource(Res.drawable.icon_ok),
+                    ) {
+                        Icon(
+                            painterResource(Res.drawable.icon_wifitethering),
+                            contentDescription = null,
+                            tint = testTint,
+                        )
+                    }
+                    IconButton(
                         onClick = {
                             onAction(SourceEditorAction.Save)
                         },
-                    )
+                    ) { Icon(painterResource(Res.drawable.icon_ok), contentDescription = null) }
                 }
             }
             Box(
@@ -1050,9 +1031,8 @@ fun SourceEditorScreen(
                             )
                         }
                     }
-                    DesignCardSurface(
-                        cornerRadius = shapes.xl,
-                        contentPadding = PaddingValues(16.dp),
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
@@ -1119,10 +1099,8 @@ fun SourceEditorScreen(
                                 FormWidget(
                                     label = stringResource(Res.string.storage_edit_import_library_label),
                                 ) {
-                                    DesignTextButton(
+                                    TextButton(
                                         text = stringResource(Res.string.storage_edit_import_library_action),
-                                        variant = DesignTextButtonVariant.PrimaryFilled,
-                                        size = DesignTextButtonSize.Medium,
                                         onClick = {
                                             onAction(SourceEditorAction.ImportLibraryFolder)
                                         },
@@ -1133,7 +1111,7 @@ fun SourceEditorScreen(
                                 FormWidget(
                                     label = stringResource(Res.string.storage_edit_sync_library_label),
                                 ) {
-                                    DesignTextButton(
+                                    TextButton(
                                         text = stringResource(
                                             if (state.isSyncing) {
                                                 Res.string.sources_syncing
@@ -1141,8 +1119,6 @@ fun SourceEditorScreen(
                                                 Res.string.storage_edit_sync_library_action
                                             },
                                         ),
-                                        variant = DesignTextButtonVariant.PrimaryFilled,
-                                        size = DesignTextButtonSize.Medium,
                                         enabled = !state.isSyncing,
                                         onClick = { onAction(SourceEditorAction.SyncNow) },
                                     )

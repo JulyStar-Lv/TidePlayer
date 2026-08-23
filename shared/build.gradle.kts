@@ -140,6 +140,7 @@ kotlin {
             implementation(libs.androidx.datastore)
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.preference)
             implementation(libs.filekit.dialogs.compose)
         }
         commonTest.dependencies {
