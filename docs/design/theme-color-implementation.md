@@ -11,6 +11,9 @@ TidePlayer now uses one cross-platform theme-seed model:
 - the persisted Manual Theme Seed is the fallback for missing or failed artwork;
 - loading keeps the previous valid artwork seed when one exists;
 - disabling artwork color always uses the Manual Theme Seed.
+- the root uses `ThemeController` so Miuix consumers can observe the active
+  `ColorSchemeMode` and dynamic-color state while TidePlayer's primary-color
+  overrides remain intact.
 
 Artwork color and manual Theme color selection are mutually exclusive. The
 Theme color row stays visible while artwork color is enabled, but it is disabled
@@ -33,7 +36,7 @@ The user-facing system-wallpaper/Android dynamic-color entry has been removed.
 | Local HSV/Hex preview; Apply persists | `ThemeColorPickerDialog.kt` | Matched |
 | Invalid Hex has icon/message and disables Apply | `ThemeColorPickerDialog.kt` | Matched and exercised |
 | Light and dark generated previews | `ThemeSeedPreviewTheme` | Matched |
-| Semantic error colors are stable | `Color.kt` plus preview note | Matched |
+| Semantic error colors are stable | Miuix Spec 2025 palette generation plus preview note | Matched |
 | Swatch 48 dp; minimum target 48 dp | `DesignColorPicker` and swatch semantics | Matched |
 | Dialog max 760 dp; content max 720 dp | `DesignDialog.kt` and `DesignColorPicker` | Matched |
 | HSV area 180 dp; indicator 20 dp; Hue visual 32 dp | `DesignColorPicker` | Matched |

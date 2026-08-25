@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleStartEffect
 import io.github.julystar.musicapp.core.domain.model.AppSettings
-import io.github.julystar.musicapp.core.domain.model.AppThemeMode as DomainAppThemeMode
+import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
@@ -26,7 +26,7 @@ import io.github.julystar.musicapp.core.presentation.platform.KeepScreenOnEffect
 import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandler
 import io.github.julystar.musicapp.core.presentation.platform.StatusBarIconsEffect
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
-import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode
+import io.github.julystar.musicapp.core.presentation.theme.LocalThemeSeedState
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -52,10 +52,11 @@ fun NowPlayingRoot(
     val settings by settingsRepository.settings.collectAsState(AppSettings.Default)
     val systemDarkTheme = isSystemInDarkTheme()
     val appUsesDarkTheme = when (settings.themeMode) {
-        DomainAppThemeMode.System -> systemDarkTheme
-        DomainAppThemeMode.Light -> false
-        DomainAppThemeMode.Dark -> true
+        AppThemeMode.System -> systemDarkTheme
+        AppThemeMode.Light -> false
+        AppThemeMode.Dark -> true
     }
+    val themeSeedState = LocalThemeSeedState.current
     val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
     val coroutineScope = rememberCoroutineScope()
     var playerCoversStatusBar by remember { mutableStateOf(false) }
@@ -116,6 +117,7 @@ fun NowPlayingRoot(
     AppTheme(
         darkTheme = true,
         themeMode = AppThemeMode.Dark,
+        themeSeedState = themeSeedState,
         manageSystemBars = false,
     ) {
         NowPlayingScreen(

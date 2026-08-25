@@ -13,18 +13,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.julystar.musicapp.core.domain.model.AppSettings
-import io.github.julystar.musicapp.core.domain.model.AppThemeMode as DomainAppThemeMode
+import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
 import io.github.julystar.musicapp.core.domain.repository.emit
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
-import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode as PresentationAppThemeMode
 import io.github.julystar.musicapp.core.presentation.theme.ArtworkThemeSeedStatus
 import io.github.julystar.musicapp.core.presentation.theme.ThemeSeedState
+import io.github.julystar.musicapp.core.presentation.theme.ThemeSeedSource
 import io.github.julystar.musicapp.core.presentation.theme.resolveThemeSeed
 import io.github.julystar.musicapp.core.presentation.media.rememberArtworkThemeSeed
 import io.github.julystar.musicapp.feature.home.presentation.HomeViewModel
@@ -42,6 +41,7 @@ import io.github.julystar.musicapp.core.domain.model.DiagnosticStartupStage
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun Root(
@@ -71,7 +71,12 @@ fun Root(
         val homeState by homeViewModel.state.collectAsState()
         val loadedSettings = settings
         if (loadedSettings == null || homeState.isLoading) {
-            AppStartupScreen()
+            AppTheme(
+                themeMode = loadedSettings?.themeMode ?: AppThemeMode.System,
+                themeSeedState = loadedSettings?.startupThemeSeedState() ?: ThemeSeedState.Default,
+            ) {
+                AppStartupScreen()
+            }
             return@RoutesProvider
         }
 
@@ -94,7 +99,7 @@ fun Root(
         )
         AppLocaleEnvironment(loadedSettings.languageMode) {
             AppTheme(
-                themeMode = loadedSettings.themeMode.toPresentationThemeMode(),
+                themeMode = loadedSettings.themeMode,
                 themeSeedState = ThemeSeedState(
                     artworkThemeEnabled = loadedSettings.artworkThemeEnabled,
                     manualSeedArgb = loadedSettings.manualThemeSeedArgb,
@@ -145,14 +150,18 @@ private fun AppStartupScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F5FC)),
+            .background(MiuixTheme.colorScheme.background),
     )
 }
 
-private fun DomainAppThemeMode.toPresentationThemeMode(): PresentationAppThemeMode {
-    return when (this) {
-        DomainAppThemeMode.System -> PresentationAppThemeMode.FollowSystem
-        DomainAppThemeMode.Light -> PresentationAppThemeMode.Light
-        DomainAppThemeMode.Dark -> PresentationAppThemeMode.Dark
-    }
-}
+private fun AppSettings.startupThemeSeedState() = ThemeSeedState(
+    artworkThemeEnabled = artworkThemeEnabled,
+    manualSeedArgb = manualThemeSeedArgb,
+    effectiveSeedArgb = manualThemeSeedArgb,
+    artworkStatus = if (artworkThemeEnabled) {
+        ArtworkThemeSeedStatus.Loading
+    } else {
+        ArtworkThemeSeedStatus.Disabled
+    },
+    source = ThemeSeedSource.Manual,
+)

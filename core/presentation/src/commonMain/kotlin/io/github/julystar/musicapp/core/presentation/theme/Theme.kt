@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
 import io.github.julystar.musicapp.core.presentation.platform.SystemBarsEffect
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -26,28 +27,22 @@ import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemeController
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
-enum class AppThemeMode {
-    FollowSystem,
-    Light,
-    Dark,
-}
-
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    themeMode: AppThemeMode = AppThemeMode.FollowSystem,
+    themeMode: AppThemeMode = AppThemeMode.System,
     themeSeedState: ThemeSeedState = ThemeSeedState.Default,
     forceDarkSystemBars: Boolean = false,
     manageSystemBars: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val colorSchemeMode = when (themeMode) {
-        AppThemeMode.FollowSystem -> ColorSchemeMode.MonetSystem
+        AppThemeMode.System -> ColorSchemeMode.MonetSystem
         AppThemeMode.Light -> ColorSchemeMode.MonetLight
         AppThemeMode.Dark -> ColorSchemeMode.MonetDark
     }
     val effectiveDarkTheme = when (themeMode) {
-        AppThemeMode.FollowSystem -> darkTheme
+        AppThemeMode.System -> darkTheme
         AppThemeMode.Light -> false
         AppThemeMode.Dark -> true
     }
@@ -60,10 +55,8 @@ fun AppTheme(
     val controller = remember(colorSchemeMode, effectiveDarkTheme, animatedSeed) {
         ThemeController(
             colorSchemeMode = colorSchemeMode,
-            lightColors = DesignLightColors,
-            darkColors = DesignDarkColors,
             keyColor = animatedSeed,
-            colorSpec = ThemeColorSpec.Spec2021,
+            colorSpec = ThemeColorSpec.Spec2025,
             paletteStyle = ThemePaletteStyle.TonalSpot,
             isDark = effectiveDarkTheme,
         )
@@ -73,24 +66,28 @@ fun AppTheme(
         SystemBarsEffect(isDarkTheme = effectiveDarkTheme || forceDarkSystemBars)
     }
 
-    val colors = controller.currentColors().withResolvedPrimary(
-        themeSeedState = themeSeedState,
-        darkTheme = effectiveDarkTheme,
-    )
-    MiuixTheme(colors = colors, textStyles = textStyles) {
-        CompositionLocalProvider(
-            LocalDesignSpacing provides DesignSpacing(),
-            LocalDesignShapes provides DesignShapes(),
-            LocalDesignMotion provides DesignMotion(),
-            LocalDesignBlur provides DesignBlur(),
-            LocalDesignElevation provides DesignElevation(),
-            LocalDesignAdaptive provides DesignAdaptive(),
-            LocalDesignNavigation provides DesignNavigation(),
-            LocalDesignPlayer provides DesignPlayer(),
-            LocalDesignColorPicker provides DesignColorPicker(),
-            LocalThemeSeedState provides themeSeedState,
-            content = content,
+    MiuixTheme(controller = controller, textStyles = textStyles) {
+        // Keep the controller provider so Miuix exposes the active mode and dynamic-color state.
+        // The nested custom scheme only applies TidePlayer's intentional primary-color overrides.
+        val colors = MiuixTheme.colorScheme.withResolvedPrimary(
+            themeSeedState = themeSeedState,
+            darkTheme = effectiveDarkTheme,
         )
+        MiuixTheme(colors = colors, textStyles = MiuixTheme.textStyles) {
+            CompositionLocalProvider(
+                LocalDesignSpacing provides DesignSpacing(),
+                LocalDesignShapes provides DesignShapes(),
+                LocalDesignMotion provides DesignMotion(),
+                LocalDesignBlur provides DesignBlur(),
+                LocalDesignElevation provides DesignElevation(),
+                LocalDesignAdaptive provides DesignAdaptive(),
+                LocalDesignNavigation provides DesignNavigation(),
+                LocalDesignPlayer provides DesignPlayer(),
+                LocalDesignColorPicker provides DesignColorPicker(),
+                LocalThemeSeedState provides themeSeedState,
+                content = content,
+            )
+        }
     }
 }
 
@@ -104,14 +101,16 @@ fun ThemeSeedPreviewTheme(
         ThemeController(
             colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
             keyColor = seedColor,
-            colorSpec = ThemeColorSpec.Spec2021,
+            colorSpec = ThemeColorSpec.Spec2025,
             paletteStyle = ThemePaletteStyle.TonalSpot,
             isDark = darkTheme,
         )
     }
-    val colors = controller.currentColors().withManualPrimary(seedColor, darkTheme)
-    MiuixTheme(colors = colors, textStyles = designTextStyles()) {
-        content()
+    MiuixTheme(controller = controller, textStyles = designTextStyles()) {
+        val colors = MiuixTheme.colorScheme.withManualPrimary(seedColor, darkTheme)
+        MiuixTheme(colors = colors, textStyles = MiuixTheme.textStyles) {
+            content()
+        }
     }
 }
 
@@ -150,12 +149,7 @@ private fun Colors.withManualPrimary(seedColor: Color, darkTheme: Boolean): Colo
     }
     return copy(
         primary = primaryColor,
-        onPrimary = if (isDefaultBrand) {
-            DesignPalette.BrandButtonForeground
-        } else {
-            primaryColor.highContrastContentColor()
-        },
-        onBackgroundVariant = primaryColor,
+        onPrimary = primaryColor.highContrastContentColor(),
         onSurfaceSecondary = if (isDefaultBrand) secondaryText else onSurfaceSecondary,
         onSurfaceVariantSummary = if (isDefaultBrand) secondaryText else onSurfaceVariantSummary,
         onSurfaceVariantActions = if (isDefaultBrand) tertiaryText else onSurfaceVariantActions,

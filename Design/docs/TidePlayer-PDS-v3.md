@@ -82,16 +82,15 @@ the selected colors.
 
 | Role | Light | Dark |
 | --- | --- | --- |
-| Primary button | `#FA233B` with white content | `#FA2E48` with white content |
+| Primary button | `#FA233B` with high-contrast content | `#FA2E48` with high-contrast content |
 | Secondary button | `#ECECEC` with `#242424` content | `#404141` with `#E2E2E2` content |
 | Secondary text | `#6E6E73` | `#98989D` |
 | Tertiary/action text | `#8E8E93` | `#8E8E93` |
 
-The resolved primary role also colors selected navigation, switches, sliders,
-custom primary actions, and primary-emphasis text consistently across
-platforms. Miuix's `onBackgroundVariant` primary-emphasis alias must resolve to
-the same final primary color rather than retaining a generated pre-override
-tone.
+The resolved primary role colors selected navigation, switches, sliders, and
+custom primary actions consistently across platforms. Text placed on a
+background uses Miuix's generated high-contrast `onBackgroundVariant` role, so
+bright artwork and manual seeds are not used directly as body text.
 
 Default-brand secondary metadata remains neutral instead of inheriting a
 red-tinted generated tone. Artwork and custom themes retain their generated

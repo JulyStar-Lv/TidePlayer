@@ -26,11 +26,11 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import io.github.julystar.musicapp.core.domain.model.DiagnosticExportBundleRequest
 import io.github.julystar.musicapp.core.presentation.components.StatusBadge
 import io.github.julystar.musicapp.core.presentation.components.StatusTone
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
-import io.github.julystar.musicapp.core.presentation.theme.AppThemeMode
 import io.github.julystar.musicapp.platform.diagnosticExportPresenter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,7 +89,7 @@ fun SafeModeScreen(
     state: DiagnosticsBootstrapState,
     onTryNormalStartup: (Set<String>) -> Unit,
 ) {
-    AppTheme(themeMode = AppThemeMode.FollowSystem) {
+    AppTheme(themeMode = AppThemeMode.System) {
         val scope = rememberCoroutineScope()
         val clipboard = LocalClipboardManager.current
         val incident = state.pendingIncidents.firstOrNull {

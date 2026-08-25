@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -20,7 +19,6 @@ object DesignPalette {
     val DefaultManualThemeSeed = BrandPink
     val BrandButtonLight = Color(0xFFFA233B)
     val BrandButtonDark = Color(0xFFFA2E48)
-    val BrandButtonForeground = Color.White
     val SecondaryButtonLight = Color(0xFFECECEC)
     val SecondaryButtonDark = Color(0xFF404141)
     val OnSecondaryButtonLight = Color(0xFF242424)
@@ -116,115 +114,3 @@ internal fun designOnSecondaryButtonColor(): Color {
 private fun usesDarkButtonPalette(): Boolean {
     return MiuixTheme.colorScheme.background.luminance() < 0.5f
 }
-
-internal val DesignLightColors = Colors(
-    primary = DesignPalette.BrandButtonLight,
-    onPrimary = DesignPalette.BrandButtonForeground,
-    primaryVariant = DesignPalette.Secondary,
-    onPrimaryVariant = Color.White,
-    error = Color(0xFFEF4444),
-    onError = Color.White,
-    errorContainer = Color(0xFFFFE9EF),
-    onErrorContainer = Color(0xFFD91F55),
-    disabledPrimary = Color(0xFFC5C2D8),
-    disabledOnPrimary = Color(0xFFEAE7F5),
-    disabledPrimaryButton = Color(0xFFC5C2D8),
-    disabledOnPrimaryButton = Color.White,
-    disabledPrimarySlider = Color(0xFFC5C2D8),
-    primaryContainer = DesignPalette.DefaultManualThemeSeed,
-    onPrimaryContainer = Color.White,
-    secondary = DesignPalette.Secondary,
-    onSecondary = Color.White,
-    secondaryVariant = Color(0xFFEAE7F5),
-    onSecondaryVariant = Color(0xFF0D0B18),
-    disabledSecondary = Color(0xFFEAE7F5),
-    disabledOnSecondary = Color(0xFF9B97B0),
-    disabledSecondaryVariant = Color(0xFFEAE7F5),
-    disabledOnSecondaryVariant = Color(0xFF9B97B0),
-    secondaryContainer = Color(0xFFEAE7F5),
-    onSecondaryContainer = Color(0xFF0D0B18),
-    secondaryContainerVariant = Color(0xFFE2DEF5),
-    onSecondaryContainerVariant = Color(0xFF6B6880),
-    tertiaryContainer = Color(0xFFFFE9F0),
-    onTertiaryContainer = DesignPalette.DefaultManualThemeSeed,
-    tertiaryContainerVariant = Color(0xFFEAE7F5),
-    background = Color(0xFFF4F2FA),
-    onBackground = Color(0xFF0D0B18),
-    onBackgroundVariant = Color(0xFF6B6880),
-    surface = Color(0xFFF4F2FA),
-    onSurface = Color(0xFF0D0B18),
-    surfaceVariant = Color(0xFFEAE7F5),
-    onSurfaceSecondary = Color(0xFF6B6880),
-    onSurfaceVariantSummary = Color(0xFF6B6880),
-    onSurfaceVariantActions = Color(0xFF9B97B0),
-    disabledOnSurface = Color(0xFFC5C2D8),
-    surfaceContainer = Color(0xFFFFFFFF),
-    onSurfaceContainer = Color(0xFF0D0B18),
-    onSurfaceContainerVariant = Color(0xFF6B6880),
-    surfaceContainerHigh = Color(0xFFEAE7F5),
-    onSurfaceContainerHigh = Color(0xFF6B6880),
-    surfaceContainerHighest = Color(0xFFECEAF5),
-    onSurfaceContainerHighest = Color(0xFF0D0B18),
-    outline = Color(0x140D0B18),
-    dividerLine = Color(0x140D0B18),
-    windowDimming = Color.Black.copy(alpha = 0.32f),
-    sliderKeyPoint = Color(0xFFC5C2D8).copy(alpha = 0.3f),
-    sliderKeyPointForeground = DesignPalette.DefaultManualThemeSeed,
-    sliderBackground = Color.Black.copy(alpha = 0.08f),
-)
-
-internal val DesignDarkColors = Colors(
-    primary = DesignPalette.BrandButtonDark,
-    onPrimary = DesignPalette.BrandButtonForeground,
-    primaryVariant = DesignPalette.Secondary,
-    onPrimaryVariant = Color.White,
-    error = Color(0xFFEF4444),
-    onError = Color.White,
-    errorContainer = Color(0xFF3A1B27),
-    onErrorContainer = Color(0xFFFF8FB0),
-    disabledPrimary = Color(0xFF3A3555),
-    disabledOnPrimary = Color(0xFF1E1A30),
-    disabledPrimaryButton = Color(0xFF3A3555),
-    disabledOnPrimaryButton = Color(0xFF9B97B0),
-    disabledPrimarySlider = Color(0xFF3A3555),
-    primaryContainer = DesignPalette.DefaultManualThemeSeed,
-    onPrimaryContainer = Color.White,
-    secondary = DesignPalette.Secondary,
-    onSecondary = Color.White,
-    secondaryVariant = Color(0xFF1E1A30),
-    onSecondaryVariant = Color(0xFFF0EDF8),
-    disabledSecondary = Color(0xFF161224),
-    disabledOnSecondary = Color(0xFF6B6880),
-    disabledSecondaryVariant = Color(0xFF1E1A30),
-    disabledOnSecondaryVariant = Color(0xFF6B6880),
-    secondaryContainer = Color(0xFF1E1A30),
-    onSecondaryContainer = Color(0xFFF0EDF8),
-    secondaryContainerVariant = Color(0xFF3A3555),
-    onSecondaryContainerVariant = Color(0xFF9B97B0),
-    tertiaryContainer = Color(0xFF3A1B27),
-    onTertiaryContainer = Color(0xFFFF8FB0),
-    tertiaryContainerVariant = Color(0xFF1E1A30),
-    background = Color(0xFF0C0A14),
-    onBackground = Color(0xFFF0EDF8),
-    onBackgroundVariant = Color(0xFF9B97B0),
-    surface = Color(0xFF0C0A14),
-    onSurface = Color(0xFFF0EDF8),
-    surfaceVariant = Color(0xFF1E1A30),
-    onSurfaceSecondary = Color(0xFF9B97B0),
-    onSurfaceVariantSummary = Color(0xFF9B97B0),
-    onSurfaceVariantActions = Color(0xFF9B97B0),
-    disabledOnSurface = Color(0xFF6B6880),
-    surfaceContainer = Color(0xFF161224),
-    onSurfaceContainer = Color(0xFFF0EDF8),
-    onSurfaceContainerVariant = Color(0xFF9B97B0),
-    surfaceContainerHigh = Color(0xFF1E1A30),
-    onSurfaceContainerHigh = Color(0xFF9B97B0),
-    surfaceContainerHighest = Color(0xFF1E1A30),
-    onSurfaceContainerHighest = Color(0xFFF0EDF8),
-    outline = Color(0x12F0EDF8),
-    dividerLine = Color(0x12F0EDF8),
-    windowDimming = Color.Black.copy(alpha = 0.7f),
-    sliderKeyPoint = Color(0xFF9B97B0).copy(alpha = 0.35f),
-    sliderKeyPointForeground = DesignPalette.DefaultManualThemeSeed,
-    sliderBackground = Color.White.copy(alpha = 0.12f),
-)
