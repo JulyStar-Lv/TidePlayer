@@ -5,7 +5,9 @@ import androidx.room.useWriterConnection
 import io.github.julystar.musicapp.core.domain.model.toOptions
 import io.github.julystar.musicapp.database.MetadataRefreshCandidate
 import io.github.julystar.musicapp.database.AppDatabase
+import io.github.julystar.musicapp.database.ProviderTypes
 import io.github.julystar.musicapp.platform.currentTimeMillis
+import io.github.julystar.musicapp.metadata.UnifiedMetadataRepository
 import io.github.julystar.musicapp.service.librarysync.domain.MetadataRefreshController
 import io.github.julystar.musicapp.service.librarysync.domain.MetadataRefreshRequest
 import io.github.julystar.musicapp.service.librarysync.domain.MetadataRefreshResult
@@ -18,10 +20,18 @@ import uniffi.app_backend.StorageId
 class RemoteMetadataRefreshController(
     private val database: AppDatabase,
     private val metadataRepository: RemoteMetadataReader,
+    private val unifiedMetadataRepository: UnifiedMetadataRepository? = null,
 ) : MetadataRefreshController {
     override suspend fun refresh(request: MetadataRefreshRequest): MetadataRefreshResult {
-        val candidates = candidates(request)
+        val selectedCandidates = candidates(request)
             .distinctBy(MetadataRefreshCandidate::trackId)
+        val candidates = if (request.allowNetwork) {
+            selectedCandidates
+        } else {
+            selectedCandidates.filter { candidate ->
+                database.sourceAccountDao().get(candidate.storageId)?.providerType == ProviderTypes.Local
+            }
+        }
         if (candidates.isEmpty()) return EMPTY_METADATA_REFRESH_RESULT
 
         val refreshed = mutableListOf<RefreshedMetadata>()
@@ -76,13 +86,32 @@ class RemoteMetadataRefreshController(
         if (refreshed.isEmpty()) return
         val options = request.target.toOptions()
         val now = currentTimeMillis()
+        val resolvedAlbumIds = mutableMapOf<Long, Long?>()
+        if (request.target == io.github.julystar.musicapp.core.domain.model.MetadataRefreshTarget.All) {
+            refreshed.forEach { value ->
+                val providerType = database.sourceAccountDao()
+                    .get(value.candidate.storageId)
+                    ?.providerType
+                when {
+                    unifiedMetadataRepository == null -> Unit
+                    providerType == ProviderTypes.Local -> {
+                        unifiedMetadataRepository.fillMissingFileMetadata(value.candidate.trackId, value.metadata)
+                        resolvedAlbumIds[value.candidate.trackId] = database.trackDao().get(value.candidate.trackId)?.albumId
+                    }
+                    providerType != null -> {
+                        unifiedMetadataRepository.fillMissingServerMetadata(value.candidate.trackId, value.metadata)
+                        resolvedAlbumIds[value.candidate.trackId] = database.trackDao().get(value.candidate.trackId)?.albumId
+                    }
+                }
+            }
+        }
         database.useWriterConnection { connection ->
             connection.immediateTransaction {
                 database.metadataDao().updateOptionalMetadata(
                     updates = refreshed.map { value ->
                         OptionalMetadataUpdate(
                             trackId = value.candidate.trackId,
-                            albumId = value.candidate.albumId,
+                            albumId = resolvedAlbumIds[value.candidate.trackId] ?: value.candidate.albumId,
                             metadata = value.metadata,
                         )
                     },

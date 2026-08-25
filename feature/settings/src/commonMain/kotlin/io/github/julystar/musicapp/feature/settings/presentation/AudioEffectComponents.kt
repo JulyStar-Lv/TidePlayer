@@ -43,8 +43,14 @@ import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -107,20 +113,27 @@ internal fun DspProfilePresetSection(
     }
     val selected = choices.firstOrNull { it.profile == effects.profile } ?: choices.first()
 
-    SettingsSection(title = stringResource(Res.string.settings_dsp_presets_section)) {
-        SettingsSelectRow(
-            label = stringResource(Res.string.settings_dsp_preset),
-            selected = selected,
-            options = choices,
-            optionLabel = { choice -> choice.name },
+    SmallTitle(
+        text = stringResource(Res.string.settings_dsp_presets_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
+        OverlayDropdownPreference(
+            title = stringResource(Res.string.settings_dsp_preset),
             enabled = effects.enabled,
-            onSelect = { choice ->
-                choice.profile?.let { profile -> onUpdate(effects.withAudioEffectProfile(profile)) }
-            },
+            entries = listOf(DropdownEntry(items = choices.map { choice ->
+                DropdownItem(
+                    text = choice.name,
+                    selected = choice == selected,
+                    onClick = { choice.profile?.let { profile ->
+                        onUpdate(effects.withAudioEffectProfile(profile))
+                    } },
+                )
+            })),
         )
-        SettingsInfoRow(
+        ArrowPreference(
             title = stringResource(Res.string.settings_dsp_save_preset),
-            value = stringResource(Res.string.settings_dsp_save_preset_summary),
+            summary = stringResource(Res.string.settings_dsp_save_preset_summary),
             enabled = effects.enabled,
             onClick = {
                 presetName = ""
@@ -128,24 +141,23 @@ internal fun DspProfilePresetSection(
             },
         )
         if (effects.userPresets.isNotEmpty()) {
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_dsp_delete_preset),
-                selected = effects.userPresets.first(),
-                options = effects.userPresets,
-                optionLabel = { preset -> preset.name },
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_dsp_delete_preset),
                 enabled = effects.enabled,
-                onSelect = { preset ->
-                    onUpdate(
-                        effects.copy(
+                entries = listOf(DropdownEntry(items = effects.userPresets.map { preset ->
+                    DropdownItem(
+                        text = preset.name,
+                        selected = preset == effects.userPresets.first(),
+                        onClick = { onUpdate(effects.copy(
                             userPresets = effects.userPresets.filterNot { it.id == preset.id },
-                        ),
+                        )) },
                     )
-                },
+                })),
             )
         }
-        SettingsInfoRow(
+        ArrowPreference(
             title = stringResource(Res.string.settings_dsp_restore_defaults),
-            value = stringResource(Res.string.settings_dsp_restore_defaults_summary),
+            summary = stringResource(Res.string.settings_dsp_restore_defaults_summary),
             enabled = effects.enabled,
             onClick = {
                 onUpdate(
@@ -238,7 +250,11 @@ internal fun DspProcessingChainSection(state: SettingsUiState) {
                 ),
         ),
     )
-    SettingsSection(title = stringResource(Res.string.settings_dsp_processing_chain)) {
+    SmallTitle(
+        text = stringResource(Res.string.settings_dsp_processing_chain),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
         Text(
             text = stringResource(Res.string.settings_dsp_processing_chain_summary),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -298,66 +314,70 @@ internal fun DspRuntimeStatusSection(state: SettingsUiState) {
             )
         }
     }.joinToString(" · ")
-    SettingsSection(title = stringResource(Res.string.settings_dsp_runtime_section)) {
+    SmallTitle(
+        text = stringResource(Res.string.settings_dsp_runtime_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
         DspEffectCard(
             title = stringResource(Res.string.settings_dsp_runtime_section),
             summary = compactSummary,
             enabled = true,
         ) {
             status.sampleFormat?.let { format ->
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_runtime_format),
-                    value = format.localizedName(),
+                    summary = format.localizedName(),
                 )
             }
             status.bypassReason?.let { reason ->
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_bypass_reason),
-                    value = reason.localizedName(),
+                    summary = reason.localizedName(),
                 )
             }
             status.lastErrorCode?.let { error ->
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_error_code),
-                    value = error.toString(),
+                    summary = error.toString(),
                 )
             }
             if (status.latencyFrames > 0) {
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_latency),
-                    value = stringResource(Res.string.settings_dsp_latency_frames, status.latencyFrames),
+                    summary = stringResource(Res.string.settings_dsp_latency_frames, status.latencyFrames),
                 )
             }
             if (status.state == AudioDspRuntimeState.Active) {
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_meter_peaks),
-                    value = stringResource(
+                    summary = stringResource(
                         Res.string.settings_dsp_meter_peaks_value,
                         formatMeter(state.audioDspMeter.inputPeakDb),
                         formatMeter(state.audioDspMeter.outputPeakDb),
                     ),
                 )
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_meter_reduction),
-                    value = stringResource(
+                    summary = stringResource(
                         Res.string.settings_dsp_meter_reduction_value,
                         formatMeter(state.audioDspMeter.compressorGainReductionDb),
                         formatMeter(state.audioDspMeter.limiterGainReductionDb),
                         formatMeter(state.audioDspMeter.appliedHeadroomDb),
                     ),
                 )
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_dsp_meter_recovery),
-                    value = stringResource(
+                    summary = stringResource(
                         Res.string.settings_dsp_meter_recovery_value,
                         state.audioDspMeter.clippedSamples,
                         state.audioDspMeter.nonFiniteRecoveryCount,
                     ),
                 )
                 if (state.audioDspPerformance.processCount > 0) {
-                    SettingsInfoRow(
+                    BasicComponent(
                         title = stringResource(Res.string.settings_dsp_performance),
-                        value = stringResource(
+                        summary = stringResource(
                             Res.string.settings_dsp_performance_value,
                             state.audioDspPerformance.averageProcessingTimeUs,
                             state.audioDspPerformance.maxProcessingTimeUs,

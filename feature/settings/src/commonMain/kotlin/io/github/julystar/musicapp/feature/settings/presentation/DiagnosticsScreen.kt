@@ -89,6 +89,7 @@ import musicapp.feature.settings.generated.resources.diagnostics_log_empty
 import musicapp.feature.settings.generated.resources.diagnostics_log_hint
 import musicapp.feature.settings.generated.resources.diagnostics_logs
 import musicapp.feature.settings.generated.resources.diagnostics_message
+import musicapp.feature.settings.generated.resources.diagnostics_overview
 import musicapp.feature.settings.generated.resources.diagnostics_ready
 import musicapp.feature.settings.generated.resources.diagnostics_refresh
 import musicapp.feature.settings.generated.resources.diagnostics_refreshing
@@ -180,7 +181,10 @@ fun DiagnosticsScreen(
             onLoadMore = viewModel::loadMoreIncidents,
         )
         if (state.faultInjectionSupported) {
-            SmallTitle(text = stringResource(Res.string.diagnostics_fault_injection))
+            SmallTitle(
+                text = stringResource(Res.string.diagnostics_fault_injection),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 DiagnosticFaultInjection.entries.forEach { fault ->
                     BasicComponent(
@@ -301,67 +305,76 @@ private fun DiagnosticsOverviewCard(
         else -> StatusTone.Success
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SmallTitle(
+            text = stringResource(Res.string.diagnostics_overview),
+            insideMargin = settingsSectionTitleMargin,
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            insideMargin = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = stringResource(Res.string.diagnostics_title),
-                        style = MiuixTheme.textStyles.title2,
-                        fontWeight = FontWeight.Bold,
-                        color = MiuixTheme.colorScheme.onSurface,
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.diagnostics_title),
+                            style = MiuixTheme.textStyles.title2,
+                            fontWeight = FontWeight.Bold,
+                            color = MiuixTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = state.error ?: state.status
+                                ?: stringResource(Res.string.diagnostics_card_summary),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    StatusBadge(label = statusLabel, tone = statusTone)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    DiagnosticMetric(
+                        label = stringResource(Res.string.diagnostics_logs),
+                        value = state.logEntries.size.toString(),
+                        modifier = Modifier.weight(1f),
                     )
-                    Text(
-                        text = state.error ?: state.status
-                            ?: stringResource(Res.string.diagnostics_card_summary),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                    DiagnosticMetric(
+                        label = stringResource(Res.string.diagnostics_incidents),
+                        value = state.incidents.size.toString(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    DiagnosticMetric(
+                        label = stringResource(Res.string.diagnostics_storage),
+                        value = formatBytes(state.storage?.totalBytes),
+                        modifier = Modifier.weight(1f),
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                StatusBadge(label = statusLabel, tone = statusTone)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                DiagnosticMetric(
-                    label = stringResource(Res.string.diagnostics_logs),
-                    value = state.logEntries.size.toString(),
-                    modifier = Modifier.weight(1f),
-                )
-                DiagnosticMetric(
-                    label = stringResource(Res.string.diagnostics_incidents),
-                    value = state.incidents.size.toString(),
-                    modifier = Modifier.weight(1f),
-                )
-                DiagnosticMetric(
-                    label = stringResource(Res.string.diagnostics_storage),
-                    value = formatBytes(state.storage?.totalBytes),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ActionButton(
-                    text = stringResource(Res.string.diagnostics_refresh),
-                    onClick = onRefresh,
-                )
-                ActionButton(
-                    text = stringResource(Res.string.diagnostics_export),
-                    onClick = onExport,
-                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActionButton(
+                        text = stringResource(Res.string.diagnostics_refresh),
+                        onClick = onRefresh,
+                    )
+                    ActionButton(
+                        text = stringResource(Res.string.diagnostics_export),
+                        onClick = onExport,
+                    )
+                }
             }
         }
     }
@@ -402,7 +415,10 @@ private fun DiagnosticsActions(
     onEnforceRetention: () -> Unit,
     onRequestSafeMode: () -> Unit,
 ) {
-    SmallTitle(text = stringResource(Res.string.diagnostics_tools))
+    SmallTitle(
+        text = stringResource(Res.string.diagnostics_tools),
+        insideMargin = settingsSectionTitleMargin,
+    )
     Card {
         if (state.lastExportPath != null) {
             BasicComponent(
@@ -440,7 +456,10 @@ private fun DiagnosticsActions(
 @Composable
 private fun DiagnosticsStartupSection(state: DiagnosticsUiState) {
     val snapshot = state.snapshot
-    SmallTitle(text = stringResource(Res.string.diagnostics_startup))
+    SmallTitle(
+        text = stringResource(Res.string.diagnostics_startup),
+        insideMargin = settingsSectionTitleMargin,
+    )
     Card {
         BasicComponent(
             title = stringResource(Res.string.diagnostics_current_attempt),
@@ -532,6 +551,7 @@ private fun DiagnosticsLogSection(
             SmallTitle(
                 text = stringResource(Res.string.diagnostics_logs),
                 modifier = Modifier.weight(1f),
+                insideMargin = settingsSectionTitleMargin,
             )
             Text(
                 text = state.logEntries.size.toString(),
@@ -623,7 +643,10 @@ private fun DiagnosticsLogSection(
                 }
             }
         }
-        SmallTitle(text = stringResource(Res.string.diagnostics_sessions))
+        SmallTitle(
+            text = stringResource(Res.string.diagnostics_sessions),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             state.sessions.forEach { session ->
                 val selected = state.selectedSessionId == session.sessionId
@@ -839,6 +862,7 @@ private fun DiagnosticsIncidentSection(
             SmallTitle(
                 text = stringResource(Res.string.diagnostics_incidents),
                 modifier = Modifier.weight(1f),
+                insideMargin = settingsSectionTitleMargin,
             )
             Text(
                 text = state.incidents.size.toString(),

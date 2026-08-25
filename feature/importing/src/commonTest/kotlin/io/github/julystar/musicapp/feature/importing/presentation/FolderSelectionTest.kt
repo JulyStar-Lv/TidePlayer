@@ -68,4 +68,15 @@ class FolderSelectionTest {
         assertEquals(listOf("/music"), roots)
         assertTrue(isCurrentFolderLevelSelected(roots, listOf("/music/Jay", "/music/JJ")))
     }
+
+    @Test
+    fun deselectingInheritedChildrenRemovesTheCoveringAncestorRoot() {
+        val roots = deselectCurrentFolderLevel(
+            selectedRoots = listOf("/music", "/elsewhere"),
+            directChildren = listOf("/music/Jay", "/music/JJ"),
+        )
+
+        assertEquals(listOf("/elsewhere"), roots)
+        assertFalse(isCurrentFolderLevelSelected(roots, listOf("/music/Jay", "/music/JJ")))
+    }
 }

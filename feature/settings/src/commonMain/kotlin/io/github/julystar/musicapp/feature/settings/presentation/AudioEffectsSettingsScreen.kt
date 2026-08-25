@@ -38,7 +38,10 @@ internal fun AudioEffectsSettingsScreen(
         title = stringResource(Res.string.settings_audio_effects_title),
         onBack = onBack,
     ) {
-        SmallTitle(text = stringResource(Res.string.settings_audio_effects_title))
+        SmallTitle(
+            text = stringResource(Res.string.settings_audio_effects_title),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_audio_effects_title),

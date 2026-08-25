@@ -64,13 +64,17 @@ internal fun selectCurrentFolderLevel(
     selectFolderRoot(roots, child)
 }
 
-/** Removes only roots represented by this level; deeper choices in partially selected branches remain. */
+/**
+ * Removes roots represented by this level, including an ancestor root that makes every direct
+ * child inherited-selected. Deeper choices in unrelated or partially selected branches remain.
+ */
 internal fun deselectCurrentFolderLevel(
     selectedRoots: Collection<String>,
     directChildren: Collection<String>,
 ): List<String> {
-    val children = directChildren.toSet()
-    return normalizeFolderRoots(selectedRoots.filterNot(children::contains))
+    return normalizeFolderRoots(selectedRoots.filterNot { root ->
+        directChildren.any { child -> root == child || isFolderAncestor(root, child) }
+    })
 }
 
 internal fun isCurrentFolderLevelSelected(

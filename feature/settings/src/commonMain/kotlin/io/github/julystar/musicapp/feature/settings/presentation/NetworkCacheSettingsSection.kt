@@ -27,7 +27,10 @@ fun NetworkCacheSettingsSection(
         onBack = onBack,
     ) {
         if (capabilities.networkStatusSupported || capabilities.backgroundScanSupported) {
-            SmallTitle(text = stringResource(Res.string.settings_network_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_network_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 SwitchPreference(
                     title = stringResource(Res.string.settings_allow_mobile_network),
@@ -50,7 +53,10 @@ fun NetworkCacheSettingsSection(
             }
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_audio_cache_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_audio_cache_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_listen_and_cache),
@@ -68,7 +74,10 @@ fun NetworkCacheSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_image_cache_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_image_cache_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             CacheLimitChoices(
                 currentBytes = settings.imageCacheLimitBytes,
@@ -78,7 +87,10 @@ fun NetworkCacheSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_advanced_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_advanced_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             if (capabilities.audioPreloadSupported) {
                 OverlayDropdownPreference(

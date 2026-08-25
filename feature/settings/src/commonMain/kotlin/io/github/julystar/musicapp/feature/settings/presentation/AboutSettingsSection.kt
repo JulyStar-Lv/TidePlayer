@@ -20,7 +20,10 @@ fun AboutSettingsSection(
 ) {
     val unavailable = stringResource(Res.string.settings_unavailable)
     SettingsPageLayout(title = stringResource(Res.string.settings_about_title), onBack = onBack) {
-        SmallTitle(text = stringResource(Res.string.settings_about_app))
+        SmallTitle(
+            text = stringResource(Res.string.settings_about_app),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             BasicComponent(
                 title = stringResource(Res.string.settings_about_name),
@@ -39,7 +42,10 @@ fun AboutSettingsSection(
                 summary = gitCommitSha.ifBlank { unavailable },
             )
         }
-        SmallTitle(text = stringResource(Res.string.settings_about_links))
+        SmallTitle(
+            text = stringResource(Res.string.settings_about_links),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             ArrowPreference(
                 title = stringResource(Res.string.settings_about_licenses),
@@ -67,7 +73,10 @@ fun AboutSettingsSection(
 @Composable
 fun LicensesSettingsScreen(onBack: (() -> Unit)?) {
     SettingsPageLayout(title = stringResource(Res.string.settings_licenses_title), onBack = onBack) {
-        SmallTitle(text = stringResource(Res.string.settings_licenses_title))
+        SmallTitle(
+            text = stringResource(Res.string.settings_licenses_title),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             BasicComponent(
                 title = stringResource(Res.string.settings_app_display_name),

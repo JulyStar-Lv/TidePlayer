@@ -1,15 +1,26 @@
 package io.github.julystar.musicapp.navigation
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.navigation.NavHostController
 import io.github.julystar.musicapp.core.LocalNavController
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
@@ -21,6 +32,7 @@ import io.github.julystar.musicapp.feature.settings.presentation.navigation.Sett
 import io.github.julystar.musicapp.platform.getAppBuildInfo
 import io.github.julystar.musicapp.platform.getAppGitCommitSha
 import io.github.julystar.musicapp.platform.getAppVersion
+import io.github.julystar.musicapp.plugin.management.PluginSettingsRoot
 import io.github.julystar.musicapp.service.playback.domain.SleepModeLeftTime
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberOpenSleepTimer
 
@@ -101,8 +113,8 @@ internal fun HomeTabContent(
                     appVersion = getAppVersion(),
                     appBuildInfo = getAppBuildInfo(),
                     gitCommitSha = getAppGitCommitSha(),
-                    onNavigateToPlugins = {
-                        rootNavController.navigate(MusicGraph.PluginSettings)
+                    pluginSettingsContent = { onBack ->
+                        PluginSettingsRoot(onBack = onBack)
                     },
                     onNavigateToSourcePathPicker = onNavigateToLibraryFolderImport,
                     onNavigateToSourceEditor = onNavigateToSourceEditor,
@@ -138,22 +150,62 @@ internal class OwnedDesignStickyHeaderStateSink(
         val existingIndex = registrations.indexOfFirst { registration -> registration.owner === owner }
         if (existingIndex >= 0) {
             registrations[existingIndex] = Registration(owner, state)
-            if (existingIndex == registrations.lastIndex) {
-                onStateChange(state)
-            }
+            onStateChange(activeState())
             return
         }
         registrations += Registration(owner, state)
-        onStateChange(state)
+        onStateChange(activeState())
     }
 
     override fun clear(owner: Any) {
         val index = registrations.indexOfFirst { registration -> registration.owner === owner }
         if (index < 0) return
-        val wasActive = index == registrations.lastIndex
+        val removedState = registrations[index].state
         registrations.removeAt(index)
-        if (wasActive) {
-            onStateChange(registrations.lastOrNull()?.state)
+        val nextState = activeState()
+        if (nextState != null || removedState.transitionDurationMillis == 0) {
+            onStateChange(nextState)
+        }
+    }
+
+    private fun activeState(): StickyHeaderState? =
+        registrations.lastOrNull { it.state.isNavigationTarget }?.state
+            ?: registrations.lastOrNull()?.state
+}
+
+@Composable
+internal fun LiquidGlassStickyHeaderHost(
+    state: StickyHeaderState?,
+    statusBarInset: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val transitionDurationMillis = state?.transitionDurationMillis ?: 0
+    AnimatedContent(
+        targetState = state?.transitionKey,
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.TopCenter,
+        transitionSpec = {
+            fadeIn(tween(transitionDurationMillis)) togetherWith
+                fadeOut(tween(transitionDurationMillis))
+        },
+        label = "stickyHeader",
+    ) { transitionKey ->
+        val retainedHeader = remember(transitionKey) {
+            state?.takeIf { header -> header.transitionKey == transitionKey }
+        }
+        val header = state?.takeIf { it.transitionKey == transitionKey } ?: retainedHeader
+        header?.let {
+            LiquidGlassActionBar(
+                title = it.title,
+                subtitle = it.subtitle,
+                collapseFraction = it.collapseFraction,
+                statusBarInset = statusBarInset,
+                onNavigateBack = it.onNavigateBack,
+                backContentDescription = it.backContentDescription,
+                actions = it.actions,
+                centerTitle = true,
+                compactTitle = it.compactTitle,
+            )
         }
     }
 }

@@ -91,9 +91,10 @@ passed to another plugin.
 
 ## Applying And Resetting Metadata
 
-The manual metadata dialog shows metadata, lyrics, and cover candidates. Lyrics and covers retain
-title, artist, album, date, and source information; cover rows include an image preview. Applying
-uses the explicitly selected lyric and cover rather than silently discarding API 4 alternatives.
+The manual metadata dialog shows only complete song results. It resolves the first lyric result
+from each song's source, filters out songs without lyrics or `pictureUrl`, and displays that cover
+inside the result row. It does not run a separate cover search. Applying uses the lyric and cover
+already bound to the selected result.
 It writes an accepted metadata candidate into the canonical Room `track` fields
 and normalized album/artist relationships. It stores only stable provenance—the plugin ID,
 candidate ID, and apply time—and locks descriptive fields against later background file scans.

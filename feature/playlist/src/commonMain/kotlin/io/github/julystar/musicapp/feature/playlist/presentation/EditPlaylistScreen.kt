@@ -12,7 +12,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.ImportCover
-import io.github.julystar.musicapp.core.presentation.components.SimpleFormText
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.playlist.generated.resources.Res
 import musicapp.feature.playlist.generated.resources.playlists_dialog_button_cancel
@@ -21,6 +20,7 @@ import musicapp.feature.playlist.generated.resources.playlists_dialog_cover
 import musicapp.feature.playlist.generated.resources.playlists_dialog_playlist_name
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -38,10 +38,10 @@ fun EditPlaylistScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             EditHeader(text = stringResource(Res.string.playlists_dialog_playlist_name))
-            SimpleFormText(
-                label = null,
+            TextField(
                 value = state.name,
-                onChange = { onAction(EditPlaylistAction.UpdateName(it)) },
+                onValueChange = { onAction(EditPlaylistAction.UpdateName(it)) },
+                modifier = Modifier.fillMaxWidth(),
             )
             Box(modifier = Modifier.height(12.dp))
             EditHeader(text = stringResource(Res.string.playlists_dialog_cover))

@@ -24,7 +24,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.ImportCover
-import io.github.julystar.musicapp.core.presentation.components.SimpleFormText
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -43,6 +42,7 @@ import musicapp.feature.playlist.generated.resources.playlists_dialog_tab_full
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -79,10 +79,11 @@ fun CreatePlaylistScreen(
             if (state.mode == CreatePlaylistTab.Full) {
                 FullImportSection(state = state, onAction = onAction)
             } else {
-                SimpleFormText(
+                TextField(
                     label = stringResource(Res.string.playlists_dialog_playlist_name),
                     value = state.name,
-                    onChange = { onAction(CreatePlaylistAction.UpdateName(it)) },
+                    onValueChange = { onAction(CreatePlaylistAction.UpdateName(it)) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             Row(
@@ -165,10 +166,10 @@ private fun FullImportSection(
             )
             Box(modifier = Modifier.height(12.dp))
             FullImportHeader(text = stringResource(Res.string.playlists_dialog_playlist_name))
-            SimpleFormText(
-                label = null,
+            TextField(
                 value = state.name,
-                onChange = { onAction(CreatePlaylistAction.UpdateName(it)) },
+                onValueChange = { onAction(CreatePlaylistAction.UpdateName(it)) },
+                modifier = Modifier.fillMaxWidth(),
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(0.dp),

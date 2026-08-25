@@ -112,7 +112,10 @@ internal fun EqualizerSettingsScreen(
         compactHorizontalPadding = 12.dp,
         scrollable = false,
     ) {
-        SmallTitle(text = stringResource(Res.string.settings_equalizer_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_equalizer_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_equalizer_enabled),
@@ -242,7 +245,10 @@ private fun EqualizerModeSection(
         if (capabilities.parametricEqualizer) add(EqualizerMode.Parametric)
     }
     if (availableModes.isEmpty()) return
-    SmallTitle(text = stringResource(Res.string.settings_equalizer_mode))
+    SmallTitle(
+        text = stringResource(Res.string.settings_equalizer_mode),
+        insideMargin = settingsSectionTitleMargin,
+    )
     Card {
         TabRow(
             tabs = availableModes.map { mode ->
@@ -280,7 +286,10 @@ private fun EqualizerPresetSection(
             EqualizerPresetChoice(preset.id, equalizerPresetName(preset.id).orEmpty())
         }
     val selected = choices.firstOrNull { it.id == selectedPreset?.id } ?: choices.first()
-    SmallTitle(text = stringResource(Res.string.settings_eq_presets_section))
+    SmallTitle(
+        text = stringResource(Res.string.settings_eq_presets_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
     Card {
         OverlayDropdownPreference(
             title = stringResource(Res.string.settings_dsp_preset),
@@ -308,7 +317,10 @@ private fun EqualizerPresetSection(
 
 @Composable
 private fun EqualizerResponseSection(state: SettingsUiState) {
-    SmallTitle(text = stringResource(Res.string.settings_eq_frequency_response))
+    SmallTitle(
+        text = stringResource(Res.string.settings_eq_frequency_response),
+        insideMargin = settingsSectionTitleMargin,
+    )
     Card {
         EqualizerFrequencyResponse(response = state.audioDspFrequencyResponse)
     }
@@ -329,6 +341,7 @@ private fun EqualizerEditorSection(
                 Res.string.settings_equalizer_parametric
             },
         ),
+        insideMargin = settingsSectionTitleMargin,
     )
     Card {
         when (profile.equalizerMode) {
@@ -358,7 +371,10 @@ private fun EqualizerAdvancedSection(
     supported: Boolean,
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
-    SmallTitle(text = stringResource(Res.string.settings_eq_advanced_section))
+    SmallTitle(
+        text = stringResource(Res.string.settings_eq_advanced_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
     Card {
         when (profile.equalizerMode) {
             EqualizerMode.Graphic -> {

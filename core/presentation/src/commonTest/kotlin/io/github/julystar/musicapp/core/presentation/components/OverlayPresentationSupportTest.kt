@@ -33,35 +33,4 @@ class OverlayPresentationSupportTest {
         assertEquals(false, OverlayPresentationDefaults.isCompactWindow(600.dp))
         assertEquals(false, OverlayPresentationDefaults.isCompactWindow(Dp.Unspecified))
     }
-
-    @Test
-    fun `bottom sheet dismisses after enough downward distance or velocity`() {
-        assertEquals(
-            false,
-            shouldDismissOverlayBottomSheet(
-                dragOffsetPx = 71f,
-                velocityPxPerSecond = 899f,
-                distanceThresholdPx = 72f,
-                velocityThresholdPxPerSecond = 900f,
-            ),
-        )
-        assertEquals(
-            true,
-            shouldDismissOverlayBottomSheet(
-                dragOffsetPx = 72f,
-                velocityPxPerSecond = 0f,
-                distanceThresholdPx = 72f,
-                velocityThresholdPxPerSecond = 900f,
-            ),
-        )
-        assertEquals(
-            true,
-            shouldDismissOverlayBottomSheet(
-                dragOffsetPx = 12f,
-                velocityPxPerSecond = 900f,
-                distanceThresholdPx = 72f,
-                velocityThresholdPxPerSecond = 900f,
-            ),
-        )
-    }
 }

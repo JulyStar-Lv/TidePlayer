@@ -14,7 +14,9 @@ import io.github.julystar.musicapp.core.domain.model.PlaybackAdvancedSettings
 import io.github.julystar.musicapp.core.domain.model.ShuffleStrategy
 import io.github.julystar.musicapp.core.domain.model.StartupPlaybackMode
 import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_ID
+import io.github.julystar.musicapp.core.domain.repository.NetworkStatusProvider
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
+import io.github.julystar.musicapp.diagnostics.TrackPreparationDiagnostics
 import io.github.julystar.musicapp.service.playback.data.PlayerController as LegacyPlayerController
 import io.github.julystar.musicapp.service.playback.data.PlayerRepository
 import io.github.julystar.musicapp.singleton.PlaybackItemMetadata
@@ -53,6 +55,9 @@ class LegacyPlaybackController(
     private val scope: CoroutineScope,
     private val positionPollMillis: Long = 100,
     private val settingsRepository: SettingsRepository? = null,
+    private val networkStatusProvider: NetworkStatusProvider? = null,
+    private val trackPreparationOperations: TrackPreparationOperations? = null,
+    private val trackPreparationDiagnostics: TrackPreparationDiagnostics? = null,
 ) : PlaybackController {
     private val queueOrderKeyManager = QueueOrderKeyManager()
     private val immediatePositionRefreshes = MutableSharedFlow<Unit>(
@@ -68,6 +73,22 @@ class LegacyPlaybackController(
     private val requestedNext = mutableListOf<MusicAbstract>()
 
     init {
+        if (
+            settingsRepository != null &&
+            networkStatusProvider != null &&
+            trackPreparationOperations != null &&
+            trackPreparationDiagnostics != null
+        ) {
+            TrackPreparationCoordinator(
+                scope = scope,
+                playerRepository = playerRepository,
+                shuffleEnabled = shuffleEnabled,
+                settingsRepository = settingsRepository,
+                networkStatusProvider = networkStatusProvider,
+                operations = trackPreparationOperations,
+                diagnostics = trackPreparationDiagnostics,
+            )
+        }
         scope.launch { restoreStartupPlayback() }
         scope.launch {
             playerRepository.music.collect { current ->

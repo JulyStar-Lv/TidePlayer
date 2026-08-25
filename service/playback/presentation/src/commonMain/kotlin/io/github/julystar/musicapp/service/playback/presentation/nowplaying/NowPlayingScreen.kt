@@ -228,6 +228,7 @@ private fun NowPlayingMoreButton(
 ) {
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var sourceDialogOpen by remember { mutableStateOf(false) }
+    val menuContentColor = MiuixTheme.colorScheme.onSurfaceContainer
 
     Box {
         if (compact) {
@@ -264,7 +265,14 @@ private fun NowPlayingMoreButton(
                     items = listOfNotNull(
                         DropdownItem(
                             text = stringResource(Res.string.music_player_search_metadata),
-                            icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_search), null, modifier) },
+                            icon = { modifier ->
+                                Icon(
+                                    painter = painterResource(CoreRes.drawable.icon_search),
+                                    contentDescription = null,
+                                    modifier = modifier,
+                                    tint = menuContentColor,
+                                )
+                            },
                             onClick = {
                                 moreMenuExpanded = false
                                 onAction(NowPlayingAction.SearchMetadata)
@@ -273,7 +281,14 @@ private fun NowPlayingMoreButton(
                         if (hasLyric) {
                             DropdownItem(
                                 text = stringResource(Res.string.music_lyric_remove),
-                                icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_deleteseep), null, modifier) },
+                                icon = { modifier ->
+                                    Icon(
+                                        painter = painterResource(CoreRes.drawable.icon_deleteseep),
+                                        contentDescription = null,
+                                        modifier = modifier,
+                                        tint = menuContentColor,
+                                    )
+                                },
                                 onClick = {
                                     moreMenuExpanded = false
                                     onAction(NowPlayingAction.RemoveLyric)
@@ -282,7 +297,14 @@ private fun NowPlayingMoreButton(
                         } else {
                             DropdownItem(
                                 text = stringResource(Res.string.music_lyric_add),
-                                icon = { modifier -> Icon(painterResource(Res.drawable.icon_lyrics), null, modifier) },
+                                icon = { modifier ->
+                                    Icon(
+                                        painter = painterResource(Res.drawable.icon_lyrics),
+                                        contentDescription = null,
+                                        modifier = modifier,
+                                        tint = menuContentColor,
+                                    )
+                                },
                                 onClick = {
                                     moreMenuExpanded = false
                                     onAction(NowPlayingAction.AddLyric)
@@ -292,7 +314,14 @@ private fun NowPlayingMoreButton(
                         if (nowPlayingState.currentTrack?.canDownload == true) {
                             DropdownItem(
                                 text = stringResource(Res.string.downloads_title),
-                                icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_download), null, modifier) },
+                                icon = { modifier ->
+                                    Icon(
+                                        painter = painterResource(CoreRes.drawable.icon_download),
+                                        contentDescription = null,
+                                        modifier = modifier,
+                                        tint = menuContentColor,
+                                    )
+                                },
                                 onClick = {
                                     moreMenuExpanded = false
                                     onAction(NowPlayingAction.DownloadCurrentTrack)
@@ -302,7 +331,14 @@ private fun NowPlayingMoreButton(
                         if (nowPlayingState.playbackSources.size > 1) {
                             DropdownItem(
                                 text = stringResource(Res.string.player_playback_source),
-                                icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_settings_sliders), null, modifier) },
+                                icon = { modifier ->
+                                    Icon(
+                                        painter = painterResource(CoreRes.drawable.icon_settings_sliders),
+                                        contentDescription = null,
+                                        modifier = modifier,
+                                        tint = menuContentColor,
+                                    )
+                                },
                                 onClick = {
                                     moreMenuExpanded = false
                                     sourceDialogOpen = true
@@ -311,7 +347,14 @@ private fun NowPlayingMoreButton(
                         } else null,
                         DropdownItem(
                             text = stringResource(Res.string.music_player_context_menu_remove),
-                            icon = { modifier -> Icon(painterResource(CoreRes.drawable.icon_deleteseep), null, modifier) },
+                            icon = { modifier ->
+                                Icon(
+                                    painter = painterResource(CoreRes.drawable.icon_deleteseep),
+                                    contentDescription = null,
+                                    modifier = modifier,
+                                    tint = menuContentColor,
+                                )
+                            },
                             onClick = {
                                 moreMenuExpanded = false
                                 onAction(NowPlayingAction.RemoveCurrentTrack)

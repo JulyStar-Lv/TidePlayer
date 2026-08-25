@@ -75,6 +75,7 @@ enum class SettingsPage {
     AudioEffects,
     Lyrics,
     Source,
+    Plugins,
     NetworkCache,
     Storage,
     Diagnostics,

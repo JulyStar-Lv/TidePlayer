@@ -1,6 +1,10 @@
 package io.github.julystar.musicapp.feature.settings.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
 import io.github.julystar.musicapp.core.domain.model.AudioEffectSettings
 import io.github.julystar.musicapp.core.domain.model.HeadroomMode
@@ -10,6 +14,39 @@ import io.github.julystar.musicapp.core.domain.model.SpatialAudioMode
 import io.github.julystar.musicapp.core.domain.model.SpeakerOutputMode
 import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import kotlin.math.roundToInt
+
+@Composable
+private fun DspParameterSlider(
+    title: String,
+    value: Int,
+    valueRange: IntRange,
+    valueText: String,
+    onValueChange: (Int) -> Unit,
+    summary: String? = null,
+    enabled: Boolean = true,
+) {
+    var previewValue by remember(value) { mutableFloatStateOf(value.toFloat()) }
+    SliderPreference(
+        title = title,
+        summary = summary,
+        value = previewValue,
+        valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
+        steps = (valueRange.last - valueRange.first - 1).coerceAtLeast(0),
+        valueText = valueText,
+        enabled = enabled,
+        onValueChange = { previewValue = it },
+        onValueChangeFinished = { onValueChange(previewValue.roundToInt()) },
+    )
+}
 
 @Composable
 internal fun AudioEffectsDynamicsSection(
@@ -19,7 +56,11 @@ internal fun AudioEffectsDynamicsSection(
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
     val capabilities = state.capabilities.audioDsp
-    SettingsSection(title = stringResource(Res.string.settings_audio_effects_dynamics_section)) {
+    SmallTitle(
+        text = stringResource(Res.string.settings_audio_effects_dynamics_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
         if (capabilities.loudness) {
             val settings = profile.loudness
             DspEffectCard(
@@ -36,7 +77,7 @@ internal fun AudioEffectsDynamicsSection(
                     onUpdate(profile.copy(loudness = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_loudness_amount),
                     value = settings.amountPercent,
                     valueRange = 0..100,
@@ -45,7 +86,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(loudness = settings.copy(amountPercent = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_loudness_balance),
                     value = settings.balancePercent,
                     valueRange = -100..100,
@@ -74,7 +115,7 @@ internal fun AudioEffectsDynamicsSection(
                     onUpdate(profile.copy(dynamicEq = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_dynamic_eq_amount),
                     value = settings.amountPercent,
                     valueRange = 0..100,
@@ -83,7 +124,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(dynamicEq = settings.copy(amountPercent = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_de_esser_amount),
                     value = settings.deEsserAmountPercent,
                     valueRange = 0..100,
@@ -92,7 +133,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(dynamicEq = settings.copy(deEsserAmountPercent = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_de_esser_frequency),
                     value = settings.deEsserFrequencyHz / 100,
                     valueRange = 40..100,
@@ -123,7 +164,7 @@ internal fun AudioEffectsDynamicsSection(
                     onUpdate(profile.copy(compressor = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_compressor_threshold),
                     value = settings.thresholdDb,
                     valueRange = -60..0,
@@ -132,7 +173,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(compressor = settings.copy(thresholdDb = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_compressor_ratio),
                     value = settings.ratio,
                     valueRange = 1..30,
@@ -141,7 +182,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(compressor = settings.copy(ratio = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_compressor_attack),
                     value = settings.attackMs,
                     valueRange = 1..500,
@@ -150,7 +191,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(compressor = settings.copy(attackMs = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_compressor_release),
                     value = settings.releaseMs,
                     valueRange = 5..5_000,
@@ -159,7 +200,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(compressor = settings.copy(releaseMs = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_compressor_makeup),
                     value = settings.makeupGainDb,
                     valueRange = -12..24,
@@ -168,7 +209,7 @@ internal fun AudioEffectsDynamicsSection(
                         onUpdate(profile.copy(compressor = settings.copy(makeupGainDb = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_compressor_knee),
                     value = settings.kneeDb,
                     valueRange = 0..24,
@@ -190,7 +231,11 @@ internal fun AudioEffectsSoundFieldSection(
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
     val capabilities = state.capabilities.audioDsp
-    SettingsSection(title = stringResource(Res.string.settings_audio_effects_sound_field_section)) {
+    SmallTitle(
+        text = stringResource(Res.string.settings_audio_effects_sound_field_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
         if (capabilities.monoBass) {
             val settings = profile.monoBass
             DspEffectCard(
@@ -206,7 +251,7 @@ internal fun AudioEffectsSoundFieldSection(
                     onUpdate(profile.copy(monoBass = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_mono_bass_crossover),
                     value = settings.crossoverHz,
                     valueRange = 60..300,
@@ -215,7 +260,7 @@ internal fun AudioEffectsSoundFieldSection(
                         onUpdate(profile.copy(monoBass = settings.copy(crossoverHz = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_mono_bass_amount),
                     value = settings.amountPercent,
                     valueRange = 0..100,
@@ -242,20 +287,23 @@ internal fun AudioEffectsSoundFieldSection(
                 summary = spatial.mode.localizedName(),
                 enabled = effectsEnabled,
             ) {
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_spatial_mode),
-                    subtitle = stringResource(Res.string.settings_spatial_mode_summary),
-                    selected = spatial.mode,
-                    options = availableModes,
-                    optionLabel = SpatialAudioMode::localizedName,
-                    onSelect = { mode ->
-                        onUpdate(profile.copy(spatialAudio = spatial.copy(mode = mode)))
-                    },
+                OverlayDropdownPreference(
+                    title = stringResource(Res.string.settings_spatial_mode),
+                    summary = stringResource(Res.string.settings_spatial_mode_summary),
+                    entries = listOf(DropdownEntry(items = availableModes.map { mode ->
+                        DropdownItem(
+                            text = mode.localizedName(),
+                            selected = mode == spatial.mode,
+                            onClick = {
+                                onUpdate(profile.copy(spatialAudio = spatial.copy(mode = mode)))
+                            },
+                        )
+                    })),
                 )
                 if (spatial.mode == SpatialAudioMode.CrossfeedAndWidth) {
                     if (capabilities.stereoWidth) {
                         val width = profile.stereoWidth
-                        SettingsSwitchRow(
+                        SwitchPreference(
                             title = stringResource(Res.string.settings_stereo_width),
                             checked = width.enabled,
                             onCheckedChange = { enabled ->
@@ -263,7 +311,7 @@ internal fun AudioEffectsSoundFieldSection(
                             },
                         )
                         if (width.enabled) {
-                            SettingsSliderRow(
+                            DspParameterSlider(
                                 title = stringResource(Res.string.settings_stereo_width),
                                 value = width.widthPercent,
                                 valueRange = 0..200,
@@ -276,7 +324,7 @@ internal fun AudioEffectsSoundFieldSection(
                     }
                     if (capabilities.crossfeed) {
                         val crossfeed = profile.crossfeed
-                        SettingsSwitchRow(
+                        SwitchPreference(
                             title = stringResource(Res.string.settings_crossfeed),
                             checked = crossfeed.enabled,
                             onCheckedChange = { enabled ->
@@ -284,7 +332,7 @@ internal fun AudioEffectsSoundFieldSection(
                             },
                         )
                         if (crossfeed.enabled) {
-                            SettingsSliderRow(
+                            DspParameterSlider(
                                 title = stringResource(Res.string.settings_crossfeed_low_cut),
                                 value = crossfeed.lowCutHz,
                                 valueRange = 50..1_000,
@@ -293,7 +341,7 @@ internal fun AudioEffectsSoundFieldSection(
                                     onUpdate(profile.copy(crossfeed = crossfeed.copy(lowCutHz = value)))
                                 },
                             )
-                            SettingsSliderRow(
+                            DspParameterSlider(
                                 title = stringResource(Res.string.settings_crossfeed_high_cut),
                                 value = crossfeed.highCutHz / 10,
                                 valueRange = 50..800,
@@ -302,7 +350,7 @@ internal fun AudioEffectsSoundFieldSection(
                                     onUpdate(profile.copy(crossfeed = crossfeed.copy(highCutHz = value * 10)))
                                 },
                             )
-                            SettingsSliderRow(
+                            DspParameterSlider(
                                 title = stringResource(Res.string.settings_crossfeed_attenuation),
                                 value = crossfeed.attenuationTenthsDb,
                                 valueRange = 0..150,
@@ -318,7 +366,7 @@ internal fun AudioEffectsSoundFieldSection(
                         }
                     }
                 } else if (spatial.mode != SpatialAudioMode.None) {
-                    SettingsSliderRow(
+                    DspParameterSlider(
                         title = stringResource(Res.string.settings_spatial_intensity),
                         value = spatial.intensityPercent,
                         valueRange = 0..100,
@@ -327,7 +375,7 @@ internal fun AudioEffectsSoundFieldSection(
                             onUpdate(profile.copy(spatialAudio = spatial.copy(intensityPercent = value)))
                         },
                     )
-                    SettingsSliderRow(
+                    DspParameterSlider(
                         title = stringResource(Res.string.settings_spatial_azimuth),
                         value = spatial.azimuthDegrees,
                         valueRange = 0..359,
@@ -336,7 +384,7 @@ internal fun AudioEffectsSoundFieldSection(
                             onUpdate(profile.copy(spatialAudio = spatial.copy(azimuthDegrees = value)))
                         },
                     )
-                    SettingsSliderRow(
+                    DspParameterSlider(
                         title = stringResource(Res.string.settings_spatial_auto_rotate),
                         value = spatial.autoRotateDegreesPerSecond,
                         valueRange = -180..180,
@@ -350,7 +398,7 @@ internal fun AudioEffectsSoundFieldSection(
                         },
                     )
                     if (spatial.mode == SpatialAudioMode.Panoramic360) {
-                        SettingsSliderRow(
+                        DspParameterSlider(
                             title = stringResource(Res.string.settings_spatial_elevation),
                             value = spatial.elevationDegrees,
                             valueRange = -90..90,
@@ -359,7 +407,7 @@ internal fun AudioEffectsSoundFieldSection(
                                 onUpdate(profile.copy(spatialAudio = spatial.copy(elevationDegrees = value)))
                             },
                         )
-                        SettingsSliderRow(
+                        DspParameterSlider(
                             title = stringResource(Res.string.settings_spatial_room),
                             value = spatial.roomAmountPercent,
                             valueRange = 0..100,
@@ -383,7 +431,11 @@ internal fun AudioEffectsToneFilterSection(
     onUpdate: (AudioEffectProfile) -> Unit,
 ) {
     val capabilities = state.capabilities.audioDsp
-    SettingsSection(title = stringResource(Res.string.settings_audio_effects_tone_filters_section)) {
+    SmallTitle(
+        text = stringResource(Res.string.settings_audio_effects_tone_filters_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
         if (capabilities.toneControl) {
             val settings = profile.tone
             DspEffectCard(
@@ -400,7 +452,7 @@ internal fun AudioEffectsToneFilterSection(
                     onUpdate(profile.copy(tone = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_bass),
                     summary = stringResource(Res.string.settings_bass_shelf_summary),
                     value = settings.bassGainDb,
@@ -410,7 +462,7 @@ internal fun AudioEffectsToneFilterSection(
                         onUpdate(profile.copy(tone = settings.copy(bassGainDb = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_bass_frequency),
                     value = settings.bassFrequencyHz,
                     valueRange = 50..500,
@@ -419,7 +471,7 @@ internal fun AudioEffectsToneFilterSection(
                         onUpdate(profile.copy(tone = settings.copy(bassFrequencyHz = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_treble),
                     summary = stringResource(Res.string.settings_treble_shelf_summary),
                     value = settings.trebleGainDb,
@@ -429,7 +481,7 @@ internal fun AudioEffectsToneFilterSection(
                         onUpdate(profile.copy(tone = settings.copy(trebleGainDb = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_treble_frequency),
                     value = settings.trebleFrequencyHz / 100,
                     valueRange = 20..160,
@@ -456,16 +508,17 @@ internal fun AudioEffectsToneFilterSection(
                     onUpdate(profile.copy(moogFilter = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_moog_mode),
-                    selected = settings.mode,
-                    options = MoogFilterMode.entries.toList(),
-                    optionLabel = MoogFilterMode::localizedName,
-                    onSelect = { mode ->
-                        onUpdate(profile.copy(moogFilter = settings.copy(mode = mode)))
-                    },
+                OverlayDropdownPreference(
+                    title = stringResource(Res.string.settings_moog_mode),
+                    entries = listOf(DropdownEntry(items = MoogFilterMode.entries.map { mode ->
+                        DropdownItem(
+                            text = mode.localizedName(),
+                            selected = mode == settings.mode,
+                            onClick = { onUpdate(profile.copy(moogFilter = settings.copy(mode = mode))) },
+                        )
+                    })),
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_moog_cutoff),
                     value = settings.cutoffHz,
                     valueRange = 20..20_000,
@@ -474,7 +527,7 @@ internal fun AudioEffectsToneFilterSection(
                         onUpdate(profile.copy(moogFilter = settings.copy(cutoffHz = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_moog_resonance),
                     value = settings.resonancePercent,
                     valueRange = 0..100,
@@ -483,7 +536,7 @@ internal fun AudioEffectsToneFilterSection(
                         onUpdate(profile.copy(moogFilter = settings.copy(resonancePercent = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_moog_drive),
                     value = settings.driveTenthsDb,
                     valueRange = 0..180,
@@ -492,7 +545,7 @@ internal fun AudioEffectsToneFilterSection(
                         onUpdate(profile.copy(moogFilter = settings.copy(driveTenthsDb = value)))
                     },
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_moog_mix),
                     value = settings.mixPercent,
                     valueRange = 0..100,
@@ -516,7 +569,11 @@ internal fun AudioEffectsOutputSection(
     val profile = effects.profile
     val capabilities = state.capabilities.audioDsp
     val effectsEnabled = effects.enabled
-    SettingsSection(title = stringResource(Res.string.settings_audio_effects_output_safety_section)) {
+    SmallTitle(
+        text = stringResource(Res.string.settings_audio_effects_output_safety_section),
+        insideMargin = settingsSectionTitleMargin,
+    )
+    Card {
         if (capabilities.speakerOutput) {
             val settings = profile.speakerOutput
             DspEffectCard(
@@ -532,16 +589,17 @@ internal fun AudioEffectsOutputSection(
                     onUpdateProfile(profile.copy(speakerOutput = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_speaker_mode),
-                    selected = settings.mode,
-                    options = SpeakerOutputMode.entries.toList(),
-                    optionLabel = SpeakerOutputMode::localizedName,
-                    onSelect = { mode ->
-                        onUpdateProfile(profile.copy(speakerOutput = settings.copy(mode = mode)))
-                    },
+                OverlayDropdownPreference(
+                    title = stringResource(Res.string.settings_speaker_mode),
+                    entries = listOf(DropdownEntry(items = SpeakerOutputMode.entries.map { mode ->
+                        DropdownItem(
+                            text = mode.localizedName(),
+                            selected = mode == settings.mode,
+                            onClick = { onUpdateProfile(profile.copy(speakerOutput = settings.copy(mode = mode))) },
+                        )
+                    })),
                 )
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_speaker_strength),
                     value = settings.strengthPercent,
                     valueRange = 0..100,
@@ -560,18 +618,19 @@ internal fun AudioEffectsOutputSection(
                 summary = settings.preset.localizedName(),
                 enabled = effectsEnabled,
             ) {
-                SettingsSelectRow(
-                    label = stringResource(Res.string.settings_reverb),
-                    selected = settings.preset,
-                    options = ReverbPreset.entries.toList(),
-                    optionLabel = ReverbPreset::localizedName,
-                    onSelect = { preset ->
-                        onUpdateProfile(profile.copy(reverb = settings.copy(preset = preset)))
-                    },
+                OverlayDropdownPreference(
+                    title = stringResource(Res.string.settings_reverb),
+                    entries = listOf(DropdownEntry(items = ReverbPreset.entries.map { preset ->
+                        DropdownItem(
+                            text = preset.localizedName(),
+                            selected = preset == settings.preset,
+                            onClick = { onUpdateProfile(profile.copy(reverb = settings.copy(preset = preset))) },
+                        )
+                    })),
                 )
                 if (settings.preset != ReverbPreset.None) {
-                    SettingsSliderRow(
-                        title = stringResource(Res.string.settings_reverb_wet),
+                    DspParameterSlider(
+                    title = stringResource(Res.string.settings_reverb_wet),
                         value = settings.wetPercent,
                         valueRange = 0..50,
                         valueText = formatPercent(settings.wetPercent),
@@ -589,24 +648,25 @@ internal fun AudioEffectsOutputSection(
             summary = headroom.mode.localizedName(),
             enabled = true,
         ) {
-            SettingsSelectRow(
-                label = stringResource(Res.string.settings_headroom_mode),
-                selected = headroom.mode,
-                options = HeadroomMode.entries.toList(),
-                optionLabel = HeadroomMode::localizedName,
-                onSelect = { mode ->
-                    onUpdateEffects(effects.copy(headroom = headroom.copy(mode = mode)))
-                },
+            OverlayDropdownPreference(
+                title = stringResource(Res.string.settings_headroom_mode),
+                entries = listOf(DropdownEntry(items = HeadroomMode.entries.map { mode ->
+                    DropdownItem(
+                        text = mode.localizedName(),
+                        selected = mode == headroom.mode,
+                        onClick = { onUpdateEffects(effects.copy(headroom = headroom.copy(mode = mode))) },
+                    )
+                })),
             )
             if (headroom.mode == HeadroomMode.Automatic) {
-                SettingsInfoRow(
+                BasicComponent(
                     title = stringResource(Res.string.settings_headroom_automatic_info),
-                    value = "${formatMeter(state.audioDspMeter.appliedHeadroomDb)} · " +
+                    summary = "${formatMeter(state.audioDspMeter.appliedHeadroomDb)} · " +
                         stringResource(Res.string.settings_eq_automatic_headroom_hint),
                 )
             }
             if (headroom.mode == HeadroomMode.Manual) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_headroom_manual),
                     value = headroom.manualTenthsDb,
                     valueRange = -240..0,
@@ -633,7 +693,7 @@ internal fun AudioEffectsOutputSection(
                     onUpdateProfile(profile.copy(limiter = settings.copy(enabled = enabled)))
                 },
             ) {
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_limiter_ceiling),
                     value = settings.ceilingTenthsDb,
                     valueRange = -120..0,
@@ -643,7 +703,7 @@ internal fun AudioEffectsOutputSection(
                     },
                 )
                 if (!settings.truePeakEnabled) {
-                    SettingsSliderRow(
+                    DspParameterSlider(
                         title = stringResource(Res.string.settings_limiter_attack),
                         value = settings.attackHundredthsMs,
                         valueRange = 1..2_000,
@@ -653,7 +713,7 @@ internal fun AudioEffectsOutputSection(
                         },
                     )
                 }
-                SettingsSliderRow(
+                DspParameterSlider(
                     title = stringResource(Res.string.settings_limiter_release),
                     value = settings.releaseMs,
                     valueRange = 5..2_000,
@@ -663,7 +723,7 @@ internal fun AudioEffectsOutputSection(
                     },
                 )
                 if (capabilities.truePeakLimiter) {
-                    SettingsSwitchRow(
+                    SwitchPreference(
                         title = stringResource(Res.string.settings_true_peak_mode),
                         summary = stringResource(Res.string.settings_true_peak_mode_summary),
                         checked = settings.truePeakEnabled,
@@ -684,14 +744,14 @@ internal fun AudioEffectsOutputSection(
                         },
                     )
                     if (settings.truePeakEnabled) {
-                        SettingsInfoRow(
+                        BasicComponent(
                             title = stringResource(Res.string.settings_limiter_oversampling),
-                            value = stringResource(
+                            summary = stringResource(
                                 Res.string.settings_limiter_oversampling_value,
                                 settings.oversampling,
                             ),
                         )
-                        SettingsSliderRow(
+                        DspParameterSlider(
                             title = stringResource(Res.string.settings_limiter_lookahead),
                             value = settings.lookaheadMs,
                             valueRange = 1..10,

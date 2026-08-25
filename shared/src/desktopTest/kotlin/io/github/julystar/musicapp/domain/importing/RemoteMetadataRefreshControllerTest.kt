@@ -16,7 +16,9 @@ import io.github.julystar.musicapp.database.SourceItemTypes
 import io.github.julystar.musicapp.database.AppDatabase
 import io.github.julystar.musicapp.database.AppDatabaseConstructor
 import io.github.julystar.musicapp.database.TrackEntity
+import io.github.julystar.musicapp.database.TrackMetadataSources
 import io.github.julystar.musicapp.database.TrackSourceRefEntity
+import io.github.julystar.musicapp.metadata.UnifiedMetadataRepository
 import io.github.julystar.musicapp.service.librarysync.domain.MetadataRefreshRequest
 import io.github.julystar.musicapp.service.librarysync.domain.MetadataRefreshScope
 import io.github.julystar.musicapp.source.storage.RemoteMetadataReader
@@ -36,6 +38,157 @@ import uniffi.app_backend.StorageEntry
 import uniffi.app_backend.StorageEntryLoc
 
 class RemoteMetadataRefreshControllerTest {
+    @Test
+    fun allRefreshPersistsSourceMetadataWithOneReaderCallAndProtectsLockedTrack() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.Default)
+            .build()
+        try {
+            seedTrack(database, ProviderTypes.Local)
+            database.trackDao().upsertAll(
+                listOf(track().copy(title = "Filename title", metadataSource = TrackMetadataSources.Filename)),
+            )
+            val reader = FakeRemoteMetadataReader()
+            val controller = RemoteMetadataRefreshController(
+                database = database,
+                metadataRepository = reader,
+                unifiedMetadataRepository = UnifiedMetadataRepository(
+                    database,
+                    database.trackDao(),
+                    database.metadataDao(),
+                ),
+            )
+
+            controller.refresh(
+                MetadataRefreshRequest(
+                    scope = MetadataRefreshScope.Track(1),
+                    target = MetadataRefreshTarget.All,
+                    allowNetwork = false,
+                ),
+            )
+
+            assertEquals(1, reader.options.size)
+            assertEquals(MetadataScanOptions(true, true, true), reader.options.single())
+            assertEquals("Song", database.trackDao().get(1)?.title)
+            assertEquals(TrackMetadataSources.File, database.trackDao().get(1)?.metadataSource)
+
+            database.trackDao().upsertAll(
+                listOf(database.trackDao().get(1)!!.copy(title = "Locked", metadataLocked = true)),
+            )
+            controller.refresh(
+                MetadataRefreshRequest(
+                    scope = MetadataRefreshScope.Track(1),
+                    target = MetadataRefreshTarget.All,
+                ),
+            )
+            assertEquals("Locked", database.trackDao().get(1)?.title)
+            assertEquals(2, reader.options.size)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun allRefreshUsesServerPolicyForRemoteFilenameMetadata() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.Default)
+            .build()
+        try {
+            seedTrack(database, ProviderTypes.WebDav)
+            database.trackDao().upsertAll(
+                listOf(track().copy(title = "Filename title", metadataSource = TrackMetadataSources.Filename)),
+            )
+            val reader = FakeRemoteMetadataReader()
+            val controller = RemoteMetadataRefreshController(
+                database,
+                reader,
+                UnifiedMetadataRepository(database, database.trackDao(), database.metadataDao()),
+            )
+
+            controller.refresh(
+                MetadataRefreshRequest(
+                    scope = MetadataRefreshScope.Track(1),
+                    target = MetadataRefreshTarget.All,
+                ),
+            )
+
+            assertEquals("Song", database.trackDao().get(1)?.title)
+            assertEquals(TrackMetadataSources.Server, database.trackDao().get(1)?.metadataSource)
+            assertEquals(1, reader.options.size)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun localOnlyRefreshSkipsRemoteCandidateBeforeReaderIo() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.Default)
+            .build()
+        try {
+            seedTrack(database, ProviderTypes.WebDav)
+            val reader = FakeRemoteMetadataReader()
+            val controller = RemoteMetadataRefreshController(database, reader)
+
+            val result = controller.refresh(
+                MetadataRefreshRequest(
+                    scope = MetadataRefreshScope.Track(1),
+                    target = MetadataRefreshTarget.All,
+                    allowNetwork = false,
+                ),
+            )
+
+            assertEquals(0, result.requestedCount)
+            assertTrue(reader.options.isEmpty())
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun nonAllRefreshDoesNotChangeSemanticMetadata() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder<AppDatabase> {
+            AppDatabaseConstructor.initialize()
+        }
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.Default)
+            .build()
+        try {
+            seedTrack(database, ProviderTypes.Local)
+            database.trackDao().upsertAll(
+                listOf(track().copy(title = "Filename title", metadataSource = TrackMetadataSources.Filename)),
+            )
+            val reader = FakeRemoteMetadataReader()
+            val controller = RemoteMetadataRefreshController(
+                database,
+                reader,
+                UnifiedMetadataRepository(database, database.trackDao(), database.metadataDao()),
+            )
+
+            controller.refresh(
+                MetadataRefreshRequest(
+                    scope = MetadataRefreshScope.Track(1),
+                    target = MetadataRefreshTarget.Artwork,
+                ),
+            )
+
+            assertEquals("Filename title", database.trackDao().get(1)?.title)
+            assertEquals(TrackMetadataSources.Filename, database.trackDao().get(1)?.metadataSource)
+            assertEquals(MetadataScanOptions(true, false, false), reader.options.single())
+        } finally {
+            database.close()
+        }
+    }
+
     @Test
     fun trackBackfillReadsPreferredLocalSource() = runBlocking {
         val database = Room.inMemoryDatabaseBuilder<AppDatabase> {

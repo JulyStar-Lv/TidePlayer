@@ -30,6 +30,7 @@ fun SettingsRoot(
     appVersion: String,
     appBuildInfo: String,
     gitCommitSha: String,
+    pluginSettingsContent: @Composable (onBack: (() -> Unit)?) -> Unit,
     onNavigateToAppearance: () -> Unit,
     onNavigateToPlayback: () -> Unit,
     onNavigateToEqualizer: () -> Unit,
@@ -145,6 +146,7 @@ fun SettingsRoot(
                 onNavigateToSourceEditor = onNavigateToSourceEditor,
                 onAction = settingsVM::onAction,
             )
+            SettingsPage.Plugins -> pluginSettingsContent(back)
             SettingsPage.NetworkCache -> NetworkCacheSettingsSection(
                 state = state,
                 onBack = back,

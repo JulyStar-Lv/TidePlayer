@@ -10,6 +10,7 @@ data class MetadataRefreshRequest(
     val scope: MetadataRefreshScope,
     val target: MetadataRefreshTarget,
     val metadataConcurrency: UInt = DEFAULT_LIBRARY_SYNC_METADATA_CONCURRENCY,
+    val allowNetwork: Boolean = true,
 ) {
     init {
         require(metadataConcurrency in 1u..MAX_LIBRARY_SYNC_METADATA_CONCURRENCY) {

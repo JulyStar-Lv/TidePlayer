@@ -8,10 +8,6 @@
     <string name="manual_metadata_searching">Searching…</string>
     <string name="manual_metadata_results_title">Search results</string>
     <string name="manual_metadata_results">%1$d results</string>
-    <string name="manual_metadata_lyrics_candidates">Lyrics candidates</string>
-    <string name="manual_metadata_cover_candidates">Cover candidates</string>
-    <string name="manual_metadata_loading_candidates">Loading candidates…</string>
-    <string name="manual_metadata_no_candidates">No candidates</string>
     <string name="manual_metadata_no_sources">No metadata provider is enabled. Enable one in Settings and try again.</string>
     <string name="manual_metadata_no_matches">No matches found. Try a different song title or artist.</string>
     <string name="manual_metadata_search_failed">Metadata search failed. Please try again.</string>
@@ -24,5 +20,4 @@
     <string name="manual_metadata_applying">Applying…</string>
     <string name="manual_metadata_apply_failed">Failed to apply metadata.</string>
     <string name="manual_metadata_reset_failed">Failed to reset metadata from the music file.</string>
-    <string name="manual_metadata_applied_without_lyrics">Applied metadata for %1$s. Lyrics were unavailable from the selected source.</string>
 </resources>

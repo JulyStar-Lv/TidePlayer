@@ -35,7 +35,6 @@ import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
-import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
@@ -204,20 +203,11 @@ fun HomePage(
                         }
                     },
                     overlayContent = {
-                        stickyHeaderState?.let { state ->
-                            LiquidGlassActionBar(
-                                title = state.title,
-                                subtitle = state.subtitle,
-                                collapseFraction = state.collapseFraction,
-                                statusBarInset = statusBarInset,
-                                onNavigateBack = state.onNavigateBack,
-                                backContentDescription = state.backContentDescription,
-                                actions = state.actions,
-                                centerTitle = true,
-                                compactTitle = state.compactTitle,
-                                modifier = Modifier.align(Alignment.TopCenter),
-                            )
-                        }
+                        LiquidGlassStickyHeaderHost(
+                            state = stickyHeaderState,
+                            statusBarInset = statusBarInset,
+                            modifier = Modifier.align(Alignment.TopCenter),
+                        )
                         BottomBar(
                             currentTab = currentTab,
                             onTabSelected = onTabSelected,

@@ -2568,7 +2568,11 @@ internal fun buildTrackEntity(
         replayGainTrackPeak = metadata.replayGainTrackPeak,
         replayGainAlbumGain = metadata.replayGainAlbumGain,
         replayGainAlbumPeak = metadata.replayGainAlbumPeak,
-        metadataSource = TrackMetadataSources.File,
+        metadataSource = if (metadata.hasTaggedTitle()) {
+            TrackMetadataSources.File
+        } else {
+            TrackMetadataSources.Filename
+        },
         metadataLocked = false,
     )
     if (preserveExistingMetadata && existingTrack != null) {
@@ -2613,6 +2617,8 @@ internal fun buildTrackEntity(
         metadataAppliedAt = existingTrack.metadataAppliedAt,
     )
 }
+
+private fun RemoteMetadata.hasTaggedTitle(): Boolean = !title.isNullOrBlank()
 
 internal fun buildTrackSourceRefEntity(
     track: TrackEntity,

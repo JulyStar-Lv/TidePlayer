@@ -2,11 +2,16 @@ package io.github.julystar.musicapp.di
 
 import io.github.julystar.musicapp.platform.getAppCacheDir
 import io.github.julystar.musicapp.platform.getAppDataDirectory
+import io.github.julystar.musicapp.core.domain.repository.DiagnosticsRepository
+import io.github.julystar.musicapp.diagnostics.TrackPreparationDiagnostics
+import io.github.julystar.musicapp.metadata.PluginSemanticMetadataEnricher
 import io.github.julystar.musicapp.plugin.management.ManualMetadataService
 import io.github.julystar.musicapp.plugin.management.PlaybackLyricsEnricher
 import io.github.julystar.musicapp.service.playback.data.LegacyPlaybackController
 import io.github.julystar.musicapp.service.playback.data.CompletedMediaPromoter
 import io.github.julystar.musicapp.service.playback.data.CompletedPlaybackCachePromoter
+import io.github.julystar.musicapp.service.playback.data.DefaultTrackPreparationOperations
+import io.github.julystar.musicapp.service.playback.data.TrackPreparationOperations
 import io.github.julystar.musicapp.service.playback.data.LegacyNowPlayingRepository
 import io.github.julystar.musicapp.service.playback.data.LegacyPlaylistPlaybackSync
 import io.github.julystar.musicapp.service.playback.data.PlaybackAudioCache
@@ -50,6 +55,22 @@ val playbackModule = module {
     single<PlaybackSourceRepository> { RoomPlaybackSourceRepository(get(), get()) }
     single { PlaybackLyricsEnricher(get(), get(), get(), get(), get()) }
     single { PlayerRepository(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { PluginSemanticMetadataEnricher(get(), get()) }
+    single<TrackPreparationOperations> {
+        DefaultTrackPreparationOperations(
+            database = get(),
+            roomLibraryStore = get(),
+            metadataRefreshController = get(),
+            pluginEnricher = get(),
+            metadataRepository = get(),
+            identityReconciler = get(),
+            artworkResolver = get(),
+            lyricsEnricher = get(),
+            playerRepository = get(),
+            playbackResourceResolver = get(),
+        )
+    }
+    single { TrackPreparationDiagnostics(get<DiagnosticsRepository>()) }
     single { ManualMetadataService(get(), get(), get(), get(), get(), get(), get()) }
     single<PlaybackController> {
         LegacyPlaybackController(
@@ -58,6 +79,9 @@ val playbackModule = module {
             roomLibraryStore = get(),
             scope = get(),
             settingsRepository = get(),
+            networkStatusProvider = get(),
+            trackPreparationOperations = get(),
+            trackPreparationDiagnostics = get(),
         )
     }
     single<SleepController> { get<PlayerController>() }

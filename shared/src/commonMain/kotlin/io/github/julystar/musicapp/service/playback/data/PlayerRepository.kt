@@ -266,6 +266,27 @@ class PlayerRepository(
         publishCurrentTrackInfo(refreshed)
     }
 
+    suspend fun refreshPreparedTrackRuntime(
+        originalTrackId: Long,
+        canonicalTrackId: Long,
+        remappedTrackIds: Map<Long, Long>,
+    ) {
+        val canonicalMusic = roomLibraryStore.getMusic(MusicId(canonicalTrackId)) ?: return
+        val refreshed = refreshPreparedTrackRuntimeState(
+            currentMusic = _music.value,
+            playlist = _playlist.value,
+            canonicalMusic = canonicalMusic,
+            affectedTrackIds = remappedTrackIds.keys + originalTrackId + canonicalTrackId,
+        )
+        if (refreshed.playlist != _playlist.value) {
+            _playlist.value = refreshed.playlist
+        }
+        if (refreshed.currentMusic != _music.value) {
+            _music.value = refreshed.currentMusic
+            refreshed.currentMusic?.let { publishCurrentTrackInfo(it) }
+        }
+    }
+
     private fun savePlayMode(playMode: PlayMode) {
         _playMode.value = playMode
         _scope.launch {
@@ -384,6 +405,52 @@ internal data class PlaybackQueueNavigation(
             onComplete = null,
         )
     }
+}
+
+internal data class PreparedTrackRuntimeState(
+    val currentMusic: Music?,
+    val playlist: Playlist?,
+)
+
+internal fun refreshPreparedTrackRuntimeState(
+    currentMusic: Music?,
+    playlist: Playlist?,
+    canonicalMusic: Music,
+    affectedTrackIds: Set<Long>,
+): PreparedTrackRuntimeState {
+    val canonicalTrackId = canonicalMusic.meta.id.value
+    val refreshedCurrent = if (currentMusic != null && currentMusic.meta.id.value in affectedTrackIds) {
+        canonicalMusic.copy(
+            meta = canonicalMusic.meta.copy(order = currentMusic.meta.order),
+            loc = currentMusic.loc,
+            cover = canonicalMusic.cover ?: currentMusic.cover,
+        )
+    } else {
+        currentMusic
+    }
+    val refreshedPlaylist = playlist?.let { value ->
+        val musics = value.musics.map { queued ->
+            if (queued.meta.id.value !in affectedTrackIds) {
+                queued
+            } else {
+                MusicAbstract(
+                    meta = canonicalMusic.meta.copy(
+                        id = MusicId(canonicalTrackId),
+                        order = queued.meta.order,
+                    ),
+                    cover = canonicalMusic.cover ?: queued.cover,
+                )
+            }
+        }
+        if (musics == value.musics) value else value.copy(
+            abstr = value.abstr.copy(musicCount = musics.size.toULong()),
+            musics = musics,
+        )
+    }
+    return PreparedTrackRuntimeState(
+        currentMusic = refreshedCurrent,
+        playlist = refreshedPlaylist,
+    )
 }
 
 internal fun playbackQueueNavigation(

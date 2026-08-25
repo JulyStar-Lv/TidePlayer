@@ -35,7 +35,10 @@ fun StorageSettingsSection(
     }
 
     SettingsPageLayout(title = stringResource(Res.string.settings_storage_title), onBack = onBack) {
-        SmallTitle(text = stringResource(Res.string.settings_usage_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_usage_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             BasicComponent(
                 title = stringResource(Res.string.settings_usage_audio),
@@ -73,7 +76,10 @@ fun StorageSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_cleanup_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_cleanup_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             BasicComponent(
                 title = stringResource(Res.string.settings_clear_audio),
@@ -98,7 +104,10 @@ fun StorageSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_data_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_data_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             if (state.capabilities.diagnosticsExportSupported) {
                 ArrowPreference(
@@ -118,7 +127,10 @@ fun StorageSettingsSection(
         }
 
         if (state.capabilities.settingsBackupSupported) {
-            SmallTitle(text = stringResource(Res.string.settings_backup_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_backup_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 SwitchPreference(
                     title = stringResource(Res.string.settings_backup_appearance),
@@ -251,7 +263,10 @@ fun StorageSettingsSection(
             }
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_danger_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_danger_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             BasicComponent(
                 title = stringResource(Res.string.settings_clear_all_data),

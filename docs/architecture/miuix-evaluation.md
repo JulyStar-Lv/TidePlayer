@@ -1,6 +1,6 @@
 # Miuix native UI ownership
 
-Date: 2026-08-23
+Date: 2026-08-24
 
 Miuix is TidePlayer's generic UI component system. Feature presentation code
 uses its v0.9.3 controls directly; TidePlayer components exist only where the
@@ -46,6 +46,7 @@ feedback controls.
 | --- | --- | --- | --- |
 | `AppPreference`, `AppArrowPreference`, `AppSwitchPreference`, `AppSliderPreference`, `AppDropdownPreference` | `BasicComponent`, `ArrowPreference`, `SwitchPreference`, `SliderPreference`, `OverlayDropdownPreference` | DELETE | No business behavior; they only overrode margins and dividers. |
 | Settings rows and groups | Preferences, `BasicComponent`, `SmallTitle`, `Card`, `Scaffold`, `TopAppBar`, `SmallTopAppBar` | DIRECT_MIUix | Settings uses native defaults and native Miuix app bars; no settings screen uses the liquid-glass action bar. |
+| `Form.kt` and `AppMiuixTheme` | Miuix `TextField`, `Switch`, and root `MiuixTheme` | DELETE | Both only hid Miuix APIs. Playlists call `TextField` directly, and the source editor keeps only source-scoped password/error composition where v0.9.3 has no single error-field semantic. |
 | source and plugin configuration switches | `SwitchPreference` | DIRECT_MIUix | Removed hand-written rows, divider handling, disabled alpha, and switch interaction forwarding. |
 | `AppSnackbar*` | `SnackbarHostState`, `SnackbarHost`, `SnackbarDuration`, `SnackbarResult` | DELETE | Miuix owns queueing and result types. |
 | `DesignCheckbox`, `CompatCheckbox` | `Checkbox` / `CheckboxPreference` | DIRECT_MIUix | The old code duplicated checked drawing and checkbox semantics. |
@@ -66,11 +67,12 @@ feedback controls.
 | generic `DesignDialog` | `OverlayDialog` | DIRECT_MIUix | Deleted; confirmation, input, settings, and player source dialogs use Miuix overlays directly. |
 | HSV theme picker shell | `ColorPicker`, `TextField`, `OverlayDialog` | PRODUCT_SPECIFIC | Saved seeds, presets, preview, and persistence are theme-domain behavior; the HEX input uses Miuix `TextField`. |
 | Navigation rail/sidebar | `NavigationRail`, `NavigationRailItem`, `NavigationRailState` | DIRECT_MIUix | `HomeNavigationRail` is the sole desktop rail; it uses native state to select collapsed or expanded Miuix presentation and `vectorResource` for existing vector resources. |
-| Bottom navigation | `NavigationBar`, `NavigationBarItem` | DIRECT_MIUix | Existing vector resources use `vectorResource`; MiniPlayer remains above the native navigation bar. |
+| Home bottom navigation | none | PRODUCT_SPECIFIC | `HomeFloatingNavigationBar` is private to the music home chrome and preserves the MiniPlayer/tab hierarchy. Its icons, text, colors, and accessibility semantics are direct Miuix primitives; it is not a reusable navigation framework. |
 | queue drag and plugin configuration overlays | none | TEMP_EXCEPTION | v0.9.3 has no equivalent for the draggable queue sheet or the plugin editor's large-screen layout. `OverlayPresentationSupport` and `PlatformOverlayHost` only supply that missing platform/layout behavior. |
 | playback slider and playback controls | none | PRODUCT_SPECIFIC | Buffered progress, seek handling, transport controls, and playback thumb are music behavior. |
+| `MusicCover`, `ImportCover`, artwork media helpers | none | PRODUCT_SPECIFIC | Cover rendering, fallback art, artwork palette transition, and shared artwork elements are music/import content presentation rather than generic cards or image controls. |
 | track-number badge | none | PRODUCT_SPECIFIC | Track sequence and active-playback state are music semantics; the retained `TrackNumberBadge` is not a generic list-row framework. |
-| MiniPlayer, Now Playing, lyrics, artwork, queue drag, EQ/DSP, visualization, `LiquidGlass*` / `StickyHeader*` | none | PRODUCT_SPECIFIC | These are TidePlayer's product UI, not generic component styling. The retained liquid-glass scene and sticky-header coordination are explicitly named for that visual behavior rather than exposing a generic `Design*` API. |
+| MiniPlayer, Now Playing, lyrics, artwork, queue drag, EQ/DSP, visualization, `LiquidGlass*` / `StickyHeader*` | none | PRODUCT_SPECIFIC | These are TidePlayer's product UI, not generic component styling. The retained liquid-glass scene and sticky-header coordination are explicitly named for that visual behavior rather than exposing a generic `Design*` API. DSP parameter controls use native `SliderPreference` and retain only DSP-specific delayed commit behavior. |
 | breadcrumb path navigation | none in v0.9.3 | TEMP_EXCEPTION | `BreadcrumbBar` is not in the fixed API baseline. |
 
 ## Rules
@@ -88,26 +90,53 @@ feedback controls.
 ## Latest verification
 
 - `:shared:compileDebugKotlinAndroid`, `:shared:compileKotlinIosSimulatorArm64`, and
-  `:desktopApp:compileKotlinDesktop` passed together on 2026-08-23.
+  `:desktopApp:compileKotlinDesktop` passed together on 2026-08-24. The same
+  aggregate command also ran `:core:presentation:desktopTest` successfully.
 - The current Settings pass directly migrated the remaining generic controls in
-  playback, storage, source management, and diagnostics: groups now use
+  playback, storage, source management, diagnostics, lyrics, networking,
+  equalizer, and DSP: groups now use
   `SmallTitle` + `Card`; switches, selections, sliders, informational rows,
   and destructive actions use their corresponding native Miuix preference or
-  basic component. Source-account scanning/editor cards remain product-specific
-  compositions. `:feature:settings:compileKotlinDesktop` passed after this
-  pass on 2026-08-23.
-- `:shared:desktopTest` currently runs 506 tests, with two unrelated data-layer failures:
-  `AppPreferencesRepositoryTest.remapsFavoritesAndPersistedPlaybackSession` and
-  `TrackDuplicateMergerTest.strongRecordingIdCanMergeVersionedTitlesAndLockedMetadataWins`.
-  They are outside this UI-only change scope and are not masked by changing preference,
-  database, or metadata business logic.
+  basic component. All temporary `Settings*Row`/`SettingsSelectOption` APIs
+  have been deleted. `Form.kt` and the unused `AppMiuixTheme` layer were also
+  deleted; playlists, sources, and Settings compile against native Miuix
+  controls. Source-account scanning/editor cards remain product-specific
+  compositions. `:feature:settings:compileKotlinDesktop`,
+  `:feature:sources:compileKotlinDesktop`, and
+  `:feature:playlist:compileKotlinDesktop` passed after this pass on
+  2026-08-24. The source feature explicitly depends on `miuix-preference` for
+  its direct `SwitchPreference` use.
+- `:shared:desktopTest` passed on 2026-08-24. UI convergence did not require
+  modifying preference, database, metadata, playback, or lyric business logic.
 
 ## Explicit default overrides
 
-The remaining intentional overrides are limited to product behavior: artwork
-and Liquid Glass surfaces, playback buffered progress/thumb treatment,
-  brand/theme-seed preview, and named wide editor overlays. Ordinary settings,
-cards, dialogs, sheets, controls, and navigation must not retain old Tide
-padding, gradients, radii, or divider masking. Native Miuix dialogs are used for
-ordinary overlays; the two explicitly listed missing-capability overlays are not
-approved as a new generic dialog system.
+The remaining intentional overrides are audited below. Ordinary Settings,
+cards, dialogs, sheets, and controls do not retain old Tide padding,
+gradients, radii, or divider masking. The Settings root uses a compact
+`BasicComponent` composition because Miuix 0.9.3 preferences bind their title
+to the app's global `headline1` style.
+
+| Location | Override | Why it remains |
+| --- | --- | --- |
+| `core/presentation/theme/Theme.kt` | Miuix colors/text styles and seed-transition animation | Root-level light/dark, manual/artwork color seed, and system-bar integration; this is the app theme rather than a replacement control API. |
+| `core/presentation/media/ArtworkImage.kt`, `PlayerBackground.kt`, `FavoritesPlaylistArtwork.kt`, playlist shared artwork | artwork fades, collage gradients, and artwork corner radii | Artwork rendering and cross-screen artwork continuity are music content behavior. |
+| `PlaybackSlider.kt`, `PlaybackControlButton.kt`, `PlayerChromeComponents.kt`, `nowplaying/*` | buffered seek track, playback geometry, Liquid Glass, and player animation | Player-specific interaction/drawing with no equivalent Miuix control. |
+| `OverlayPresentationSupport.kt`, `CustomAnchoredDraggableState.kt`, `QueueDialog.kt` | drag/settle animation and wide overlay geometry | The fixed Miuix version lacks the queue drag sheet and large-screen editor layout. |
+| `SourceSettingsSection.kt` and source editor | scan/status gradients, progress animation, selected save action | Source scan/account state and source-editor workflow are domain state; basic fields and switches remain native Miuix controls. |
+| `ImportScreen.kt` | three content-driven desktop minimum widths | Long source/file labels require a bounded wide layout; no Miuix visual token is overridden. |
+| `AlbumScreen.kt`, `PlaylistScreen.kt`, `LocalizedSourceEditorScreen.kt` | contextual icon action color | Direct Miuix `IconButton` calls indicate the current editing/save state; there is no local button variant API. |
+| `SettingsRows.kt` | native Miuix primary/error `ButtonDefaults` colors | Confirm/save actions express their native Miuix semantic color; they do not recreate a Tide button palette. |
+| `SettingsScreen.kt` | Miuix `BasicComponent` title/summary text and compact inside margin | The Miuix 0.9.3 `ArrowPreference` cannot select a title style; this root-page composition keeps native Miuix semantics while preventing the global display headline from inflating every entry. |
+| `BottomBar.kt` | private home tab geometry and selected-state rendering | This is the one product navigation surface coupled to MiniPlayer; it uses Miuix `Icon` and `Text`, and does not expose a reusable component API. |
+
+Native Miuix dialogs are used for ordinary overlays; the two explicitly listed
+missing-capability overlays are not approved as a new generic dialog system.
+
+## Component footprint
+
+For the current checkout's final cleanup diff, the component package changed
+from 17 Kotlin files / 2,264 lines at `HEAD` to 16 Kotlin files / 2,125 lines:
+`Form.kt` was deleted. This is a conservative, reproducible snapshot count;
+the broader wrapper removals listed in the matrix were already present in the
+checked-out baseline and are therefore not attributed to this final diff.

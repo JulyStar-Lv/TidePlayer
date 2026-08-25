@@ -1,25 +1,18 @@
 package io.github.julystar.musicapp.plugin.management
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,19 +26,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -59,18 +48,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
-import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetDefaults
-import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetHandle
 import io.github.julystar.musicapp.core.presentation.components.OverlayPresentationDefaults
-import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayHost
-import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayNavigationBarStyle
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.resolveOverlayMaxHeight
-import io.github.julystar.musicapp.core.presentation.components.shouldDismissOverlayBottomSheet
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import androidx.compose.ui.graphics.Color
@@ -86,7 +70,6 @@ import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.write
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -96,7 +79,6 @@ import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.core.presentation.generated.resources.Res as CoreRes
-import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.core.presentation.generated.resources.icon_deleteseep
 import musicapp.core.presentation.generated.resources.icon_folder
@@ -116,12 +98,12 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -130,11 +112,10 @@ import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.roundToInt
 
 @Composable
 fun PluginSettingsRoot(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     manager: PluginManager = koinInject(),
 ) {
     val plugins by manager.plugins().collectAsState(initial = emptyList())
@@ -150,6 +131,7 @@ fun PluginSettingsRoot(
     val operationFailedText = pluginUiText("Plugin operation failed")
     val noInstallableText = pluginUiText("No installable plugin found in ZIP")
     val validationFailedText = pluginUiText("0 plugin entries failed validation")
+    val pageTitle = pluginUiText("Metadata plugins")
 
     LaunchedEffect(plugins.map { it.id to it.updatedAt }) {
         plugins.forEach { plugin ->
@@ -255,16 +237,10 @@ fun PluginSettingsRoot(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            SmallTopAppBar(
-                title = pluginUiText("Metadata plugins"),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(CoreRes.drawable.icon_chevron_left),
-                            contentDescription = null,
-                        )
-                    }
-                },
+            LiquidGlassActionBar(
+                title = pageTitle,
+                collapseFraction = 1f,
+                onNavigateBack = onBack,
             )
         },
     ) { contentPadding ->
@@ -275,34 +251,40 @@ fun PluginSettingsRoot(
                 .padding(contentPadding)
                 .padding(
                     start = DesignTokens.spacing.pageCompact,
-                    top = 8.dp,
+                    top = 0.dp,
                     end = DesignTokens.spacing.pageCompact,
                     bottom = 8.dp + bottomContentInset,
                 ),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             PluginOverviewCard(
                 installedCount = plugins.size,
                 enabledCount = plugins.count(PluginSummary::enabled),
             )
 
-            SmallTitle(text = pluginUiText("Installed plugins"))
-            Card {
-                if (plugins.isEmpty()) {
-                    EmptyPluginsRow()
-                } else {
-                    plugins.forEach { plugin ->
-                        PluginListRow(
-                            plugin = plugin,
-                            busy = busy,
-                            onConfigure = { editingPluginId = plugin.id },
-                            onUninstall = { pendingUninstall = plugin },
-                            onEnabledChange = { enabled ->
-                                runOperation {
-                                    manager.setEnabled(plugin.id, enabled)
-                                }
-                            },
-                        )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallTitle(
+                    text = pluginUiText("Installed plugins"),
+                    textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    insideMargin = pluginSectionTitleMargin,
+                )
+                Card {
+                    if (plugins.isEmpty()) {
+                        EmptyPluginsRow()
+                    } else {
+                        plugins.forEach { plugin ->
+                            PluginListRow(
+                                plugin = plugin,
+                                busy = busy,
+                                onConfigure = { editingPluginId = plugin.id },
+                                onUninstall = { pendingUninstall = plugin },
+                                onEnabledChange = { enabled ->
+                                    runOperation {
+                                        manager.setEnabled(plugin.id, enabled)
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -346,13 +328,19 @@ fun PluginSettingsRoot(
             )
 
             operationError?.let { message ->
-                SmallTitle(text = pluginUiText("Status"))
-                Card {
-                    BasicComponent(
-                        title = pluginUiText("Plugin operation failed"),
-                        summary = message,
-                        titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SmallTitle(
+                        text = pluginUiText("Status"),
+                        textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        insideMargin = pluginSectionTitleMargin,
                     )
+                    Card {
+                        BasicComponent(
+                            title = pluginUiText("Plugin operation failed"),
+                            summary = message,
+                            titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -362,101 +350,50 @@ fun PluginSettingsRoot(
 
 private enum class PluginImportState { Idle, Selected, Installing, Success }
 
+private val pluginSectionTitleMargin = PaddingValues(
+    start = 8.dp,
+    top = 12.dp,
+    end = 8.dp,
+)
+
 // ── Page Components ──
 
 @Composable
 private fun PluginOverviewCard(installedCount: Int, enabledCount: Int) {
-    val shape = RoundedCornerShape(24.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .border(1.dp, MiuixTheme.colorScheme.primary.copy(alpha = 0.20f), shape)
-            .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.06f))
-            .padding(20.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(CoreRes.drawable.icon_settings_puzzle),
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = pluginUiText("Metadata providers"),
-                        color = MiuixTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        style = MiuixTheme.textStyles.body1,
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SmallTitle(
+            text = pluginUiText("Metadata providers"),
+            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            insideMargin = pluginSectionTitleMargin,
+        )
+        Card {
+            BasicComponent(
+                title = "Lyrico API v1–v4",
+                summary = buildString {
+                    append(
+                        pluginUiText(
+                            "Enabled plugins are available for manual lookup. Automatic and batch access can be granted separately.",
+                        ),
                     )
-                    Text(
-                        text = "Lyrico API v1–v4",
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MiuixTheme.colorScheme.surfaceContainer)
-                            .padding(horizontal = 10.dp, vertical = 2.dp),
+                    append('\n')
+                    append(installedCount)
+                    append(' ')
+                    append(pluginUiText("installed"))
+                    append(" · ")
+                    append(enabledCount)
+                    append(' ')
+                    append(pluginUiText("enabled"))
+                },
+                startAction = {
+                    Icon(
+                        painter = painterResource(CoreRes.drawable.icon_settings_puzzle),
+                        contentDescription = null,
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
                     )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = pluginUiText("Enabled plugins are available for manual lookup. Automatic and batch access can be granted separately."),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StatChip(label = pluginUiText("installed"), value = installedCount.toString())
-                    StatChip(
-                        label = pluginUiText("enabled"),
-                        value = enabledCount.toString(),
-                        accentColor = DesignPalette.SupportGreen,
-                    )
-                }
-            }
+                },
+            )
         }
-    }
-}
-
-@Composable
-private fun StatChip(label: String, value: String, accentColor: Color = MiuixTheme.colorScheme.onSurface) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = value,
-            color = accentColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            fontSize = 11.sp,
-        )
     }
 }
 
@@ -470,51 +407,11 @@ private fun PluginListRow(
 ) {
     val enabled = plugin.enabled
     var moreMenuExpanded by remember(plugin.id) { mutableStateOf(false) }
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 82.dp)
-                .alpha(if (enabled) 1f else 0.55f)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = plugin.name,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 17.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    val indicatorColor = if (enabled) {
-                        DesignPalette.SupportGreen
-                    } else {
-                        MiuixTheme.colorScheme.outline
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(indicatorColor),
-                    )
-                }
-                Text(
-                    text = "${plugin.description} · v${plugin.versionName}",
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+    BasicComponent(
+        title = plugin.name,
+        summary = "${plugin.description} · v${plugin.versionName}",
+        modifier = Modifier.alpha(if (enabled) 1f else 0.55f),
+        endActions = {
             Switch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
@@ -571,8 +468,8 @@ private fun PluginListRow(
                     )
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -624,93 +521,66 @@ private fun PluginImportCard(
     onCancel: () -> Unit,
     onInstall: () -> Unit,
 ) {
-    SmallTitle(text = pluginUiText("Import"))
-    Card {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 72.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SmallTitle(
+            text = pluginUiText("Import"),
+            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            insideMargin = pluginSectionTitleMargin,
+        )
+        Card {
             val isSuccess = state == PluginImportState.Success
-            val indicatorBg = if (isSuccess) {
-                DesignPalette.SupportGreen.copy(alpha = 0.12f)
-            } else {
-                MiuixTheme.colorScheme.surfaceContainer
-            }
             val indicatorTint = if (isSuccess) DesignPalette.SupportGreen
             else MiuixTheme.colorScheme.primary
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(indicatorBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(
-                        if (isSuccess) CoreRes.drawable.icon_ok
-                        else CoreRes.drawable.icon_folder,
-                    ),
-                    contentDescription = null,
-                    tint = indicatorTint,
-                    modifier = Modifier.size(20.dp),
-                )
+            val title = when (state) {
+                PluginImportState.Idle -> pluginUiText("Import local ZIP")
+                PluginImportState.Success -> pluginUiText("Plugin installed")
+                else -> archiveName.orEmpty()
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                val title = when (state) {
-                    PluginImportState.Idle -> pluginUiText("Import local ZIP")
-                    PluginImportState.Success -> pluginUiText("Plugin installed")
-                    else -> archiveName.orEmpty()
-                }
-                Text(
-                    text = title,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val subtitle = when (state) {
-                    PluginImportState.Idle -> pluginUiText("Archives are validated before an existing version is replaced")
-                    PluginImportState.Selected -> pluginUiText("Ready to validate and install")
-                    PluginImportState.Installing -> pluginUiText("Validating archive and plugin manifest…")
-                    PluginImportState.Success -> pluginUiText("Imported plugin is disabled until you review it")
-                }
-                Text(
-                    text = subtitle,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 11.sp,
-                    lineHeight = 16.sp,
-                )
+            val subtitle = when (state) {
+                PluginImportState.Idle -> pluginUiText("Archives are validated before an existing version is replaced")
+                PluginImportState.Selected -> pluginUiText("Ready to validate and install")
+                PluginImportState.Installing -> pluginUiText("Validating archive and plugin manifest…")
+                PluginImportState.Success -> pluginUiText("Imported plugin is disabled until you review it")
             }
-            when (state) {
-                PluginImportState.Idle -> TextButton(
-                    text = pluginUiText("Choose ZIP"),
-                    enabled = !busy,
-                    onClick = onChooseArchive,
-                )
-                PluginImportState.Selected -> Row {
-                    TextButton(
-                        text = pluginUiText("Cancel"),
-                        enabled = !busy,
-                        onClick = onCancel,
+            BasicComponent(
+                title = title,
+                summary = subtitle,
+                startAction = {
+                    Icon(
+                        painter = painterResource(
+                            if (isSuccess) CoreRes.drawable.icon_ok
+                            else CoreRes.drawable.icon_folder,
+                        ),
+                        contentDescription = null,
+                        tint = indicatorTint,
+                        modifier = Modifier.size(24.dp),
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(
-                        text = pluginUiText("Install"),
-                        enabled = !busy,
-                        onClick = onInstall,
-                    )
-                }
-                PluginImportState.Installing -> CircularProgressIndicator(size = 16.dp)
-                PluginImportState.Success -> {} // success icon only
-            }
+                },
+                endActions = {
+                    when (state) {
+                        PluginImportState.Idle -> TextButton(
+                            text = pluginUiText("Choose ZIP"),
+                            enabled = !busy,
+                            onClick = onChooseArchive,
+                        )
+                        PluginImportState.Selected -> {
+                            TextButton(
+                                text = pluginUiText("Cancel"),
+                                enabled = !busy,
+                                onClick = onCancel,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(
+                                text = pluginUiText("Install"),
+                                enabled = !busy,
+                                onClick = onInstall,
+                            )
+                        }
+                        PluginImportState.Installing -> CircularProgressIndicator(size = 16.dp)
+                        PluginImportState.Success -> Unit
+                    }
+                },
+            )
         }
     }
 }
@@ -729,9 +599,6 @@ private fun PluginConfigurationDialog(
     onDismiss: () -> Unit,
 ) {
     val dialogVisible = plugin != null
-    val visibilityState = remember { MutableTransitionState(false) }
-    visibilityState.targetState = dialogVisible
-
     var retainedPlugin by remember { mutableStateOf(plugin) }
     var retainedValues by remember { mutableStateOf(values) }
     SideEffect {
@@ -741,17 +608,8 @@ private fun PluginConfigurationDialog(
         }
     }
 
-    if (!visibilityState.currentState && !visibilityState.targetState) return
     val dialogPlugin = plugin ?: retainedPlugin ?: return
     val dialogValues = if (plugin != null) values else retainedValues
-    val fields = dialogPlugin.configFields
-    val markdownFields = fields.filter { field ->
-        field.type == "markdown" && isPluginConfigFieldVisible(field, dialogValues)
-    }
-    val visibleEditable = fields.filter { field ->
-        field.type != "markdown" && isPluginConfigFieldVisible(field, dialogValues)
-    }
-    val cardShape = RoundedCornerShape(22.dp)
     val windowSize = LocalWindowInfo.current.containerDpSize
     val compact = windowSize.isSpecified &&
         isCompactPluginConfigurationDialog(windowSize.width)
@@ -759,319 +617,176 @@ private fun PluginConfigurationDialog(
         requestedMaxHeight = null,
         viewportHeight = windowSize.height,
     )
-    val verticalAlign = if (compact) Alignment.BottomCenter else Alignment.Center
-    val dialogRadius = DesignTokens.shapes.lg
-    val sheetShape = if (compact) {
-        RoundedCornerShape(
-            topStart = dialogRadius,
-            topEnd = dialogRadius,
-            bottomStart = 0.dp,
-            bottomEnd = 0.dp,
-        )
-    } else {
-        RoundedCornerShape(dialogRadius)
-    }
-    val contentPadding = if (compact) {
-        Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 24.dp)
-    } else {
-        Modifier.padding(24.dp)
-    }
-    val density = LocalDensity.current
-    val dismissDistancePx = with(density) { OverlayBottomSheetDefaults.dismissDistance.toPx() }
-    val dismissVelocityPxPerSecond = with(density) { OverlayBottomSheetDefaults.dismissVelocity.toPx() }
-    val dragAnimationScope = rememberCoroutineScope()
-    var sheetDragOffsetPx by remember { mutableFloatStateOf(0f) }
-    var dragAnimationJob by remember { mutableStateOf<Job?>(null) }
-    val sheetDraggableState = rememberDraggableState { deltaPx ->
-        sheetDragOffsetPx = (sheetDragOffsetPx + deltaPx).coerceAtLeast(0f)
-    }
 
-    LaunchedEffect(dialogPlugin.id, dialogVisible) {
-        if (dialogVisible) sheetDragOffsetPx = 0f
-    }
-
-    val compactHeaderDragModifier = if (compact) {
-        Modifier.draggable(
-            state = sheetDraggableState,
-            orientation = Orientation.Vertical,
-            enabled = dialogVisible,
-            onDragStarted = {
-                dragAnimationJob?.cancel()
-            },
-            onDragStopped = { velocity ->
-                if (
-                    shouldDismissOverlayBottomSheet(
-                        dragOffsetPx = sheetDragOffsetPx,
-                        velocityPxPerSecond = velocity,
-                        distanceThresholdPx = dismissDistancePx,
-                        velocityThresholdPxPerSecond = dismissVelocityPxPerSecond,
-                    )
-                ) {
-                    onDismiss()
-                } else {
-                    dragAnimationJob?.cancel()
-                    dragAnimationJob = dragAnimationScope.launch {
-                        animate(
-                            initialValue = sheetDragOffsetPx,
-                            targetValue = 0f,
-                            animationSpec = spring(),
-                        ) { value, _ ->
-                            sheetDragOffsetPx = value
-                        }
-                    }
-                }
-            },
-        )
-    } else {
-        Modifier
-    }
-
-    PlatformOverlayHost(
-        onDismissRequest = {
-            if (dialogVisible) onDismiss()
-        },
-        navigationBarStyle = if (compact) {
-            PlatformOverlayNavigationBarStyle.Surface
-        } else {
-            PlatformOverlayNavigationBarStyle.Dimmed
-        },
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
+    if (compact) {
+        OverlayBottomSheet(
+            show = dialogVisible,
+            modifier = Modifier.heightIn(max = dialogMaxHeight),
+            title = dialogPlugin.name,
+            onDismissRequest = onDismiss,
         ) {
-            AnimatedVisibility(
-                visibleState = visibilityState,
-                modifier = Modifier.fillMaxSize(),
-                enter = OverlayPresentationDefaults.scrimEnterTransition(),
-                exit = OverlayPresentationDefaults.scrimExitTransition(),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(OverlayPresentationDefaults.scrimColor)
-                        .clickable(
-                            enabled = dialogVisible,
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                        ) { onDismiss() },
-                )
-            }
-
-            AnimatedVisibility(
+            PluginConfigurationContent(
+                plugin = dialogPlugin,
+                values = dialogValues,
                 visible = dialogVisible,
-                modifier = Modifier.align(verticalAlign),
-                enter = if (compact) {
-                    OverlayBottomSheetDefaults.surfaceEnterTransition()
-                } else {
-                    OverlayPresentationDefaults.surfaceEnterTransition()
-                },
-                exit = if (compact) {
-                    OverlayBottomSheetDefaults.surfaceExitTransition()
-                } else {
-                    OverlayPresentationDefaults.surfaceExitTransition()
-                },
-            ) {
+                busy = busy,
+                compact = true,
+                onValuesChange = onValuesChange,
+                onPermissionsChange = onPermissionsChange,
+                onSave = onSave,
+                onClearCache = onClearCache,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = dialogMaxHeight - 56.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            )
+        }
+        return
+    }
+
+    OverlayDialog(
+        show = dialogVisible,
+        title = dialogPlugin.name,
+        onDismissRequest = onDismiss,
+    ) {
+        PluginConfigurationContent(
+            plugin = dialogPlugin,
+            values = dialogValues,
+            visible = dialogVisible,
+            busy = busy,
+            compact = false,
+            onValuesChange = onValuesChange,
+            onPermissionsChange = onPermissionsChange,
+            onSave = onSave,
+            onClearCache = onClearCache,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = dialogMaxHeight - 80.dp)
+                .verticalScroll(rememberScrollState()),
+        )
+    }
+}
+
+@Composable
+private fun PluginConfigurationContent(
+    plugin: PluginSummary,
+    values: Map<String, String>,
+    visible: Boolean,
+    busy: Boolean,
+    compact: Boolean,
+    onValuesChange: (Map<String, String>) -> Unit,
+    onPermissionsChange: (automatic: Boolean, batch: Boolean) -> Unit,
+    onSave: () -> Unit,
+    onClearCache: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val markdownFields = plugin.configFields.filter { field ->
+        field.type == "markdown" && isPluginConfigFieldVisible(field, values)
+    }
+    val editableFields = plugin.configFields.filter { field ->
+        field.type != "markdown" && isPluginConfigFieldVisible(field, values)
+    }
+    val cardShape = RoundedCornerShape(22.dp)
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        markdownFields.forEach { field ->
+            PluginMarkdownCard(
+                field = field,
+                shape = cardShape,
+                compact = compact,
+            )
+        }
+
+        if (editableFields.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PluginDialogSectionLabel(pluginUiText("Configuration"))
                 Column(
                     modifier = Modifier
-                        .widthIn(max = 520.dp)
                         .fillMaxWidth()
-                        .then(
-                            if (compact) {
-                                Modifier.height(dialogMaxHeight)
-                            } else {
-                                Modifier.heightIn(max = dialogMaxHeight)
-                            },
-                        )
-                        .offset {
-                            IntOffset(
-                                x = 0,
-                                y = if (compact) sheetDragOffsetPx.roundToInt() else 0,
-                            )
-                        }
-                        .shadow(DesignTokens.elevation.overlay, sheetShape)
-                        .clip(sheetShape)
-                        .background(MiuixTheme.colorScheme.background)
+                        .clip(cardShape)
                         .border(
-                            width = 1.dp,
-                            color = MiuixTheme.colorScheme.outline.copy(alpha = 0.15f),
-                            shape = sheetShape,
+                            1.dp,
+                            MiuixTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            cardShape,
                         )
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                        ) { /* consume clicks */ }
-                        .then(
-                            if (compact) Modifier.navigationBarsPadding() else Modifier,
-                        ),
+                        .background(MiuixTheme.colorScheme.surfaceContainer),
                 ) {
-                    if (compact) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .then(compactHeaderDragModifier)
-                                .padding(horizontal = 20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            OverlayBottomSheetHandle()
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 36.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = dialogPlugin.name,
-                                    color = MiuixTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 19.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState())
-                            .then(contentPadding),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        if (!compact) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        painter = painterResource(CoreRes.drawable.icon_settings_puzzle),
-                                        contentDescription = null,
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = dialogPlugin.name,
-                                    color = MiuixTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 19.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-
-                        markdownFields.forEach { field ->
-                            PluginMarkdownCard(
-                                field = field,
-                                shape = cardShape,
-                                compact = compact,
-                            )
-                        }
-
-                        if (visibleEditable.isNotEmpty()) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                PluginDialogSectionLabel(pluginUiText("Configuration"))
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(cardShape)
-                                        .border(
-                                            1.dp,
-                                            MiuixTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                            cardShape,
-                                        )
-                                        .background(MiuixTheme.colorScheme.surfaceContainer),
-                                ) {
-                                    visibleEditable.forEachIndexed { index, field ->
-                                        PluginConfigFieldCardRow(
-                                            field = field,
-                                            value = dialogValues[field.key].orEmpty(),
-                                            enabled = dialogVisible && !busy,
-                                            onValueChange = { value ->
-                                                onValuesChange(dialogValues + (field.key to value))
-                                            },
-                                            showDivider = index != visibleEditable.lastIndex,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            PluginDialogSectionLabel(pluginUiText("Additional access"))
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(cardShape)
-                                    .border(
-                                        1.dp,
-                                        MiuixTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                        cardShape,
-                                    )
-                                    .background(MiuixTheme.colorScheme.surfaceContainer),
-                            ) {
-                                SwitchPreference(
-                                    title = pluginUiText("Automatic lookup"),
-                                    summary = pluginUiText("Use during background metadata refresh"),
-                                    checked = dialogPlugin.allowAutomaticLookup,
-                                    enabled = dialogVisible && dialogPlugin.enabled && !busy,
-                                    onCheckedChange = { value ->
-                                        onPermissionsChange(value, dialogPlugin.allowBatchLookup)
-                                    },
-                                )
-                                SwitchPreference(
-                                    title = pluginUiText("Batch lookup"),
-                                    summary = pluginUiText("Use when updating multiple tracks"),
-                                    checked = dialogPlugin.allowBatchLookup,
-                                    enabled = dialogVisible && dialogPlugin.enabled && !busy,
-                                    onCheckedChange = { value ->
-                                        onPermissionsChange(dialogPlugin.allowAutomaticLookup, value)
-                                    },
-                                )
-                            }
-                        }
-
-                        Column(
-                            modifier = Modifier.padding(top = 4.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(
-                                        MiuixTheme.colorScheme.outline.copy(alpha = 0.12f),
-                                    ),
-                            )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 20.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                PluginClearCacheButton(
-                                    enabled = dialogVisible && !busy,
-                                    onClick = onClearCache,
-                                )
-                                TextButton(
-                                    text = pluginUiText(if (visibleEditable.isNotEmpty()) "Save" else "Done"),
-                                    enabled = dialogVisible && !busy,
-                                    onClick = onSave,
-                                )
-                            }
-                        }
+                    editableFields.forEachIndexed { index, field ->
+                        PluginConfigFieldCardRow(
+                            field = field,
+                            value = values[field.key].orEmpty(),
+                            enabled = visible && !busy,
+                            onValueChange = { value ->
+                                onValuesChange(values + (field.key to value))
+                            },
+                            showDivider = index != editableFields.lastIndex,
+                        )
                     }
                 }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            PluginDialogSectionLabel(pluginUiText("Additional access"))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(cardShape)
+                    .border(
+                        1.dp,
+                        MiuixTheme.colorScheme.outline.copy(alpha = 0.15f),
+                        cardShape,
+                    )
+                    .background(MiuixTheme.colorScheme.surfaceContainer),
+            ) {
+                SwitchPreference(
+                    title = pluginUiText("Automatic lookup"),
+                    summary = pluginUiText("Use during background metadata refresh"),
+                    checked = plugin.allowAutomaticLookup,
+                    enabled = visible && plugin.enabled && !busy,
+                    onCheckedChange = { value ->
+                        onPermissionsChange(value, plugin.allowBatchLookup)
+                    },
+                )
+                SwitchPreference(
+                    title = pluginUiText("Batch lookup"),
+                    summary = pluginUiText("Use when updating multiple tracks"),
+                    checked = plugin.allowBatchLookup,
+                    enabled = visible && plugin.enabled && !busy,
+                    onCheckedChange = { value ->
+                        onPermissionsChange(plugin.allowAutomaticLookup, value)
+                    },
+                )
+            }
+        }
+
+        Column(modifier = Modifier.padding(top = 4.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.12f)),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PluginClearCacheButton(
+                    enabled = visible && !busy,
+                    onClick = onClearCache,
+                )
+                TextButton(
+                    text = pluginUiText(if (editableFields.isNotEmpty()) "Save" else "Done"),
+                    enabled = visible && !busy,
+                    onClick = onSave,
+                )
             }
         }
     }

@@ -52,12 +52,12 @@ internal fun designTextStyles(): TextStyles {
         button = designTextStyle(size = 14, lineHeight = 20, weight = FontWeight.SemiBold, fontFamily = sans),
         footnote1 = designTextStyle(size = 12, lineHeight = 16, fontFamily = sans),
         footnote2 = designTextStyle(size = 10, lineHeight = 14, weight = FontWeight.SemiBold, fontFamily = sans),
-        headline1 = designTextStyle(size = 28, lineHeight = 34, weight = FontWeight.Bold, fontFamily = sans),
+        headline1 = designTextStyle(size = 16, lineHeight = 22, weight = FontWeight.Medium, fontFamily = sans),
         headline2 = designTextStyle(size = 22, lineHeight = 28, weight = FontWeight.SemiBold, fontFamily = sans),
         subtitle = designTextStyle(size = 13, lineHeight = 18, fontFamily = sans),
-        title1 = designTextStyle(size = 28, lineHeight = 34, weight = FontWeight.Bold, fontFamily = sans),
+        title1 = designTextStyle(size = 32, lineHeight = 40, weight = FontWeight.Bold, fontFamily = sans),
         title2 = designTextStyle(size = 22, lineHeight = 28, weight = FontWeight.SemiBold, fontFamily = sans),
-        title3 = designTextStyle(size = 16, lineHeight = 22, weight = FontWeight.Medium, fontFamily = sans),
+        title3 = designTextStyle(size = 22, lineHeight = 28, weight = FontWeight.Medium, fontFamily = sans),
         title4 = designTextStyle(size = 14, lineHeight = 20, weight = FontWeight.Medium, fontFamily = sans),
     )
 }

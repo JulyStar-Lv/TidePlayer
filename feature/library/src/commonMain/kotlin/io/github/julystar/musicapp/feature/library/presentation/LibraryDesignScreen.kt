@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +104,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
@@ -170,6 +172,9 @@ fun LibraryDesignScreen(
                 }
             }
         } else {
+            val topAppBarScrollBehavior = MiuixScrollBehavior()
+            val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
+            val pageTitle = localizedLibraryText("Library")
             val pagerState = rememberPagerState(
                 initialPage = primaryLibraryCategories.indexOf(selectedCategory).coerceAtLeast(0),
                 pageCount = { primaryLibraryCategories.size },
@@ -199,9 +204,16 @@ fun LibraryDesignScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
+                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth)
+                    .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
             ) {
-                LibraryMobileHeader(modifier = Modifier.padding(horizontal = pagePadding))
+                TopAppBar(
+                    title = pageTitle,
+                    largeTitle = pageTitle,
+                    color = Color.Transparent,
+                    titleColor = Color.Transparent,
+                    scrollBehavior = topAppBarScrollBehavior,
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 Box(modifier = Modifier.padding(horizontal = pagePadding)) {
                     LibraryMobileTabs(
@@ -268,6 +280,11 @@ fun LibraryDesignScreen(
                     }
                 }
             }
+            LiquidGlassActionBar(
+                title = pageTitle,
+                collapseFraction = actionBarProgress,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
         }
     }
@@ -370,28 +387,6 @@ private val librarySidebarGroups = listOf(
         LibraryDesignCategory.Sources,
     )),
 )
-
-@Composable
-private fun LibraryMobileHeader(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(88.dp),
-        contentAlignment = Alignment.BottomStart,
-    ) {
-        Text(
-            text = localizedLibraryText("Library"),
-            color = MiuixTheme.colorScheme.onBackground,
-            style = MiuixTheme.textStyles.title1.copy(
-                fontSize = 32.sp,
-                lineHeight = 38.sp,
-            ),
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
 
 @Composable
 private fun LibraryMobileTabs(

@@ -29,7 +29,11 @@
     <string name="import_folder_already_imported">已导入</string>
     <string name="import_folder_empty">此文件夹为空</string>
     <string name="import_folder_save">保存</string>
+    <string name="import_folder_save_hint">保存后更新音乐库路径</string>
     <string name="import_folder_retry">重试</string>
+    <string name="import_folder_show_selected">展开已选择文件夹</string>
+    <string name="import_folder_hide_selected">收起已选择文件夹</string>
+    <string name="import_folder_a11y_back">返回</string>
     <string name="import_folder_a11y_enter">%1$s，文件夹，双击进入</string>
     <string name="import_folder_a11y_unselected">%1$s，未选择</string>
     <string name="import_folder_a11y_selected">%1$s，已选择</string>

@@ -121,20 +121,21 @@
     <string name="settings_language_english_summary">重启后使用英文</string>
     <string name="settings_search_hint">搜索设置…</string>
     <string name="settings_personalization_section">个性化</string>
-    <string name="settings_appearance_card_summary">主题、封面取色与应用语言</string>
-    <string name="settings_lyrics_card_summary">音源、对齐、字体、效果与外部输出</string>
-    <string name="settings_playback_card_summary">音频焦点、队列行为、ReplayGain 与 DSP</string>
+    <string name="settings_appearance_card_summary">主题、配色与语言</string>
+    <string name="settings_lyrics_card_summary">音源、样式与显示</string>
+    <string name="settings_playback_card_summary">播放行为与音效</string>
     <string name="settings_library_data_section">音乐库与数据</string>
     <string name="settings_sources_card_summary">%1$d 个音源 · %2$d 个已就绪</string>
     <string name="settings_metadata_plugins">元数据插件</string>
-    <string name="settings_metadata_plugins_summary">导入并配置 Lyrico Plugin API v3 提供方</string>
-    <string name="settings_network_cache_card_summary">流媒体策略、缓存上限、超时与重试</string>
-    <string name="settings_storage_card_summary">已使用 %1$s · 清理、备份与诊断</string>
+    <string name="settings_metadata_plugins_summary">歌词与元数据插件</string>
+    <string name="settings_network_cache_card_summary">网络播放与缓存</string>
+    <string name="settings_storage_card_summary">已用 %1$s · 清理与备份</string>
     <string name="settings_app_info_section">应用与信息</string>
-    <string name="settings_about_card_summary">Tide Player %1$s · 构建、链接、隐私与许可证</string>
+    <string name="settings_about_card_summary">Tide Player %1$s · 应用信息</string>
     <string name="settings_search_empty">没有与“%1$s”匹配的设置</string>
     <string name="diagnostics_title">日志与诊断</string>
-    <string name="diagnostics_card_summary">日志会话、Incident、启动恢复、隐私与导出</string>
+    <string name="diagnostics_overview">概览</string>
+    <string name="diagnostics_card_summary">日志、故障与恢复</string>
     <string name="diagnostics_refresh">刷新诊断信息</string>
     <string name="diagnostics_export">导出并分享脱敏 ZIP</string>
     <string name="diagnostics_startup">启动诊断</string>
@@ -214,6 +215,7 @@
     <string name="settings_keep_screen_on_summary">仅在播放详情页显示时保持屏幕常亮</string>
 
     <string name="settings_sources_section">音源</string>
+    <string name="settings_library_section">音乐库</string>
     <string name="settings_unified_library">统一音乐库</string>
     <string name="settings_unified_library_summary">本地与远程音乐共用一个可搜索索引。暂停音源不会改动原始文件。</string>
     <string name="settings_library_up_to_date">已是最新</string>

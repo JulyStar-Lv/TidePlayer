@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -32,6 +33,7 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Text
@@ -43,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import org.jetbrains.compose.resources.painterResource
@@ -52,10 +55,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
@@ -82,7 +85,6 @@ import musicapp.feature.importing.generated.resources.import_library_empty_title
 import musicapp.feature.importing.generated.resources.import_library_location_label
 import musicapp.feature.importing.generated.resources.import_library_select_current
 import musicapp.feature.importing.generated.resources.import_library_source_label
-import musicapp.feature.importing.generated.resources.import_library_subtitle
 import musicapp.feature.importing.generated.resources.import_library_title
 import musicapp.feature.importing.generated.resources.import_folder_already_imported
 import musicapp.feature.importing.generated.resources.import_folder_clear_selection
@@ -94,10 +96,14 @@ import musicapp.feature.importing.generated.resources.import_folder_select_all
 import musicapp.feature.importing.generated.resources.import_folder_selected_count
 import musicapp.feature.importing.generated.resources.import_folder_selected_title
 import musicapp.feature.importing.generated.resources.import_folder_a11y_enter
+import musicapp.feature.importing.generated.resources.import_folder_a11y_back
 import musicapp.feature.importing.generated.resources.import_folder_a11y_inherited
 import musicapp.feature.importing.generated.resources.import_folder_a11y_partial
 import musicapp.feature.importing.generated.resources.import_folder_a11y_selected
 import musicapp.feature.importing.generated.resources.import_folder_a11y_unselected
+import musicapp.feature.importing.generated.resources.import_folder_hide_selected
+import musicapp.feature.importing.generated.resources.import_folder_save_hint
+import musicapp.feature.importing.generated.resources.import_folder_show_selected
 import musicapp.feature.importing.generated.resources.import_musics_error_authentication_desc
 import musicapp.feature.importing.generated.resources.import_musics_error_authentication_title
 import musicapp.feature.importing.generated.resources.import_musics_error_permission_desc
@@ -554,6 +560,13 @@ private fun FolderPickerEntries(
     val folders = state.entries.filter { it.type == SourceNodeType.Folder }
     var panelExpanded by rememberSaveable { mutableStateOf(false) }
     val selectedLabels = selectedFolderLabels(state.selectedPaths)
+    val panelToggleDescription = stringResource(
+        if (panelExpanded) {
+            Res.string.import_folder_hide_selected
+        } else {
+            Res.string.import_folder_show_selected
+        },
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -641,40 +654,54 @@ private fun FolderPickerEntries(
 
         Card(
             modifier = Modifier
+                .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .padding(
                     start = horizontalPadding,
                     end = horizontalPadding,
                     bottom = 12.dp + bottomContentInset,
                 ),
+            cornerRadius = 20.dp,
+            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+            colors = CardDefaults.defaultColors(
+                color = MiuixTheme.colorScheme.surfaceContainerHigh,
+            ),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            if (panelExpanded && selectedLabels.isNotEmpty()) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { panelExpanded = !panelExpanded },
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = stringResource(Res.string.import_folder_selected_count, state.selectedCount),
-                        color = MiuixTheme.colorScheme.onSurface,
-                        style = MiuixTheme.textStyles.body2,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = if (panelExpanded) "⌄" else "⌃",
-                        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    )
-                }
-                if (panelExpanded && selectedLabels.isNotEmpty()) {
                     Text(
                         text = stringResource(Res.string.import_folder_selected_title),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         style = MiuixTheme.textStyles.footnote1,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
                     )
+                    Text(
+                        text = stringResource(Res.string.import_folder_clear_selection),
+                        color = MiuixTheme.colorScheme.primary,
+                        style = MiuixTheme.textStyles.footnote1,
+                        modifier = Modifier
+                            .clickable {
+                                panelExpanded = false
+                                onAction(ImportAction.ClearFolderSelection)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 168.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
                     selectedLabels.forEach { (path, label) ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.heightIn(min = 40.dp),
+                        ) {
                             Text(
                                 text = label,
                                 color = MiuixTheme.colorScheme.onSurface,
@@ -688,27 +715,80 @@ private fun FolderPickerEntries(
                                 color = MiuixTheme.colorScheme.onSurfaceVariantActions,
                                 style = MiuixTheme.textStyles.title3,
                                 modifier = Modifier
-                                    .clickable { onAction(ImportAction.RemoveFolderSelection(path)) }
+                                    .clickable {
+                                        if (selectedLabels.size == 1) panelExpanded = false
+                                        onAction(ImportAction.RemoveFolderSelection(path))
+                                    }
                                     .padding(8.dp),
                             )
                         }
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    if (panelExpanded && state.selectedCount > 0) {
+                Spacer(Modifier.height(spacing.xs))
+                HorizontalDivider()
+                Spacer(Modifier.height(spacing.sm))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = panelToggleDescription
+                        }
+                        .clickable(enabled = selectedLabels.isNotEmpty()) {
+                            panelExpanded = !panelExpanded
+                        }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(Res.string.import_folder_clear_selection),
-                            color = MiuixTheme.colorScheme.primary,
+                            text = stringResource(
+                                Res.string.import_folder_selected_count,
+                                state.selectedCount,
+                            ),
+                            color = MiuixTheme.colorScheme.onSurface,
                             style = MiuixTheme.textStyles.body2,
-                            modifier = Modifier
-                                .clickable { onAction(ImportAction.ClearFolderSelection) }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = stringResource(Res.string.import_folder_save_hint),
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.footnote2,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Button(
-                        minWidth = 112.dp,
-                        onClick = { onAction(ImportAction.FinishCurrentDirectory) },
-                    ) { Text(stringResource(Res.string.import_folder_save)) }
+                    if (selectedLabels.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(CoreRes.drawable.icon_chevron_right),
+                            contentDescription = null,
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(12.dp)
+                                .rotate(if (panelExpanded) 90f else -90f),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(spacing.sm))
+                Button(
+                    minWidth = 104.dp,
+                    minHeight = 44.dp,
+                    onClick = { onAction(ImportAction.FinishCurrentDirectory) },
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_yes),
+                        contentDescription = null,
+                        tint = MiuixTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(Res.string.import_folder_save))
                 }
             }
         }
@@ -786,31 +866,21 @@ private fun FolderPickerRow(
                 }
             }
         }
-        val mark = when (selectionState) {
-            FolderSelectionState.Unselected -> "□"
-            FolderSelectionState.PartiallySelected -> "—"
-            FolderSelectionState.Selected,
-            FolderSelectionState.InheritedSelected -> "✓"
-        }
-        Text(
-            text = mark,
-            color = if (inherited) {
-                MiuixTheme.colorScheme.onSurfaceVariantSummary
-            } else {
-                MiuixTheme.colorScheme.primary
+        Checkbox(
+            state = when (selectionState) {
+                FolderSelectionState.Unselected -> ToggleableState.Off
+                FolderSelectionState.PartiallySelected -> ToggleableState.Indeterminate
+                FolderSelectionState.Selected,
+                FolderSelectionState.InheritedSelected -> ToggleableState.On
             },
-            style = MiuixTheme.textStyles.title3,
-            textAlign = TextAlign.Center,
+            onClick = onToggle,
+            enabled = !inherited,
             modifier = Modifier
-                .width(52.dp)
+                .padding(horizontal = 13.dp, vertical = 16.dp)
                 .semantics {
-                    role = Role.Checkbox
                     contentDescription = folder.name
                     stateDescription = selectionDescription
-                    if (inherited) disabled()
-                }
-                .clickable(enabled = !inherited, onClick = onToggle)
-                .padding(vertical = 16.dp),
+                },
         )
     }
 }
@@ -1073,11 +1143,11 @@ fun ImportScreen(
     onAction: (ImportAction) -> Unit,
 ) {
     val spacing = DesignTokens.spacing
+    val selectedSourceName = state.storageAccounts
+        .firstOrNull { it.accountId == state.selectedStorageAccountId }
+        ?.name
     val titleText = if (state.selectionMode == ImportSelectionMode.CurrentDirectory) {
-        state.storageAccounts
-            .firstOrNull { it.accountId == state.selectedStorageAccountId }
-            ?.name
-            ?: stringResource(Res.string.import_library_title)
+        stringResource(Res.string.import_library_title)
     } else {
         when (state.selectedCount) {
             0 -> stringResource(Res.string.import_musics_title_default)
@@ -1102,19 +1172,28 @@ fun ImportScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .padding(horizontal = horizontalPadding, vertical = 18.dp)
+                    .heightIn(min = 64.dp)
+                    .padding(horizontal = horizontalPadding, vertical = 8.dp)
                     .fillMaxWidth()
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.weight(1f),
                 ) {
                     IconButton(
+                        modifier = Modifier.size(40.dp),
                         onClick = {
                             onAction(ImportAction.NavigateBack)
                         },
-                    ) { Icon(painterResource(Res.drawable.icon_back), contentDescription = null) }
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.icon_back),
+                            contentDescription = stringResource(Res.string.import_folder_a11y_back),
+                            tint = MiuixTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = titleText,
@@ -1124,6 +1203,18 @@ fun ImportScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        if (
+                            state.selectionMode == ImportSelectionMode.CurrentDirectory &&
+                            !selectedSourceName.isNullOrBlank()
+                        ) {
+                            Text(
+                                text = selectedSourceName,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                style = MiuixTheme.textStyles.footnote2,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
                 if (state.selectionMode == ImportSelectionMode.CurrentDirectory) {
@@ -1139,7 +1230,11 @@ fun ImportScreen(
                                 Res.string.import_folder_select_all
                             }
                         ),
-                        color = MiuixTheme.colorScheme.primary,
+                        color = if (folderPaths.isNotEmpty()) {
+                            MiuixTheme.colorScheme.primary
+                        } else {
+                            MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        },
                         style = MiuixTheme.textStyles.body2,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier

@@ -36,18 +36,20 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import io.github.julystar.musicapp.core.presentation.components.FormSwitch
-import io.github.julystar.musicapp.core.presentation.components.FormText
-import io.github.julystar.musicapp.core.presentation.components.FormWidget
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_visibility
+import musicapp.core.presentation.generated.resources.icon_visibility_off
 import musicapp.core.presentation.generated.resources.confirm_dialog_btn_cancel
 import musicapp.core.presentation.generated.resources.confirm_dialog_btn_ok
 import musicapp.core.presentation.generated.resources.confirm_dialog_title
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.sources.generated.resources.Res
 import musicapp.feature.sources.generated.resources.icon_back
@@ -139,8 +141,67 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+@Composable
+private fun SourceEditorText(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    error: StringResource? = null,
+    isPassword: Boolean = false,
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+    TextField(
+        value = value,
+        onValueChange = onChange,
+        label = label,
+        modifier = Modifier.fillMaxWidth(),
+        visualTransformation = if (isPassword && !passwordVisible) {
+            PasswordVisualTransformation()
+        } else {
+            VisualTransformation.None
+        },
+        trailingIcon = if (!isPassword) null else {
+            {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        painter = painterResource(
+                            if (passwordVisible) CoreRes.drawable.icon_visibility_off
+                            else CoreRes.drawable.icon_visibility,
+                        ),
+                        contentDescription = null,
+                    )
+                }
+            }
+        },
+    )
+    error?.let {
+        Text(
+            text = stringResource(it),
+            color = MiuixTheme.colorScheme.error,
+            style = MiuixTheme.textStyles.footnote2,
+        )
+    }
+}
+
+@Composable
+private fun SourceEditorField(
+    label: String,
+    block: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.footnote1,
+        )
+        block()
+    }
+}
 
 private fun buildStr(s: String): AnnotatedString {
     val spans = s.split("$$")
@@ -281,21 +342,21 @@ private fun WebDavConfig(
 ) {
     var password by remember { mutableStateOf("") }
 
-    FormSwitch(
-        label = stringResource(Res.string.storage_edit_anonymous),
-        value = state.isAnonymous,
-        onChange = { value ->
+    SwitchPreference(
+        title = stringResource(Res.string.storage_edit_anonymous),
+        checked = state.isAnonymous,
+        onCheckedChange = { value ->
             onAction(SourceEditorAction.WebDavAnonymousChanged(value))
         },
     )
-    FormText(
+    SourceEditorText(
         label = stringResource(Res.string.storage_edit_alias),
         value = state.alias,
         onChange = { value ->
             onAction(SourceEditorAction.WebDavAliasChanged(value))
         },
     )
-    FormText(
+    SourceEditorText(
         label = stringResource(Res.string.storage_edit_addr),
         value = state.address,
         onChange = { value ->
@@ -308,7 +369,7 @@ private fun WebDavConfig(
         },
     )
     if (!state.isAnonymous) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_username),
             value = state.username,
             onChange = { value ->
@@ -320,7 +381,7 @@ private fun WebDavConfig(
                 null
             },
         )
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_password),
             value = password,
             isPassword = true,
@@ -356,7 +417,7 @@ private fun RemoteServerConfig(
                     style = MiuixTheme.textStyles.title3,
                     fontWeight = FontWeight.SemiBold,
                 )
-                FormText(
+                SourceEditorText(
                     label = stringResource(Res.string.storage_edit_alias),
                     value = state.alias,
                     onChange = { onAction(SourceEditorAction.RemoteServerAliasChanged(it)) },
@@ -366,19 +427,19 @@ private fun RemoteServerConfig(
                         null
                     },
                 )
-                FormText(
+                SourceEditorText(
                     label = stringResource(Res.string.storage_edit_primary_addr),
                     value = state.address,
                     onChange = { onAction(SourceEditorAction.RemoteServerAddressChanged(it)) },
                     error = if (validation.addressEmpty) Res.string.storage_edit_form_address else null,
                 )
-                FormText(
+                SourceEditorText(
                     label = stringResource(Res.string.storage_edit_username),
                     value = state.username,
                     onChange = { onAction(SourceEditorAction.RemoteServerUsernameChanged(it)) },
                     error = if (validation.usernameEmpty) Res.string.storage_edit_form_username else null,
                 )
-                FormText(
+                SourceEditorText(
                     label = stringResource(Res.string.storage_edit_password),
                     value = password,
                     isPassword = true,
@@ -402,7 +463,7 @@ private fun RemoteServerConfig(
                     onClick = { advancedExpanded = !advancedExpanded },
                 )
                 if (advancedExpanded) {
-                    FormText(
+                    SourceEditorText(
                         label = stringResource(Res.string.storage_edit_secondary_addr),
                         value = state.secondaryBaseUrl,
                         onChange = {
@@ -433,10 +494,10 @@ private fun RemoteServerConfig(
                             onAction(SourceEditorAction.RemoteServerCoverArtSizeChanged(it))
                         },
                     )
-                    FormSwitch(
-                        label = stringResource(Res.string.storage_edit_remote_write),
-                        value = state.remoteWriteEnabled,
-                        onChange = { onAction(SourceEditorAction.RemoteServerWriteChanged(it)) },
+                    SwitchPreference(
+                        title = stringResource(Res.string.storage_edit_remote_write),
+                        checked = state.remoteWriteEnabled,
+                        onCheckedChange = { onAction(SourceEditorAction.RemoteServerWriteChanged(it)) },
                     )
                 }
             }
@@ -456,7 +517,7 @@ private fun EmbyConfig(
         mutableStateOf(contract.authenticationInputInitialValue)
     }
     if (SourceEditorField.Alias in contract.editableFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_alias),
             value = state.alias,
             onChange = { onAction(SourceEditorAction.RemoteServerAliasChanged(it)) },
@@ -468,7 +529,7 @@ private fun EmbyConfig(
         )
     }
     if (SourceEditorField.Address in contract.editableFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_primary_addr),
             value = state.address,
             onChange = { onAction(SourceEditorAction.RemoteServerAddressChanged(it)) },
@@ -476,7 +537,7 @@ private fun EmbyConfig(
         )
     }
     if (SourceEditorField.Username in contract.editableFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_username),
             value = state.username,
             onChange = { onAction(SourceEditorAction.RemoteServerUsernameChanged(it)) },
@@ -484,7 +545,7 @@ private fun EmbyConfig(
         )
     }
     if (SourceEditorField.Password in contract.editableFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_emby_authentication),
             value = password,
             isPassword = true,
@@ -503,7 +564,7 @@ private fun EmbyConfig(
         }
     }
     if (SourceEditorField.SecondaryAddress in contract.editableFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_secondary_addr),
             value = state.secondaryBaseUrl,
             onChange = { onAction(SourceEditorAction.RemoteServerSecondaryAddressChanged(it)) },
@@ -530,7 +591,7 @@ private fun OpenListConfig(
         mutableStateOf(contract.otpInputInitialValue)
     }
     if (SourceEditorField.Alias in contract.visibleFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_alias),
             value = state.alias,
             onChange = { onAction(SourceEditorAction.OpenListAliasChanged(it)) },
@@ -542,7 +603,7 @@ private fun OpenListConfig(
         )
     }
     if (SourceEditorField.Address in contract.visibleFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_addr),
             value = state.address,
             onChange = { onAction(SourceEditorAction.OpenListAddressChanged(it)) },
@@ -550,17 +611,17 @@ private fun OpenListConfig(
         )
     }
     if (SourceEditorField.Guest in contract.visibleFields) {
-        FormSwitch(
-            label = stringResource(Res.string.storage_edit_openlist_guest),
-            value = state.isGuest,
-            onChange = { isGuest ->
+        SwitchPreference(
+            title = stringResource(Res.string.storage_edit_openlist_guest),
+            checked = state.isGuest,
+            onCheckedChange = { isGuest ->
                 if (isGuest) password = ""
                 onAction(SourceEditorAction.OpenListGuestChanged(isGuest))
             },
         )
     }
     if (SourceEditorField.Username in contract.visibleFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_username),
             value = state.username,
             onChange = { onAction(SourceEditorAction.OpenListUsernameChanged(it)) },
@@ -568,7 +629,7 @@ private fun OpenListConfig(
         )
     }
     if (SourceEditorField.Password in contract.visibleFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_password),
             value = password,
             isPassword = true,
@@ -580,7 +641,7 @@ private fun OpenListConfig(
         )
     }
     if (SourceEditorField.Otp in contract.visibleFields) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_openlist_otp),
             value = otpCode,
             isPassword = true,
@@ -599,7 +660,7 @@ private fun IntegerChoices(
     values: List<Int>,
     onChange: (Int) -> Unit,
 ) {
-    FormWidget(label = label) {
+    SourceEditorField(label = label) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             values.chunked(3).forEach { rowValues ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -623,7 +684,7 @@ private fun IntegerChoices(
 @Composable
 private fun ReadOnlyValue(label: org.jetbrains.compose.resources.StringResource, value: String) {
     if (value.isBlank()) return
-    FormWidget(label = stringResource(label)) {
+    SourceEditorField(label = stringResource(label)) {
         Text(
             text = value,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -725,15 +786,15 @@ private fun SmbConfig(
 ) {
     var password by remember { mutableStateOf("") }
 
-    FormSwitch(
-        label = stringResource(Res.string.storage_edit_smb_guest),
-        value = state.isGuest,
-        onChange = { isGuest ->
+    SwitchPreference(
+        title = stringResource(Res.string.storage_edit_smb_guest),
+        checked = state.isGuest,
+        onCheckedChange = { isGuest ->
             if (isGuest) password = ""
             onAction(SourceEditorAction.SmbGuestChanged(isGuest))
         },
     )
-    FormText(
+    SourceEditorText(
         label = stringResource(Res.string.storage_edit_alias),
         value = state.alias,
         onChange = { onAction(SourceEditorAction.SmbAliasChanged(it)) },
@@ -743,7 +804,7 @@ private fun SmbConfig(
             null
         },
     )
-    FormText(
+    SourceEditorText(
         label = stringResource(Res.string.storage_edit_smb_server),
         value = state.host,
         onChange = { onAction(SourceEditorAction.SmbHostChanged(it)) },
@@ -753,7 +814,7 @@ private fun SmbConfig(
             null
         },
     )
-    FormText(
+    SourceEditorText(
         label = stringResource(Res.string.storage_edit_smb_port),
         value = state.port,
         onChange = { onAction(SourceEditorAction.SmbPortChanged(it)) },
@@ -764,7 +825,7 @@ private fun SmbConfig(
         },
     )
     if (!state.isGuest) {
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_username),
             value = state.username,
             onChange = { onAction(SourceEditorAction.SmbUsernameChanged(it)) },
@@ -774,7 +835,7 @@ private fun SmbConfig(
                 null
             },
         )
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_password),
             value = password,
             isPassword = true,
@@ -788,21 +849,21 @@ private fun SmbConfig(
                 null
             },
         )
-        FormText(
+        SourceEditorText(
             label = stringResource(Res.string.storage_edit_smb_domain),
             value = state.domain,
             onChange = { onAction(SourceEditorAction.SmbDomainChanged(it)) },
         )
     }
-    FormSwitch(
-        label = stringResource(Res.string.storage_edit_smb_signing),
-        value = state.requireSigning,
-        onChange = { onAction(SourceEditorAction.SmbSigningChanged(it)) },
+    SwitchPreference(
+        title = stringResource(Res.string.storage_edit_smb_signing),
+        checked = state.requireSigning,
+        onCheckedChange = { onAction(SourceEditorAction.SmbSigningChanged(it)) },
     )
-    FormSwitch(
-        label = stringResource(Res.string.storage_edit_smb_encryption),
-        value = state.requireEncryption,
-        onChange = { onAction(SourceEditorAction.SmbEncryptionChanged(it)) },
+    SwitchPreference(
+        title = stringResource(Res.string.storage_edit_smb_encryption),
+        checked = state.requireEncryption,
+        onCheckedChange = { onAction(SourceEditorAction.SmbEncryptionChanged(it)) },
     )
 }
 
@@ -812,7 +873,7 @@ private fun OneDriveConfig(
     validation: SourceEditorValidation,
     onAction: (SourceEditorAction) -> Unit,
 ) {
-    FormText(
+    SourceEditorText(
         label = stringResource(Res.string.storage_edit_alias),
         value = state.alias,
         onChange = { value ->
@@ -824,7 +885,7 @@ private fun OneDriveConfig(
             null
         },
     )
-    FormWidget(
+    SourceEditorField(
         label = stringResource(Res.string.storage_edit_oauth),
     ) {
         if (!state.connected) {
@@ -856,7 +917,7 @@ private fun OneDriveConfig(
         }
     }
     if (state.connected) {
-        FormWidget(
+        SourceEditorField(
             label = stringResource(Res.string.storage_edit_onedrive_drive),
         ) {
             Column {
@@ -1096,7 +1157,7 @@ fun SourceEditorScreen(
                                 storageType == SourceEditorType.Smb ||
                                 storageType == SourceEditorType.OpenList
                             )) {
-                                FormWidget(
+                                SourceEditorField(
                                     label = stringResource(Res.string.storage_edit_import_library_label),
                                 ) {
                                     TextButton(
@@ -1108,7 +1169,7 @@ fun SourceEditorScreen(
                                 }
                             }
                             if (state.canSyncCurrentServer) {
-                                FormWidget(
+                                SourceEditorField(
                                     label = stringResource(Res.string.storage_edit_sync_library_label),
                                 ) {
                                     TextButton(

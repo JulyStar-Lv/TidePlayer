@@ -18,6 +18,24 @@ import kotlin.test.assertTrue
 
 class UnifiedMetadataRepositoryDesktopTest {
     @Test
+    fun filenameFallbackPersistsParsedAlbumThroughUnifiedGraph() = withDatabase { database ->
+        database.trackDao().upsertAll(
+            listOf(track(id = 1, title = "04 - Song", metadataSource = TrackMetadataSources.Filename)),
+        )
+
+        val updated = requireNotNull(
+            repository(database).replaceFilenameMetadata(
+                trackId = 1,
+                filename = "Artist - Album - 04 - Song.flac",
+            ),
+        )
+
+        assertEquals("Artist", updated.artist)
+        assertEquals(4, updated.trackNumber)
+        assertEquals("Album", database.metadataDao().getAlbum(requireNotNull(updated.albumId))?.name)
+    }
+
+    @Test
     fun highPluginMatchReplacesFilenameMetadataAndWritesGraph() = withDatabase { database ->
         database.trackDao().upsertAll(
             listOf(track(id = 1, title = "01 - Song", metadataSource = TrackMetadataSources.Filename)),
@@ -143,7 +161,7 @@ class UnifiedMetadataRepositoryDesktopTest {
                 policy = MetadataMergePolicy.FillMissingFileMetadata,
             )
             val sourceTrack = requireNotNull(sourceResult.track)
-            assertEquals("Song", sourceTrack.title)
+            assertEquals("Different", sourceTrack.title)
             assertEquals(180_000, sourceTrack.durationMs)
             assertEquals(96_000, sourceTrack.sampleRate)
             assertEquals(24, sourceTrack.bitsPerSample)
@@ -159,6 +177,67 @@ class UnifiedMetadataRepositoryDesktopTest {
             assertTrue(manual.metadataLocked)
             assertEquals(TrackMetadataSources.Plugin, manual.metadataSource)
             assertFalse(manual.durationMs == null)
+        }
+
+    @Test
+    fun technicalOnlySourceRefreshKeepsFilenameProvenanceForLaterPluginReplacement() =
+        withDatabase { database ->
+            database.trackDao().upsertAll(
+                listOf(track(id = 1, title = "Artist - Song", metadataSource = TrackMetadataSources.Filename)),
+            )
+            val repository = repository(database)
+
+            val sourceTrack = requireNotNull(
+                repository.apply(
+                    trackId = 1,
+                    metadata = ResolvedTrackMetadata(durationMs = 180_000, codec = "FLAC"),
+                    policy = MetadataMergePolicy.FillMissingFileMetadata,
+                ).track,
+            )
+
+            assertEquals("Artist - Song", sourceTrack.title)
+            assertEquals(180_000, sourceTrack.durationMs)
+            assertEquals("FLAC", sourceTrack.codec)
+            assertEquals(TrackMetadataSources.Filename, sourceTrack.metadataSource)
+
+            val pluginTrack = requireNotNull(
+                repository.applyAutomaticPluginMatch(
+                    1,
+                    highMatch(
+                        MetaSongCandidate(
+                            id = "song-1",
+                            title = "Song",
+                            artist = "Artist",
+                            album = "Album",
+                            sourceId = "plugin",
+                        ),
+                    ),
+                ).track,
+            )
+            assertEquals("Song", pluginTrack.title)
+            assertEquals("Artist", pluginTrack.artist)
+            assertEquals(TrackMetadataSources.Plugin, pluginTrack.metadataSource)
+        }
+
+    @Test
+    fun sourceMetadataWithoutTaggedTitleFillsFieldsButKeepsFilenameProvenance() =
+        withDatabase { database ->
+            database.trackDao().upsertAll(
+                listOf(track(id = 1, title = "Artist - Song", metadataSource = TrackMetadataSources.Filename)),
+            )
+
+            val updated = requireNotNull(
+                repository(database).apply(
+                    trackId = 1,
+                    metadata = ResolvedTrackMetadata(artist = "Tagged Artist", genre = "Rock"),
+                    policy = MetadataMergePolicy.FillMissingServerMetadata,
+                ).track,
+            )
+
+            assertEquals("Artist - Song", updated.title)
+            assertEquals("Tagged Artist", updated.artist)
+            assertEquals(TrackMetadataSources.Filename, updated.metadataSource)
+            assertEquals(listOf("Rock"), database.metadataDao().genreNamesForTrack(1))
         }
 
     private fun withDatabase(block: suspend (AppDatabase) -> Unit) = runBlocking {

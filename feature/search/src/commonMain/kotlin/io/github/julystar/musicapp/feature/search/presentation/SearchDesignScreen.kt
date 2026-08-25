@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,11 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,7 +76,6 @@ import musicapp.feature.search.generated.resources.search_recent_searches
 import musicapp.feature.search.generated.resources.search_sources_unavailable
 import musicapp.feature.search.generated.resources.search_suggestions
 import musicapp.feature.search.generated.resources.search_title
-import musicapp.feature.search.generated.resources.search_subtitle
 import musicapp.feature.search.generated.resources.search_retry
 import musicapp.feature.search.generated.resources.search_results_title
 import musicapp.feature.search.generated.resources.search_result_type_album
@@ -93,6 +90,7 @@ import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_timelapse
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Card
@@ -108,6 +106,9 @@ fun SearchDesignScreen(
     modifier: Modifier = Modifier,
 ) {
     val bottomContentInset = LocalDesignBottomContentInset.current
+    val topAppBarScrollBehavior = MiuixScrollBehavior()
+    val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
+    val pageTitle = stringResource(Res.string.search_title)
     var showDefaultRecentSearches by remember { mutableStateOf(true) }
     val clearRecentSearches = {
         showDefaultRecentSearches = false
@@ -118,180 +119,146 @@ fun SearchDesignScreen(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background),
+                .background(MiuixTheme.colorScheme.background)
+                .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
         ) {
         val compact = maxWidth < DesignTokens.adaptive.largeMinWidth
         val pagePadding = if (compact) 24.dp else DesignTokens.spacing.pageExpanded
         val listState = rememberLazyListState()
-        val collapseDistance = with(LocalDensity.current) { 88.dp.roundToPx() }
-        val actionBarProgress by remember(listState, collapseDistance) {
-            derivedStateOf {
-                if (listState.firstVisibleItemIndex > 0) {
-                    1f
-                } else {
-                    (listState.firstVisibleItemScrollOffset / collapseDistance.toFloat())
-                        .coerceIn(0f, 1f)
-                }
-            }
-        }
-        val pageTitleAlpha = (1f - actionBarProgress / 0.70f).coerceIn(0f, 1f)
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxSize()
-                .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
-            contentPadding = PaddingValues(
-                start = pagePadding,
-                top = if (compact) 0.dp else 8.dp,
-                end = pagePadding,
-                bottom = 28.dp + bottomContentInset,
-            ),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            item {
-                if (compact) {
-                    SearchMobileHeader(modifier = Modifier.alpha(pageTitleAlpha))
-                } else {
-                    TopAppBar(
-                        title = stringResource(Res.string.search_title),
-                        subtitle = stringResource(Res.string.search_subtitle),
-                        modifier = Modifier.alpha(pageTitleAlpha),
+        Column(modifier = Modifier.fillMaxSize()) {
+            TopAppBar(
+                title = pageTitle,
+                largeTitle = pageTitle,
+                color = Color.Transparent,
+                titleColor = Color.Transparent,
+                scrollBehavior = topAppBarScrollBehavior,
+            )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
+                contentPadding = PaddingValues(
+                    start = pagePadding,
+                    top = if (compact) 20.dp else 28.dp,
+                    end = pagePadding,
+                    bottom = 28.dp + bottomContentInset,
+                ),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                item {
+                    InputField(
+                        query = state.query,
+                        onQueryChange = { query ->
+                            onAction(if (query.isEmpty()) SearchAction.ClearQuery else SearchAction.QueryChanged(query))
+                        },
+                        onSearch = { onAction(SearchAction.SubmitSearch) },
+                        label = stringResource(Res.string.search_hint),
+                        expanded = false,
+                        onExpandedChange = {},
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
-            }
-            item {
-                InputField(
-                    query = state.query,
-                    onQueryChange = { query ->
-                        onAction(if (query.isEmpty()) SearchAction.ClearQuery else SearchAction.QueryChanged(query))
-                    },
-                    onSearch = { onAction(SearchAction.SubmitSearch) },
-                    label = stringResource(Res.string.search_hint),
-                    expanded = false,
-                    onExpandedChange = {},
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
 
-            if (showSearchContent) when (state.loadState) {
-                SearchLoadState.Searching -> {
-                    item {
-                        SearchStatus(
-                            title = stringResource(Res.string.searching_library),
-                            message = state.query,
-                            loading = true,
-                        )
-                    }
-                }
-                SearchLoadState.Error -> {
-                    item {
-                        SearchStatus(
-                            title = stringResource(Res.string.search_sources_unavailable),
-                            message = stringResource(Res.string.search_connection_retry),
-                            actionLabel = stringResource(Res.string.search_retry),
-                            onAction = { onAction(SearchAction.Retry) },
-                        )
-                    }
-                }
-                SearchLoadState.Empty -> {
-                    item {
-                        SearchStatus(
-                            title = stringResource(Res.string.search_no_matches_yet),
-                            message = stringResource(Res.string.search_try_query),
-                            actionLabel = "Clear search",
-                            onAction = { onAction(SearchAction.ClearQuery) },
-                        )
-                    }
-                }
-                SearchLoadState.Results -> {
-                    item {
-                        SearchResultsSummary(trackCount = state.tracks.size, albumCount = state.albums.size, artistCount = state.artists.size)
-                    }
-                    item {
-                        SearchResultSectionHeader("Songs", state.tracks.size)
-                    }
-                    itemsIndexed(
-                        items = state.tracks,
-                        key = { index, track -> track.lazyListKey(index) },
-                    ) { index, track ->
-                        SearchResultRow(
-                            rank = index + 1,
-                            track = track,
-                            onOpen = { onAction(SearchAction.OpenTrack(track)) },
-                        )
-                    }
-                    if (state.albums.isNotEmpty()) {
+                if (showSearchContent) when (state.loadState) {
+                    SearchLoadState.Searching -> {
                         item {
-                            SearchResultSectionHeader("Albums", state.albums.size)
-                        }
-                        items(
-                            items = state.albums,
-                            key = { album -> "search-album-${album.id}" },
-                        ) { album ->
-                            SearchAlbumResultRow(
-                                album = album,
-                                onClick = { onAction(SearchAction.OpenAlbum(album)) },
+                            SearchStatus(
+                                title = stringResource(Res.string.searching_library),
+                                message = state.query,
+                                loading = true,
                             )
                         }
                     }
-                    if (state.artists.isNotEmpty()) {
+                    SearchLoadState.Error -> {
                         item {
-                            SearchResultSectionHeader("Artists", state.artists.size)
-                        }
-                        items(
-                            items = state.artists,
-                            key = { artist -> "search-artist-${artist.id}" },
-                        ) { artist ->
-                            SearchArtistResultRow(
-                                artist = artist,
-                                onClick = { onAction(SearchAction.OpenArtist(artist)) },
+                            SearchStatus(
+                                title = stringResource(Res.string.search_sources_unavailable),
+                                message = stringResource(Res.string.search_connection_retry),
+                                actionLabel = stringResource(Res.string.search_retry),
+                                onAction = { onAction(SearchAction.Retry) },
                             )
                         }
                     }
-                }
-                SearchLoadState.Idle,
-                SearchLoadState.Typing -> {
-                    item {
-                        SearchDiscovery(
-                            state = state,
-                            onAction = onAction,
-                            showDefaultRecentSearches = showDefaultRecentSearches,
-                            onClearRecentSearches = clearRecentSearches,
-                        )
+                    SearchLoadState.Empty -> {
+                        item {
+                            SearchStatus(
+                                title = stringResource(Res.string.search_no_matches_yet),
+                                message = stringResource(Res.string.search_try_query),
+                                actionLabel = "Clear search",
+                                onAction = { onAction(SearchAction.ClearQuery) },
+                            )
+                        }
+                    }
+                    SearchLoadState.Results -> {
+                        item {
+                            SearchResultsSummary(trackCount = state.tracks.size, albumCount = state.albums.size, artistCount = state.artists.size)
+                        }
+                        item {
+                            SearchResultSectionHeader("Songs", state.tracks.size)
+                        }
+                        itemsIndexed(
+                            items = state.tracks,
+                            key = { index, track -> track.lazyListKey(index) },
+                        ) { index, track ->
+                            SearchResultRow(
+                                rank = index + 1,
+                                track = track,
+                                onOpen = { onAction(SearchAction.OpenTrack(track)) },
+                            )
+                        }
+                        if (state.albums.isNotEmpty()) {
+                            item {
+                                SearchResultSectionHeader("Albums", state.albums.size)
+                            }
+                            items(
+                                items = state.albums,
+                                key = { album -> "search-album-${album.id}" },
+                            ) { album ->
+                                SearchAlbumResultRow(
+                                    album = album,
+                                    onClick = { onAction(SearchAction.OpenAlbum(album)) },
+                                )
+                            }
+                        }
+                        if (state.artists.isNotEmpty()) {
+                            item {
+                                SearchResultSectionHeader("Artists", state.artists.size)
+                            }
+                            items(
+                                items = state.artists,
+                                key = { artist -> "search-artist-${artist.id}" },
+                            ) { artist ->
+                                SearchArtistResultRow(
+                                    artist = artist,
+                                    onClick = { onAction(SearchAction.OpenArtist(artist)) },
+                                )
+                            }
+                        }
+                    }
+                    SearchLoadState.Idle,
+                    SearchLoadState.Typing -> {
+                        item {
+                            SearchDiscovery(
+                                state = state,
+                                onAction = onAction,
+                                showDefaultRecentSearches = showDefaultRecentSearches,
+                                onClearRecentSearches = clearRecentSearches,
+                            )
+                        }
                     }
                 }
             }
         }
         LiquidGlassActionBar(
-            title = stringResource(Res.string.search_title),
+            title = pageTitle,
             collapseFraction = actionBarProgress,
             modifier = Modifier.align(Alignment.TopCenter),
         )
         }
-    }
-}
-
-@Composable
-private fun SearchMobileHeader(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(88.dp),
-        contentAlignment = Alignment.BottomStart,
-    ) {
-        Text(
-            text = stringResource(Res.string.search_title),
-            color = MiuixTheme.colorScheme.onBackground,
-            style = MiuixTheme.textStyles.title1.copy(
-                fontSize = 32.sp,
-                lineHeight = 38.sp,
-            ),
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 

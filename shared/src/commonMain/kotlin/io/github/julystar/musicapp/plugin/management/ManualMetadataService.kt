@@ -30,8 +30,16 @@ import io.github.julystar.musicapp.source.api.MetaCoverCandidate
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
 import io.github.julystar.musicapp.source.storage.RemoteMetadataReader
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import uniffi.app_backend.RemoteMetadata
 import kotlin.math.abs
+
+data class ManualMetadataResult(
+    val song: MetaSongCandidate,
+    val lyrics: MetaLyricsCandidate,
+)
 
 class ManualMetadataService(
     private val lookup: MetadataLookupUseCase,
@@ -46,9 +54,9 @@ class ManualMetadataService(
     suspend fun search(
         track: NowPlayingTrackItem,
         keyword: String,
-    ): MetadataLookupCollection<MetaSongCandidate> {
+    ): MetadataLookupCollection<ManualMetadataResult> {
         val normalizedKeyword = keyword.trim()
-        val result = lookup.searchSongs(
+        val songResult = lookup.searchSongs(
             query = MetaSongQuery(
                 title = track.title,
                 artist = track.artist,
@@ -58,82 +66,40 @@ class ManualMetadataService(
             ),
             mode = PluginLookupMode.MANUAL,
         )
-        return result.copy(
-            items = rankManualMetadataCandidates(
-                candidates = result.items,
-                track = track,
-                keyword = normalizedKeyword,
-            ),
-        )
-    }
-
-    suspend fun searchLyrics(
-        track: NowPlayingTrackItem,
-        candidate: MetaSongCandidate,
-    ): MetadataLookupCollection<MetaLyricsCandidate> {
-        val sourceResult = lookup.getLyricsCandidates(
-            candidate = candidate,
-            mode = PluginLookupMode.MANUAL,
-            pageSize = MANUAL_LYRICS_RESULTS_PER_SOURCE,
-        )
-        val independentResult = lookup.searchIndependentLyricsCandidates(
-            query = MetaSongQuery(
-                title = candidate.title.ifBlank { track.title },
-                artist = candidate.artist ?: track.artist,
-                album = candidate.album,
-                date = candidate.date,
-                durationMs = candidate.durationMs ?: track.durationMs,
-                pageSize = MANUAL_LYRICS_RESULTS_PER_SOURCE,
-            ),
-            mode = PluginLookupMode.MANUAL,
-        )
+        val candidates = rankManualMetadataCandidates(
+            candidates = songResult.items,
+            track = track,
+            keyword = normalizedKeyword,
+        ).filter { candidate -> candidate.toManualCoverCandidate() != null }
+        val lyricResults = coroutineScope {
+            candidates.map { candidate ->
+                async {
+                    candidate to lookup.getLyricsCandidates(
+                        candidate = candidate,
+                        mode = PluginLookupMode.MANUAL,
+                        pageSize = 1,
+                    )
+                }
+            }.awaitAll()
+        }
         return MetadataLookupCollection(
-            items = sourceResult.value.orEmpty() + independentResult.items,
-            failures = sourceResult.failures + independentResult.failures,
-            queriedSourceCount = independentResult.queriedSourceCount +
-                if (candidate.sourceId != null) 1 else 0,
+            items = lyricResults.mapNotNull { (candidate, lyricsResult) ->
+                candidate.toManualMetadataResult(lyricsResult.value.orEmpty())
+            },
+            failures = (songResult.failures + lyricResults.flatMap { (_, result) -> result.failures })
+                .distinctBy { failure -> failure.sourceId to failure.operation },
+            queriedSourceCount = songResult.queriedSourceCount,
         )
     }
 
-    suspend fun searchCovers(
-        track: NowPlayingTrackItem,
-        candidate: MetaSongCandidate,
-        keyword: String,
-    ): MetadataLookupCollection<MetaCoverCandidate> = lookup.searchCovers(
-        query = MetaSongQuery(
-            title = candidate.title.ifBlank { track.title },
-            artist = candidate.artist ?: track.artist,
-            album = candidate.album,
-            date = candidate.date,
-            durationMs = candidate.durationMs ?: track.durationMs,
-            keyword = keyword.trim().takeIf(String::isNotEmpty),
-            pageSize = MANUAL_COVER_RESULTS_PER_SOURCE,
-            song = MetaSongCandidate(
-                id = LOCAL_SONG_ID,
-                title = candidate.title.ifBlank { track.title },
-                artist = candidate.artist ?: track.artist,
-                album = candidate.album,
-                date = candidate.date,
-                durationMs = candidate.durationMs ?: track.durationMs,
-            ),
-        ),
-        mode = PluginLookupMode.MANUAL,
-    )
-
-    suspend fun loadCoverPreview(candidate: MetaCoverCandidate): ByteArray? =
-        artworkResolver.loadPreview(candidate)
+    suspend fun loadCoverPreview(candidate: MetaSongCandidate): ByteArray? =
+        candidate.toManualCoverCandidate()?.let { artworkResolver.loadPreview(it) }
 
     suspend fun apply(
         trackId: Long,
-        candidate: MetaSongCandidate,
-        lyricsCandidate: MetaLyricsCandidate? = null,
-        coverCandidate: MetaCoverCandidate? = null,
-    ): List<MetadataLookupFailure> {
-        val lyricsResult = if (lyricsCandidate == null) {
-            lookup.getLyrics(candidate, PluginLookupMode.MANUAL)
-        } else {
-            MetadataLookupValue(value = lyricsCandidate.lyrics)
-        }
+        result: ManualMetadataResult,
+    ) {
+        val candidate = result.song
         val now = currentTimeMillis()
         database.useWriterConnection { connection ->
             connection.immediateTransaction {
@@ -169,16 +135,16 @@ class ManualMetadataService(
                     ),
                 )
                 candidate.artist?.let { replaceArtists(trackId, it) }
-                lyricsResult.value?.toEntity(trackId, now)?.let { lyrics ->
+                result.lyrics.lyrics.toEntity(trackId, now)?.let { lyrics ->
                     metadataDao.upsertLyrics(listOf(lyrics))
                 }
             }
         }
-        if (coverCandidate != null && !artworkResolver.applyManual(trackId, coverCandidate)) {
-            error("Failed to apply selected cover")
+        val resultCover = candidate.toManualCoverCandidate()
+        if (resultCover != null && !artworkResolver.applyManual(trackId, resultCover)) {
+            error("Failed to apply result cover")
         }
         playerRepository.refreshCurrentMetadata()
-        return lyricsResult.failures
     }
 
     suspend fun resetFromFile(trackId: Long) {
@@ -250,9 +216,27 @@ class ManualMetadataService(
 }
 
 private const val MANUAL_METADATA_RESULTS_PER_SOURCE = 3
-private const val MANUAL_LYRICS_RESULTS_PER_SOURCE = 20
-private const val MANUAL_COVER_RESULTS_PER_SOURCE = 5
-private const val LOCAL_SONG_ID = "local-song"
+
+internal fun MetaSongCandidate.toManualMetadataResult(
+    lyricsCandidates: List<MetaLyricsCandidate>,
+): ManualMetadataResult? = if (toManualCoverCandidate() == null) {
+    null
+} else {
+    lyricsCandidates.firstOrNull()?.let { lyrics -> ManualMetadataResult(this, lyrics) }
+}
+
+internal fun MetaSongCandidate.toManualCoverCandidate(): MetaCoverCandidate? =
+    pictureUrl?.trim()?.takeIf(String::isNotEmpty)?.let { url ->
+        MetaCoverCandidate(
+            url = url,
+            id = id,
+            title = title,
+            artist = artist,
+            album = album,
+            date = date,
+            sourceId = sourceId,
+        )
+    }
 
 internal fun rankManualMetadataCandidates(
     candidates: List<MetaSongCandidate>,

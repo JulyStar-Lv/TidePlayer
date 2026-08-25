@@ -55,7 +55,6 @@ import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
-import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
@@ -730,7 +729,8 @@ private fun isArtworkDetailTransition(initialRoute: String?, targetRoute: String
 internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
     if (isRouteHome(route)) return true
     val routeName = route?.substringBefore('/') ?: return false
-    return routeName == "Album" || routeName.endsWith(".Album") ||
+    return routeName == "settings" ||
+        routeName == "Album" || routeName.endsWith(".Album") ||
         routeName == "Artist" || routeName.endsWith(".Artist") ||
         routeName == "Playlist" || routeName.endsWith(".Playlist") ||
         routeName == "Favorites" || routeName.endsWith(".Favorites") ||
@@ -840,20 +840,11 @@ private fun SecondaryRootNavigationLayout(
                         Box(modifier = Modifier.fillMaxSize()) {
                             when (windowSizeClass) {
                                 WindowSizeClass.Compact -> {
-                                    stickyHeaderState?.let { state ->
-                                        LiquidGlassActionBar(
-                                            title = state.title,
-                                            subtitle = state.subtitle,
-                                            collapseFraction = state.collapseFraction,
-                                            statusBarInset = statusBarInset,
-                                            onNavigateBack = state.onNavigateBack,
-                                            backContentDescription = state.backContentDescription,
-                                            actions = state.actions,
-                                            centerTitle = true,
-                                            compactTitle = state.compactTitle,
-                                            modifier = Modifier.align(Alignment.TopCenter),
-                                        )
-                                    }
+                                    LiquidGlassStickyHeaderHost(
+                                        state = stickyHeaderState,
+                                        statusBarInset = statusBarInset,
+                                        modifier = Modifier.align(Alignment.TopCenter),
+                                    )
                                     BottomBar(
                                         currentTab = currentTab,
                                         onTabSelected = onTabSelected,

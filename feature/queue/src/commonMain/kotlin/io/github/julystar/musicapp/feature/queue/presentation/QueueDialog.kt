@@ -3,11 +3,9 @@ package io.github.julystar.musicapp.feature.queue.presentation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,8 +16,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -34,11 +30,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,7 +41,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,7 +52,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
@@ -68,24 +60,20 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayHost
 import io.github.julystar.musicapp.core.presentation.components.PlatformOverlayNavigationBarStyle
 import io.github.julystar.musicapp.core.presentation.components.OverlayPresentationDefaults
-import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetDefaults
-import io.github.julystar.musicapp.core.presentation.components.OverlayBottomSheetHandle
-import io.github.julystar.musicapp.core.presentation.components.shouldDismissOverlayBottomSheet
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -108,12 +96,11 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.roundToInt
 
 private val QueueSideDialogWidth = 480.dp
-private val QueueBottomDialogMaxWidth = 680.dp
-private val QueueBottomDialogMaxHeight = 720.dp
+private val QueueBottomSheetMaxHeight = 720.dp
 private val QueueWideMinWidth = 860.dp
 private val QueueWideMinHeight = 520.dp
 private val QueueLandscapeMinWidth = 640.dp
@@ -151,38 +138,13 @@ fun QueueDialog(
     val density = LocalDensity.current
     val autoScrollEdgePx = with(density) { 48.dp.toPx() }
     val autoScrollStepPx = with(density) { 8.dp.toPx() }
-    val dismissDistancePx = with(density) { OverlayBottomSheetDefaults.dismissDistance.toPx() }
-    val dismissVelocityPxPerSecond = with(density) { OverlayBottomSheetDefaults.dismissVelocity.toPx() }
     var displayItems: List<QueueItemUi> by remember { mutableStateOf(state.items) }
     var dragState by remember { mutableStateOf<QueueDragState?>(null) }
     val hasCurrentItem = state.currentIndex in state.items.indices
-    var contentVisible by remember { mutableStateOf(false) }
-    var dismissing by remember { mutableStateOf(false) }
-    var sheetDragOffsetPx by remember { mutableFloatStateOf(0f) }
-    var sheetDragAnimationJob by remember { mutableStateOf<Job?>(null) }
-    val sheetDraggableState = rememberDraggableState { deltaPx ->
-        sheetDragOffsetPx = (sheetDragOffsetPx + deltaPx).coerceAtLeast(0f)
-    }
 
     fun cancelDrag() {
         dragState = null
         displayItems = state.items
-    }
-
-    fun requestDismiss() {
-        if (dismissing) return
-        cancelDrag()
-        sheetDragAnimationJob?.cancel()
-        dismissing = true
-        contentVisible = false
-        coroutineScope.launch {
-            delay(OverlayBottomSheetDefaults.exitDurationMillis.toLong())
-            onDismiss()
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        contentVisible = true
     }
 
     LaunchedEffect(state.items) {
@@ -198,6 +160,204 @@ fun QueueDialog(
         }
     }
 
+    val queueContent: @Composable (showHeader: Boolean) -> Unit = { showHeader ->
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (showHeader) {
+                QueueHeader(
+                    itemCount = state.items.size,
+                    canLocateCurrent = hasCurrentItem,
+                    onLocateCurrent = {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(state.currentIndex)
+                        }
+                    },
+                    onClear = {
+                        cancelDrag()
+                        onAction(QueueAction.ClearQueue)
+                    },
+                )
+            }
+
+            if (state.items.isEmpty()) {
+                QueueEmptyState(modifier = Modifier.weight(1f))
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    state = listState,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                ) {
+                    itemsIndexed(
+                        items = displayItems,
+                        key = { _, item -> item.lazyListKey() },
+                    ) { visualIndex, item ->
+                        val activeDrag = dragState
+                        QueueTrackRow(
+                            item = item,
+                            position = visualIndex + 1,
+                            active = item.index == state.currentIndex && state.isPlaying,
+                            interactionsEnabled = activeDrag == null,
+                            isDragged = activeDrag?.originalIndex == item.index,
+                            dragOffsetY = activeDrag?.takeIf {
+                                it.originalIndex == item.index
+                            }?.offsetY ?: 0f,
+                            onClick = { onAction(QueueAction.PlayItem(item.index)) },
+                            onRemove = {
+                                cancelDrag()
+                                onAction(QueueAction.RemoveItem(item.index))
+                            },
+                            onMoveUp = if (visualIndex > 0) {
+                                { onAction(QueueAction.MoveItem(item.index, visualIndex - 1)) }
+                            } else {
+                                null
+                            },
+                            onMoveDown = if (visualIndex < displayItems.lastIndex) {
+                                { onAction(QueueAction.MoveItem(item.index, visualIndex + 1)) }
+                            } else {
+                                null
+                            },
+                            onDragStart = {
+                                if (dragState == null) {
+                                    dragState = QueueDragState(
+                                        originalIndex = item.index,
+                                        currentIndex = visualIndex,
+                                    )
+                                }
+                            },
+                            onDrag = onDrag@{ dragAmount ->
+                                val drag = dragState ?: return@onDrag
+                                val visibleItems = listState.layoutInfo.visibleItemsInfo
+                                val draggedItem = visibleItems.firstOrNull {
+                                    it.index == drag.currentIndex
+                                } ?: return@onDrag
+                                val nextOffset = drag.offsetY + dragAmount
+                                val draggedCenter =
+                                    draggedItem.offset + nextOffset + draggedItem.size / 2f
+                                val target = visibleItems.firstOrNull { visibleItem ->
+                                    visibleItem.index != drag.currentIndex &&
+                                        draggedCenter >= visibleItem.offset &&
+                                        draggedCenter <= visibleItem.offset + visibleItem.size
+                                }
+                                val viewport = listState.layoutInfo
+                                val autoScrollDelta = when {
+                                    draggedCenter < viewport.viewportStartOffset + autoScrollEdgePx -> -autoScrollStepPx
+                                    draggedCenter > viewport.viewportEndOffset - autoScrollEdgePx -> autoScrollStepPx
+                                    else -> 0f
+                                }
+                                if (target == null) {
+                                    dragState = drag.copy(
+                                        offsetY = nextOffset,
+                                        autoScrollDelta = autoScrollDelta,
+                                    )
+                                } else {
+                                    displayItems = displayItems.move(
+                                        fromIndex = drag.currentIndex,
+                                        toIndex = target.index,
+                                    )
+                                    dragState = drag.copy(
+                                        currentIndex = target.index,
+                                        offsetY = nextOffset + draggedItem.offset - target.offset,
+                                        autoScrollDelta = autoScrollDelta,
+                                    )
+                                }
+                            },
+                            onDragEnd = {
+                                val finishedDrag = dragState ?: return@QueueTrackRow
+                                dragState = null
+                                displayItems = state.items
+                                if (finishedDrag.originalIndex != finishedDrag.currentIndex) {
+                                    onAction(
+                                        QueueAction.MoveItem(
+                                            fromIndex = finishedDrag.originalIndex,
+                                            toIndex = finishedDrag.currentIndex,
+                                        ),
+                                    )
+                                }
+                            },
+                            onDragCancel = ::cancelDrag,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    val windowSize = LocalWindowInfo.current.containerDpSize
+    val sideDialog = isQueueSideDialog(windowSize.width, windowSize.height)
+    if (!sideDialog) {
+        var sheetVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            sheetVisible = true
+        }
+
+        OverlayBottomSheet(
+            show = sheetVisible,
+            modifier = Modifier.height(minOf(windowSize.height * 0.76f, QueueBottomSheetMaxHeight)),
+            title = stringResource(QueueRes.string.queue_title, state.items.size),
+            startAction = {
+                IconButton(
+                    backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+                    enabled = hasCurrentItem,
+                    onClick = {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(state.currentIndex)
+                        }
+                    },
+                ) {
+                    Icon(
+                        painterResource(QueueRes.drawable.icon_locate),
+                        stringResource(QueueRes.string.queue_locate_current),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            },
+            endAction = {
+                IconButton(
+                    backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+                    onClick = {
+                        cancelDrag()
+                        onAction(QueueAction.ClearQueue)
+                    },
+                ) {
+                    Icon(
+                        painterResource(QueueRes.drawable.icon_queue_trash),
+                        stringResource(QueueRes.string.queue_clear),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            },
+            onDismissRequest = {
+                if (sheetVisible) {
+                    cancelDrag()
+                    sheetVisible = false
+                }
+            },
+            onDismissFinished = onDismiss,
+        ) {
+            queueContent(false)
+        }
+        return
+    }
+
+    var contentVisible by remember { mutableStateOf(false) }
+    var dismissing by remember { mutableStateOf(false) }
+
+    fun requestDismiss() {
+        if (dismissing) return
+        cancelDrag()
+        dismissing = true
+        contentVisible = false
+        coroutineScope.launch {
+            delay(QueueSideDialogExitDurationMillis.toLong())
+            onDismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        contentVisible = true
+    }
+
     PlatformOverlayHost(
         onDismissRequest = ::requestDismiss,
         dismissOnClickOutside = false,
@@ -208,8 +368,8 @@ fun QueueDialog(
         ) {
             AnimatedVisibility(
                 visible = contentVisible,
-                enter = fadeIn(tween(OverlayBottomSheetDefaults.enterDurationMillis)),
-                exit = fadeOut(tween(OverlayBottomSheetDefaults.exitDurationMillis)),
+                enter = fadeIn(tween(QueueSideDialogEnterDurationMillis)),
+                exit = fadeOut(tween(QueueSideDialogExitDurationMillis)),
             ) {
                 Box(
                     modifier = Modifier
@@ -221,116 +381,46 @@ fun QueueDialog(
                 )
             }
 
-            val sideDialog = isQueueSideDialog(maxWidth, maxHeight)
             val coversDesktopLyrics = coverNowPlayingLyrics &&
                 maxWidth >= QueueWideMinWidth &&
                 maxHeight >= QueueWideMinHeight
-            val surfaceShape: Shape = if (sideDialog) {
-                RectangleShape
-            } else {
-                RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-            }
-            val surfaceModifier = if (sideDialog) {
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .width(
-                        if (coversDesktopLyrics) {
-                            nowPlayingLyricsPanelWidth(maxWidth)
-                        } else {
-                            QueueSideDialogWidth
-                        },
-                    )
-                    .fillMaxHeight()
-            } else {
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .widthIn(max = QueueBottomDialogMaxWidth)
-                    .fillMaxWidth()
-                    .height(minOf(maxHeight * 0.76f, QueueBottomDialogMaxHeight))
-            }
-
-            val sheetHandleDragModifier = if (sideDialog) {
-                Modifier
-            } else {
-                Modifier.draggable(
-                    state = sheetDraggableState,
-                    orientation = Orientation.Vertical,
-                    enabled = !dismissing,
-                    onDragStarted = {
-                        sheetDragAnimationJob?.cancel()
-                    },
-                    onDragStopped = { velocity ->
-                        if (
-                            shouldDismissOverlayBottomSheet(
-                                dragOffsetPx = sheetDragOffsetPx,
-                                velocityPxPerSecond = velocity,
-                                distanceThresholdPx = dismissDistancePx,
-                                velocityThresholdPxPerSecond = dismissVelocityPxPerSecond,
-                            )
-                        ) {
-                            requestDismiss()
-                        } else {
-                            sheetDragAnimationJob?.cancel()
-                            sheetDragAnimationJob = coroutineScope.launch {
-                                animate(
-                                    initialValue = sheetDragOffsetPx,
-                                    targetValue = 0f,
-                                    animationSpec = spring(),
-                                ) { value, _ ->
-                                    sheetDragOffsetPx = value
-                                }
-                            }
-                        }
+            val surfaceModifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(
+                    if (coversDesktopLyrics) {
+                        nowPlayingLyricsPanelWidth(maxWidth)
+                    } else {
+                        QueueSideDialogWidth
                     },
                 )
-            }
+                .fillMaxHeight()
 
             AnimatedVisibility(
                 visible = contentVisible,
                 modifier = surfaceModifier,
-                enter = if (sideDialog) {
-                    slideInHorizontally(
-                        initialOffsetX = { it },
-                        animationSpec = tween(
-                            QueueSideDialogEnterDurationMillis,
-                            easing = FastOutSlowInEasing,
-                        ),
-                    ) + fadeIn(tween(QueueSideDialogEnterDurationMillis))
-                } else {
-                    OverlayBottomSheetDefaults.surfaceEnterTransition()
-                },
-                exit = if (sideDialog) {
-                    slideOutHorizontally(
-                        targetOffsetX = { it },
-                        animationSpec = tween(
-                            QueueSideDialogExitDurationMillis,
-                            easing = FastOutSlowInEasing,
-                        ),
-                    ) + fadeOut(tween(QueueSideDialogExitDurationMillis))
-                } else {
-                    OverlayBottomSheetDefaults.surfaceExitTransition()
-                },
+                enter = slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(
+                        QueueSideDialogEnterDurationMillis,
+                        easing = FastOutSlowInEasing,
+                    ),
+                ) + fadeIn(tween(QueueSideDialogEnterDurationMillis)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(
+                        QueueSideDialogExitDurationMillis,
+                        easing = FastOutSlowInEasing,
+                    ),
+                ) + fadeOut(tween(QueueSideDialogExitDurationMillis)),
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .offset {
-                            IntOffset(
-                                x = 0,
-                                y = if (sideDialog) 0 else sheetDragOffsetPx.roundToInt(),
-                            )
-                        }
-                        .then(
-                            if (sideDialog) {
-                                Modifier.shadow(
-                                    elevation = DesignTokens.elevation.overlay,
-                                    shape = RectangleShape,
-                                )
-                            } else {
-                                Modifier
-                            },
+                        .shadow(
+                            elevation = DesignTokens.elevation.overlay,
+                            shape = RectangleShape,
                         )
-                        .clip(surfaceShape)
+                        .clip(RectangleShape)
                         .background(MiuixTheme.colorScheme.surfaceContainer)
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
@@ -339,126 +429,7 @@ fun QueueDialog(
                         }
                         .navigationBarsPadding(),
                 ) {
-                    if (!sideDialog) {
-                        OverlayBottomSheetHandle(sheetHandleDragModifier)
-                    }
-
-                    QueueHeader(
-                        itemCount = state.items.size,
-                        canLocateCurrent = hasCurrentItem,
-                        onLocateCurrent = {
-                            coroutineScope.launch {
-                                listState.animateScrollToItem(state.currentIndex)
-                            }
-                        },
-                        onClear = {
-                            cancelDrag()
-                            onAction(QueueAction.ClearQueue)
-                        },
-                    )
-
-                    if (state.items.isEmpty()) {
-                        QueueEmptyState(modifier = Modifier.weight(1f))
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            state = listState,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        ) {
-                            itemsIndexed(
-                                items = displayItems,
-                                key = { _, item -> item.lazyListKey() },
-                            ) { visualIndex, item ->
-                                val activeDrag = dragState
-                                QueueTrackRow(
-                                    item = item,
-                                    position = visualIndex + 1,
-                                    active = item.index == state.currentIndex && state.isPlaying,
-                                    interactionsEnabled = activeDrag == null,
-                                    isDragged = activeDrag?.originalIndex == item.index,
-                                    dragOffsetY = activeDrag?.takeIf {
-                                        it.originalIndex == item.index
-                                    }?.offsetY ?: 0f,
-                                    onClick = { onAction(QueueAction.PlayItem(item.index)) },
-                                    onRemove = {
-                                        cancelDrag()
-                                        onAction(QueueAction.RemoveItem(item.index))
-                                    },
-                                    onMoveUp = if (visualIndex > 0) {
-                                        { onAction(QueueAction.MoveItem(item.index, visualIndex - 1)) }
-                                    } else {
-                                        null
-                                    },
-                                    onMoveDown = if (visualIndex < displayItems.lastIndex) {
-                                        { onAction(QueueAction.MoveItem(item.index, visualIndex + 1)) }
-                                    } else {
-                                        null
-                                    },
-                                    onDragStart = {
-                                        if (dragState == null) {
-                                            dragState = QueueDragState(
-                                                originalIndex = item.index,
-                                                currentIndex = visualIndex,
-                                            )
-                                        }
-                                    },
-                                    onDrag = onDrag@{ dragAmount ->
-                                        val drag = dragState ?: return@onDrag
-                                        val visibleItems = listState.layoutInfo.visibleItemsInfo
-                                        val draggedItem = visibleItems.firstOrNull {
-                                            it.index == drag.currentIndex
-                                        } ?: return@onDrag
-                                        val nextOffset = drag.offsetY + dragAmount
-                                        val draggedCenter =
-                                            draggedItem.offset + nextOffset + draggedItem.size / 2f
-                                        val target = visibleItems.firstOrNull { visibleItem ->
-                                            visibleItem.index != drag.currentIndex &&
-                                                draggedCenter >= visibleItem.offset &&
-                                                draggedCenter <= visibleItem.offset + visibleItem.size
-                                        }
-                                        val viewport = listState.layoutInfo
-                                        val autoScrollDelta = when {
-                                            draggedCenter < viewport.viewportStartOffset + autoScrollEdgePx -> -autoScrollStepPx
-                                            draggedCenter > viewport.viewportEndOffset - autoScrollEdgePx -> autoScrollStepPx
-                                            else -> 0f
-                                        }
-                                        if (target == null) {
-                                            dragState = drag.copy(
-                                                offsetY = nextOffset,
-                                                autoScrollDelta = autoScrollDelta,
-                                            )
-                                        } else {
-                                            displayItems = displayItems.move(
-                                                fromIndex = drag.currentIndex,
-                                                toIndex = target.index,
-                                            )
-                                            dragState = drag.copy(
-                                                currentIndex = target.index,
-                                                offsetY = nextOffset + draggedItem.offset - target.offset,
-                                                autoScrollDelta = autoScrollDelta,
-                                            )
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        val finishedDrag = dragState ?: return@QueueTrackRow
-                                        dragState = null
-                                        displayItems = state.items
-                                        if (finishedDrag.originalIndex != finishedDrag.currentIndex) {
-                                            onAction(
-                                                QueueAction.MoveItem(
-                                                    fromIndex = finishedDrag.originalIndex,
-                                                    toIndex = finishedDrag.currentIndex,
-                                                ),
-                                            )
-                                        }
-                                    },
-                                    onDragCancel = ::cancelDrag,
-                                )
-                            }
-                        }
-                    }
+                    queueContent(true)
                 }
             }
         }

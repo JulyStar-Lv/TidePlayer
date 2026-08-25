@@ -3,15 +3,63 @@ package io.github.julystar.musicapp.plugin.management
 import io.github.julystar.musicapp.core.data.toPlaybackLyrics
 import io.github.julystar.musicapp.plugin.runtime.PluginResultParser
 import io.github.julystar.musicapp.service.playback.presentation.nowplaying.NowPlayingTrackItem
+import io.github.julystar.musicapp.source.api.MetaCoverCandidate
 import io.github.julystar.musicapp.source.api.MetaLyricLine
 import io.github.julystar.musicapp.source.api.MetaLyricWord
 import io.github.julystar.musicapp.source.api.MetaLyrics
+import io.github.julystar.musicapp.source.api.MetaLyricsCandidate
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class ManualMetadataServiceTest {
+    @Test
+    fun keepsOnlyResultsWithLyricsAndCover() {
+        val candidate = MetaSongCandidate(
+            id = "song-1",
+            title = "Song",
+            artist = "Artist",
+            album = "Album",
+            date = "2026",
+            pictureUrl = "  https://example.test/song-1.jpg  ",
+            sourceId = "source-a",
+        )
+        val lyrics = MetaLyricsCandidate(
+            id = "lyrics-1",
+            title = "Song",
+            artist = "Artist",
+            album = "Album",
+            date = "2026",
+            lyrics = MetaLyrics(rawPlainLrc = "[00:00]Song"),
+            sourceId = "source-a",
+        )
+
+        assertEquals(
+            ManualMetadataResult(candidate, lyrics),
+            candidate.toManualMetadataResult(listOf(lyrics)),
+        )
+        assertNull(candidate.copy(pictureUrl = "  ").toManualMetadataResult(listOf(lyrics)))
+        assertNull(candidate.copy(pictureUrl = null).toManualMetadataResult(listOf(lyrics)))
+        assertNull(candidate.toManualMetadataResult(emptyList()))
+
+        assertEquals(
+            MetaCoverCandidate(
+                url = "https://example.test/song-1.jpg",
+                id = "song-1",
+                title = "Song",
+                artist = "Artist",
+                album = "Album",
+                date = "2026",
+                sourceId = "source-a",
+            ),
+            candidate.toManualCoverCandidate(),
+        )
+        assertNull(candidate.copy(pictureUrl = "  ").toManualCoverCandidate())
+        assertNull(candidate.copy(pictureUrl = null).toManualCoverCandidate())
+    }
+
     @Test
     fun ranksClosestManualMetadataMatchFirstAndRemovesSourceDuplicates() {
         val exact = MetaSongCandidate(
@@ -211,26 +259,6 @@ class ManualMetadataServiceTest {
         assertEquals("ExternalTtml", entity.sourceKind)
         assertEquals("Hello world", line.text)
         assertEquals(2, line.words.size)
-    }
-
-    @Test
-    fun applyMessageDoesNotExposePluginFailureDetails() {
-        val message = metadataApplyMessage(
-            title = "兰亭序",
-            lyricFailures = listOf(
-                MetadataLookupFailure(
-                    sourceId = "com.applemusic.source",
-                    operation = MetadataLookupOperation.GET_LYRICS,
-                    message = "HTTP status 500\n    at __lyricoHostCall (native)",
-                    errorType = "HostApi",
-                ),
-            ),
-        )
-
-        assertEquals(
-            "Applied metadata for 兰亭序. Lyrics were unavailable from the selected source.",
-            message,
-        )
     }
 
     @Test

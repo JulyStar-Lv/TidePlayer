@@ -315,6 +315,7 @@ class RootNavHostTest {
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Favorites",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Listening",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.PluginSettings",
+            "settings/appearance",
         ).forEach { route ->
             assertTrue(shouldCaptureSecondaryStickyHeader(route), route)
         }
@@ -379,5 +380,69 @@ class RootNavHostTest {
 
         sink.clear(incomingOwner)
         assertNull(currentState)
+    }
+
+    @Test
+    fun `navigation target owns sticky header before outgoing page is disposed`() {
+        var currentState: StickyHeaderState? = null
+        val sink = OwnedDesignStickyHeaderStateSink { state -> currentState = state }
+        val settingsOwner = Any()
+        val lyricsOwner = Any()
+        val settingsState = StickyHeaderState(
+            title = "Settings",
+            subtitle = null,
+            collapseFraction = 0f,
+            transitionKey = "settings-entry",
+            isNavigationTarget = false,
+            transitionDurationMillis = 700,
+        )
+        val lyricsState = StickyHeaderState(
+            title = "Lyrics",
+            subtitle = null,
+            collapseFraction = 1f,
+            transitionKey = "lyrics-entry",
+            isNavigationTarget = true,
+            transitionDurationMillis = 700,
+        )
+
+        sink.update(settingsOwner, settingsState)
+        sink.update(lyricsOwner, lyricsState)
+        assertEquals(lyricsState, currentState)
+
+        val returningSettingsState = settingsState.copy(isNavigationTarget = true)
+        sink.update(settingsOwner, returningSettingsState)
+        sink.update(lyricsOwner, lyricsState.copy(isNavigationTarget = false))
+
+        assertEquals(returningSettingsState, currentState)
+    }
+
+    @Test
+    fun `transitioning sticky header remains until replacement registers`() {
+        var currentState: StickyHeaderState? = null
+        val sink = OwnedDesignStickyHeaderStateSink { state -> currentState = state }
+        val outgoingOwner = Any()
+        val incomingOwner = Any()
+        val outgoingState = StickyHeaderState(
+            title = "Lyrics",
+            subtitle = null,
+            collapseFraction = 1f,
+            transitionKey = "lyrics-entry",
+            isNavigationTarget = false,
+            transitionDurationMillis = 700,
+        )
+        val incomingState = StickyHeaderState(
+            title = "Settings",
+            subtitle = null,
+            collapseFraction = 0f,
+            transitionKey = "settings-entry",
+            transitionDurationMillis = 700,
+        )
+
+        sink.update(outgoingOwner, outgoingState)
+        sink.clear(outgoingOwner)
+        assertEquals(outgoingState, currentState)
+
+        sink.update(incomingOwner, incomingState)
+        assertEquals(incomingState, currentState)
     }
 }

@@ -97,8 +97,10 @@ class UnifiedMetadataRepository(
             if (current.metadataLocked && policy != MetadataMergePolicy.ManualOverride) {
                 return@immediateTransaction MetadataApplyResult(trackId, current)
             }
-            val allowMissing = policy == MetadataMergePolicy.FillMissingFileMetadata ||
-                policy == MetadataMergePolicy.FillMissingServerMetadata ||
+            val hasIncomingSemanticMetadata = metadata.hasTaggedTitle()
+            val allowMissing = (policy == MetadataMergePolicy.FillMissingFileMetadata ||
+                policy == MetadataMergePolicy.FillMissingServerMetadata) &&
+                (current.metadataSource != TrackMetadataSources.Filename || !hasIncomingSemanticMetadata) ||
                 policy == MetadataMergePolicy.RefreshPluginMetadata &&
                     current.metadataSource != TrackMetadataSources.Filename
             if (policy == MetadataMergePolicy.RefreshPluginMetadata &&
@@ -113,9 +115,17 @@ class UnifiedMetadataRepository(
                 MetadataMergePolicy.ReplaceFilenameMetadata -> TrackMetadataSources.Filename
                 MetadataMergePolicy.FillMissingFileMetadata ->
                     if (current.metadataSource == TrackMetadataSources.Plugin) current.metadataSource
+                    else if (
+                        current.metadataSource == TrackMetadataSources.Filename &&
+                        !hasIncomingSemanticMetadata
+                    ) current.metadataSource
                     else TrackMetadataSources.File
                 MetadataMergePolicy.FillMissingServerMetadata ->
                     if (current.metadataSource == TrackMetadataSources.Plugin) current.metadataSource
+                    else if (
+                        current.metadataSource == TrackMetadataSources.Filename &&
+                        !hasIncomingSemanticMetadata
+                    ) current.metadataSource
                     else TrackMetadataSources.Server
                 MetadataMergePolicy.RefreshPluginMetadata ->
                     if (current.metadataSource == TrackMetadataSources.Filename) TrackMetadataSources.Plugin
@@ -128,6 +138,11 @@ class UnifiedMetadataRepository(
                 this?.takeIf(String::isNotBlank) ?: existing
             }
             fun <T> T?.semantic(existing: T?): T? = if (allowMissing) existing ?: this else this ?: existing
+            fun <T> T?.media(existing: T?): T? = when (policy) {
+                MetadataMergePolicy.FillMissingFileMetadata,
+                MetadataMergePolicy.FillMissingServerMetadata -> this ?: existing
+                else -> existing
+            }
             val next = current.copy(
                 title = metadata.title.semantic(current.title) ?: current.title,
                 artist = metadata.artist.semantic(current.artist),
@@ -156,19 +171,19 @@ class UnifiedMetadataRepository(
                 musicBrainzArtistId = metadata.musicBrainzArtistId.semantic(current.musicBrainzArtistId),
                 musicBrainzReleaseArtistId = metadata.musicBrainzReleaseArtistId.semantic(current.musicBrainzReleaseArtistId),
                 musicBrainzWorkId = metadata.musicBrainzWorkId.semantic(current.musicBrainzWorkId),
-                durationMs = if (allowMissing) current.durationMs ?: metadata.durationMs else current.durationMs,
-                sampleRate = if (allowMissing) current.sampleRate ?: metadata.sampleRate else current.sampleRate,
-                bitRate = if (allowMissing) current.bitRate ?: metadata.bitRate else current.bitRate,
-                bitsPerSample = if (allowMissing) current.bitsPerSample ?: metadata.bitsPerSample else current.bitsPerSample,
-                channels = if (allowMissing) current.channels ?: metadata.channels else current.channels,
-                channelLayout = if (allowMissing) current.channelLayout ?: metadata.channelLayout else current.channelLayout,
-                codec = if (allowMissing) current.codec ?: metadata.codec else current.codec,
-                container = if (allowMissing) current.container ?: metadata.container else current.container,
-                lossless = if (allowMissing) current.lossless ?: metadata.lossless else current.lossless,
-                replayGainTrackGain = if (allowMissing) current.replayGainTrackGain ?: metadata.replayGainTrackGain else current.replayGainTrackGain,
-                replayGainTrackPeak = if (allowMissing) current.replayGainTrackPeak ?: metadata.replayGainTrackPeak else current.replayGainTrackPeak,
-                replayGainAlbumGain = if (allowMissing) current.replayGainAlbumGain ?: metadata.replayGainAlbumGain else current.replayGainAlbumGain,
-                replayGainAlbumPeak = if (allowMissing) current.replayGainAlbumPeak ?: metadata.replayGainAlbumPeak else current.replayGainAlbumPeak,
+                durationMs = metadata.durationMs.media(current.durationMs),
+                sampleRate = metadata.sampleRate.media(current.sampleRate),
+                bitRate = metadata.bitRate.media(current.bitRate),
+                bitsPerSample = metadata.bitsPerSample.media(current.bitsPerSample),
+                channels = metadata.channels.media(current.channels),
+                channelLayout = metadata.channelLayout.media(current.channelLayout),
+                codec = metadata.codec.media(current.codec),
+                container = metadata.container.media(current.container),
+                lossless = metadata.lossless.media(current.lossless),
+                replayGainTrackGain = metadata.replayGainTrackGain.media(current.replayGainTrackGain),
+                replayGainTrackPeak = metadata.replayGainTrackPeak.media(current.replayGainTrackPeak),
+                replayGainAlbumGain = metadata.replayGainAlbumGain.media(current.replayGainAlbumGain),
+                replayGainAlbumPeak = metadata.replayGainAlbumPeak.media(current.replayGainAlbumPeak),
                 year = metadata.date.semantic(current.date)?.take(4)?.toIntOrNull() ?: current.year,
                 metadataSource = resultingSource,
                 metadataSourceId = when {
@@ -219,6 +234,7 @@ class UnifiedMetadataRepository(
             ResolvedTrackMetadata(
                 title = parsed.title,
                 artist = parsed.artist,
+                album = parsed.album,
                 trackNumber = parsed.trackNumber,
                 discNumber = parsed.discNumber,
             ),
@@ -306,6 +322,8 @@ class UnifiedMetadataRepository(
         )
     }
 }
+
+private fun ResolvedTrackMetadata.hasTaggedTitle(): Boolean = !title.isNullOrBlank()
 
 private fun ResolvedTrackMetadata.Companion.from(candidate: MetaSongCandidate): ResolvedTrackMetadata =
     ResolvedTrackMetadata(

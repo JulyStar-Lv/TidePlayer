@@ -592,6 +592,71 @@ class RemoteLibraryImportCoordinatorTest {
     }
 
     @Test
+    fun taglessImportUsesFilenameFallbackProvenance() {
+        val entry = entry(path = "/Music/Artist - Album - 04 - Song.flac", name = "Artist - Album - 04 - Song.flac")
+        val sourceItem = sourceItem(id = 42, canonicalPath = entry.path)
+        val taglessMetadata = metadata(title = "placeholder").copy(
+            title = null,
+            artist = null,
+            artists = emptyList(),
+            albumArtist = null,
+            album = null,
+            composer = null,
+            lyricist = null,
+            conductor = null,
+            genre = null,
+            grouping = null,
+            comment = null,
+            copyright = null,
+            publisher = null,
+            date = null,
+            originalReleaseDate = null,
+            trackNumber = null,
+            trackTotal = null,
+            discNumber = null,
+            discTotal = null,
+            bpm = null,
+            musicalKey = null,
+            isrc = null,
+            musicbrainzRecordingId = null,
+            musicbrainzTrackId = null,
+            musicbrainzReleaseId = null,
+            musicbrainzReleaseGroupId = null,
+            musicbrainzArtistId = null,
+            musicbrainzReleaseArtistId = null,
+            musicbrainzWorkId = null,
+        )
+
+        val track = buildTrackEntity(
+            entry = entry,
+            metadata = taglessMetadata,
+            sourceItem = sourceItem,
+            now = 1_000,
+        )
+
+        assertEquals("Artist - Album - 04 - Song", track.title)
+        assertEquals(TrackMetadataSources.Filename, track.metadataSource)
+        assertEquals(1, track.durationMs)
+    }
+
+    @Test
+    fun importWithoutTaggedTitleKeepsFilenameProvenanceWhileRetainingOtherTags() {
+        val entry = entry(path = "/Music/Artist - Song.flac", name = "Artist - Song.flac")
+        val sourceItem = sourceItem(id = 42, canonicalPath = entry.path)
+
+        val track = buildTrackEntity(
+            entry = entry,
+            metadata = metadata(title = "placeholder", artist = "Tagged Artist").copy(title = null),
+            sourceItem = sourceItem,
+            now = 1_000,
+        )
+
+        assertEquals("Artist - Song", track.title)
+        assertEquals("Tagged Artist", track.artist)
+        assertEquals(TrackMetadataSources.Filename, track.metadataSource)
+    }
+
+    @Test
     fun metadataRefreshPreservesTrackIdentityAfterMove() {
         val previousTrack = buildTrackEntity(
             entry = entry(path = "/Music/Old.flac", name = "Old.flac"),

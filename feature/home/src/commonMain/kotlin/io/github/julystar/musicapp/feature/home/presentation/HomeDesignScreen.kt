@@ -30,20 +30,17 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -93,7 +90,6 @@ import musicapp.feature.home.generated.resources.home_now_playing_label
 import musicapp.feature.home.generated.resources.home_add_source
 import musicapp.feature.home.generated.resources.home_recommended_artists
 import musicapp.feature.home.generated.resources.home_recently_played
-import musicapp.feature.home.generated.resources.home_subtitle
 import musicapp.feature.home.generated.resources.home_suggested_albums
 import musicapp.feature.home.generated.resources.home_this_month
 import musicapp.feature.home.generated.resources.home_top_tracks
@@ -102,6 +98,7 @@ import musicapp.feature.home.generated.resources.home_title
 import musicapp.feature.home.generated.resources.home_your_listening
 import musicapp.feature.home.generated.resources.listening_plays
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -125,231 +122,200 @@ fun HomeDesignScreen(
         ?: fallbackTrack?.title
         ?: stringResource(Res.string.home_no_track)
     val bottomContentInset = LocalDesignBottomContentInset.current
+    val topAppBarScrollBehavior = MiuixScrollBehavior()
+    val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
     LiquidGlassScene(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background),
+                .background(MiuixTheme.colorScheme.background)
+                .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
         ) {
             val compact = maxWidth < DesignTokens.adaptive.largeMinWidth
             val pagePadding = if (compact) 24.dp else DesignTokens.spacing.pageExpanded
+            val pageTitle = stringResource(
+                if (compact) Res.string.home_title else Res.string.home_good_evening,
+            )
             val playlistCardWidth = if (compact) 160.dp else 178.dp
             val newSongCardWidth = 120.dp
             val suggestedAlbumCardWidth = 160.dp
             val artistSize = 128.dp
             val listState = rememberLazyListState()
-            val collapseDistance = with(LocalDensity.current) {
-                DesignTokens.adaptive.compactHeaderCollapseDistance.roundToPx()
-            }
-            val actionBarProgress by remember(listState, collapseDistance) {
-                derivedStateOf {
-                    if (listState.firstVisibleItemIndex > 0) {
-                        1f
-                    } else {
-                        (listState.firstVisibleItemScrollOffset / collapseDistance.toFloat())
-                            .coerceIn(0f, 1f)
-                    }
-                }
-            }
-            val pageTitleAlpha = (1f - actionBarProgress / 0.70f).coerceIn(0f, 1f)
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxSize()
-                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
-                contentPadding = PaddingValues(
-                    start = pagePadding,
-                    top = 0.dp,
-                    end = pagePadding,
-                    bottom = maxOf(
-                        scaffoldPadding.calculateBottomPadding(),
-                        bottomContentInset,
-                    ) + 28.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(28.dp),
-            ) {
-                item {
-                    if (compact) {
-                        HomeMobileHeader(modifier = Modifier.alpha(pageTitleAlpha))
-                    } else {
-                        TopAppBar(
-                            title = stringResource(Res.string.home_good_evening),
-                            subtitle = stringResource(Res.string.home_subtitle),
-                            modifier = Modifier.alpha(pageTitleAlpha),
-                        )
-                    }
-                }
-                if (state.shouldShowEmptyState) {
-                    item {
-                        HomeEmptyState(
-                            onAddSource = { onAction(HomeAction.NavigateToSourceSettings) },
-                        )
-                    }
-                }
-                if (!showEmptyStateOnly) {
-                    item {
-                        DailyPicksHero(
-                            compact = compact,
-                            tracks = state.dailyPickTracks.take(3),
-                            nowPlayingTitle = dailyPicksTrackTitle,
-                            onPlay = state.dailyPickTracks.takeIf { it.isNotEmpty() }?.let {
-                                { onAction(HomeAction.PlayDailyPicks) }
-                            },
-                        )
-                    }
-                    if (state.pinnedPlaylists.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopAppBar(
+                    title = pageTitle,
+                    largeTitle = pageTitle,
+                    color = Color.Transparent,
+                    titleColor = Color.Transparent,
+                    scrollBehavior = topAppBarScrollBehavior,
+                )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
+                    contentPadding = PaddingValues(
+                        start = pagePadding,
+                        top = 28.dp,
+                        end = pagePadding,
+                        bottom = maxOf(
+                            scaffoldPadding.calculateBottomPadding(),
+                            bottomContentInset,
+                        ) + 28.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(28.dp),
+                ) {
+                    if (state.shouldShowEmptyState) {
                         item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_pinned_playlists),
-                                icon = Res.drawable.icon_bookmark,
-                                onClick = { onAction(HomeAction.NavigateToLibrary) },
-                            ) {
-                                PlaylistRow(
-                                    playlists = state.pinnedPlaylists,
-                                    cardWidth = playlistCardWidth,
-                                    showMeta = true,
-                                    onClick = { playlist ->
-                                        onAction(HomeAction.NavigateToPlaylist(playlist.id))
-                                    },
-                                )
-                            }
+                            HomeEmptyState(
+                                onAddSource = { onAction(HomeAction.NavigateToSourceSettings) },
+                            )
                         }
                     }
-                    state.listeningPreview?.let { preview ->
+                    if (!showEmptyStateOnly) {
                         item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_your_listening),
-                                icon = Res.drawable.icon_activity,
-                                onClick = { onAction(HomeAction.NavigateToListening) },
-                            ) {
-                                HomeListeningPreview(
-                                    compact = compact,
-                                    preview = preview,
-                                    onPlay = { track, ranking ->
-                                        onAction(
-                                            HomeAction.PlayListeningTrack(
-                                                trackId = track.track.id,
-                                                ranking = ranking,
-                                            ),
-                                        )
-                                    },
-                                )
+                            DailyPicksHero(
+                                compact = compact,
+                                tracks = state.dailyPickTracks.take(3),
+                                nowPlayingTitle = dailyPicksTrackTitle,
+                                onPlay = state.dailyPickTracks.takeIf { it.isNotEmpty() }?.let {
+                                    { onAction(HomeAction.PlayDailyPicks) }
+                                },
+                            )
+                        }
+                        if (state.pinnedPlaylists.isNotEmpty()) {
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_pinned_playlists),
+                                    icon = Res.drawable.icon_bookmark,
+                                    onClick = { onAction(HomeAction.NavigateToLibrary) },
+                                ) {
+                                    PlaylistRow(
+                                        playlists = state.pinnedPlaylists,
+                                        cardWidth = playlistCardWidth,
+                                        showMeta = true,
+                                        onClick = { playlist ->
+                                            onAction(HomeAction.NavigateToPlaylist(playlist.id))
+                                        },
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (state.pinnedPlaylists.isNotEmpty()) {
-                        item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_continue_playing),
-                                icon = Res.drawable.icon_headphones,
-                                onClick = { onAction(HomeAction.NavigateToLibrary) },
-                            ) {
-                                PlaylistRow(
-                                    playlists = state.pinnedPlaylists,
-                                    cardWidth = playlistCardWidth,
-                                    showMeta = false,
-                                    onClick = { playlist ->
-                                        onAction(HomeAction.NavigateToPlaylist(playlist.id))
-                                    },
-                                )
+                        state.listeningPreview?.let { preview ->
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_your_listening),
+                                    icon = Res.drawable.icon_activity,
+                                    onClick = { onAction(HomeAction.NavigateToListening) },
+                                ) {
+                                    HomeListeningPreview(
+                                        compact = compact,
+                                        preview = preview,
+                                        onPlay = { track, ranking ->
+                                            onAction(
+                                                HomeAction.PlayListeningTrack(
+                                                    trackId = track.track.id,
+                                                    ranking = ranking,
+                                                ),
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (state.recentTracks.isNotEmpty()) {
-                        item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_recently_played),
-                                icon = Res.drawable.icon_clock,
-                                onClick = { onAction(HomeAction.NavigateToLibrary) },
-                            ) {
-                                RecentlyPlayedPager(
-                                    tracks = state.recentTracks,
-                                    onPlay = { track -> onAction(HomeAction.PlayTrack(track.id)) },
-                                )
+                        if (state.pinnedPlaylists.isNotEmpty()) {
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_continue_playing),
+                                    icon = Res.drawable.icon_headphones,
+                                    onClick = { onAction(HomeAction.NavigateToLibrary) },
+                                ) {
+                                    PlaylistRow(
+                                        playlists = state.pinnedPlaylists,
+                                        cardWidth = playlistCardWidth,
+                                        showMeta = false,
+                                        onClick = { playlist ->
+                                            onAction(HomeAction.NavigateToPlaylist(playlist.id))
+                                        },
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (state.dailyPickTracks.isNotEmpty()) {
-                        item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_new_songs),
-                                icon = Res.drawable.icon_sparkles,
-                                onClick = { onAction(HomeAction.NavigateToLibrary) },
-                            ) {
-                                NewSongRow(
-                                    tracks = state.dailyPickTracks,
-                                    cardWidth = newSongCardWidth,
-                                    onPlay = { track -> onAction(HomeAction.PlayLibraryTrack(track.id)) },
-                                )
+                        if (state.recentTracks.isNotEmpty()) {
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_recently_played),
+                                    icon = Res.drawable.icon_clock,
+                                    onClick = { onAction(HomeAction.NavigateToLibrary) },
+                                ) {
+                                    RecentlyPlayedPager(
+                                        tracks = state.recentTracks,
+                                        onPlay = { track -> onAction(HomeAction.PlayTrack(track.id)) },
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (state.featuredAlbums.isNotEmpty()) {
-                        item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_suggested_albums),
-                                icon = Res.drawable.icon_disc,
-                                onClick = { onAction(HomeAction.NavigateToLibrary) },
-                            ) {
-                                AlbumRow(
-                                    albums = state.featuredAlbums,
-                                    cardWidth = suggestedAlbumCardWidth,
-                                    onClick = { album ->
-                                        onAction(HomeAction.NavigateToAlbum(album.id))
-                                    },
-                                )
+                        if (state.dailyPickTracks.isNotEmpty()) {
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_new_songs),
+                                    icon = Res.drawable.icon_sparkles,
+                                    onClick = { onAction(HomeAction.NavigateToLibrary) },
+                                ) {
+                                    NewSongRow(
+                                        tracks = state.dailyPickTracks,
+                                        cardWidth = newSongCardWidth,
+                                        onPlay = { track -> onAction(HomeAction.PlayLibraryTrack(track.id)) },
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (state.artists.isNotEmpty()) {
-                        item {
-                            HomeSection(
-                                title = stringResource(Res.string.home_recommended_artists),
-                                icon = Res.drawable.icon_mic_vocal,
-                                onClick = { onAction(HomeAction.NavigateToLibrary) },
-                            ) {
-                                ArtistRow(
-                                    artists = state.artists,
-                                    size = artistSize,
-                                    onOpen = { artist ->
-                                        onAction(HomeAction.NavigateToArtist(artist.id))
-                                    },
-                                )
+                        if (state.featuredAlbums.isNotEmpty()) {
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_suggested_albums),
+                                    icon = Res.drawable.icon_disc,
+                                    onClick = { onAction(HomeAction.NavigateToLibrary) },
+                                ) {
+                                    AlbumRow(
+                                        albums = state.featuredAlbums,
+                                        cardWidth = suggestedAlbumCardWidth,
+                                        onClick = { album ->
+                                            onAction(HomeAction.NavigateToAlbum(album.id))
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        if (state.artists.isNotEmpty()) {
+                            item {
+                                HomeSection(
+                                    title = stringResource(Res.string.home_recommended_artists),
+                                    icon = Res.drawable.icon_mic_vocal,
+                                    onClick = { onAction(HomeAction.NavigateToLibrary) },
+                                ) {
+                                    ArtistRow(
+                                        artists = state.artists,
+                                        size = artistSize,
+                                        onOpen = { artist ->
+                                            onAction(HomeAction.NavigateToArtist(artist.id))
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
             LiquidGlassActionBar(
-                title = stringResource(if (compact) Res.string.home_title else Res.string.home_good_evening),
+                title = pageTitle,
                 collapseFraction = actionBarProgress,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
-    }
-}
-
-@Composable
-private fun HomeMobileHeader(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(88.dp),
-        contentAlignment = Alignment.BottomStart,
-    ) {
-        Text(
-            text = stringResource(Res.string.home_title),
-            color = MiuixTheme.colorScheme.onBackground,
-            style = MiuixTheme.textStyles.title1.copy(
-                fontSize = 32.sp,
-                lineHeight = 38.sp,
-            ),
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 

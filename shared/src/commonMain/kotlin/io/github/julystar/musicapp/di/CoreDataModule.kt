@@ -48,6 +48,7 @@ import io.github.julystar.musicapp.plugin.runtime.PluginRuntimeSettings
 import io.github.julystar.musicapp.plugin.runtime.PluginScriptBundleBuilder
 import io.github.julystar.musicapp.metadata.RoomTrackIdentityReconciler
 import io.github.julystar.musicapp.metadata.TrackIdentityReconciler
+import io.github.julystar.musicapp.metadata.UnifiedMetadataRepository
 import io.github.julystar.musicapp.singleton.Bridge
 import io.github.julystar.musicapp.singleton.RoomLibraryStore
 import io.github.julystar.musicapp.feature.home.data.RoomHomeHistoryRepository
@@ -106,6 +107,7 @@ val coreDataModule = module {
     }
     single<AutomaticTrackMerger> { TrackDuplicateMerger(get(), get()) }
     single<TrackIdentityReconciler> { RoomTrackIdentityReconciler(get(), get()) }
+    single { UnifiedMetadataRepository(get(), get(), get()) }
     single<AppDataClearService> {
         RoomAppDataClearService(get(), get(), get(), get(), get(), get(), get(), get(), get())
     }

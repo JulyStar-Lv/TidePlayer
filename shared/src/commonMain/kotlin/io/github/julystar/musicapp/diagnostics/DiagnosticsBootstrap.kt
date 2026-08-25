@@ -162,6 +162,8 @@ object DiagnosticsBootstrap {
                 },
                 currentTimeEpochMs = currentTimeMillis(),
                 userForcedSafeMode = userForcedSafeMode ||
+                    snapshot.startupAttempt.safeMode ||
+                    snapshot.safeModeSuggested ||
                     snapshot.startupAttempt.safeModeReason == "User requested safe mode",
                 previousRecoveryFailedAtSameStage =
                     pendingSafetyIncident != null &&

@@ -44,7 +44,10 @@ internal fun LyricsSettingsScreen(
     var editingSourcePriority by remember { mutableStateOf(false) }
 
     SettingsPageLayout(title = stringResource(Res.string.settings_lyrics_title), onBack = onBack) {
-        SmallTitle(text = stringResource(Res.string.settings_lyrics_alignment_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_lyrics_alignment_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             OverlayDropdownPreference(
                 title = stringResource(Res.string.settings_lyrics_alignment_section),
@@ -58,7 +61,10 @@ internal fun LyricsSettingsScreen(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_lyrics_source_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_lyrics_source_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             OverlayDropdownPreference(
                 title = stringResource(Res.string.settings_lyrics_source_section),
@@ -83,7 +89,10 @@ internal fun LyricsSettingsScreen(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_lyrics_style_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_lyrics_style_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             var primaryScalePreview by remember(lyrics.primaryFontScalePercent) {
                 mutableFloatStateOf(lyrics.primaryFontScalePercent.toFloat())
@@ -159,7 +168,10 @@ internal fun LyricsSettingsScreen(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_lyrics_effects_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_lyrics_effects_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_lyrics_translation),
@@ -217,7 +229,10 @@ internal fun LyricsSettingsScreen(
         }
 
         if (capabilities.lyricFontSelectionSupported) {
-            SmallTitle(text = stringResource(Res.string.settings_lyrics_font_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_lyrics_font_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 OverlayDropdownPreference(
                     title = stringResource(Res.string.settings_lyrics_western_font),
@@ -298,7 +313,10 @@ internal fun LyricsSettingsScreen(
         }
 
         if (capabilities.hasAnyLyricOutput()) {
-            SmallTitle(text = stringResource(Res.string.settings_lyrics_output_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_lyrics_output_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 if (capabilities.floatingLyricsSupported) {
                     SwitchPreference(

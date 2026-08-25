@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -107,9 +108,16 @@ fun SourceSettingsSection(
         onBack = onBack,
         compactHorizontalPadding = 16.dp,
     ) {
+        SmallTitle(
+            text = stringResource(Res.string.settings_library_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         UnifiedLibraryCard(state = state, onAction = onAction)
 
-        SmallTitle(text = stringResource(Res.string.settings_download_persistence_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_download_persistence_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_enrich_downloaded_files),
@@ -138,7 +146,10 @@ fun SourceSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_sources_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_sources_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             state.sourceAccounts.forEach { account ->
                 SourceAccountRow(
@@ -165,7 +176,10 @@ fun SourceSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_automatic_scanning_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_automatic_scanning_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             val autoScanModes = if (state.capabilities.backgroundScanSupported) {
                 AutoScanMode.entries.toList()
@@ -184,7 +198,10 @@ fun SourceSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_import_rules_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_import_rules_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             MinimumDurationSelectRow(
                 selectedDurationMs = settings.minimumAudioDurationMs,
@@ -208,7 +225,10 @@ fun SourceSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_maintenance_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_maintenance_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             ArrowPreference(
                 title = stringResource(Res.string.settings_refresh_missing_artwork),
@@ -400,7 +420,10 @@ private fun UnifiedLibraryCard(
     }
     val canScan = state.enabledSourceCount > 0 && !state.maintenanceOperationInProgress
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(16.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

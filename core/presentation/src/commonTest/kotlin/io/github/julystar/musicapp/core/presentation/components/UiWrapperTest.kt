@@ -60,7 +60,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
-class UiWrapperTest {
+class MiuixControlTest {
 
     @Test
     fun switchPreferenceHandlesRowClickAndExposesSummary() = runComposeUiTest {

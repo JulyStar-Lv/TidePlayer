@@ -29,7 +29,11 @@
     <string name="import_folder_already_imported">Already imported</string>
     <string name="import_folder_empty">This folder is empty</string>
     <string name="import_folder_save">Save</string>
+    <string name="import_folder_save_hint">Updates library paths when saved</string>
     <string name="import_folder_retry">Retry</string>
+    <string name="import_folder_show_selected">Show selected folders</string>
+    <string name="import_folder_hide_selected">Hide selected folders</string>
+    <string name="import_folder_a11y_back">Back</string>
     <string name="import_folder_a11y_enter">%1$s, folder, activate to open</string>
     <string name="import_folder_a11y_unselected">%1$s, not selected</string>
     <string name="import_folder_a11y_selected">%1$s, selected</string>

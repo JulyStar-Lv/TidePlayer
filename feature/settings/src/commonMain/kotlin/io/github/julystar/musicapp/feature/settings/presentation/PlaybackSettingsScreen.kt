@@ -51,7 +51,10 @@ fun PlaybackSettingsSection(
             capabilities.audioOutputSelectionSupported ||
             capabilities.audioRoutePickerSupported
         ) {
-            SmallTitle(text = stringResource(Res.string.settings_audio_output_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_audio_output_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 ArrowPreference(
                     title = stringResource(Res.string.settings_current_audio_output),
@@ -90,7 +93,10 @@ fun PlaybackSettingsSection(
         }
 
         if (capabilities.audioFocusSupported) {
-            SmallTitle(text = stringResource(Res.string.settings_audio_focus_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_audio_focus_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 val modes = AudioFocusMode.entries.toList()
                 OverlayDropdownPreference(
@@ -108,7 +114,10 @@ fun PlaybackSettingsSection(
             }
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_playback_behavior_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_playback_behavior_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             if (capabilities.deviceDisconnectSupported) {
                 SwitchPreference(
@@ -150,7 +159,10 @@ fun PlaybackSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_playback_advanced_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_playback_advanced_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_resume_playback_position),
@@ -215,7 +227,10 @@ fun PlaybackSettingsSection(
         }
 
         if (capabilities.crossfadeSupported || capabilities.replayGainSupported) {
-            SmallTitle(text = stringResource(Res.string.settings_playback_enhancement_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_playback_enhancement_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 if (capabilities.crossfadeSupported) {
                     var crossfadePreview by remember(settings.playbackAdvanced.crossfadeDurationMs) {
@@ -281,7 +296,10 @@ fun PlaybackSettingsSection(
             }
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_player_interaction_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_player_interaction_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             val interaction = settings.playerInteraction
             SwitchPreference(
@@ -360,7 +378,10 @@ fun PlaybackSettingsSection(
 
         if (capabilities.audioEffectsSupported) {
             val effects = settings.audioEffects
-            SmallTitle(text = stringResource(Res.string.settings_audio_processing_section))
+            SmallTitle(
+                text = stringResource(Res.string.settings_audio_processing_section),
+                insideMargin = settingsSectionTitleMargin,
+            )
             Card {
                 ArrowPreference(
                     title = stringResource(Res.string.settings_equalizer_section),

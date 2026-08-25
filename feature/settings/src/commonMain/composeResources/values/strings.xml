@@ -121,20 +121,21 @@
     <string name="settings_language_english_summary">Use English after restart</string>
     <string name="settings_search_hint">Search settings…</string>
     <string name="settings_personalization_section">Personalization</string>
-    <string name="settings_appearance_card_summary">Theme, artwork color, and app language</string>
-    <string name="settings_lyrics_card_summary">Sources, alignment, type, effects, and external output</string>
-    <string name="settings_playback_card_summary">Audio focus, queue behavior, ReplayGain, and DSP</string>
+    <string name="settings_appearance_card_summary">Theme, color, and language</string>
+    <string name="settings_lyrics_card_summary">Sources, style, and display</string>
+    <string name="settings_playback_card_summary">Playback and audio effects</string>
     <string name="settings_library_data_section">Library &amp; data</string>
     <string name="settings_sources_card_summary">%1$d sources · %2$d ready</string>
     <string name="settings_metadata_plugins">Metadata plugins</string>
-    <string name="settings_metadata_plugins_summary">Import and configure Lyrico Plugin API v3 providers</string>
-    <string name="settings_network_cache_card_summary">Streaming policy, cache limits, timeout, and retries</string>
-    <string name="settings_storage_card_summary">%1$s used · cleanup, backup, and diagnostics</string>
+    <string name="settings_metadata_plugins_summary">Lyrics and metadata plugins</string>
+    <string name="settings_network_cache_card_summary">Streaming and cache</string>
+    <string name="settings_storage_card_summary">%1$s used · cleanup and backup</string>
     <string name="settings_app_info_section">App &amp; info</string>
-    <string name="settings_about_card_summary">Tide Player %1$s · build, links, privacy, and licenses</string>
+    <string name="settings_about_card_summary">Tide Player %1$s · app info</string>
     <string name="settings_search_empty">No settings match “%1$s”</string>
     <string name="diagnostics_title">Logs &amp; diagnostics</string>
-    <string name="diagnostics_card_summary">Sessions, incidents, startup recovery, privacy, and export</string>
+    <string name="diagnostics_overview">Overview</string>
+    <string name="diagnostics_card_summary">Logs, incidents, and recovery</string>
     <string name="diagnostics_refresh">Refresh diagnostics</string>
     <string name="diagnostics_export">Export and share redacted ZIP</string>
     <string name="diagnostics_startup">Startup diagnostics</string>
@@ -214,6 +215,7 @@
     <string name="settings_keep_screen_on_summary">Only keep the screen on while Now Playing is visible</string>
 
     <string name="settings_sources_section">Sources</string>
+    <string name="settings_library_section">Library</string>
     <string name="settings_unified_library">Unified library</string>
     <string name="settings_unified_library_summary">Local and remote music share one searchable index. Pausing a source keeps its files untouched.</string>
     <string name="settings_library_up_to_date">Up to date</string>

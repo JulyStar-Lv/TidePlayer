@@ -51,6 +51,11 @@ class PlaybackLyricsEnricher(
             trackId = effectiveTrackId,
             sourceId = matchedCandidate?.sourceId,
             externalId = matchedCandidate?.id,
+            settingsKey = buildString {
+                append(settings.sourceMode.name)
+                append(':')
+                append(settings.sourcePriority.joinToString(",") { it.name })
+            },
         )
 
         val acquired = stateMutex.withLock {
@@ -151,6 +156,7 @@ internal data class LyricsAttemptKey(
     val trackId: Long,
     val sourceId: String?,
     val externalId: String?,
+    val settingsKey: String? = null,
 )
 
 internal suspend fun resolveLyricsSongCandidate(

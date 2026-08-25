@@ -46,7 +46,10 @@ fun AppearanceSettingsSection(
     }
 
     SettingsPageLayout(title = stringResource(Res.string.settings_appearance_title), onBack = onBack) {
-        SmallTitle(text = stringResource(Res.string.settings_theme_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_theme_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             val themeModes = AppThemeMode.entries.toList()
             OverlayDropdownPreference(
@@ -64,7 +67,10 @@ fun AppearanceSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_color_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_color_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             SwitchPreference(
                 title = stringResource(Res.string.settings_artwork_color),
@@ -114,7 +120,10 @@ fun AppearanceSettingsSection(
             )
         }
 
-        SmallTitle(text = stringResource(Res.string.settings_language_section))
+        SmallTitle(
+            text = stringResource(Res.string.settings_language_section),
+            insideMargin = settingsSectionTitleMargin,
+        )
         Card {
             val languageModes = AppLanguageMode.entries.toList()
             OverlayDropdownPreference(

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -18,12 +19,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -38,7 +39,6 @@ import musicapp.core.presentation.generated.resources.icon_chevron_left
 import org.jetbrains.compose.resources.painterResource
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.IconButton
 
@@ -55,6 +55,16 @@ data class StickyHeaderState(
     val backContentDescription: String? = null,
     val actions: (@Composable () -> Unit)? = null,
     val compactTitle: Boolean = false,
+    val transitionKey: String = title,
+    val isNavigationTarget: Boolean = true,
+    val transitionDurationMillis: Int = 0,
+)
+
+@Immutable
+data class StickyHeaderTransitionContext(
+    val key: String,
+    val isNavigationTarget: Boolean,
+    val durationMillis: Int,
 )
 
 interface StickyHeaderStateSink {
@@ -65,6 +75,9 @@ interface StickyHeaderStateSink {
 
 val LocalDesignStickyHeaderStateSink =
     staticCompositionLocalOf<StickyHeaderStateSink?> { null }
+
+val LocalStickyHeaderTransitionContext =
+    staticCompositionLocalOf<StickyHeaderTransitionContext?> { null }
 
 @Immutable
 object LiquidGlassDefaults {
@@ -171,6 +184,7 @@ fun LiquidGlassActionBar(
     }
     val stateOwner = remember { Any() }
     val stateSink = LocalDesignStickyHeaderStateSink.current
+    val transitionContext = LocalStickyHeaderTransitionContext.current
     if (stateSink != null) {
         SideEffect {
             stateSink.update(
@@ -183,22 +197,25 @@ fun LiquidGlassActionBar(
                     backContentDescription = backContentDescription,
                     actions = stableActions,
                     compactTitle = compactTitle,
+                    transitionKey = transitionContext?.key ?: title,
+                    isNavigationTarget = transitionContext?.isNavigationTarget ?: true,
+                    transitionDurationMillis = transitionContext?.durationMillis ?: 0,
                 ),
             )
         }
         DisposableEffect(stateSink, stateOwner) {
             onDispose { stateSink.clear(stateOwner) }
         }
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(DesignTokens.adaptive.compactHeaderHeight + statusBarInset),
+        )
         return
     }
 
     val adaptive = DesignTokens.adaptive
     val titleFraction = ((fraction - 0.72f) / 0.28f).coerceIn(0f, 1f)
-    val actionBarTitleStyle = MiuixTheme.textStyles.title2.copy(
-        fontSize = if (compactTitle) 22.sp else 24.sp,
-        lineHeight = if (compactTitle) 28.sp else 30.sp,
-        fontWeight = if (compactTitle) FontWeight.SemiBold else FontWeight.Bold,
-    )
     val backdrop = currentDesignBackdrop()
     val glassModifier = if (backdrop != null && fraction > 0f) {
         Modifier.designLiquidGlass(
@@ -222,12 +239,15 @@ fun LiquidGlassActionBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(adaptive.compactHeaderHeight),
+                .height(
+                    adaptive.compactHeaderHeight + statusBarInset,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (stableOnNavigateBack != null) {
                 SmallTopAppBar(
                     title = title,
+                    color = Color.Transparent,
                     modifier = Modifier.alpha(titleFraction),
                     defaultWindowInsetsPadding = false,
                     navigationIcon = {
@@ -237,20 +257,20 @@ fun LiquidGlassActionBar(
                             Icon(
                                 painter = painterResource(Res.drawable.icon_chevron_left),
                                 contentDescription = backContentDescription,
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     },
                     actions = { stableActions?.invoke() },
                 )
             } else {
-                TopAppBar(
+                SmallTopAppBar(
                     title = title,
+                    color = Color.Transparent,
                     subtitle = subtitle.orEmpty(),
-                    largeTitle = title,
                     defaultWindowInsetsPadding = false,
-                    modifier = Modifier
-                        .padding(horizontal = 20.dp)
-                        .alpha(titleFraction),
+                    actions = { stableActions?.invoke() },
+                    modifier = Modifier.alpha(titleFraction),
                 )
             }
         }
@@ -259,6 +279,33 @@ fun LiquidGlassActionBar(
 
 @Composable
 internal fun currentDesignBackdrop(): Backdrop? = LocalDesignBackdrop.current
+
+/**
+ * Applies the shared liquid-glass treatment when this surface is hosted by a captured scene.
+ * Platforms or layouts without a captured backdrop keep the existing opaque fallback.
+ */
+@Composable
+fun Modifier.liquidGlassSurface(
+    shape: Shape,
+    intensity: Float = 1f,
+): Modifier {
+    val fraction = intensity.coerceIn(0f, 1f)
+    val backdrop = currentDesignBackdrop()
+    return if (backdrop != null) {
+        designLiquidGlass(
+            backdrop = backdrop,
+            shape = shape,
+            intensity = fraction,
+        )
+    } else {
+        clip(shape)
+            .background(
+                MiuixTheme.colorScheme.surfaceContainer.copy(
+                    alpha = LiquidGlassDefaults.fallbackSurfaceAlpha * fraction,
+                ),
+            )
+    }
+}
 
 @Composable
 fun Modifier.designLiquidGlass(

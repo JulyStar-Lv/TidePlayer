@@ -25,6 +25,6 @@ val librarySyncModule = module {
         }
     }
     single<LibrarySyncController> { LegacyLibrarySyncController(get(), get(), get(), get()) }
-    single<MetadataRefreshController> { RemoteMetadataRefreshController(get(), get()) }
+    single<MetadataRefreshController> { RemoteMetadataRefreshController(get(), get(), get()) }
     single { TrackMetadataPrefetcher(get(), get(), get()) }
 }
