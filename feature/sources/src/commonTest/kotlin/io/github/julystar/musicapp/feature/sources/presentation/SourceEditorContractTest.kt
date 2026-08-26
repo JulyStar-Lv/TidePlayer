@@ -8,57 +8,6 @@ import kotlin.test.assertTrue
 
 class SourceEditorContractTest {
     @Test
-    fun selectorGroupsContainEachSourceOnceInProductOrderAndMapExactActions() {
-        assertEquals(
-            listOf(
-                SourceSelectorGroup.FileAndNetworkStorage,
-                SourceSelectorGroup.MusicServers,
-            ),
-            sourceSelectorSections.map { it.group },
-        )
-        assertEquals(
-            listOf(
-                SourceSelectorOption.Local,
-                SourceSelectorOption.WebDav,
-                SourceSelectorOption.Smb,
-                SourceSelectorOption.OneDrive,
-                SourceSelectorOption.OpenList,
-            ),
-            sourceSelectorSections[0].options,
-        )
-        assertEquals(
-            listOf(
-                SourceSelectorOption.Navidrome,
-                SourceSelectorOption.OpenSubsonic,
-                SourceSelectorOption.Emby,
-            ),
-            sourceSelectorSections[1].options,
-        )
-        val allOptions = sourceSelectorSections.flatMap(SourceSelectorSection::options)
-        assertEquals(8, allOptions.size)
-        assertEquals(8, allOptions.toSet().size)
-        assertEquals(null, SourceSelectorOption.Local.editorType)
-        assertEquals(
-            SourceEditorAction.ImportLocalLibraryFolder,
-            SourceSelectorOption.Local.selectionAction(),
-        )
-        assertEquals(SourceEditorType.OpenList, SourceSelectorOption.OpenList.editorType)
-        assertEquals(SourceSelectorGroup.FileAndNetworkStorage, SourceSelectorOption.OpenList.group)
-        listOf(
-            SourceSelectorOption.WebDav to SourceEditorType.WebDav,
-            SourceSelectorOption.Smb to SourceEditorType.Smb,
-            SourceSelectorOption.OneDrive to SourceEditorType.OneDrive,
-            SourceSelectorOption.OpenList to SourceEditorType.OpenList,
-            SourceSelectorOption.Navidrome to SourceEditorType.Navidrome,
-            SourceSelectorOption.OpenSubsonic to SourceEditorType.OpenSubsonic,
-            SourceSelectorOption.Emby to SourceEditorType.Emby,
-        ).forEach { (option, editorType) ->
-            assertEquals(SourceEditorAction.ChangeType(editorType), option.selectionAction())
-        }
-        assertFalse(SourceEditorType.entries.any { it.name == "Local" })
-    }
-
-    @Test
     fun providerFieldsExposeOnlySafeRequiredInputs() {
         assertEquals(
             listOf(

@@ -111,6 +111,7 @@ private const val ImmersiveContentLayoutDelayMillis = 48
 private const val PlayerSheetTransitionDurationMillis = 300
 private const val PlayerOverlayOpenDurationMillis = 320
 private const val PlayerOverlayCloseDurationMillis = 260
+private const val SettingsDetailTransitionDurationMillis = 700
 private val PlayerSheetEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -206,6 +207,12 @@ internal fun RootNavHost(
                     deferredEnterTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(targetState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
+                } else if (isSourceEditorTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    fadeIn(tween(SettingsDetailTransitionDurationMillis))
                 } else {
                     slideIn(
                         animationSpec = tween(300),
@@ -243,6 +250,12 @@ internal fun RootNavHost(
                         isImmersivePlayerRoute(targetState.destination.route)
                 ) {
                     immediateExitTransition(playerTransitionDurationMillis)
+                } else if (isSourceEditorTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    fadeOut(tween(SettingsDetailTransitionDurationMillis))
                 } else {
                     slideOut(
                         animationSpec = tween(300),
@@ -271,6 +284,12 @@ internal fun RootNavHost(
                     deferredEnterTransition(playerTransitionDurationMillis)
                 } else if (isImmersivePlayerRoute(initialState.destination.route)) {
                     immediateEnterTransition(playerTransitionDurationMillis)
+                } else if (isSourceEditorTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    fadeIn(tween(SettingsDetailTransitionDurationMillis))
                 } else {
                     slideIn(
                         animationSpec = tween(300),
@@ -308,6 +327,12 @@ internal fun RootNavHost(
                         isImmersivePlayerRoute(targetState.destination.route)
                 ) {
                     immediateExitTransition(playerTransitionDurationMillis)
+                } else if (isSourceEditorTransition(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                    )
+                ) {
+                    fadeOut(tween(SettingsDetailTransitionDurationMillis))
                 } else {
                     slideOut(
                         animationSpec = tween(300),
@@ -725,6 +750,14 @@ internal fun isArtworkDetailRoute(route: String?): Boolean {
 
 private fun isArtworkDetailTransition(initialRoute: String?, targetRoute: String?): Boolean =
     isArtworkDetailRoute(initialRoute) || isArtworkDetailRoute(targetRoute)
+
+internal fun isSourceEditorRoute(route: String?): Boolean {
+    val routeName = route?.substringBefore('/')?.substringBefore('?') ?: return false
+    return routeName == "EditStorage" || routeName.endsWith(".EditStorage")
+}
+
+internal fun isSourceEditorTransition(initialRoute: String?, targetRoute: String?): Boolean =
+    isSourceEditorRoute(initialRoute) || isSourceEditorRoute(targetRoute)
 
 internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
     if (isRouteHome(route)) return true

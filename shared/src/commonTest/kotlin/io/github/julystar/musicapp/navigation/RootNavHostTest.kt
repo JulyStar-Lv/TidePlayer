@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.navigation
 
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
@@ -16,7 +17,18 @@ class RootNavHostTest {
     @Test
     fun `settings source callback maps new and persisted accounts to editor routes fail closed`() {
         assertEquals(NEW_STORAGE_ID, sourceEditorDestination(null)?.id)
+        assertNull(sourceEditorDestination(null)?.sourceType)
+        assertEquals(
+            SourceEditorType.Emby.name,
+            sourceEditorDestination(null, SourceEditorType.Emby)?.sourceType,
+        )
         assertEquals(42L, sourceEditorDestination(SourceAccountId("storage:42"))?.id)
+        assertNull(
+            sourceEditorDestination(
+                SourceAccountId("storage:42"),
+                SourceEditorType.OpenList,
+            )?.sourceType,
+        )
         assertNull(sourceEditorDestination(SourceAccountId("server:42")))
         assertNull(sourceEditorDestination(SourceAccountId("storage:not-a-number")))
     }
@@ -287,6 +299,17 @@ class RootNavHostTest {
         assertFalse(isArtworkDetailRoute("Home"))
         assertFalse(isArtworkDetailRoute("Artist/{id}"))
         assertFalse(isArtworkDetailRoute("Playlists"))
+    }
+
+    @Test
+    fun `source editor uses settings detail transitions in both directions`() {
+        val sourceEditorRoute =
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.EditStorage/{id}"
+
+        assertTrue(isSourceEditorRoute(sourceEditorRoute))
+        assertTrue(isSourceEditorTransition("Home", sourceEditorRoute))
+        assertTrue(isSourceEditorTransition(sourceEditorRoute, "Home"))
+        assertFalse(isSourceEditorTransition("Home", "Album/{id}"))
     }
 
     @Test

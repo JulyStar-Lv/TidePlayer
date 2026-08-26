@@ -1,25 +1,16 @@
 package io.github.julystar.musicapp.feature.sources.presentation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,9 +18,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -40,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.TagChip
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res as CoreRes
@@ -52,32 +42,14 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.sources.generated.resources.Res
-import musicapp.feature.sources.generated.resources.icon_back
-import musicapp.feature.sources.generated.resources.icon_cloud
 import musicapp.feature.sources.generated.resources.icon_deleteseep
 import musicapp.feature.sources.generated.resources.icon_ok
 import musicapp.feature.sources.generated.resources.icon_wifitethering
-import musicapp.feature.sources.generated.resources.source_editor_edit
-import musicapp.feature.sources.generated.resources.source_editor_new
+import musicapp.feature.sources.generated.resources.source_editor_back
+import musicapp.feature.sources.generated.resources.source_editor_delete
+import musicapp.feature.sources.generated.resources.source_editor_save
 import musicapp.feature.sources.generated.resources.source_editor_source
-import musicapp.feature.sources.generated.resources.source_selector_emby
-import musicapp.feature.sources.generated.resources.source_selector_emby_description
-import musicapp.feature.sources.generated.resources.source_selector_group_files
-import musicapp.feature.sources.generated.resources.source_selector_group_servers
-import musicapp.feature.sources.generated.resources.source_selector_local
-import musicapp.feature.sources.generated.resources.source_selector_local_description
-import musicapp.feature.sources.generated.resources.source_selector_navidrome
-import musicapp.feature.sources.generated.resources.source_selector_navidrome_description
-import musicapp.feature.sources.generated.resources.source_selector_onedrive
-import musicapp.feature.sources.generated.resources.source_selector_onedrive_description
-import musicapp.feature.sources.generated.resources.source_selector_openlist
-import musicapp.feature.sources.generated.resources.source_selector_openlist_description
-import musicapp.feature.sources.generated.resources.source_selector_opensubsonic
-import musicapp.feature.sources.generated.resources.source_selector_opensubsonic_description
-import musicapp.feature.sources.generated.resources.source_selector_smb
-import musicapp.feature.sources.generated.resources.source_selector_smb_description
-import musicapp.feature.sources.generated.resources.source_selector_webdav
-import musicapp.feature.sources.generated.resources.source_selector_webdav_description
+import musicapp.feature.sources.generated.resources.source_editor_test
 import musicapp.feature.sources.generated.resources.storage_edit_addr
 import musicapp.feature.sources.generated.resources.storage_edit_basic_settings
 import musicapp.feature.sources.generated.resources.storage_edit_alias
@@ -139,6 +111,7 @@ import musicapp.feature.sources.generated.resources.storage_test_unsupported
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
@@ -264,71 +237,6 @@ private fun RemoveDialog(
             TextButton(
                 text = stringResource(CoreRes.string.confirm_dialog_btn_ok),
                 onClick = { onAction(SourceEditorAction.ConfirmRemove) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun StorageBlock(
-    title: String,
-    description: String,
-    isActive: Boolean,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val shapes = DesignTokens.shapes
-    val bgColor = if (isActive) {
-        MiuixTheme.colorScheme.primary
-    } else {
-        MiuixTheme.colorScheme.surfaceContainer
-    }
-    val tint = if (isActive) {
-        MiuixTheme.colorScheme.onPrimary
-    } else {
-        MiuixTheme.colorScheme.onSurface
-    }
-    val borderColor = if (isActive) {
-        MiuixTheme.colorScheme.primary.copy(alpha = 0.22f)
-    } else {
-        MiuixTheme.colorScheme.outline
-    }
-
-    Box(
-        modifier = modifier
-            .heightIn(min = 124.dp)
-            .clip(RoundedCornerShape(shapes.lg))
-            .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(shapes.lg))
-            .clickable { onSelect() }
-            .padding(14.dp)
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Icon(
-                painter = painterResource(Res.drawable.icon_cloud),
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(24.dp),
-            )
-            Text(
-                text = title,
-                color = tint,
-                style = MiuixTheme.textStyles.footnote1,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = description,
-                color = if (isActive) tint.copy(alpha = 0.78f) else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                },
-                style = MiuixTheme.textStyles.footnote2,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -694,91 +602,6 @@ private fun ReadOnlyValue(label: org.jetbrains.compose.resources.StringResource,
 }
 
 @Composable
-private fun SourceSelectorGroup.localizedTitle(): String = stringResource(
-    when (this) {
-        SourceSelectorGroup.FileAndNetworkStorage -> Res.string.source_selector_group_files
-        SourceSelectorGroup.MusicServers -> Res.string.source_selector_group_servers
-    }
-)
-
-@Composable
-private fun SourceSelectorOption.localizedLabel(): String = stringResource(
-    when (this) {
-        SourceSelectorOption.Local -> Res.string.source_selector_local
-        SourceSelectorOption.WebDav -> Res.string.source_selector_webdav
-        SourceSelectorOption.Smb -> Res.string.source_selector_smb
-        SourceSelectorOption.OneDrive -> Res.string.source_selector_onedrive
-        SourceSelectorOption.OpenList -> Res.string.source_selector_openlist
-        SourceSelectorOption.Navidrome -> Res.string.source_selector_navidrome
-        SourceSelectorOption.OpenSubsonic -> Res.string.source_selector_opensubsonic
-        SourceSelectorOption.Emby -> Res.string.source_selector_emby
-    }
-)
-
-@Composable
-private fun SourceSelectorOption.localizedDescription(): String = stringResource(
-    when (this) {
-        SourceSelectorOption.Local -> Res.string.source_selector_local_description
-        SourceSelectorOption.WebDav -> Res.string.source_selector_webdav_description
-        SourceSelectorOption.Smb -> Res.string.source_selector_smb_description
-        SourceSelectorOption.OneDrive -> Res.string.source_selector_onedrive_description
-        SourceSelectorOption.OpenList -> Res.string.source_selector_openlist_description
-        SourceSelectorOption.Navidrome -> Res.string.source_selector_navidrome_description
-        SourceSelectorOption.OpenSubsonic -> Res.string.source_selector_opensubsonic_description
-        SourceSelectorOption.Emby -> Res.string.source_selector_emby_description
-    }
-)
-
-@Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun SourceSelectorSectionContent(
-    section: SourceSelectorSection,
-    storageType: SourceEditorType,
-    onAction: (SourceEditorAction) -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = section.group.localizedTitle(),
-            color = MiuixTheme.colorScheme.onBackground,
-            style = MiuixTheme.textStyles.title3,
-            fontWeight = FontWeight.SemiBold,
-        )
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val columns = minOf(
-                section.options.size,
-                when {
-                    maxWidth >= 840.dp -> 4
-                    maxWidth >= 560.dp -> 3
-                    maxWidth >= 320.dp -> 2
-                    else -> 1
-                },
-            )
-            val gap = 8.dp
-            val itemWidth = (maxWidth - gap * (columns - 1)) / columns
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(gap),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = columns,
-            ) {
-                section.options.forEach { option ->
-                    StorageBlock(
-                        title = option.localizedLabel(),
-                        description = option.localizedDescription(),
-                        isActive = option.editorType == storageType,
-                        onSelect = { onAction(option.selectionAction()) },
-                        modifier = Modifier.width(itemWidth),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun SmbConfig(
     state: SmbSourceEditorState,
     validation: SourceEditorValidation,
@@ -956,7 +779,6 @@ fun SourceEditorScreen(
 ) {
     val storageType = state.storageType
     val spacing = DesignTokens.spacing
-    val shapes = DesignTokens.shapes
     val bottomContentInset = LocalDesignBottomContentInset.current
 
     val testTint = when (state.testStatus) {
@@ -990,214 +812,185 @@ fun SourceEditorScreen(
         SourceConnectionTestStatus.Error -> stringResource(Res.string.storage_test_error)
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val horizontalPadding = if (maxWidth < 600.dp) spacing.pageCompact else spacing.pageMedium
-
-        Column(
-            modifier = Modifier
-                .background(MiuixTheme.colorScheme.background)
-                .fillMaxSize(),
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .padding(horizontal = horizontalPadding, vertical = 12.dp)
-                    .fillMaxWidth(),
-            ) {
-                IconButton(
-                    onClick = {
-                        onAction(SourceEditorAction.NavigateBack)
-                    },
-                ) { Icon(painterResource(Res.drawable.icon_back), contentDescription = null) }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = state.title.ifBlank { stringResource(Res.string.source_editor_source) },
-                        color = MiuixTheme.colorScheme.onBackground,
-                        style = MiuixTheme.textStyles.title3,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = stringResource(
-                            if (state.isCreated) {
-                                Res.string.source_editor_new
-                            } else {
-                                Res.string.source_editor_edit
-                            }
-                        ),
-                        color = MiuixTheme.colorScheme.onBackgroundVariant,
-                        style = MiuixTheme.textStyles.footnote1,
-                        maxLines = 1,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            LiquidGlassActionBar(
+                title = state.title.ifBlank { stringResource(Res.string.source_editor_source) },
+                collapseFraction = 1f,
+                onNavigateBack = { onAction(SourceEditorAction.NavigateBack) },
+                backContentDescription = stringResource(Res.string.source_editor_back),
+                actions = {
                     if (!state.isCreated) {
                         IconButton(
-                            onClick = {
-                                onAction(SourceEditorAction.OpenRemoveDialog)
-                            },
+                            onClick = { onAction(SourceEditorAction.OpenRemoveDialog) },
                         ) {
                             Icon(
-                                painterResource(Res.drawable.icon_deleteseep),
-                                contentDescription = null,
+                                painter = painterResource(Res.drawable.icon_deleteseep),
+                                contentDescription = stringResource(Res.string.source_editor_delete),
                                 tint = MiuixTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
                     IconButton(
                         enabled = state.testStatus != SourceConnectionTestStatus.Testing,
-                        onClick = {
-                            onAction(SourceEditorAction.TestConnection)
-                        },
+                        onClick = { onAction(SourceEditorAction.TestConnection) },
                     ) {
                         Icon(
-                            painterResource(Res.drawable.icon_wifitethering),
-                            contentDescription = null,
+                            painter = painterResource(Res.drawable.icon_wifitethering),
+                            contentDescription = stringResource(Res.string.source_editor_test),
                             tint = testTint,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                     IconButton(
-                        onClick = {
-                            onAction(SourceEditorAction.Save)
-                        },
-                    ) { Icon(painterResource(Res.drawable.icon_ok), contentDescription = null) }
-                }
+                        onClick = { onAction(SourceEditorAction.Save) },
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.icon_ok),
+                            contentDescription = stringResource(Res.string.source_editor_save),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                },
+            )
+        },
+    ) { contentPadding ->
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding),
+        ) {
+            val horizontalPadding = if (maxWidth < 600.dp) {
+                spacing.pageCompact
+            } else {
+                spacing.pageMedium
             }
-            Box(
-                modifier = Modifier.fillMaxSize(),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(
+                        start = horizontalPadding,
+                        top = 12.dp,
+                        end = horizontalPadding,
+                        bottom = 12.dp + bottomContentInset,
+                    ),
             ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .imePadding()
-                        .padding(
-                            start = horizontalPadding,
-                            top = 12.dp,
-                            end = horizontalPadding,
-                            bottom = 12.dp + bottomContentInset,
-                        ),
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    if (state.isCreated) {
-                        sourceSelectorSections.forEach { section ->
-                            SourceSelectorSectionContent(
-                                section = section,
-                                storageType = storageType,
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (storageType == SourceEditorType.WebDav) {
+                            WebDavConfig(
+                                state = state.webDav,
+                                validation = state.validation,
                                 onAction = onAction,
                             )
                         }
-                    }
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        if (storageType == SourceEditorType.OneDrive) {
+                            OneDriveConfig(
+                                state = state.oneDrive,
+                                validation = state.validation,
+                                onAction = onAction,
+                            )
+                        }
+                        if (storageType == SourceEditorType.Smb) {
+                            SmbConfig(
+                                state = state.smb,
+                                validation = state.validation,
+                                onAction = onAction,
+                            )
+                        }
+                        if (storageType == SourceEditorType.Navidrome ||
+                            storageType == SourceEditorType.OpenSubsonic
                         ) {
-                            if (storageType == SourceEditorType.WebDav) {
-                                WebDavConfig(
-                                    state = state.webDav,
+                            key(storageType) {
+                                RemoteServerConfig(
+                                    state = state.remoteServer,
                                     validation = state.validation,
                                     onAction = onAction,
                                 )
                             }
-                            if (storageType == SourceEditorType.OneDrive) {
-                                OneDriveConfig(
-                                    state = state.oneDrive,
+                        }
+                        if (storageType == SourceEditorType.Emby) {
+                            key(storageType) {
+                                EmbyConfig(
+                                    state = state.emby,
                                     validation = state.validation,
+                                    isCreated = state.isCreated,
                                     onAction = onAction,
                                 )
                             }
-                            if (storageType == SourceEditorType.Smb) {
-                                SmbConfig(
-                                    state = state.smb,
+                        }
+                        if (storageType == SourceEditorType.OpenList) {
+                            key(storageType) {
+                                OpenListConfig(
+                                    state = state.openList,
                                     validation = state.validation,
+                                    otpInputGeneration = state.otpInputGeneration,
                                     onAction = onAction,
                                 )
                             }
-                            if (storageType == SourceEditorType.Navidrome ||
-                                storageType == SourceEditorType.OpenSubsonic
+                        }
+                        if (!state.isCreated && (
+                            storageType == SourceEditorType.WebDav ||
+                            storageType == SourceEditorType.OneDrive ||
+                            storageType == SourceEditorType.Smb ||
+                            storageType == SourceEditorType.OpenList
+                        )) {
+                            SourceEditorField(
+                                label = stringResource(
+                                    Res.string.storage_edit_import_library_label,
+                                ),
                             ) {
-                                key(storageType) {
-                                    RemoteServerConfig(
-                                        state = state.remoteServer,
-                                        validation = state.validation,
-                                        onAction = onAction,
-                                    )
-                                }
-                            }
-                            if (storageType == SourceEditorType.Emby) {
-                                key(storageType) {
-                                    EmbyConfig(
-                                        state = state.emby,
-                                        validation = state.validation,
-                                        isCreated = state.isCreated,
-                                        onAction = onAction,
-                                    )
-                                }
-                            }
-                            if (storageType == SourceEditorType.OpenList) {
-                                key(storageType) {
-                                    OpenListConfig(
-                                        state = state.openList,
-                                        validation = state.validation,
-                                        otpInputGeneration = state.otpInputGeneration,
-                                        onAction = onAction,
-                                    )
-                                }
-                            }
-                            if (!state.isCreated && (
-                                storageType == SourceEditorType.WebDav ||
-                                storageType == SourceEditorType.OneDrive ||
-                                storageType == SourceEditorType.Smb ||
-                                storageType == SourceEditorType.OpenList
-                            )) {
-                                SourceEditorField(
-                                    label = stringResource(Res.string.storage_edit_import_library_label),
-                                ) {
-                                    TextButton(
-                                        text = stringResource(Res.string.storage_edit_import_library_action),
-                                        onClick = {
-                                            onAction(SourceEditorAction.ImportLibraryFolder)
-                                        },
-                                    )
-                                }
-                            }
-                            if (state.canSyncCurrentServer) {
-                                SourceEditorField(
-                                    label = stringResource(Res.string.storage_edit_sync_library_label),
-                                ) {
-                                    TextButton(
-                                        text = stringResource(
-                                            if (state.isSyncing) {
-                                                Res.string.sources_syncing
-                                            } else {
-                                                Res.string.storage_edit_sync_library_action
-                                            },
-                                        ),
-                                        enabled = !state.isSyncing,
-                                        onClick = { onAction(SourceEditorAction.SyncNow) },
-                                    )
-                                }
-                            }
-                            if (testStatusText != null) {
-                                Text(
-                                    text = testStatusText,
-                                    color = if (
-                                        state.testStatus == SourceConnectionTestStatus.Success
-                                    ) {
-                                        MiuixTheme.colorScheme.primary
-                                    } else {
-                                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                TextButton(
+                                    text = stringResource(
+                                        Res.string.storage_edit_import_library_action,
+                                    ),
+                                    onClick = {
+                                        onAction(SourceEditorAction.ImportLibraryFolder)
                                     },
-                                    style = MiuixTheme.textStyles.footnote1,
                                 )
                             }
+                        }
+                        if (state.canSyncCurrentServer) {
+                            SourceEditorField(
+                                label = stringResource(
+                                    Res.string.storage_edit_sync_library_label,
+                                ),
+                            ) {
+                                TextButton(
+                                    text = stringResource(
+                                        if (state.isSyncing) {
+                                            Res.string.sources_syncing
+                                        } else {
+                                            Res.string.storage_edit_sync_library_action
+                                        },
+                                    ),
+                                    enabled = !state.isSyncing,
+                                    onClick = { onAction(SourceEditorAction.SyncNow) },
+                                )
+                            }
+                        }
+                        if (testStatusText != null) {
+                            Text(
+                                text = testStatusText,
+                                color = if (
+                                    state.testStatus == SourceConnectionTestStatus.Success
+                                ) {
+                                    MiuixTheme.colorScheme.primary
+                                } else {
+                                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                },
+                                style = MiuixTheme.textStyles.footnote1,
+                            )
                         }
                     }
                 }

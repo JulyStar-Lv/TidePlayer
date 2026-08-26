@@ -12,6 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.core.presentation.components.LocalStickyHeaderTransitionContext
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderTransitionContext
 import io.github.julystar.musicapp.feature.settings.presentation.SettingsPage
@@ -40,7 +41,7 @@ fun SettingsTabGraph(
     gitCommitSha: String,
     pluginSettingsContent: @Composable (onBack: (() -> Unit)?) -> Unit,
     onNavigateToSourcePathPicker: () -> Unit,
-    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit,
 ) {
     fun navigate(route: String) {
         navController.navigate(route)

@@ -832,6 +832,20 @@ class EditStorageVMTest {
     }
 
     @Test
+    fun newEditorStartsWithProviderRequestedByRoute() = runTest(dispatcher) {
+        val viewModel = createViewModel(
+            storage = FakeEditorStorageRepository(),
+            sourceType = SourceEditorType.Emby.name,
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
+
+        runCurrent()
+
+        assertEquals(SourceEditorType.Emby, viewModel.state.value.storageType)
+        assertTrue(viewModel.state.value.isCreated)
+    }
+
+    @Test
     fun dashboardFailureAndCancellationNeverReportSuccess() = runTest(dispatcher) {
         val failedId = storageSourceAccountId(31)
         val cancelledId = storageSourceAccountId(32)
@@ -864,6 +878,7 @@ class EditStorageVMTest {
     private fun createViewModel(
         storage: FakeEditorStorageRepository,
         id: Long = -1,
+        sourceType: String? = null,
         imports: FakeImportRepository = FakeImportRepository(),
         librarySync: FakeLibrarySyncController = FakeLibrarySyncController(),
         accountSync: SourceAccountLibrarySyncController = SourceAccountLibrarySyncController {
@@ -877,7 +892,12 @@ class EditStorageVMTest {
         librarySyncController = librarySync,
         sourceAccountLibrarySyncController = accountSync,
         settingsRepository = FakeSettingsRepository(),
-        savedStateHandle = SavedStateHandle(mapOf("id" to id)),
+        savedStateHandle = SavedStateHandle(
+            mapOf(
+                "id" to id,
+                "sourceType" to sourceType,
+            ),
+        ),
     )
 
     private fun remoteAccount(accountId: SourceAccountId, sourceId: io.github.julystar.musicapp.core.domain.model.SourceId) =

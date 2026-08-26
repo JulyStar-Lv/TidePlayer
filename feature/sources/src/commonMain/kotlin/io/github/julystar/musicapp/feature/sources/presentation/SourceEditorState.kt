@@ -157,55 +157,6 @@ sealed interface SourceEditorAction {
     data class SelectOneDriveDrive(val driveId: String) : SourceEditorAction
 }
 
-enum class SourceSelectorGroup {
-    FileAndNetworkStorage,
-    MusicServers,
-}
-
-enum class SourceSelectorOption(
-    val group: SourceSelectorGroup,
-    val editorType: SourceEditorType?,
-) {
-    Local(SourceSelectorGroup.FileAndNetworkStorage, null),
-    WebDav(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.WebDav),
-    Smb(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.Smb),
-    OneDrive(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.OneDrive),
-    OpenList(SourceSelectorGroup.FileAndNetworkStorage, SourceEditorType.OpenList),
-    Navidrome(SourceSelectorGroup.MusicServers, SourceEditorType.Navidrome),
-    OpenSubsonic(SourceSelectorGroup.MusicServers, SourceEditorType.OpenSubsonic),
-    Emby(SourceSelectorGroup.MusicServers, SourceEditorType.Emby),
-}
-
-data class SourceSelectorSection(
-    val group: SourceSelectorGroup,
-    val options: List<SourceSelectorOption>,
-)
-
-val sourceSelectorSections: List<SourceSelectorSection> = listOf(
-    SourceSelectorSection(
-        group = SourceSelectorGroup.FileAndNetworkStorage,
-        options = listOf(
-            SourceSelectorOption.Local,
-            SourceSelectorOption.WebDav,
-            SourceSelectorOption.Smb,
-            SourceSelectorOption.OneDrive,
-            SourceSelectorOption.OpenList,
-        ),
-    ),
-    SourceSelectorSection(
-        group = SourceSelectorGroup.MusicServers,
-        options = listOf(
-            SourceSelectorOption.Navidrome,
-            SourceSelectorOption.OpenSubsonic,
-            SourceSelectorOption.Emby,
-        ),
-    ),
-)
-
-fun SourceSelectorOption.selectionAction(): SourceEditorAction = editorType
-    ?.let(SourceEditorAction::ChangeType)
-    ?: SourceEditorAction.ImportLocalLibraryFolder
-
 val sourceEditorBitRateChoices: List<Int> = listOf(0, 128, 192, 256, 320)
 val sourceEditorCoverArtSizeChoices: List<Int> = listOf(256, 512, 768, 1024)
 

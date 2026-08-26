@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.navigation.NavHostController
 import io.github.julystar.musicapp.core.LocalNavController
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
@@ -47,7 +48,7 @@ internal fun HomeTabContent(
     onNavigateToDownloads: () -> Unit,
     onNavigateToLibrary: () -> Unit,
     onNavigateToSourceSettings: () -> Unit,
-    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToLibraryFolderImport: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit,

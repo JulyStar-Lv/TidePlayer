@@ -53,7 +53,10 @@ sealed interface MusicGraph {
     data object Onboarding : MusicGraph
 
     @Serializable
-    data class EditStorage(val id: Long = NEW_STORAGE_ID) : MusicGraph
+    data class EditStorage(
+        val id: Long = NEW_STORAGE_ID,
+        val sourceType: String? = null,
+    ) : MusicGraph
 
     @Serializable
     data class Import(val type: String) : MusicGraph

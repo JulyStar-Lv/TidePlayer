@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.service.playback.domain.AdvancedPlaybackController
 import org.koin.compose.koinInject
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
@@ -44,7 +45,7 @@ fun SettingsRoot(
     onNavigateToAbout: () -> Unit,
     onNavigateToLicenses: () -> Unit,
     onNavigateToSourcePathPicker: () -> Unit,
-    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit,
     onBack: () -> Unit,
     settingsVM: SettingsVM = koinViewModel(),
 ) {

@@ -67,6 +67,9 @@ private data class OpenListOtpUiState(
     val inputGeneration: Int = 0,
 )
 
+internal fun sourceEditorTypeFromRoute(value: String?): SourceEditorType? =
+    SourceEditorType.entries.firstOrNull { type -> type.name == value }
+
 class EditStorageVM constructor(
     private val storageRepository: StorageRepository,
     private val toastRepository: ToastRepository,
@@ -77,10 +80,14 @@ class EditStorageVM constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    private val initialDraft = defaultSourceEditorDraft().copy(
+        storageType = sourceEditorTypeFromRoute(savedStateHandle["sourceType"])
+            ?: SourceEditorType.WebDav,
+    )
     private val _events = Channel<SourceEditorEvent>(Channel.BUFFERED)
     private val _title = MutableStateFlow("")
     private val _musicCount = MutableStateFlow(0uL)
-    private val _draft = MutableStateFlow(defaultSourceEditorDraft())
+    private val _draft = MutableStateFlow(initialDraft)
     private var _draftBackups = HashMap<SourceEditorType, SourceEditorDraft>()
     private var _editorAccountId: String? = null
     private val _persistedEditorType = MutableStateFlow<SourceEditorType?>(null)
@@ -145,7 +152,7 @@ class EditStorageVM constructor(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = sourceEditorState(
-            draft = defaultSourceEditorDraft(),
+            draft = initialDraft,
             title = "",
             musicCount = 0u,
             validation = SourceEditorValidation(),
@@ -170,7 +177,7 @@ class EditStorageVM constructor(
             }
         }
 
-        _draft.value = defaultSourceEditorDraft()
+        _draft.value = initialDraft
         _title.value = ""
         _musicCount.value = 0u
 

@@ -3,6 +3,7 @@ package io.github.julystar.musicapp.feature.settings.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -10,7 +11,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +57,7 @@ import io.github.julystar.musicapp.core.domain.model.MAX_MINIMUM_AUDIO_DURATION_
 import io.github.julystar.musicapp.core.domain.model.MissingFilePolicy
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
 import io.github.julystar.musicapp.core.domain.model.SourceConnectionTestStatus
+import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.core.domain.model.sanitizeSourceEndpointForDisplay
 import io.github.julystar.musicapp.core.domain.model.sanitizeSourceTitleForDisplay
 import io.github.julystar.musicapp.core.presentation.theme.DesignGradients
@@ -68,6 +74,10 @@ import musicapp.feature.settings.generated.resources.*
 import musicapp.core.presentation.generated.resources.Res as CorePresentationRes
 import musicapp.core.presentation.generated.resources.icon_vertialcal_more
 import musicapp.core.presentation.generated.resources.icon_chevron_right
+import musicapp.core.presentation.generated.resources.icon_cloud
+import musicapp.core.presentation.generated.resources.icon_file
+import musicapp.core.presentation.generated.resources.icon_folder
+import musicapp.core.presentation.generated.resources.icon_settings_hard_drive
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
@@ -83,6 +93,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -90,17 +101,40 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+internal enum class SourcePickerOption(val editorType: SourceEditorType?) {
+    Local(null),
+    WebDav(SourceEditorType.WebDav),
+    Smb(SourceEditorType.Smb),
+    OneDrive(SourceEditorType.OneDrive),
+    OpenList(SourceEditorType.OpenList),
+    Navidrome(SourceEditorType.Navidrome),
+    OpenSubsonic(SourceEditorType.OpenSubsonic),
+    Emby(SourceEditorType.Emby),
+}
+
+internal val sourcePickerOptions = listOf(
+    SourcePickerOption.Local,
+    SourcePickerOption.WebDav,
+    SourcePickerOption.Smb,
+    SourcePickerOption.OneDrive,
+    SourcePickerOption.OpenList,
+    SourcePickerOption.Navidrome,
+    SourcePickerOption.OpenSubsonic,
+    SourcePickerOption.Emby,
+)
+
 @Composable
 fun SourceSettingsSection(
     state: SettingsUiState,
     onBack: (() -> Unit)?,
-    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit,
     onAction: (SettingsAction) -> Unit,
 ) {
     val settings = state.settings
     var customDurationDialogOpen by remember { mutableStateOf(false) }
     var customDurationInputSeconds by remember { mutableStateOf("") }
     var localDirectoriesDialogOpen by remember { mutableStateOf(false) }
+    var sourcePickerOpen by remember { mutableStateOf(false) }
     var scanResultsAccountId by remember { mutableStateOf<SourceAccountId?>(null) }
 
     SettingsPageLayout(
@@ -172,7 +206,7 @@ fun SourceSettingsSection(
             AddSourceRow(
                 enabled = state.capabilities.customMusicDirectorySupported ||
                     state.capabilities.secureCredentialStoreSupported,
-                onClick = { dispatchSourceSettingsNavigation(null, onNavigateToSourceEditor) },
+                onClick = { sourcePickerOpen = true },
             )
         }
 
@@ -251,6 +285,21 @@ fun SourceSettingsSection(
             )
         }
     }
+
+    SourcePickerBottomSheet(
+        show = sourcePickerOpen,
+        localEnabled = state.capabilities.customMusicDirectorySupported,
+        remoteEnabled = state.capabilities.secureCredentialStoreSupported,
+        onDismiss = { sourcePickerOpen = false },
+        onSelect = { option ->
+            sourcePickerOpen = false
+            dispatchNewSourceSelection(
+                option = option,
+                onOpenLocal = { onAction(SettingsAction.RequestAddLocalDirectory) },
+                onNavigateToSourceEditor = onNavigateToSourceEditor,
+            )
+        },
+    )
 
     LocalDirectoriesDialog(
         show = localDirectoriesDialogOpen,
@@ -354,9 +403,22 @@ fun SourceSettingsSection(
 
 internal fun dispatchSourceSettingsNavigation(
     accountId: SourceAccountId?,
-    onNavigateToSourceEditor: (SourceAccountId?) -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit,
 ) {
-    onNavigateToSourceEditor(accountId)
+    onNavigateToSourceEditor(accountId, null)
+}
+
+internal fun dispatchNewSourceSelection(
+    option: SourcePickerOption,
+    onOpenLocal: () -> Unit,
+    onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit,
+) {
+    val editorType = option.editorType
+    if (editorType == null) {
+        onOpenLocal()
+    } else {
+        onNavigateToSourceEditor(null, editorType)
+    }
 }
 
 @Composable
@@ -1064,6 +1126,136 @@ private fun LibrarySyncStatus.scanStatusColor(): Color = when (this) {
     LibrarySyncStatus.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
 }
 
+private data class SourcePickerVisual(
+    val icon: DrawableResource,
+    val preserveColors: Boolean = false,
+)
+
+private fun SourcePickerOption.visual(): SourcePickerVisual = when (this) {
+    SourcePickerOption.Local -> SourcePickerVisual(CorePresentationRes.drawable.icon_folder)
+    SourcePickerOption.WebDav -> SourcePickerVisual(CorePresentationRes.drawable.icon_cloud)
+    SourcePickerOption.Smb -> SourcePickerVisual(
+        CorePresentationRes.drawable.icon_settings_hard_drive,
+    )
+    SourcePickerOption.OneDrive -> SourcePickerVisual(
+        icon = Res.drawable.source_onedrive,
+        preserveColors = true,
+    )
+    SourcePickerOption.OpenList -> SourcePickerVisual(CorePresentationRes.drawable.icon_file)
+    SourcePickerOption.Navidrome -> SourcePickerVisual(
+        icon = Res.drawable.source_navidrome,
+        preserveColors = true,
+    )
+    SourcePickerOption.OpenSubsonic -> SourcePickerVisual(
+        icon = Res.drawable.source_opensubsonic_mark,
+        preserveColors = true,
+    )
+    SourcePickerOption.Emby -> SourcePickerVisual(
+        icon = Res.drawable.source_emby,
+        preserveColors = true,
+    )
+}
+
+@Composable
+private fun SourcePickerOption.localizedLabel(): String = stringResource(
+    when (this) {
+        SourcePickerOption.Local -> Res.string.settings_source_quick_local
+        SourcePickerOption.WebDav -> Res.string.settings_source_quick_webdav
+        SourcePickerOption.Smb -> Res.string.settings_source_quick_smb
+        SourcePickerOption.OneDrive -> Res.string.settings_source_quick_onedrive
+        SourcePickerOption.OpenList -> Res.string.settings_source_quick_openlist
+        SourcePickerOption.Navidrome -> Res.string.settings_source_quick_navidrome
+        SourcePickerOption.OpenSubsonic -> Res.string.settings_source_quick_opensubsonic
+        SourcePickerOption.Emby -> Res.string.settings_source_quick_emby
+    },
+)
+
+@Composable
+private fun SourcePickerCard(
+    option: SourcePickerOption,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(DesignTokens.shapes.compactCard)
+    val visual = option.visual()
+    Column(
+        modifier = modifier
+            .heightIn(min = 96.dp)
+            .clip(shape)
+            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MiuixTheme.colorScheme.outline.copy(alpha = 0.24f), shape)
+            .alpha(if (enabled) 1f else 0.4f)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+    ) {
+        Image(
+            painter = painterResource(visual.icon),
+            contentDescription = null,
+            colorFilter = if (visual.preserveColors) null else {
+                ColorFilter.tint(MiuixTheme.colorScheme.primary)
+            },
+            modifier = Modifier.size(40.dp),
+        )
+        Text(
+            text = option.localizedLabel(),
+            color = MiuixTheme.colorScheme.onSurface,
+            style = MiuixTheme.textStyles.footnote1,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun SourcePickerBottomSheet(
+    show: Boolean,
+    localEnabled: Boolean,
+    remoteEnabled: Boolean,
+    onDismiss: () -> Unit,
+    onSelect: (SourcePickerOption) -> Unit,
+) {
+    OverlayBottomSheet(
+        show = show,
+        title = stringResource(Res.string.settings_add_source),
+        modifier = Modifier.heightIn(max = 520.dp),
+        onDismissRequest = onDismiss,
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+        ) {
+            val gap = 8.dp
+            val columns = 3
+            val itemWidth = (maxWidth - gap * (columns - 1)) / columns
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+                verticalArrangement = Arrangement.spacedBy(gap),
+                maxItemsInEachRow = columns,
+            ) {
+                sourcePickerOptions.forEach { option ->
+                    SourcePickerCard(
+                        option = option,
+                        enabled = if (option == SourcePickerOption.Local) {
+                            localEnabled
+                        } else {
+                            remoteEnabled
+                        },
+                        onClick = { onSelect(option) },
+                        modifier = Modifier.width(itemWidth),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AddSourceRow(
     enabled: Boolean,
@@ -1274,6 +1466,7 @@ private fun SourceTrailingChevron() {
         Icon(
             painter = painterResource(CorePresentationRes.drawable.icon_chevron_right),
             contentDescription = null,
+            modifier = Modifier.size(18.dp),
         )
     }
 }

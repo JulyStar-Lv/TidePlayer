@@ -254,6 +254,11 @@
     <string name="settings_source_quick_local">本地</string>
     <string name="settings_source_quick_webdav">WebDAV</string>
     <string name="settings_source_quick_smb">SMB</string>
+    <string name="settings_source_quick_onedrive">OneDrive</string>
+    <string name="settings_source_quick_openlist">OpenList</string>
+    <string name="settings_source_quick_navidrome">Navidrome</string>
+    <string name="settings_source_quick_opensubsonic">OpenSubsonic</string>
+    <string name="settings_source_quick_emby">Emby</string>
     <string name="settings_source_device_network">设备与网络</string>
     <string name="settings_source_device_network_summary">文件夹、NAS 与共享存储</string>
     <string name="settings_source_expand">查看全部</string>

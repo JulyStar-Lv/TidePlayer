@@ -28,6 +28,7 @@ import io.github.julystar.musicapp.core.LocalNavController
 import io.github.julystar.musicapp.core.isRouteHome
 import io.github.julystar.musicapp.core.isRouteNowPlaying
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
+import io.github.julystar.musicapp.core.domain.model.SourceEditorType
 import io.github.julystar.musicapp.core.domain.model.toStorageRouteIdOrNull
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeClass
@@ -72,8 +73,8 @@ fun HomePage(
     val onNavigateToLibraryFolderImport = {
         globalNavController.navigate(MusicGraph.Import(RouteImportType.LibraryFolder))
     }
-    val onNavigateToSourceEditor: (SourceAccountId?) -> Unit = { accountId ->
-        sourceEditorDestination(accountId)?.let(globalNavController::navigate)
+    val onNavigateToSourceEditor: (SourceAccountId?, SourceEditorType?) -> Unit = { accountId, type ->
+        sourceEditorDestination(accountId, type)?.let(globalNavController::navigate)
     }
     val onNavigateToAlbum = { id: Long ->
         globalNavController.navigate(MusicGraph.Album(id))
@@ -273,9 +274,12 @@ fun HomePage(
     }
 }
 
-internal fun sourceEditorDestination(accountId: SourceAccountId?): MusicGraph.EditStorage? {
+internal fun sourceEditorDestination(
+    accountId: SourceAccountId?,
+    sourceType: SourceEditorType? = null,
+): MusicGraph.EditStorage? {
     return if (accountId == null) {
-        MusicGraph.EditStorage(NEW_STORAGE_ID)
+        MusicGraph.EditStorage(NEW_STORAGE_ID, sourceType?.name)
     } else {
         accountId.toStorageRouteIdOrNull()?.let(MusicGraph::EditStorage)
     }
