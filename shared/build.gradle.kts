@@ -263,4 +263,10 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
     val liveWebDavEnabled = providers.systemProperty("musicapp.liveWebdav.enabled").orElse("false")
     inputs.property("musicapp.liveWebdav.enabled", liveWebDavEnabled)
     systemProperty("musicapp.liveWebdav.enabled", liveWebDavEnabled.get())
+    if (providers.environmentVariable("CI").isPresent) {
+        testLogging.events(
+            org.gradle.api.tasks.testing.logging.TestLogEvent.STARTED,
+            org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED,
+        )
+    }
 }

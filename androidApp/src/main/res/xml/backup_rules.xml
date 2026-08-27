@@ -8,7 +8,4 @@
         domain="database"
         path="library.db"
         requireFlags="clientSideEncryption" />
-    <exclude domain="sharedpref" path="." />
-    <exclude domain="external" path="." />
-    <exclude domain="root" path="." />
 </full-backup-content>

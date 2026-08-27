@@ -132,6 +132,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends libasound2-dev pkg-config
       - name: Compile Desktop and run shared tests
         run: ./gradlew --no-daemon --stacktrace :desktopApp:compileKotlinDesktop :shared:desktopTest
+      - name: Upload JVM crash logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-jvm-crash-logs-${{ github.run_attempt }}
+          path: "**/hs_err_pid*.log"
+          if-no-files-found: ignore
 
   ios:
     name: iOS Simulator
