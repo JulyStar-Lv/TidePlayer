@@ -112,11 +112,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" artifacts/apk/*.apk --clobber
+      - name: Prepare Android R8 mapping asset
+        shell: bash
+        run: cp androidApp/build/outputs/mapping/release/mapping.txt artifacts/apk/android-mapping.txt
       - name: Upload Android R8 mapping to GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" "androidApp/build/outputs/mapping/release/mapping.txt#android-mapping.txt" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" artifacts/apk/android-mapping.txt --clobber
 
   desktop:
     name: Desktop ${{ matrix.platform }} release
@@ -235,8 +238,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.artifact_output }} --clobber
+      - name: Prepare desktop R8 mapping asset
+        shell: bash
+        run: cp desktopApp/build/compose/proguard/mapping.txt "artifacts/desktop/${{ matrix.mapping_asset }}"
       - name: Upload desktop R8 mapping to GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" "desktopApp/build/compose/proguard/mapping.txt#${{ matrix.mapping_asset }}" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" "artifacts/desktop/${{ matrix.mapping_asset }}" --clobber
