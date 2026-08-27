@@ -39,3 +39,7 @@
 
 # Temporary size-analysis rule; removed after the release baseline is measured.
 -dontwarn android.os.ServiceManager
+
+# Koin resolves bindings through runtime Kotlin class metadata. Preserve class names while
+# retaining the rest of R8 shrinking and optimization for the release build.
+-keepnames class **
