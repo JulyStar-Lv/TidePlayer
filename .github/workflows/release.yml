@@ -201,7 +201,12 @@ jobs:
           toolchain: "1.96.0"
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends libasound2-dev pkg-config
+        run: |
+          sudo rm -f \
+            /etc/apt/sources.list.d/azure-cli.list \
+            /etc/apt/sources.list.d/microsoft-prod.list
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libasound2-dev pkg-config
       - name: Build desktop package
         shell: bash
         run: ./gradlew --no-daemon --stacktrace "${{ matrix.gradle_task }}"
