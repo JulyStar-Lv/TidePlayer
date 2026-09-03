@@ -18,20 +18,6 @@ class NowPlayingArtworkTransitionTest {
     }
 
     @Test
-    fun `immersive lyrics align with classic lyrics across viewport widths`() {
-        listOf(360.dp, (1080f / 2.75f).dp, 420.dp).forEach { viewportWidth ->
-            val classicLyricsStart = viewportWidth * 0.06f + 8.dp
-            val immersiveLyricsStart = 28.dp + immersiveLyricsLineHorizontalPadding(viewportWidth)
-
-            assertEquals(
-                classicLyricsStart.value,
-                immersiveLyricsStart.value,
-                absoluteTolerance = 0.001f,
-            )
-        }
-    }
-
-    @Test
     fun `status bar uses light icons only while player covers its top edge`() {
         assertTrue(
             doesPlayerCoverStatusBar(

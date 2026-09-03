@@ -31,6 +31,7 @@ fn diagnostics_filter() -> Targets {
     Targets::new()
         .with_default(LevelFilter::TRACE)
         .with_target("hyper", LevelFilter::WARN)
+        .with_target("h2", LevelFilter::WARN)
 }
 
 pub fn logs_dir(dir: &str) -> std::path::PathBuf {

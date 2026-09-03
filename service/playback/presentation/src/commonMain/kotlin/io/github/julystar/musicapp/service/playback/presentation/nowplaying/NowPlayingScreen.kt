@@ -1177,15 +1177,8 @@ private val CompactArtworkExpandedSize = 356.dp
 private const val CompactArtworkPausedScale = 0.96f
 private const val CompactPlayerContentWidthFraction = 0.88f
 private val CompactPlayerLyricsLineHorizontalPadding = 8.dp
-private val CompactImmersiveContentHorizontalPadding = 28.dp
+private val CompactPlayerTopInset = 90.dp
 private val CompactPlayerControlsBottomInset = 44.dp
-
-internal fun immersiveLyricsLineHorizontalPadding(viewportWidth: Dp): Dp =
-    (
-        viewportWidth * ((1f - CompactPlayerContentWidthFraction) / 2f) +
-            CompactPlayerLyricsLineHorizontalPadding -
-            CompactImmersiveContentHorizontalPadding
-        ).coerceAtLeast(0.dp)
 
 @Composable
 private fun TrackRow(
@@ -1411,6 +1404,101 @@ private fun CompactLyricsStatus(
 }
 
 @Composable
+private fun CompactPlayerContentLayout(
+    artworkContent: @Composable () -> Unit,
+    playerContent: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                top = CompactPlayerTopInset,
+                bottom = CompactPlayerControlsBottomInset,
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(CompactPlayerContentWidthFraction)
+                .widthIn(max = CompactArtworkExpandedSize),
+        ) {
+            artworkContent()
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                playerContent()
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactPlayerContent(
+    state: NowPlayingState,
+    lyricDisplaySettings: LyricDisplaySettings,
+    showAudioTechnicalInfo: Boolean,
+    currentPositionMs: Long,
+    isSeeking: Boolean,
+    liked: Boolean,
+    onLikedChange: (Boolean) -> Unit,
+    progressContent: @Composable (Long?) -> Unit,
+    onAction: (NowPlayingAction) -> Unit,
+    isPortrait: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val track = state.currentTrack
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(modifier),
+    ) {
+        TrackRow(
+            state = state,
+            lyricDisplaySettings = lyricDisplaySettings,
+            showAudioTechnicalInfo = showAudioTechnicalInfo,
+            liked = liked,
+            onLikedChange = onLikedChange,
+            onAction = onAction,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, top = 20.dp, end = 8.dp),
+        )
+
+        CompactLyricsSurface(
+            track = track,
+            lyricDisplaySettings = lyricDisplaySettings,
+            currentPositionMs = currentPositionMs,
+            isPlaying = state.controls.isPlaying && !isSeeking,
+            onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 12.dp, bottom = 16.dp),
+            isPortrait = isPortrait,
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+        ) {
+            Box(modifier = Modifier.offset(y = (-8).dp)) {
+                progressContent(track?.durationMs)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            CompactTransportPanel(
+                nowPlayingState = state,
+                onAction = onAction,
+                dense = false,
+            )
+        }
+    }
+}
+
+@Composable
 private fun CompactClassicNowPlayingLayout(
     state: NowPlayingState,
     lyricDisplaySettings: LyricDisplaySettings,
@@ -1427,18 +1515,8 @@ private fun CompactClassicNowPlayingLayout(
 ) {
     val track = state.currentTrack
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 90.dp, bottom = CompactPlayerControlsBottomInset),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(CompactPlayerContentWidthFraction)
-                .widthIn(max = 356.dp),
-        ) {
+    CompactPlayerContentLayout(
+        artworkContent = {
             CompactArtworkArea(
                 artwork = track?.artwork,
                 isPlaying = state.controls.isPlaying,
@@ -1451,62 +1529,25 @@ private fun CompactClassicNowPlayingLayout(
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            ) {
-                if (composeChrome) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { alpha = chromeAlpha },
-                    ) {
-                        TrackRow(
-                            state = state,
-                            lyricDisplaySettings = lyricDisplaySettings,
-                            showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
-                            liked = liked,
-                            onLikedChange = onLikedChange,
-                            onAction = onAction,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 8.dp, top = 20.dp, end = 8.dp),
-                        )
-
-                        CompactLyricsSurface(
-                            track = track,
-                            lyricDisplaySettings = lyricDisplaySettings,
-                            currentPositionMs = currentPositionMs,
-                            isPlaying = state.controls.isPlaying && !isSeeking,
-                            onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(top = 12.dp, bottom = 16.dp),
-                            isPortrait = isPortrait,
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                        ) {
-                            Box(modifier = Modifier.offset(y = (-8).dp)) {
-                                progressContent(track?.durationMs)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            CompactTransportPanel(
-                                nowPlayingState = state,
-                                onAction = onAction,
-                                dense = false,
-                            )
-                        }
-                    }
-                }
+        },
+        playerContent = {
+            if (composeChrome) {
+                CompactPlayerContent(
+                    state = state,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                    currentPositionMs = currentPositionMs,
+                    isSeeking = isSeeking,
+                    liked = liked,
+                    onLikedChange = onLikedChange,
+                    progressContent = progressContent,
+                    onAction = onAction,
+                    isPortrait = isPortrait,
+                    modifier = Modifier.graphicsLayer { alpha = chromeAlpha },
+                )
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -1535,7 +1576,6 @@ private fun CompactImmersiveNowPlayingLayout(
             maxWidth,
             maxHeight * 0.47f,
         )
-        val lyricsLineHorizontalPadding = immersiveLyricsLineHorizontalPadding(maxWidth)
         Column(modifier = Modifier.fillMaxSize()) {
             ImmersiveArtworkArea(
                 artwork = track?.artwork,
@@ -1578,55 +1618,31 @@ private fun CompactImmersiveNowPlayingLayout(
                         audioReactiveSnapshot = audioReactiveSnapshot,
                     )
                 }
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            start = CompactImmersiveContentHorizontalPadding,
-                            end = CompactImmersiveContentHorizontalPadding,
-                            bottom = CompactPlayerControlsBottomInset,
-                        ),
-                ) {
-                    TrackRow(
-                        state = state,
-                        lyricDisplaySettings = lyricDisplaySettings,
-                        showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
-                        liked = liked,
-                        onLikedChange = onLikedChange,
-                        onAction = onAction,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start = lyricsLineHorizontalPadding,
-                                top = 4.dp,
-                            ),
-                    )
-                    CompactLyricsSurface(
-                        track = track,
-                        lyricDisplaySettings = lyricDisplaySettings,
-                        currentPositionMs = currentPositionMs,
-                        isPlaying = state.controls.isPlaying && !isSeeking,
-                        onLineClick = { onAction(NowPlayingAction.OpenLyrics) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(top = 6.dp, bottom = 10.dp),
-                        lineHorizontalPadding = lyricsLineHorizontalPadding,
-                        isPortrait = isPortrait,
-                    )
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Box(modifier = Modifier.offset(y = (-8).dp)) {
-                            progressContent(track?.durationMs)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        CompactTransportPanel(
-                            nowPlayingState = state,
-                            onAction = onAction,
-                            dense = false,
-                        )
-                    }
-                }
             }
         }
+        CompactPlayerContentLayout(
+            artworkContent = {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f),
+                )
+            },
+            playerContent = {
+                CompactPlayerContent(
+                    state = state,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                    currentPositionMs = currentPositionMs,
+                    isSeeking = isSeeking,
+                    liked = liked,
+                    onLikedChange = onLikedChange,
+                    progressContent = progressContent,
+                    onAction = onAction,
+                    isPortrait = isPortrait,
+                )
+            },
+        )
     }
 }
 

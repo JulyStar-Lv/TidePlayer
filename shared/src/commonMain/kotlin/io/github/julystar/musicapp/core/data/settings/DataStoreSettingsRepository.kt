@@ -57,6 +57,7 @@ import io.github.julystar.musicapp.core.domain.model.normalizeThemeSeedArgb
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.platform.applyAppLanguageMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -258,7 +259,7 @@ class DataStoreSettingsRepository(
                 preferences[IMAGE_CACHE_LIMIT_BYTES_KEY] ?: AppSettings.Default.imageCacheLimitBytes,
             ),
         )
-    }
+    }.distinctUntilChanged()
 
     override suspend fun setThemeMode(mode: AppThemeMode) = set(THEME_MODE_KEY, mode.name)
 

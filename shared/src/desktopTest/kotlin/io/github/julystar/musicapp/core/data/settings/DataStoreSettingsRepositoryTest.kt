@@ -1,6 +1,7 @@
 package io.github.julystar.musicapp.core.data.settings
 
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import io.github.julystar.musicapp.core.data.datastore.createAppDataStore
 import io.github.julystar.musicapp.core.domain.model.AppLanguageMode
 import io.github.julystar.musicapp.core.domain.model.AppSettings
@@ -24,7 +25,13 @@ import io.github.julystar.musicapp.core.domain.model.ParametricEqualizerSettings
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.domain.model.EqualizerMode
 import io.github.julystar.musicapp.core.domain.model.withAudioEffectProfile
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.Path.Companion.toPath
@@ -35,6 +42,34 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DataStoreSettingsRepositoryTest {
+    @Test
+    fun unrelatedPreferenceWritesDoNotRepublishSettings() =
+        withRepository { dataStore, repository ->
+            coroutineScope {
+                val firstEmission = CompletableDeferred<Unit>()
+                val emissions = async {
+                    repository.settings
+                        .onEach { firstEmission.complete(Unit) }
+                        .take(2)
+                        .toList()
+                }
+                firstEmission.await()
+
+                dataStore.edit { preferences ->
+                    preferences[longPreferencesKey("playback.lastPositionMs")] = 2_000L
+                }
+                repository.setThemeMode(AppThemeMode.Light)
+
+                assertEquals(
+                    listOf(
+                        AppSettings.Default,
+                        AppSettings.Default.copy(themeMode = AppThemeMode.Light),
+                    ),
+                    withTimeout(5_000) { emissions.await() },
+                )
+            }
+        }
+
     @Test
     fun persistsAndReloadsSettings() = withRepository { dataStore, repository ->
         assertEquals(AppSettings.Default, repository.settingsValue())
