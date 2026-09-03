@@ -38,6 +38,7 @@ app.*.map.json
 .kotlin/
 build/
 */build/
+/local.properties
 
 # Sign
 /android/root.jks
