@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
+import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopAccountName
 import io.github.julystar.musicapp.di.AppInitializer
 import io.github.julystar.musicapp.di.appModule
 import io.github.julystar.musicapp.di.initKoin
@@ -49,18 +50,19 @@ import java.awt.event.KeyEvent
 import javax.swing.AbstractAction
 import javax.swing.JComponent
 import javax.swing.KeyStroke
-import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import org.koin.core.Koin
 import org.koin.core.KoinApplication
 
 private const val MinWindowWidth = 960
 private const val MinWindowHeight = 520
-private const val MaxWindowWidth = 1200
-private const val MaxWindowHeight = 800
-private const val WindowWidthRatio = 0.70
-private const val WindowHeightRatio = 0.72
+private const val AppleMusicWindowWidth = 980
+private const val AppleMusicWindowHeight = 600
 private const val SeekStepMs = 10_000L
+
+private val desktopAccountName: String = System.getProperty("user.name")
+    .orEmpty()
+    .replaceFirstChar { character -> character.titlecase() }
 private const val LargeSeekStepMs = 30_000L
 private val IntegratedTitleBarInset = 28.dp
 private val IsMacOs = System.getProperty("os.name").startsWith("Mac", ignoreCase = true)
@@ -124,6 +126,7 @@ fun main() {
             CompositionLocalProvider(
                 LocalDesktopTitleBarInset provides
                     if (IsMacOs) IntegratedTitleBarInset else 0.dp,
+                LocalDesktopAccountName provides desktopAccountName,
             ) {
                 if (diagnosticsState.safeMode) {
                     Root(
@@ -183,6 +186,7 @@ private fun configureWindowChrome(window: ComposeWindow) {
     window.rootPane.putClientProperty("apple.awt.fullWindowContent", true)
     window.rootPane.putClientProperty("apple.awt.transparentTitleBar", true)
     window.rootPane.putClientProperty("apple.awt.windowTitleVisible", false)
+    positionMacTrafficLights(window)
 }
 
 private class DesktopApplicationRuntime {
@@ -327,18 +331,8 @@ private fun calculateInitialWindowSize(): DpSize {
     val availableSize = calculateAvailableScreenSize(configuration)
 
     return DpSize(
-        calculateWindowDimension(
-            available = availableSize.width,
-            ratio = WindowWidthRatio,
-            minimum = MinWindowWidth,
-            maximum = MaxWindowWidth,
-        ).dp,
-        calculateWindowDimension(
-            available = availableSize.height,
-            ratio = WindowHeightRatio,
-            minimum = MinWindowHeight,
-            maximum = MaxWindowHeight,
-        ).dp,
+        minOf(AppleMusicWindowWidth, availableSize.width).dp,
+        minOf(AppleMusicWindowHeight, availableSize.height).dp,
     )
 }
 
@@ -349,15 +343,4 @@ private fun calculateAvailableScreenSize(configuration: GraphicsConfiguration): 
         (bounds.width - insets.left - insets.right).coerceAtLeast(1),
         (bounds.height - insets.top - insets.bottom).coerceAtLeast(1),
     )
-}
-
-private fun calculateWindowDimension(
-    available: Int,
-    ratio: Double,
-    minimum: Int,
-    maximum: Int,
-): Int {
-    return (available * ratio)
-        .roundToInt()
-        .coerceIn(minOf(minimum, available), minOf(maximum, available))
 }

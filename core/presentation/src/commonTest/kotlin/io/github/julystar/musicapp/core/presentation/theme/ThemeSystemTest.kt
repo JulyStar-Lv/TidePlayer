@@ -4,6 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,6 +38,27 @@ class ThemeSystemTest {
         assertEquals(ColorSchemeMode.MonetLight, observedMode)
         assertTrue(observedDynamicColor)
         assertEquals(DesignPalette.BrandButtonLight, observedPrimary)
+    }
+
+    @Test
+    fun `explicit theme mode updates descendants immediately`() = runComposeUiTest {
+        var themeMode by mutableStateOf(AppThemeMode.Dark)
+        var observedDarkTheme: Boolean? = null
+
+        setContent {
+            AppTheme(
+                themeMode = themeMode,
+                manageSystemBars = false,
+            ) {
+                observedDarkTheme = LocalDesignIsDarkTheme.current
+            }
+        }
+        waitForIdle()
+        assertEquals(true, observedDarkTheme)
+
+        runOnIdle { themeMode = AppThemeMode.Light }
+        waitForIdle()
+        assertEquals(false, observedDarkTheme)
     }
 
     @Test

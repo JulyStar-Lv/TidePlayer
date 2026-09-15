@@ -6,6 +6,15 @@
     <string name="nav_search">搜索</string>
     <string name="nav_library">音乐库</string>
     <string name="nav_settings">设置</string>
+    <string name="sidebar_library_section">资料库</string>
+    <string name="sidebar_recently_added">最近添加</string>
+    <string name="sidebar_songs">歌曲</string>
+    <string name="sidebar_albums">专辑</string>
+    <string name="sidebar_artists">艺人</string>
+    <string name="sidebar_genres">类型</string>
+    <string name="sidebar_playlists_section">播放列表</string>
+    <string name="sidebar_all_playlists">所有播放列表</string>
+    <string name="sidebar_favorite_songs">喜爱歌曲</string>
     <string name="sidebar_tagline">一个音乐库，所有音源。</string>
     <string name="sidebar_discover">发现</string>
     <string name="dashboard_sleep_mode">睡眠定时</string>

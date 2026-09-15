@@ -75,6 +75,7 @@ fun AppTheme(
         )
         MiuixTheme(colors = colors, textStyles = MiuixTheme.textStyles) {
             CompositionLocalProvider(
+                LocalDesignIsDarkTheme provides effectiveDarkTheme,
                 LocalDesignSpacing provides DesignSpacing(),
                 LocalDesignShapes provides DesignShapes(),
                 LocalDesignMotion provides DesignMotion(),
@@ -109,10 +110,15 @@ fun ThemeSeedPreviewTheme(
     MiuixTheme(controller = controller, textStyles = designTextStyles()) {
         val colors = MiuixTheme.colorScheme.withManualPrimary(seedColor, darkTheme)
         MiuixTheme(colors = colors, textStyles = MiuixTheme.textStyles) {
-            content()
+            CompositionLocalProvider(
+                LocalDesignIsDarkTheme provides darkTheme,
+                content = content,
+            )
         }
     }
 }
+
+val LocalDesignIsDarkTheme = staticCompositionLocalOf { false }
 
 private fun Colors.withResolvedPrimary(
     themeSeedState: ThemeSeedState,

@@ -38,8 +38,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
@@ -62,7 +63,9 @@ import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeClass
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkSharedTransitionScope
 import io.github.julystar.musicapp.feature.album.presentation.navigation.albumGraph
@@ -99,7 +102,9 @@ import io.github.julystar.musicapp.service.playback.presentation.sleep.TimeToPau
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkSharedTransitionScope
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
+import io.github.julystar.musicapp.widgets.appbar.AppleMusicSidebarDestination
 import io.github.julystar.musicapp.widgets.appbar.HomeNavigationRail
+import io.github.julystar.musicapp.widgets.appbar.defaultSidebarDestination
 import io.github.julystar.musicapp.widgets.appbar.getHomeNavigationRailWidth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -130,6 +135,17 @@ internal fun RootNavHost(
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
+    var selectedDesktopDestinationName by rememberSaveable {
+        mutableStateOf(AppleMusicSidebarDestination.HOME.name)
+    }
+    val savedDesktopDestination = AppleMusicSidebarDestination.entries.firstOrNull {
+        it.name == selectedDesktopDestinationName
+    } ?: selectedRootTab.defaultSidebarDestination()
+    val selectedDesktopDestination = desktopSidebarDestinationForRoute(
+        route = currentRoute,
+        selectedRootTab = selectedRootTab,
+        fallback = savedDesktopDestination,
+    )
     val nowPlayingOverlayVisible = shouldShowNowPlayingOverlay(
         requested = showNowPlayingOverlay,
         hostEntryId = nowPlayingOverlayHostEntryId,
@@ -151,7 +167,10 @@ internal fun RootNavHost(
         nowPlayingOverlayResident
     val showRootNavigationChrome = !isImmersivePlayerRoute(currentRoute)
     var contentUsesNavigationChrome by remember { mutableStateOf(showRootNavigationChrome) }
-    val onRootTabSelected: (HomeTab) -> Unit = { selectedRootTabName = it.name }
+    val onRootTabSelected: (HomeTab) -> Unit = { tab ->
+        selectedRootTabName = tab.name
+        selectedDesktopDestinationName = tab.defaultSidebarDestination().name
+    }
     val playerTransitionDurationMillis = DesignTokens.motion.playerExpandMillis
     val coroutineScope = rememberCoroutineScope()
     val onNavigateBackFromNowPlaying: () -> Unit = { navController.popBackStack() }
@@ -470,6 +489,36 @@ internal fun RootNavHost(
             ),
         )
     }
+    val selectRootTabAndReturnHome: (HomeTab) -> Unit = { tab ->
+        onRootTabSelected(tab)
+        if (
+            shouldReturnToHome(navController.currentDestination?.route) &&
+            !navController.popBackStack<MusicGraph.Home>(inclusive = false)
+        ) {
+            navController.navigate(MusicGraph.Home) {
+                launchSingleTop = true
+            }
+        }
+    }
+    val onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit = { destination ->
+        selectedDesktopDestinationName = destination.name
+        when (destination) {
+            AppleMusicSidebarDestination.SEARCH -> selectRootTabAndReturnHome(HomeTab.SEARCH)
+            AppleMusicSidebarDestination.HOME -> selectRootTabAndReturnHome(HomeTab.HOME)
+            AppleMusicSidebarDestination.SETTINGS -> selectRootTabAndReturnHome(HomeTab.SETTINGS)
+            AppleMusicSidebarDestination.RECENTLY_ADDED ->
+                navController.navigate(MusicGraph.RecentlyAdded) { launchSingleTop = true }
+            AppleMusicSidebarDestination.SONGS -> selectRootTabAndReturnHome(HomeTab.LIBRARY)
+            AppleMusicSidebarDestination.ALBUMS,
+            AppleMusicSidebarDestination.ARTISTS,
+            AppleMusicSidebarDestination.GENRES,
+            -> navController.navigate(MusicGraph.Browse) { launchSingleTop = true }
+            AppleMusicSidebarDestination.ALL_PLAYLISTS ->
+                navController.navigate(MusicGraph.Playlists) { launchSingleTop = true }
+            AppleMusicSidebarDestination.FAVORITES ->
+                navController.navigate(MusicGraph.Favorites) { launchSingleTop = true }
+        }
+    }
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         val sharedTransitionScope = this
         CompositionLocalProvider(
@@ -478,17 +527,9 @@ internal fun RootNavHost(
         ) {
             SecondaryRootNavigationLayout(
                 currentTab = selectedRootTab,
-                onTabSelected = { tab ->
-                    onRootTabSelected(tab)
-                    if (
-                        shouldReturnToHome(navController.currentDestination?.route) &&
-                        !navController.popBackStack<MusicGraph.Home>(inclusive = false)
-                    ) {
-                        navController.navigate(MusicGraph.Home) {
-                            launchSingleTop = true
-                        }
-                    }
-                },
+                onTabSelected = selectRootTabAndReturnHome,
+                selectedDesktopDestination = selectedDesktopDestination,
+                onDesktopDestinationSelected = onDesktopDestinationSelected,
                 scaffoldPadding = scaffoldPadding,
                 onOpenNowPlaying = {
                     nowPlayingOverlayHostEntryId = currentBackStackEntry?.id
@@ -715,6 +756,32 @@ internal fun shouldShowNowPlayingOverlayContent(
 internal fun shouldReturnToHome(route: String?): Boolean =
     route != null && !isRouteHome(route)
 
+internal fun desktopSidebarDestinationForRoute(
+    route: String?,
+    selectedRootTab: HomeTab,
+    fallback: AppleMusicSidebarDestination,
+): AppleMusicSidebarDestination {
+    val routeName = route?.substringBefore('/')?.substringBefore('?')
+    return when {
+        routeName == null || routeName == "Home" || routeName.endsWith(".Home") ->
+            selectedRootTab.defaultSidebarDestination()
+        routeName == "RecentlyAdded" || routeName.endsWith(".RecentlyAdded") ->
+            AppleMusicSidebarDestination.RECENTLY_ADDED
+        routeName == "Favorites" || routeName.endsWith(".Favorites") ->
+            AppleMusicSidebarDestination.FAVORITES
+        routeName == "Playlists" || routeName.endsWith(".Playlists") ->
+            AppleMusicSidebarDestination.ALL_PLAYLISTS
+        routeName == "Browse" || routeName.endsWith(".Browse") -> when (fallback) {
+            AppleMusicSidebarDestination.ALBUMS,
+            AppleMusicSidebarDestination.ARTISTS,
+            AppleMusicSidebarDestination.GENRES,
+            -> fallback
+            else -> AppleMusicSidebarDestination.ALBUMS
+        }
+        else -> fallback
+    }
+}
+
 internal fun isImmersivePlayerRoute(route: String?): Boolean =
     isRouteNowPlaying(route) || isRouteLyrics(route)
 
@@ -780,6 +847,8 @@ internal fun shouldHoistSecondaryStickyHeader(
 private fun SecondaryRootNavigationLayout(
     currentTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
+    selectedDesktopDestination: AppleMusicSidebarDestination,
+    onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit,
     scaffoldPadding: PaddingValues,
     onOpenNowPlaying: () -> Unit,
     onOpenQueue: () -> Unit,
@@ -823,14 +892,35 @@ private fun SecondaryRootNavigationLayout(
             WindowSizeClass.Large,
             WindowSizeClass.XL -> getHomeNavigationRailWidth(expanded = true)
         }
+        val contentTitleBarInset = if (
+            isDesktopPlatform() && windowSizeClass != WindowSizeClass.Compact
+        ) {
+            0.dp
+        } else {
+            titleBarInset
+        }
+        val usesAppleMusicDesktopContent = isDesktopPlatform() && when (windowSizeClass) {
+            WindowSizeClass.Expanded,
+            WindowSizeClass.Large,
+            WindowSizeClass.XL,
+            -> true
+            WindowSizeClass.Compact,
+            WindowSizeClass.Medium,
+            -> false
+        }
+        val contentBackground = if (usesAppleMusicDesktopContent) {
+            if (LocalDesignIsDarkTheme.current) Color(0xFF2B2B2B) else Color.White
+        } else {
+            MiuixTheme.colorScheme.background
+        }
         val contentModifier = if (contentUsesNavigationChrome) {
             Modifier
                 .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background)
+                .background(contentBackground)
                 .statusBarsPadding()
                 .padding(
                     start = sideNavigationWidth,
-                    top = titleBarInset,
+                    top = contentTitleBarInset,
                 )
         } else {
             Modifier.fillMaxSize()
@@ -849,11 +939,25 @@ private fun SecondaryRootNavigationLayout(
             },
             backdropContent = {
                 Box(modifier = contentModifier) {
-                    CompositionLocalProvider(
-                        LocalDesignStickyHeaderStateSink provides
-                            stickyHeaderStateSink.takeIf { hoistStickyHeader },
-                    ) {
-                        content(Modifier.fillMaxSize())
+                    val contentHost: @Composable () -> Unit = {
+                        CompositionLocalProvider(
+                            LocalDesignStickyHeaderStateSink provides
+                                stickyHeaderStateSink.takeIf { hoistStickyHeader },
+                        ) {
+                            content(Modifier.fillMaxSize())
+                        }
+                    }
+                    if (usesAppleMusicDesktopContent) {
+                        MiuixTheme(
+                            colors = MiuixTheme.colorScheme.copy(
+                                background = contentBackground,
+                                surface = contentBackground,
+                            ),
+                            textStyles = MiuixTheme.textStyles,
+                            content = contentHost,
+                        )
+                    } else {
+                        contentHost()
                     }
                 }
             },
@@ -923,6 +1027,8 @@ private fun SecondaryRootNavigationLayout(
                                         currentTab = currentTab,
                                         onTabSelected = onTabSelected,
                                         expanded = true,
+                                        selectedDesktopDestination = selectedDesktopDestination,
+                                        onDesktopDestinationSelected = onDesktopDestinationSelected,
                                         modifier = Modifier
                                             .align(Alignment.CenterStart)
                                             .fillMaxHeight()

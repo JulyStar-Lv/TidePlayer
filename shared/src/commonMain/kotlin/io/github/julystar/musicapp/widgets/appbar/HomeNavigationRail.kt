@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.appIconPainter
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.navigation.HomeTab
 import musicapp.shared.generated.resources.Res
 import musicapp.shared.generated.resources.app_name
@@ -26,7 +27,7 @@ import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 fun getHomeNavigationRailWidth(expanded: Boolean): Dp = if (expanded) {
-    NavigationRailDefaults.ExpandedWidth
+    if (isDesktopPlatform()) AppleMusicSidebarWidth else NavigationRailDefaults.ExpandedWidth
 } else {
     NavigationRailDefaults.MinWidth
 }
@@ -37,7 +38,20 @@ fun HomeNavigationRail(
     onTabSelected: (HomeTab) -> Unit,
     expanded: Boolean,
     modifier: Modifier = Modifier,
+    selectedDesktopDestination: AppleMusicSidebarDestination = currentTab.defaultSidebarDestination(),
+    onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit = { destination ->
+        destination.rootTab?.let(onTabSelected)
+    },
 ) {
+    if (isDesktopPlatform() && expanded) {
+        AppleMusicNavigationSidebar(
+            selectedDestination = selectedDesktopDestination,
+            onDestinationSelected = onDesktopDestinationSelected,
+            modifier = modifier,
+        )
+        return
+    }
+
     val state = rememberNavigationRailState()
     val titleBarInset = LocalDesktopTitleBarInset.current
     val appName = stringResource(Res.string.app_name)
@@ -84,4 +98,11 @@ fun HomeNavigationRail(
             )
         }
     }
+}
+
+internal fun HomeTab.defaultSidebarDestination(): AppleMusicSidebarDestination = when (this) {
+    HomeTab.HOME -> AppleMusicSidebarDestination.HOME
+    HomeTab.SEARCH -> AppleMusicSidebarDestination.SEARCH
+    HomeTab.LIBRARY -> AppleMusicSidebarDestination.SONGS
+    HomeTab.SETTINGS -> AppleMusicSidebarDestination.SETTINGS
 }
