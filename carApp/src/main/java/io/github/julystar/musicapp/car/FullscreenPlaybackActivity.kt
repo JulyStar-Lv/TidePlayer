@@ -1,5 +1,6 @@
 package io.github.julystar.musicapp.car
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,9 +35,9 @@ class FullscreenPlaybackActivity : ComponentActivity() {
                         }
                         CarRoot(
                             metrics = metrics,
-                            onExit = ::finishWithoutAnimation,
+                            onExit = ::restoreMainAndFinish,
                             onExitPlayback = ::exitPlayback,
-                            onExitFullscreen = ::finishWithoutAnimation,
+                            onExitFullscreen = ::restoreMainAndFinish,
                         )
                     }
                     else -> LaunchedEffect(startupState) {
@@ -44,7 +45,7 @@ class FullscreenPlaybackActivity : ComponentActivity() {
                             startupState is CarStartupState.Failed ||
                             startupState == CarStartupState.RecoveryRequired
                         ) {
-                            finishWithoutAnimation()
+                            restoreMainAndFinish()
                         }
                     }
                 }
@@ -52,13 +53,23 @@ class FullscreenPlaybackActivity : ComponentActivity() {
         }
     }
 
-    private fun finishWithoutAnimation() {
+    private fun restoreMainAndFinish() {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .setAction(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION,
+                ),
+        )
         finish()
         overridePendingTransition(0, 0)
     }
 
     private fun exitPlayback() {
         (application as CarApplication).requestExitPlayback()
-        finishWithoutAnimation()
+        restoreMainAndFinish()
     }
 }

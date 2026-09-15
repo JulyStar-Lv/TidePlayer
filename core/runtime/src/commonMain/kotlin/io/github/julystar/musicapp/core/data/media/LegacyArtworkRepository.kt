@@ -3,6 +3,7 @@ package io.github.julystar.musicapp.core.data.media
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.ArtworkCacheKey
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
+import io.github.julystar.musicapp.core.domain.repository.RemoteArtworkCacheAware
 import io.github.julystar.musicapp.database.ArtworkEntity
 import io.github.julystar.musicapp.database.MetadataDao
 import io.github.julystar.musicapp.database.TrackDao
@@ -18,10 +19,6 @@ import uniffi.app_backend.MusicId
 import uniffi.app_backend.StorageEntryLoc
 import uniffi.app_backend.StorageId
 import uniffi.app_backend.ctGetAsset
-
-interface RemoteArtworkCacheAware {
-    suspend fun isRemoteArtwork(artwork: Artwork): Boolean
-}
 
 class LegacyArtworkRepository(
     private val bridge: Bridge,

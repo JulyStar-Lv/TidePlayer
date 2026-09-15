@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -37,6 +38,7 @@ fun CarMiniPlayer(
     height: Dp,
     controlSize: Dp,
     compact: Boolean = false,
+    artist: String? = null,
     onOpen: () -> Unit,
     onPrevious: () -> Unit,
     onToggle: () -> Unit,
@@ -47,6 +49,7 @@ fun CarMiniPlayer(
     val shapes = LocalCarShapes.current
     val spacing = LocalCarSpacing.current
     val item = state.currentItem
+    val displayArtist = artist?.takeIf(String::isNotBlank) ?: item?.artist.orEmpty()
     val artworkSize = height * (if (compact) 112f else 72f) / 164f
     if (compact) {
         Box(
@@ -57,12 +60,27 @@ fun CarMiniPlayer(
                 .border(1.dp, colors.borderDefault, shapes.panel)
                 .carInteractiveSurface(shapes.panel, enabled = item != null, onClick = onOpen),
         ) {
-            CarArtwork(
-                artwork = item?.libraryTrackId?.let { Artwork.LibraryTrack(it, true) },
-                repository = artworkRepository,
-                size = artworkSize,
-                shape = shapes.artwork,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CarArtwork(
+                    artwork = item?.libraryTrackId?.let { Artwork.LibraryTrack(it, true) },
+                    repository = artworkRepository,
+                    size = artworkSize,
+                    shape = shapes.artwork,
+                )
+                BasicText(
+                    text = displayArtist,
+                    style = LocalCarTypography.current.supporting.copy(
+                        color = colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
+                )
+            }
         }
         return
     }
@@ -93,7 +111,7 @@ fun CarMiniPlayer(
                     overflow = TextOverflow.Ellipsis,
                 )
                 BasicText(
-                    text = item?.artist.orEmpty(),
+                    text = displayArtist,
                     style = LocalCarTypography.current.supporting.copy(color = colors.textSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -42,9 +42,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.car.presentation.component.CarArtwork
 import io.github.julystar.musicapp.car.presentation.component.carInteractiveSurface
 import io.github.julystar.musicapp.car.presentation.icon.CarIcon
@@ -58,7 +62,11 @@ import io.github.julystar.musicapp.car.presentation.theme.LocalCarTouchTargets
 import io.github.julystar.musicapp.car.presentation.theme.LocalCarTypography
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.CurrentTrackInfo
+import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
+import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
+import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
+import io.github.julystar.musicapp.core.lyrics.ui.toSyncedLyrics
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackPosition
 import io.github.julystar.musicapp.service.playback.domain.PlaybackQueue
@@ -78,6 +86,7 @@ import io.github.julystar.musicapp.car.presentation.focus.carFocusTarget
 @Composable
 fun CarNowPlayingScreen(
     metrics: CarLayoutMetrics,
+    lyricDisplaySettings: LyricDisplaySettings = LyricDisplaySettings.Default,
     focusCoordinator: CarFocusCoordinator,
     onCollapse: () -> Unit,
     onEnterFullscreen: () -> Unit = {},
@@ -164,7 +173,15 @@ fun CarNowPlayingScreen(
             if (queueVisible) {
                 QueuePane(metrics, queue, viewModel::onAction, artworkRepository, Modifier.weight(1f).fillMaxHeight())
             } else {
-                LyricsPane(metrics, state, position, trackInfo, Modifier.weight(1f).fillMaxHeight())
+                LyricsPane(
+                    metrics = metrics,
+                    state = state,
+                    position = position,
+                    trackInfo = trackInfo,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    onAction = viewModel::onAction,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
             }
         }
         CarPlayerControl(
@@ -237,8 +254,8 @@ private fun PlayerPane(
             modifier = Modifier.width(metrics.nowPlayingArtworkSize),
         ) {
             CarPlayerControl(
-                CarIcon.Heart,
-                "收藏",
+                if (isFavorite) CarIcon.HeartFilled else CarIcon.Heart,
+                if (isFavorite) "取消收藏" else "收藏",
                 metrics.headerHeight,
                 metrics.iconSize,
                 isFavorite,
@@ -248,6 +265,7 @@ private fun PlayerPane(
                 enabled = state.currentItem?.libraryTrackId != null,
                 onClick = { onAction(CarNowPlayingAction.ToggleFavorite) },
                 modifier = Modifier,
+                showStateBackground = false,
             )
             BasicText(
                 if (state.status == PlaybackStatus.Loading) "正在缓冲…" else "LOSSLESS",
@@ -261,6 +279,7 @@ private fun PlayerPane(
                 enabled = false,
                 onClick = {},
                 modifier = Modifier,
+                showStateBackground = false,
             )
         }
         Spacer(Modifier.height(spacing.content))
@@ -279,17 +298,28 @@ private fun PlayerPane(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.width(metrics.nowPlayingArtworkSize),
         ) {
+            val playbackModeIcon = when {
+                state.shuffleEnabled -> CarIcon.Shuffle
+                state.repeatMode == RepeatMode.One -> CarIcon.RepeatOne
+                else -> CarIcon.RepeatAll
+            }
+            val playbackModeDescription = when {
+                state.shuffleEnabled -> "随机播放"
+                state.repeatMode == RepeatMode.One -> "单曲循环"
+                else -> "列表循环"
+            }
             CarPlayerControl(
-                CarIcon.RepeatAll,
-                "循环模式 ${state.repeatMode}",
+                playbackModeIcon,
+                playbackModeDescription,
                 LocalCarTouchTargets.current.playerControl,
                 metrics.headerHeight,
-                state.repeatMode != RepeatMode.Off,
+                state.shuffleEnabled || state.repeatMode == RepeatMode.One,
                 focusId = CarFocusIds.NowPlayingRepeat,
                 up = CarFocusIds.NowPlayingShuffle,
                 right = CarFocusIds.NowPlayingPrevious,
-                onClick = { onAction(CarNowPlayingAction.ToggleRepeat) },
+                onClick = { onAction(CarNowPlayingAction.CyclePlaybackMode) },
                 modifier = Modifier,
+                showStateBackground = false,
             )
             CarPlayerControl(
                 CarIcon.PreviousLarge, "上一首", LocalCarTouchTargets.current.playerControl, metrics.headerHeight, false,
@@ -326,6 +356,7 @@ private fun PlayerPane(
                 left = CarFocusIds.NowPlayingNext,
                 onClick = onToggleQueue,
                 modifier = Modifier,
+                showStateBackground = false,
             )
         }
     }
@@ -378,15 +409,19 @@ private fun LyricsPane(
     state: PlayerState,
     position: PlaybackPosition,
     trackInfo: CurrentTrackInfo?,
+    lyricDisplaySettings: LyricDisplaySettings,
+    onAction: (CarNowPlayingAction) -> Unit,
     modifier: Modifier,
 ) {
     val colors = LocalCarColors.current
     val spacing = LocalCarSpacing.current
     val lines = trackInfo?.lyrics?.lines.orEmpty()
-    val currentIndex = lines.indexOfLast { it.duration.inWholeMilliseconds <= position.positionMs }
-    val listState = rememberLazyListState()
-    LaunchedEffect(currentIndex) {
-        if (currentIndex >= 0) listState.animateScrollToItem(currentIndex.coerceAtLeast(0))
+    val syncedLyrics = remember(lines, trackInfo?.title, trackInfo?.durationMs, lyricDisplaySettings) {
+        lines.toSyncedLyrics(
+            trackTitle = trackInfo?.title.orEmpty(),
+            trackDurationMs = trackInfo?.durationMs ?: state.currentItem?.durationMs,
+            settings = lyricDisplaySettings,
+        )
     }
     Column(modifier.padding(metrics.nowPlayingInnerPadding)) {
         BasicText(
@@ -407,25 +442,39 @@ private fun LyricsPane(
         )
         Spacer(Modifier.height(spacing.section))
         Box(Modifier.fillMaxWidth().height(2.dp).background(Color.White.copy(alpha = 0.38f)))
-        if (lines.isEmpty()) {
+        if (syncedLyrics.lines.isEmpty()) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 BasicText("暂无歌词", style = LocalCarTypography.current.title.copy(color = colors.textSummary))
             }
         } else {
-            LazyColumn(
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(spacing.wide),
-                modifier = Modifier.fillMaxSize().padding(top = spacing.wide),
-            ) {
-                itemsIndexed(lines, key = { index, line -> "${line.duration.inWholeMilliseconds}:$index" }) { index, line ->
-                    BasicText(
-                        text = line.text,
-                        style = (if (index == currentIndex) LocalCarTypography.current.headline else LocalCarTypography.current.titleLarge)
-                            .copy(color = if (index == currentIndex) colors.accentPrimary else colors.textSecondary),
-                        modifier = if (index == currentIndex) Modifier else Modifier.blur(3.dp),
-                    )
-                }
+            val textAlign = when (lyricDisplaySettings.textAlignment) {
+                LyricTextAlignment.Left -> TextAlign.Start
+                LyricTextAlignment.Center -> TextAlign.Center
+                LyricTextAlignment.Right -> TextAlign.End
             }
+            LyricsView(
+                lyrics = syncedLyrics,
+                currentPositionMs = position.positionMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+                isPlaying = state.status == PlaybackStatus.Playing,
+                onLineClick = { line -> onAction(CarNowPlayingAction.Seek(line.start.toLong())) },
+                activeColor = colors.accentPrimary,
+                inactiveColor = colors.textSecondary,
+                activeTextStyle = LocalCarTypography.current.headline.copy(fontWeight = FontWeight.Bold),
+                inactiveTextStyle = LocalCarTypography.current.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                secondaryTextStyle = TextStyle(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium),
+                textAlign = textAlign,
+                lineSpacing = spacing.wide,
+                showTranslation = lyricDisplaySettings.showTranslation,
+                wordLiftEnabled = lyricDisplaySettings.wordLiftEnabled,
+                useBlurEffect = lyricDisplaySettings.blurEffectEnabled,
+                perspectiveEffectEnabled = lyricDisplaySettings.perspectiveEffectEnabled,
+                perspectiveAngleDegrees = lyricDisplaySettings.perspectiveAngleDegrees.toFloat(),
+                tapToSeekEnabled = lyricDisplaySettings.tapToSeekEnabled,
+                verticalContentPaddingFraction = 0.04f,
+                lineHorizontalPadding = 0.dp,
+                contextLinesBeforeActive = 2,
+                modifier = Modifier.fillMaxSize().padding(top = spacing.wide),
+            )
         }
     }
 }
@@ -531,6 +580,7 @@ private fun CarPlayerControl(
     containerColor: Color = Color.Transparent,
     borderColor: Color = Color.Transparent,
     shape: Shape? = null,
+    showStateBackground: Boolean = true,
 ) {
     val colors = LocalCarColors.current
     val controlShape = shape ?: LocalCarShapes.current.control
@@ -546,6 +596,7 @@ private fun CarPlayerControl(
                 selected = selected,
                 enabled = enabled,
                 defaultColor = containerColor,
+                showStateBackground = showStateBackground,
                 onClick = onClick,
             ),
     ) {
@@ -562,10 +613,16 @@ private fun CarPlayerControl(
     }
 }
 
-internal fun RepeatMode.nextCarMode() = when (this) {
-    RepeatMode.Off -> RepeatMode.All
-    RepeatMode.All -> RepeatMode.One
-    RepeatMode.One -> RepeatMode.Off
+internal data class CarPlaybackModeSelection(
+    val repeatMode: RepeatMode,
+    val shuffleEnabled: Boolean,
+)
+
+internal fun PlayerState.nextCarPlaybackMode(): CarPlaybackModeSelection = when {
+    shuffleEnabled -> CarPlaybackModeSelection(RepeatMode.One, shuffleEnabled = false)
+    repeatMode == RepeatMode.One -> CarPlaybackModeSelection(RepeatMode.All, shuffleEnabled = false)
+    repeatMode == RepeatMode.All -> CarPlaybackModeSelection(RepeatMode.All, shuffleEnabled = true)
+    else -> CarPlaybackModeSelection(RepeatMode.All, shuffleEnabled = false)
 }
 
 private fun Long?.asTime(): String {

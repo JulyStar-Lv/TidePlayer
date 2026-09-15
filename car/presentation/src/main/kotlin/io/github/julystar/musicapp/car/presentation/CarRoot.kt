@@ -39,6 +39,7 @@ fun CarRoot(
         Box(modifier.fillMaxSize().background(LocalCarColors.current.backgroundBase)) {
             CarNavigationRoot(
                 metrics = metrics,
+                lyricDisplaySettings = settings.lyrics,
                 onExit = onExit,
                 onEnterFullscreen = onEnterFullscreen,
                 onExitPlayback = onExitPlayback,

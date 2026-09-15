@@ -112,8 +112,6 @@ data class CarFullscreenMetrics(
     val artworkSize: Dp,
     val artworkCornerRadius: Dp,
     val lyricsSize: DpSize,
-    val currentLyricHeight: Dp,
-    val nextLyricHeight: Dp,
     val coverFlowItemSize: DpSize,
     val coverFlowCenterX: Dp,
     val coverFlowDragInterval: Dp,

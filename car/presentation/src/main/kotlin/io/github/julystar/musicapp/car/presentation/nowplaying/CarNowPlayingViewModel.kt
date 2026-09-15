@@ -27,6 +27,9 @@ data class CarNowPlayingUiState(
 
     val isFavorite: Boolean
         get() = currentTrackId?.let(favoriteTrackIds::contains) == true
+
+    val miniPlayerArtist: String?
+        get() = trackInfo?.artist?.takeIf { trackInfo.id == currentTrackId }
 }
 
 sealed interface CarNowPlayingAction {
@@ -36,8 +39,7 @@ sealed interface CarNowPlayingAction {
     data object Next : CarNowPlayingAction
     data class Seek(val positionMs: Long) : CarNowPlayingAction
     data object ToggleFavorite : CarNowPlayingAction
-    data object ToggleRepeat : CarNowPlayingAction
-    data object ToggleShuffle : CarNowPlayingAction
+    data object CyclePlaybackMode : CarNowPlayingAction
     data class PlayQueueItem(val index: Int) : CarNowPlayingAction
     data class RemoveQueueItem(val index: Int) : CarNowPlayingAction
     data class MoveQueueItem(val from: Int, val to: Int) : CarNowPlayingAction
@@ -77,10 +79,11 @@ class CarNowPlayingViewModel(
             CarNowPlayingAction.ToggleFavorite -> state.value.currentTrackId?.let { trackId ->
                 viewModelScope.launch { favoritesRepository.toggleFavorite(trackId) }
             }
-            CarNowPlayingAction.ToggleRepeat ->
-                playbackController.setRepeatMode(state.value.player.repeatMode.nextCarMode())
-            CarNowPlayingAction.ToggleShuffle ->
-                playbackController.setShuffle(!state.value.player.shuffleEnabled)
+            CarNowPlayingAction.CyclePlaybackMode -> {
+                val nextMode = state.value.player.nextCarPlaybackMode()
+                playbackController.setShuffle(nextMode.shuffleEnabled)
+                playbackController.setRepeatMode(nextMode.repeatMode)
+            }
             is CarNowPlayingAction.PlayQueueItem -> {
                 val queue = state.value.queue
                 if (action.index in queue.items.indices) {

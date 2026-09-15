@@ -10,3 +10,7 @@ interface ArtworkRepository {
 
     suspend fun load(artwork: Artwork): ByteArray?
 }
+
+interface RemoteArtworkCacheAware {
+    suspend fun isRemoteArtwork(artwork: Artwork): Boolean
+}

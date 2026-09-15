@@ -104,6 +104,25 @@ class CarNowPlayingQueueComposeTest {
         compose.onNodeWithText("正在播放").assertDoesNotExist()
     }
 
+    @Test
+    fun playbackModeControlCyclesListShuffleSingleAndBackToList() {
+        setContent()
+
+        compose.onNodeWithContentDescription("列表循环").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("列表循环").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("随机播放").assertExists()
+
+        compose.onNodeWithContentDescription("随机播放").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("单曲循环").assertExists()
+
+        compose.onNodeWithContentDescription("单曲循环").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("列表循环").assertExists()
+    }
+
     private fun setContent(): OnBackPressedDispatcher {
         var dispatcher: OnBackPressedDispatcher? = null
         val metrics = CarLayoutProfileResolver().resolve(DpSize(320.dp, 470.dp))
@@ -140,8 +159,12 @@ private class QueueTestPlaybackController : PlaybackController {
     override fun skipNext() = Unit
     override fun skipPrevious() = Unit
     override fun enqueueNext(item: PlayableItem) = Unit
-    override fun setShuffle(enabled: Boolean) = Unit
-    override fun setRepeatMode(mode: RepeatMode) = Unit
+    override fun setShuffle(enabled: Boolean) {
+        state.value = state.value.copy(shuffleEnabled = enabled)
+    }
+    override fun setRepeatMode(mode: RepeatMode) {
+        state.value = state.value.copy(repeatMode = mode)
+    }
     override fun moveQueueItem(from: Int, to: Int) = Unit
     override fun removeQueueItem(index: Int) = Unit
     override fun clearQueue() = Unit

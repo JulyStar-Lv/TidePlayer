@@ -26,6 +26,7 @@ internal fun Modifier.carInteractiveSurface(
     playing: Boolean = false,
     enabled: Boolean = true,
     defaultColor: Color = Color.Transparent,
+    showStateBackground: Boolean = true,
     onClick: () -> Unit,
 ): Modifier {
     val colors = LocalCarColors.current
@@ -34,11 +35,15 @@ internal fun Modifier.carInteractiveSurface(
     val pressed by source.collectIsPressedAsState()
     var focused by remember { mutableStateOf(false) }
     val visualState = resolveCarSurfaceState(enabled, pressed, focused, selected, playing)
-    val background = when (visualState.base) {
-        CarSurfaceBaseState.Disabled -> colors.surface.copy(alpha = 0.45f)
-        CarSurfaceBaseState.Pressed -> colors.surfacePressed
-        CarSurfaceBaseState.Selected, CarSurfaceBaseState.Playing -> colors.surfaceSelected
-        CarSurfaceBaseState.Default -> defaultColor
+    val background = if (showStateBackground) {
+        when (visualState.base) {
+            CarSurfaceBaseState.Disabled -> colors.surface.copy(alpha = 0.45f)
+            CarSurfaceBaseState.Pressed -> colors.surfacePressed
+            CarSurfaceBaseState.Selected, CarSurfaceBaseState.Playing -> colors.surfaceSelected
+            CarSurfaceBaseState.Default -> defaultColor
+        }
+    } else {
+        defaultColor
     }
     return clip(shape)
         .background(background)

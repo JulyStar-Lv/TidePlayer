@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.lyrics.ui.reference.KaraokeLineText
@@ -427,10 +428,7 @@ private fun TimelinePlaceholder(
     textAlign: TextAlign,
 ) {
     val density = LocalDensity.current
-    val fontSize = with(density) { textStyle.fontSize.toDp() }
-    val lineHeight = with(density) { textStyle.lineHeight.toDp() }
-    val dotSize = fontSize * PlaceholderDotSizeEm
-    val dotSpacing = fontSize * PlaceholderDotSpacingEm
+    val metrics = density.lyricPlaceholderMetrics(textStyle)
     val breathingScale = lyricPlaceholderBreathingScale(
         positionMs = positionMs,
         startMs = line.start,
@@ -445,9 +443,9 @@ private fun TimelinePlaceholder(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(lineHeight),
+            .height(metrics.lineHeight),
         horizontalArrangement = Arrangement.spacedBy(
-            space = dotSpacing,
+            space = metrics.dotSpacing,
             alignment = horizontalAlignment,
         ),
         verticalAlignment = Alignment.CenterVertically,
@@ -461,7 +459,7 @@ private fun TimelinePlaceholder(
             )
             Box(
                 modifier = Modifier
-                    .size(dotSize)
+                    .size(metrics.dotSize)
                     .graphicsLayer {
                         scaleX = breathingScale
                         scaleY = breathingScale
@@ -473,6 +471,26 @@ private fun TimelinePlaceholder(
             )
         }
     }
+}
+
+internal data class LyricPlaceholderMetrics(
+    val dotSize: Dp,
+    val dotSpacing: Dp,
+    val lineHeight: Dp,
+)
+
+internal fun Density.lyricPlaceholderMetrics(textStyle: TextStyle): LyricPlaceholderMetrics {
+    val fontSize = if (textStyle.fontSize.isSp) textStyle.fontSize.toDp() else 32.sp.toDp()
+    val lineHeight = when {
+        textStyle.lineHeight.isSp -> textStyle.lineHeight.toDp()
+        textStyle.lineHeight.isEm -> fontSize * textStyle.lineHeight.value
+        else -> fontSize * 1.25f
+    }
+    return LyricPlaceholderMetrics(
+        dotSize = fontSize * PlaceholderDotSizeEm,
+        dotSpacing = fontSize * PlaceholderDotSpacingEm,
+        lineHeight = lineHeight,
+    )
 }
 
 internal fun lyricPlaceholderDotProgress(

@@ -58,6 +58,7 @@ import io.github.julystar.musicapp.car.presentation.theme.LocalCarColors
 import io.github.julystar.musicapp.car.presentation.theme.LocalCarShapes
 import io.github.julystar.musicapp.car.presentation.theme.LocalCarTypography
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
+import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
 import io.github.julystar.musicapp.service.playback.domain.PlayerState
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -65,6 +66,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun CarNavigationRoot(
     metrics: CarLayoutMetrics?,
+    lyricDisplaySettings: LyricDisplaySettings = LyricDisplaySettings.Default,
     onExit: () -> Unit,
     onEnterFullscreen: () -> Unit = {},
     onExitPlayback: () -> Unit = {},
@@ -81,7 +83,13 @@ fun CarNavigationRoot(
     var previousRootRoute by rememberSaveable { mutableStateOf(CarRoute.Home) }
     val screenStateHolder = rememberSaveableStateHolder()
     if (safeMetrics.profile == CarLayoutProfile.FullscreenCockpit) {
-        CarFullscreenNowPlayingScreen(safeMetrics, onExitPlayback, onExitFullscreen, modifier)
+        CarFullscreenNowPlayingScreen(
+            metrics = safeMetrics,
+            lyricDisplaySettings = lyricDisplaySettings,
+            onExitPlayback = onExitPlayback,
+            onExitFullscreen = onExitFullscreen,
+            modifier = modifier,
+        )
         return
     }
     val libraryViewModel = koinViewModel<CarLibraryViewModel>()
@@ -126,6 +134,7 @@ fun CarNavigationRoot(
         if (route == CarRoute.NowPlaying) {
             CarNowPlayingScreen(
                 metrics = safeMetrics,
+                lyricDisplaySettings = lyricDisplaySettings,
                 focusCoordinator = focusCoordinator,
                 onCollapse = { route = previousRootRoute },
                 onEnterFullscreen = onEnterFullscreen,
@@ -155,6 +164,7 @@ fun CarNavigationRoot(
             metrics = safeMetrics,
             route = route,
             playerState = nowPlayingState.player,
+            artist = nowPlayingState.miniPlayerArtist,
             artworkRepository = artworkRepository,
             onPrevious = { nowPlayingViewModel.onAction(CarNowPlayingAction.Previous) },
             onToggle = { nowPlayingViewModel.onAction(CarNowPlayingAction.PlayPause) },
@@ -308,6 +318,7 @@ private fun NavigationRail(
     metrics: CarLayoutMetrics,
     route: CarRoute,
     playerState: PlayerState,
+    artist: String?,
     artworkRepository: ArtworkRepository,
     onPrevious: () -> Unit,
     onToggle: () -> Unit,
@@ -357,6 +368,7 @@ private fun NavigationRail(
             height = metrics.miniPlayerHeight,
             controlSize = metrics.iconSize,
             compact = metrics.profile == CarLayoutProfile.VehiclePanel,
+            artist = artist,
             onOpen = onOpenNowPlaying,
             onPrevious = onPrevious,
             onToggle = onToggle,

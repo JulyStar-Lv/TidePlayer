@@ -116,7 +116,7 @@ class CarMiniPlayerComposeTest {
     }
 
     @Test
-    fun compactVehiclePlayerShowsArtworkSurfaceWithoutTextOrTransportControls() {
+    fun compactVehiclePlayerShowsArtistWithoutTitleOrTransportControls() {
         var openCount = 0
         compose.setContent {
             CarTheme {
@@ -124,7 +124,6 @@ class CarMiniPlayerComposeTest {
                     state = PlayerState(
                         currentItem = PlayableItem(
                             title = "Vehicle Track",
-                            artist = "Vehicle Artist",
                             libraryTrackId = 44,
                         ),
                         status = PlaybackStatus.Paused,
@@ -133,6 +132,7 @@ class CarMiniPlayerComposeTest {
                     height = 164.dp,
                     controlSize = 48.dp,
                     compact = true,
+                    artist = "Vehicle Artist",
                     onOpen = { openCount++ },
                     onPrevious = {},
                     onToggle = {},
@@ -147,6 +147,7 @@ class CarMiniPlayerComposeTest {
         compose.onNodeWithContentDescription("播放").assertDoesNotExist()
         compose.onNodeWithContentDescription("下一首").assertDoesNotExist()
         compose.onNodeWithText("Vehicle Track").assertDoesNotExist()
+        compose.onNodeWithText("Vehicle Artist").assertExists()
         assertEquals(1, openCount)
     }
 }
