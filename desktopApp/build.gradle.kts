@@ -42,6 +42,7 @@ kotlin {
                 implementation(compose.components.resources)
                 implementation(libs.koin.core)
                 implementation(libs.filekit.dialogs.compose)
+                implementation("net.java.dev.jna:jna:5.19.1")
             }
         }
     }

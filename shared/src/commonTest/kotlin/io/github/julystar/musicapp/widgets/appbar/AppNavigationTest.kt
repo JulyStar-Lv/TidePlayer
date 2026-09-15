@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.julystar.musicapp.navigation.HomeTab
@@ -45,9 +46,9 @@ class AppNavigationTest {
             }
         }
 
-        onAllNodes(tab()).get(HomeTab.LIBRARY.index).assertIsSelected()
-        onAllNodes(tab()).get(HomeTab.SETTINGS.index).assertIsNotSelected().performClick()
-        assertEquals(HomeTab.SETTINGS, selected)
+        onNodeWithTag("apple-music-sidebar-songs").assertIsSelected()
+        onNodeWithTag("apple-music-sidebar-search").assertIsNotSelected().performClick()
+        assertEquals(HomeTab.SEARCH, selected)
     }
 
     private fun tab() =

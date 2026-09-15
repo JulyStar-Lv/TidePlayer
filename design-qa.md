@@ -139,6 +139,48 @@ final result: passed
 
 ---
 
+## Apple Music sidebar underlay parity — 2026-09-13
+
+### Source and implementation evidence
+
+- Source visual truth: `/Users/shine/.codex/state/plugins/product-design/audits/2026-09-13-tideplayer-apple-music-sidebar/02-apple-music.png` (`724 × 1204`, Display P3).
+- Final implementation capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/22-white-underlay-final.png` (`2184 × 1424`, including the native window shadow).
+- Normalized implementation crop: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/23-white-underlay-normalized.png` (`836 × 1200`).
+- Full-view comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/24-white-underlay-reference-vs-implementation.png`.
+- Focused sidebar comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/25-white-underlay-sidebar-comparison.png`.
+- Viewport: `980 × 600 pt` at device scale factor `2`; window content is `1960 × 1200 px`.
+- State: focused light-theme window, Recently Added selected, pointer outside the navigation rows.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged from the previously approved Apple Music alignment; this pass modifies only the sidebar underlay color.
+- Spacing and layout rhythm: sidebar width, card inset, rounded panel, divider, navigation rows, and content placement are unchanged.
+- Colors and visual tokens: the sidebar card underlay and unobstructed right-pane background both sample exactly RGB `255/255/255` (`#FFFFFF`). The inset navigation card remains a separate neutral material at approximately RGB `250/249/249`, preserving the Apple Music-style layer boundary.
+- Image quality and asset fidelity: navigation icons and their tinting are unchanged.
+- Copy and content: all labels and the earlier requested removals remain unchanged.
+
+### Comparison history
+
+#### Iteration 1 — blocked
+
+- [P1] The light sidebar underlay used `#F5F5F5`, while the right content pane used `#FFFFFF`, leaving a visible color break outside the inset navigation card.
+- Fix: changed only the light sidebar underlay token to `Color.White`; dark-theme behavior and the inset card material were not changed.
+
+#### Iteration 2 — passed
+
+- Pixel sampling confirms the left underlay and right content background are both RGB `255/255/255` at multiple unobstructed points.
+- The focused comparison confirms the intended white base continues behind both regions while the neutral navigation card remains visually distinct.
+- No actionable P0, P1, or P2 findings remain in this underlay-color scope.
+
+### Verification
+
+- `DesktopNavigationTest`: passed.
+- `:desktopApp:run`: compiled and launched successfully.
+- Live interaction confirmed the Recently Added route and selected state.
+- `git diff --check`: passed.
+
+final result: passed
+
 ## Queue content and theme alignment — 2026-07-29
 
 ### Evidence
@@ -759,8 +801,6 @@ final result: passed
 
 Final result: passed
 
----
-
 ## Lyrics source priority editor — 2026-08-05
 
 ### Evidence
@@ -792,8 +832,6 @@ Final result: passed
 - `git diff --check`: passed.
 
 Final result: passed
-
----
 
 ## Lyrics source category-label placement — 2026-08-05
 
@@ -862,3 +900,299 @@ Final result: passed
 - `git diff --check`: passed.
 
 Final result: passed
+
+---
+
+## Apple Music desktop shell alignment — 2026-09-13
+
+### Evidence
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-b5ac0491-145c-4c21-91fb-e31d4536e6b0.png`.
+- Initial implementation capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/implementation-before.png`.
+- User-reported clipped-hover capture: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-11b315f1-ef1e-43fb-a781-24152260dafc.png`.
+- Final implementation capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/implementation-rounded-active.png`.
+- Packaged app capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/implementation-rounded-packaged.png`.
+- Full-view equal-size comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/reference-vs-implementation.png`.
+- Focused corner and traffic-light comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/corner-and-traffic-lights-comparison.png` (reference left, implementation hover state right).
+- Focused hover-state evidence: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/rounded-window-hover-focused-2.png`.
+- Viewport: 980 × 600 dp at device scale factor 2.
+- Source and implementation pixels: 1960 × 1200 each; no density resampling was needed.
+- State: macOS light theme, active window, Home selected, playback item active.
+
+### Required fidelity surfaces
+
+- Fonts and typography: the app keeps its existing system-backed Chinese type hierarchy. Sidebar labels use one medium-weight line with no app-name or tagline competing above them.
+- Spacing and layout rhythm: the window frame is exactly 980 × 600 with a 26 dp continuous outer corner radius. The native title-bar container is 40 dp high, the desktop navigation region is 224 dp, and it contains a 200 dp inset panel. The first navigation row starts directly below the title-bar controls, and main content no longer receives the redundant desktop title-bar inset.
+- Colors and visual tokens: the sidebar uses the existing theme-derived surface-container token at 78% opacity, with a low-contrast selected fill and the current theme accent for the active item.
+- Image quality and asset fidelity: existing product icons and artwork are preserved. The close/minimize/zoom controls remain in their native AppKit title-bar parent, so their full hover glyphs and close/minimize/zoom behavior are preserved; only their native frames and title-bar bounds are adjusted to match the reference.
+- Copy and content: desktop branding copy (app icon, Tide Player title, and tagline) is removed from the navigation shell; feature labels and page content are unchanged.
+
+### Comparison history
+
+#### Iteration 1 — blocked
+
+- [P1] The initial desktop frame was responsive up to roughly 1014 × 683 instead of matching the 980 × 600 reference.
+- [P1] The app icon, title, tagline, and rail-collapse control occupied the upper sidebar, pushing navigation well below the reference rhythm.
+- [P2] The sidebar filled the whole rail and used a hard vertical divider instead of a separate inset background layer.
+- Fixes: set the initial frame to 980 × 600, introduced a desktop-only 224 dp sidebar with a 200 dp rounded inset panel, removed the desktop branding block and collapse affordance, and retained the original tablet/mobile rail behavior.
+
+#### Iteration 2 — blocked
+
+- [P2] The main content still carried a 28 dp title-bar inset even though its horizontal region did not overlap the macOS window controls.
+- Fix: removed that inset only for non-compact desktop layouts, moving the page content upward while retaining the inset on compact layouts.
+
+#### Iteration 3 — blocked
+
+- The equal-size full comparison confirms the requested 980 × 600 frame, inset sidebar layer, removed branding, raised navigation/content, and native macOS traffic-light behavior.
+- [P2] User review identified that the native controls still used the AWT default centers `(14, 14)`, `(34, 14)`, and `(54, 14)` dp instead of the reference centers `(26, 26)`, `(49, 26)`, and `(72, 26)` dp.
+- Fix: move and resize the three native AppKit standard window buttons on the AppKit main thread while preserving native close, minimize, zoom, active/inactive, and hover behavior.
+
+#### Iteration 4 — blocked
+
+- The final focused comparison confirms 14 dp controls centered at `(26, 26)`, `(49, 26)`, and `(72, 26)` dp in both the reference and implementation.
+- [P1] The controls were offset below the original 28 dp native title-bar container, so the lower portions and hover glyphs were clipped.
+- [P2] The default native window corner radius was visibly smaller than the reference's continuous 26 dp corner.
+
+#### Iteration 5 — passed
+
+- Fix: enlarged the existing `NSTitlebarContainerView` and `NSTitlebarView` to 40 dp before positioning the three 14 dp controls at y=7 dp. The buttons stay in their original native parent, retaining complete hover glyphs and native actions without crossing a clipping boundary.
+- Fix: made the native window transparent and applied a continuous 26 dp mask to its theme frame, then invalidated the window shadow.
+- The full-size active capture confirms complete control circles and the corrected outer radius. The hover crop confirms the close, minimize, and zoom glyphs are fully visible without clipping.
+- No actionable P0, P1, or P2 findings remain. The reference includes Apple Music-specific navigation groups and promotional content; TidePlayer intentionally retains its own four destinations and Home content because the request targeted the desktop shell rather than replacing product information architecture.
+
+### Verification
+
+- `:desktopApp:compileKotlinDesktop`: passed.
+- `:desktopApp:createDistributable`: passed; the packaged macOS app launches with the corrected native control frames.
+- `DesktopNavigationTest`: passed at the 224 dp sidebar contract.
+- `AppNavigationTest`: passed for selected state and tab switching.
+- `git diff --check`: passed.
+- Native window inspection reported an exact 980 × 600 frame.
+- Native hover-state inspection confirmed that all three symbols remain inside the expanded 40 dp title-bar bounds.
+
+final result: passed
+
+---
+
+## Apple Music local-resource sidebar replication — 2026-09-13
+
+### Scope and source
+
+- Source application: `/System/Applications/Music.app` on the current Mac.
+- Inspected `Contents/Resources/Assets.car`, localized strings, and the Music executable's symbol references. The visible sidebar glyphs resolve to the local SF Symbols names `magnifyingglass`, `house`, `dot.radiowaves.left.and.right`, `clock`, `music.note`, `square.stack`, `music.mic`, `guitars`, `square.grid.3x3`, `bag`, and `star.square`.
+- Exported those installed system symbols locally as transparent 24 pt, 2× PNG resources; no network or third-party substitute icons were used.
+- Active Apple Music source capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-native-sidebar-active.png` (1960 × 1200 px / 980 × 600 pt).
+- Packaged TidePlayer capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/tideplayer-packaged-final.png` (1960 × 1200 px / 980 × 600 pt).
+- Equal-size full comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-reference-vs-tideplayer-final.png`.
+- Equal-size focused sidebar comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-sidebar-focused-comparison.png`.
+
+### Fidelity contract
+
+- 208 pt desktop sidebar with an 8 pt left/top/bottom inset material layer, 18 pt continuous corner radius, 0.5 pt border/divider, and the same subtly warm dark-material gradient sampled from active Music.app.
+- Native macOS traffic lights stay at the previously verified Apple Music centers and remain complete, colored, hoverable AppKit controls.
+- Navigation rows use 32 pt height, 18 pt outer inset, 24 pt symbol canvases containing the original 17 pt SF Symbols, 6 pt symbol-to-label gap, 13 sp system labels, Apple pink selected state, and matching group rhythm.
+- Labels and order follow the local Music.app hierarchy, with `广播` intentionally omitted by the subsequent product requirement. TidePlayer routes each remaining available destination to its existing feature without inventing new product behavior.
+- The bottom product branding was replaced by the local macOS account name and initial avatar, matching the account-row role in Music.app. TidePlayer has no local playlist rows in the clean QA profile, so Apple Music's Demo/Test data is intentionally absent.
+- `iTunes Store` remains visually present for hierarchy fidelity but is disabled because TidePlayer has no store implementation.
+
+### Iterations
+
+- [P1] Initial desktop rail exposed only TidePlayer's generic destinations and did not reproduce the Apple Music information architecture or SF Symbols. Fixed by implementing the complete desktop-only Music.app sidebar and mapping its destinations to existing TidePlayer routes.
+- [P2] First local-symbol pass scaled each 24 pt export canvas to 17 pt, shrinking the visible glyphs to roughly 12 pt. Fixed by rendering the original 24 pt canvas so its embedded symbol remains 17 pt while preserving the 63 pt label origin.
+- [P2] Initial active-state background was a uniform gray. Fixed by adding the observed inset rounded material layer, warm horizontal variation, edge border, full-brightness active labels, and the local account row.
+- Pixel samples on the final active comparison are within 0–3 RGB levels at representative interior points; the outer base is 55/55/55 versus Music.app's 54/54/54.
+- No actionable P0, P1, or P2 findings remain in the requested sidebar and desktop-window scope.
+
+### Verification
+
+- `DesktopNavigationTest`: passed for the 208 pt width, selected state, and non-root destination dispatch.
+- `AppNavigationTest`: passed for desktop root-tab selection and Search switching.
+- `:desktopApp:createDistributable`: passed; the packaged app is running from `desktopApp/build/compose/binaries/main/app/TidePlayer.app`.
+- Native window inspection reports exactly 980 × 600 pt.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Sidebar radio removal and stable theme/focus colors — 2026-09-13
+
+### Evidence and states
+
+- Reference application: `/System/Applications/Music.app`; the existing active reference capture remains `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-native-sidebar-active.png`.
+- Packaged implementation: `/Users/shine/CommonWork/MobileWork/TidePlayer/desktopApp/build/compose/binaries/main/app/TidePlayer.app`, verified live through the accessibility tree and full-window captures after rebuilding.
+- Viewport: 980 × 600 pt at device scale factor 2.
+- Verified states: explicit Light while active, explicit Light while Apple Music is active and TidePlayer is inactive, and explicit Dark while active.
+
+### Iterations
+
+- [P1] The desktop sidebar still exposed the Apple Music `广播` destination although this product no longer needs that entry. Removed the destination enum value, label resources, navigation dispatch branch, and rendered row while leaving the independent radio feature untouched.
+- [P1] Sidebar light/dark styling was inferred from the animated material background luminance. During an explicit theme change, that indirect value could lag or resolve to the previous scheme. Added `LocalDesignIsDarkTheme`, driven directly by `AppTheme`'s resolved mode, so all sidebar surfaces, labels, icons, selection fills, borders, and dividers switch in the same composition.
+- [P2] The bottom account label still inherited a material foreground that could react to native window activation. Replaced it with the same explicit theme-derived foreground used by navigation items.
+- Final Light and Dark captures show the complete sidebar hierarchy without `广播`; the Light active/inactive captures are visually identical for navigation text, symbols, section labels, selection color, and account text.
+- No actionable P0, P1, or P2 findings remain in this scope.
+
+### Verification
+
+- `ThemeSystemTest`: passed, including Dark → Light recomposition observed by descendants.
+- `DesktopNavigationTest`: passed, including an exact zero-node assertion for `apple-music-sidebar-radio` and non-root destination dispatch.
+- `AppNavigationTest`: passed.
+- `:desktopApp:compileKotlinDesktop`: passed.
+- `:desktopApp:createDistributable`: passed; the rebuilt packaged app remains open for review.
+- Accessibility inspection confirms the Light selector summary is `始终使用浅色外观, 浅色` and the Dark selector summary is `始终使用深色外观, 深色` immediately after selection.
+- Active and inactive packaged-app inspection confirms no focus-driven navigation color change.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Sidebar simplification and Apple Music content background — 2026-09-13
+
+### Source and implementation evidence
+
+- Source visual truth: local `/System/Applications/Music.app`, represented by `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-native-sidebar-active.png` for dark mode and `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-b5ac0491-145c-4c21-91fb-e31d4536e6b0.png` for light mode.
+- Final implementation captures: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/tideplayer-sidebar-settings-dark-final.png` and `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/tideplayer-sidebar-settings-light-final.png`.
+- Full-view comparison evidence: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-vs-tideplayer-settings-dark-final.png` and `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-vs-tideplayer-settings-light-final.png`.
+- Focused sidebar comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-desktop/apple-music-vs-tideplayer-sidebar-settings-focused.png`.
+- Viewport: 980 × 600 pt at device scale factor 2. Source and implementation captures are each 1960 × 1200 px, so no density resampling was required.
+- States: dark Settings selected and light Appearance selected; navigation active; playback bar present only where the profile contains a current track.
+
+### Required fidelity surfaces
+
+- Fonts and typography: retained the existing 13 sp system label treatment, medium weight, single-line labels, and Apple-style section-title hierarchy.
+- Spacing and layout rhythm: `设置` is a normal 32 pt primary row directly below `首页`; removing Store and the bottom account row leaves the Library and Playlist groups aligned to the same sidebar grid without an artificial footer gap.
+- Colors and visual tokens: desktop content background is exactly RGB 255/255/255 in Light and 43/43/43 (`#2B2B2B`) in Dark. Multiple unobstructed pixels match the respective Apple Music captures exactly. The override applies only to expanded desktop content and does not alter mobile/tablet themes.
+- Image quality and asset fidelity: the new Settings glyph is the local macOS `gearshape` SF Symbol, exported at 24 pt / 2× with a 17 pt regular-weight symbol, matching the source and existing sidebar icon pipeline.
+- Copy and content: the bottom `S / Shine` account presentation and the complete `商店 / iTunes Store` group are absent. `设置` is present beneath `首页`; all remaining TidePlayer library and playlist copy is unchanged.
+
+### Comparison history
+
+#### Iteration 1 — blocked
+
+- [P1] The navigation still ended in an account avatar/name row and included the Store group. Fixed by removing both rendered sections and their desktop navigation resources/dispatch.
+- [P1] Settings was reachable only through the bottom account row. Fixed by adding a first-class `SETTINGS` destination directly after Home, backed by the local `gearshape` symbol and the existing Settings route.
+- [P1] The right pane inherited TidePlayer's theme background instead of Apple Music's platform surface. Fixed by adding an expanded-desktop-only content theme with Apple Music Light white and Dark `#2B2B2B`.
+
+#### Iteration 2 — blocked
+
+- [P2] The first dark implementation changed only `background`; Miuix scaffolds render their root with `surface`, leaving the Settings body near-black while the title region was `#2B2B2B`.
+- Fix: set both `background` and `surface` to the same Apple Music content color inside the desktop content provider.
+
+#### Iteration 3 — passed
+
+- The final dark capture is uniformly RGB 43/43/43 across unobstructed right-pane regions and matches the local Apple Music dark capture exactly.
+- The final light capture is uniformly RGB 255/255/255 and matches the Apple Music light capture.
+- The focused comparison confirms the requested `搜索 / 首页 / 设置` primary group, no Store group, and no bottom account row. No actionable P0, P1, or P2 findings remain.
+
+### Verification
+
+- `DesktopNavigationTest`: passed, including Settings dispatch and zero rendered Radio/iTunes Store nodes.
+- `AppNavigationTest`: passed.
+- `RootNavHostTest`: passed.
+- `:desktopApp:compileKotlinDesktop`: passed.
+- `:desktopApp:createDistributable`: passed; the rebuilt packaged app remains open in Light mode.
+- Live interaction confirmed that the new Settings row opens Settings and shows the selected state.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music light-sidebar color and typography alignment — 2026-09-13
+
+### Source and implementation evidence
+
+- Source visual truth: `/Users/shine/.codex/state/plugins/product-design/audits/2026-09-13-tideplayer-apple-music-sidebar/02-apple-music.png` (`724 × 1204`, Display P3).
+- Final implementation capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/18-implementation-display-p3-final.png` (`2184 × 1424`, including the native window shadow).
+- Normalized implementation crop: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/19-implementation-display-p3-normalized.png` (`724 × 1200`).
+- Full-view comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/20-final-reference-vs-implementation.png`.
+- Focused sidebar comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/21-final-sidebar-reference-vs-implementation.png`.
+- Viewport: `980 × 600 pt` at device scale factor `2`; the window content is `1960 × 1200 px`. The comparison uses the same `724 × 1200 px` top-left region from both captures.
+- State: focused light-theme window, Recently Added selected, pointer moved outside the navigation row.
+
+### Required fidelity surfaces
+
+- Fonts and typography: normal navigation labels changed from Medium to Regular while selected labels remain Semibold. The 13 sp size, 16 sp line height, truncation behavior, and system fallback family remain unchanged. Same-label glyph height matches the reference at 24 px; Compose/Skia glyphs remain about 2 px wider than native SF Pro Text, classified as P3 rendering polish.
+- Spacing and layout rhythm: sidebar width, 32 pt rows, section rhythm, icon size, rounded panel, divider, and previously approved window geometry are unchanged. Radio, Store, playlist thumbnails, and the account footer remain intentionally absent per earlier user direction.
+- Colors and visual tokens: outer sidebar base now samples `245/245/245`, selected fill `240/239/239`, and right-pane background `255/255/255`, exactly matching the reference medians. The card is neutral `249–250` instead of the earlier warm pink `254/248–253/252`. Body text uses `26/25/25`, section labels use `123/123/123`, and the selected accent declares the sampled Display P3 target.
+- Image quality and asset fidelity: existing locally extracted Apple-style icons remain unchanged and sharp at the 24 pt slot; no placeholder or replacement art was introduced.
+- Copy and content: the requested Chinese labels are preserved. Differences from the Apple Music screenshot are the previously requested product changes, not accidental copy drift.
+
+### Comparison history
+
+#### Iteration 1 — blocked
+
+- [P1] The sidebar card rendered as a bright warm-pink gradient while Apple Music uses a neutral gray-white material.
+- [P2] The card-underlay was `#F2F2F2` instead of the sampled `#F5F5F5`, and the selected fill was warm rather than neutral.
+- [P2] Ordinary navigation labels used Medium weight and a lighter `#242424` foreground, making them visibly heavier and softer than the native reference.
+- Fixes: replaced the warm light gradient with neutral `#FAF9F9 → #F9F9F9`, changed the underlay to `#F5F5F5`, selected fill to `#F0EFEF`, body text to `#1A1919`, section labels to `#7B7B7B`, and ordinary labels to Regular.
+
+#### Iteration 2 — blocked
+
+- [P2] Supplying the sampled P3 red as an sRGB literal produced a visibly muted accent after display conversion.
+- Fix: declare the selected accent in Display P3 using the reference components. The current Compose text/image path still clips the wide-gamut source to the nearest displayable Skia output; the small residual saturation difference is P3 and does not affect state recognition.
+
+#### Iteration 3 — passed
+
+- Final focused comparison confirms that the warm cast is removed and the outer base, panel, selected surface, right pane, body text, and section-label gray hierarchy align with the Apple Music reference.
+- Recently Added selection was exercised in the running app, the route opened, and moving the pointer away restored the intended non-hover selected fill.
+- No actionable P0, P1, or P2 findings remain in the requested background and typography scope.
+
+### Verification
+
+- `DesktopNavigationTest`: passed after the final change.
+- `:shared:compileKotlinDesktop` and `:desktopApp:run`: passed.
+- `git diff --check`: passed.
+- The final native desktop build remains running for inspection.
+
+### Follow-up polish
+
+- [P3] Native Apple Music can emit a wider-gamut selected red than the current Compose/Skia text and image tint path preserves.
+- [P3] Compose system-font glyphs are approximately 2 px wider than native SF Pro Text for the sampled two-character labels.
+
+final result: passed
+
+---
+
+## Apple Music sidebar/content divider removal — 2026-09-13
+
+### Source and implementation evidence
+
+- Source visual truth: `/Users/shine/.codex/state/plugins/product-design/audits/2026-09-13-tideplayer-apple-music-sidebar/02-apple-music.png` (`724 × 1204`, Display P3).
+- Final implementation capture: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/27-no-divider-focused-final.png` (`2184 × 1424`, including native window shadow).
+- Normalized implementation crop: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/28-no-divider-normalized.png` (`836 × 1200`).
+- Full-view comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/29-no-divider-reference-vs-implementation.png`.
+- Focused boundary comparison: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/apple-music-sidebar-qa/30-no-divider-boundary-comparison.png`.
+- Viewport: `980 × 600 pt` at device scale factor `2`; window content is `1960 × 1200 px`.
+- State: focused light-theme window, Home selected, pointer outside the navigation rows.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged; no text style, weight, size, wrapping, or antialiasing code was touched.
+- Spacing and layout rhythm: sidebar width, card inset, corner radius, shadow, navigation spacing, and right-pane layout are unchanged.
+- Colors and visual tokens: the explicit `0.5 dp` full-height divider was removed. The shared white underlay remains continuous across the navigation/content boundary, while the inset card retains its neutral material and subtle own edge.
+- Image quality and asset fidelity: icons, artwork, masks, and tinting are unchanged.
+- Copy and content: labels, routes, and previously requested navigation removals are unchanged.
+
+### Comparison history
+
+#### Iteration 1 — blocked
+
+- [P2] An explicit semi-transparent black/white `0.5 dp` box was drawn at the sidebar's trailing edge for the full window height, creating a divider that Apple Music does not use.
+- Fix: removed the divider token and the full-height trailing-edge box only; retained the rounded card's own border and shadow.
+
+#### Iteration 2 — passed
+
+- The focused boundary comparison shows no independent line continuing beyond the rounded card at the top or bottom.
+- The navigation card now transitions to the right content through the continuous white base, with only the card's own subtle rounded edge visible.
+- No actionable P0, P1, or P2 findings remain in the divider-removal scope.
+
+### Verification
+
+- `DesktopNavigationTest`: passed.
+- `:desktopApp:run`: compiled and launched successfully.
+- Source search confirms no divider token or trailing `0.5 dp` divider box remains in `AppleMusicNavigationSidebar`.
+- `git diff --check`: passed.
+
+final result: passed

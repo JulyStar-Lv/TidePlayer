@@ -35,6 +35,7 @@ import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeCl
 import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderStateSink
@@ -142,6 +143,13 @@ fun HomePage(
         val windowSizeClass = rememberWindowSizeClass(
             containerSize = androidx.compose.ui.unit.DpSize(maxWidth, maxHeight),
         )
+        val contentTitleBarInset = if (
+            isDesktopPlatform() && windowSizeClass != WindowSizeClass.Compact
+        ) {
+            0.dp
+        } else {
+            titleBarInset
+        }
         val statusBarInset = WindowInsets.statusBars
             .asPaddingValues()
             .calculateTopPadding() + titleBarInset
@@ -236,7 +244,7 @@ fun HomePage(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .padding(top = titleBarInset),
+                            .padding(top = contentTitleBarInset),
                         showMiniPlayer = showMiniPlayer,
                         miniPlayerContent = miniPlayerContent,
                     ) {
@@ -262,7 +270,7 @@ fun HomePage(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .padding(top = titleBarInset),
+                            .padding(top = contentTitleBarInset),
                         showMiniPlayer = showMiniPlayer,
                         miniPlayerContent = miniPlayerContent,
                     ) {
