@@ -6,6 +6,7 @@ import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
+import io.github.julystar.musicapp.widgets.appbar.AppleMusicSidebarDestination
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -61,6 +62,50 @@ class RootNavHostTest {
         assertEquals(0, returnToHomeRequests)
         assertFalse(shouldReturnToHome(null))
         assertTrue(shouldReturnToHome("Album/{id}"))
+    }
+
+    @Test
+    fun `desktop sidebar selection follows the current back stack route`() {
+        assertEquals(
+            AppleMusicSidebarDestination.RECENTLY_ADDED,
+            desktopSidebarDestinationForRoute(
+                route = "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.RecentlyAdded",
+                selectedRootTab = HomeTab.HOME,
+                fallback = AppleMusicSidebarDestination.HOME,
+            ),
+        )
+        assertEquals(
+            AppleMusicSidebarDestination.HOME,
+            desktopSidebarDestinationForRoute(
+                route = "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Home",
+                selectedRootTab = HomeTab.HOME,
+                fallback = AppleMusicSidebarDestination.RECENTLY_ADDED,
+            ),
+        )
+        assertEquals(
+            AppleMusicSidebarDestination.HOME,
+            desktopSidebarDestinationForRoute(
+                route = "Home",
+                selectedRootTab = HomeTab.HOME,
+                fallback = AppleMusicSidebarDestination.FAVORITES,
+            ),
+        )
+        assertEquals(
+            AppleMusicSidebarDestination.FAVORITES,
+            desktopSidebarDestinationForRoute(
+                route = "Favorites",
+                selectedRootTab = HomeTab.HOME,
+                fallback = AppleMusicSidebarDestination.RECENTLY_ADDED,
+            ),
+        )
+        assertEquals(
+            AppleMusicSidebarDestination.ALBUMS,
+            desktopSidebarDestinationForRoute(
+                route = "Browse",
+                selectedRootTab = HomeTab.HOME,
+                fallback = AppleMusicSidebarDestination.FAVORITES,
+            ),
+        )
     }
 
     @Test

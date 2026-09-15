@@ -133,14 +133,19 @@ internal fun RootNavHost(
     var lyricsReturnInProgress by remember { mutableStateOf(false) }
     var selectedRootTabName by rememberSaveable { mutableStateOf(HomeTab.HOME.name) }
     val selectedRootTab = HomeTab.entries.firstOrNull { it.name == selectedRootTabName } ?: HomeTab.HOME
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
     var selectedDesktopDestinationName by rememberSaveable {
         mutableStateOf(AppleMusicSidebarDestination.HOME.name)
     }
-    val selectedDesktopDestination = AppleMusicSidebarDestination.entries.firstOrNull {
+    val savedDesktopDestination = AppleMusicSidebarDestination.entries.firstOrNull {
         it.name == selectedDesktopDestinationName
     } ?: selectedRootTab.defaultSidebarDestination()
-    val currentBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = currentBackStackEntry?.destination?.route
+    val selectedDesktopDestination = desktopSidebarDestinationForRoute(
+        route = currentRoute,
+        selectedRootTab = selectedRootTab,
+        fallback = savedDesktopDestination,
+    )
     val nowPlayingOverlayVisible = shouldShowNowPlayingOverlay(
         requested = showNowPlayingOverlay,
         hostEntryId = nowPlayingOverlayHostEntryId,
@@ -750,6 +755,32 @@ internal fun shouldShowNowPlayingOverlayContent(
 
 internal fun shouldReturnToHome(route: String?): Boolean =
     route != null && !isRouteHome(route)
+
+internal fun desktopSidebarDestinationForRoute(
+    route: String?,
+    selectedRootTab: HomeTab,
+    fallback: AppleMusicSidebarDestination,
+): AppleMusicSidebarDestination {
+    val routeName = route?.substringBefore('/')?.substringBefore('?')
+    return when {
+        routeName == null || routeName == "Home" || routeName.endsWith(".Home") ->
+            selectedRootTab.defaultSidebarDestination()
+        routeName == "RecentlyAdded" || routeName.endsWith(".RecentlyAdded") ->
+            AppleMusicSidebarDestination.RECENTLY_ADDED
+        routeName == "Favorites" || routeName.endsWith(".Favorites") ->
+            AppleMusicSidebarDestination.FAVORITES
+        routeName == "Playlists" || routeName.endsWith(".Playlists") ->
+            AppleMusicSidebarDestination.ALL_PLAYLISTS
+        routeName == "Browse" || routeName.endsWith(".Browse") -> when (fallback) {
+            AppleMusicSidebarDestination.ALBUMS,
+            AppleMusicSidebarDestination.ARTISTS,
+            AppleMusicSidebarDestination.GENRES,
+            -> fallback
+            else -> AppleMusicSidebarDestination.ALBUMS
+        }
+        else -> fallback
+    }
+}
 
 internal fun isImmersivePlayerRoute(route: String?): Boolean =
     isRouteNowPlaying(route) || isRouteLyrics(route)

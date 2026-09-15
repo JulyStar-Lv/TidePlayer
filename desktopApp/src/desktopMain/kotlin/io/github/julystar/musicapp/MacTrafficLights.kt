@@ -20,7 +20,11 @@ internal fun positionMacTrafficLights(window: JFrame) {
     val listener = object : WindowAdapter() {
         override fun windowOpened(event: WindowEvent) {
             window.removeWindowListener(this)
-            MacTrafficLightBridge.offsetButtons(window.title)
+            MacTrafficLightBridge.offsetButtons(
+                windowTitle = window.title,
+                frameWidth = window.width.toDouble(),
+                frameHeight = window.height.toDouble(),
+            )
         }
     }
     window.addWindowListener(listener)
@@ -37,18 +41,21 @@ private object MacTrafficLightBridge {
         checkNotNull(system.getGlobalVariableAddress("_dispatch_main_q"))
     }
 
-    fun offsetButtons(windowTitle: String) {
+    fun offsetButtons(
+        windowTitle: String,
+        frameWidth: Double,
+        frameHeight: Double,
+    ) {
         runCatching {
             onAppKitThread {
                 val window = findWindow(windowTitle) ?: return@onAppKitThread
                 val contentView = sendPointer(window, "contentView") ?: return@onAppKitThread
                 val frameView = sendPointer(contentView, "superview") ?: return@onAppKitThread
-                val frameHeight = sendRect(frameView, "bounds").size.height
                 configureRoundedWindow(window, frameView)
                 val closeButton = sendPointer(window, "standardWindowButton:", 0L) ?: return@onAppKitThread
                 val titleBarView = sendPointer(closeButton, "superview") ?: return@onAppKitThread
                 val titleBarContainer = sendPointer(titleBarView, "superview") ?: return@onAppKitThread
-                configureTitleBar(frameHeight, titleBarView, titleBarContainer)
+                configureTitleBar(frameWidth, frameHeight, titleBarView, titleBarContainer)
                 repeat(3) { buttonType ->
                     val button = sendPointer(window, "standardWindowButton:", buttonType.toLong()) ?: return@repeat
                     val size = NSSize().apply {
@@ -67,17 +74,17 @@ private object MacTrafficLightBridge {
     }
 
     private fun configureTitleBar(
+        frameWidth: Double,
         frameHeight: Double,
         titleBarView: Pointer,
         titleBarContainer: Pointer,
     ) {
-        val width = sendRect(titleBarContainer, "frame").size.width
         val containerOrigin = NSPoint().apply {
             x = 0.0
             y = frameHeight - AppleMusicTitleBarHeight
         }
         val titleBarSize = NSSize().apply {
-            this.width = width
+            width = frameWidth
             height = AppleMusicTitleBarHeight
         }
         sendVoid(titleBarContainer, "setFrameOrigin:", containerOrigin)
@@ -132,9 +139,6 @@ private object MacTrafficLightBridge {
     private fun sendLong(receiver: Pointer, selector: String): Long =
         objcMsgSend.invokeLong(arrayOf(receiver, selector(selector)))
 
-    private fun sendRect(receiver: Pointer, selector: String): NSRect =
-        objcMsgSend.invoke(NSRect::class.java, arrayOf(receiver, selector(selector))) as NSRect
-
     private fun sendBoolean(receiver: Pointer, selector: String, value: Boolean) {
         objcMsgSend.invoke(Void.TYPE, arrayOf(receiver, selector(selector), if (value) 1.toByte() else 0.toByte()))
     }
@@ -154,12 +158,6 @@ internal class NSPoint : Structure(), Structure.ByValue {
 internal class NSSize : Structure(), Structure.ByValue {
     @JvmField var width: Double = 0.0
     @JvmField var height: Double = 0.0
-}
-
-@Structure.FieldOrder("origin", "size")
-internal class NSRect : Structure(), Structure.ByValue {
-    @JvmField var origin: NSPoint = NSPoint()
-    @JvmField var size: NSSize = NSSize()
 }
 
 private interface DispatchCallback : Callback {
