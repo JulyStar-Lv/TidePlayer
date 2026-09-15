@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.domain.model.ArtworkCacheKey
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
+import io.github.julystar.musicapp.core.domain.repository.RemoteArtworkCacheAware
 import io.github.julystar.musicapp.car.presentation.theme.LocalCarColors
 import io.github.julystar.musicapp.car.presentation.theme.LocalCarTypography
 import kotlinx.coroutines.Dispatchers
@@ -38,19 +40,38 @@ fun CarArtwork(
     modifier: Modifier = Modifier,
     fillBounds: Boolean = false,
 ) {
-    var bitmap by remember(artwork) {
-        mutableStateOf(artwork?.let(decodedArtworkCache::get))
+    var bitmap by remember(artwork, repository) {
+        mutableStateOf(artwork?.let(decodedArtworkCache::peek))
     }
-    LaunchedEffect(artwork) {
+    LaunchedEffect(artwork, repository) {
         val target = artwork
         if (target == null) {
             bitmap = null
             return@LaunchedEffect
         }
-        decodedArtworkCache.get(target)?.let { cached ->
+        val remoteArtwork = try {
+            withContext(Dispatchers.IO) {
+                (repository as? RemoteArtworkCacheAware)?.isRemoteArtwork(target) == true
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
+        val cacheKey = if (remoteArtwork) {
+            null
+        } else try {
+            withContext(Dispatchers.IO) { repository.cacheKey(target) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+        cacheKey?.let { decodedArtworkCache.get(target, it) }?.let { cached ->
             bitmap = cached
             return@LaunchedEffect
         }
+        bitmap = null
         val decoded = try {
             withContext(Dispatchers.IO) {
                 val bytes = repository.cached(target) ?: repository.load(target)
@@ -62,7 +83,7 @@ fun CarArtwork(
             null
         }
         if (decoded != null) {
-            decodedArtworkCache.put(target, decoded)
+            decodedArtworkCache.put(target, cacheKey, decoded)
         }
         bitmap = decoded
     }
@@ -94,6 +115,7 @@ internal class CarArtworkBitmapCache<T>(
 ) {
     private data class Entry<T>(
         val value: T,
+        val cacheKey: ArtworkCacheKey,
         val sizeBytes: Long,
     )
 
@@ -105,19 +127,27 @@ internal class CarArtworkBitmapCache<T>(
     }
 
     @Synchronized
-    fun get(artwork: Artwork): T? {
+    fun peek(artwork: Artwork): T? = values[artwork]?.value
+
+    @Synchronized
+    fun get(artwork: Artwork, cacheKey: ArtworkCacheKey): T? {
         val entry = values.remove(artwork) ?: return null
+        if (entry.cacheKey != cacheKey) {
+            sizeBytes -= entry.sizeBytes
+            return null
+        }
         values[artwork] = entry
         return entry.value
     }
 
     @Synchronized
-    fun put(artwork: Artwork, value: T) {
+    fun put(artwork: Artwork, cacheKey: ArtworkCacheKey?, value: T) {
         values.remove(artwork)?.let { sizeBytes -= it.sizeBytes }
+        if (cacheKey == null) return
         val entrySizeBytes = sizeOf(value)
         if (entrySizeBytes > maxBytes) return
 
-        values[artwork] = Entry(value, entrySizeBytes)
+        values[artwork] = Entry(value, cacheKey, entrySizeBytes)
         sizeBytes += entrySizeBytes
         while (sizeBytes > maxBytes) {
             val oldestArtwork = values.keys.first()

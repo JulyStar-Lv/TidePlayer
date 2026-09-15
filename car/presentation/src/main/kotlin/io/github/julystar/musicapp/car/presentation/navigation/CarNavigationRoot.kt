@@ -164,7 +164,7 @@ fun CarNavigationRoot(
             metrics = safeMetrics,
             route = route,
             playerState = nowPlayingState.player,
-            artist = nowPlayingState.trackInfo?.artist,
+            artist = nowPlayingState.miniPlayerArtist,
             artworkRepository = artworkRepository,
             onPrevious = { nowPlayingViewModel.onAction(CarNowPlayingAction.Previous) },
             onToggle = { nowPlayingViewModel.onAction(CarNowPlayingAction.PlayPause) },

@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImageLoader
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
+import io.github.julystar.musicapp.core.domain.repository.RemoteArtworkCacheAware
 import io.github.julystar.musicapp.platform.byteArrayToImageBitmap
 
 class RepositoryArtworkImageLoader(

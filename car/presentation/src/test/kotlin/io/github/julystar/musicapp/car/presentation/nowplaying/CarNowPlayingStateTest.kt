@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.car.presentation.nowplaying
 
+import io.github.julystar.musicapp.core.domain.model.CurrentTrackInfo
+import io.github.julystar.musicapp.core.domain.model.Lyrics
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackPosition
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
@@ -56,4 +58,30 @@ class CarNowPlayingStateTest {
         assertEquals("library:42", library.stableCarQueueKey(1))
         assertEquals("queue.library:42", library.carQueueFocusId(1).value)
     }
+
+    @Test
+    fun miniPlayerArtistOnlyUsesMetadataForCurrentTrack() {
+        val player = PlayerState(currentItem = PlayableItem(libraryTrackId = 42, title = "Current"))
+
+        assertEquals("Current Artist", CarNowPlayingUiState(
+            player = player,
+            trackInfo = trackInfo(42, "Current Artist"),
+        ).miniPlayerArtist)
+        assertEquals(null, CarNowPlayingUiState(
+            player = player,
+            trackInfo = trackInfo(41, "Previous Artist"),
+        ).miniPlayerArtist)
+    }
+
+    private fun trackInfo(id: Long, artist: String) = CurrentTrackInfo(
+        id = id,
+        title = "Track $id",
+        durationMs = null,
+        artwork = null,
+        lyrics = Lyrics(),
+        sourceStorageId = 1,
+        sourcePath = "/track/$id",
+        coverArtwork = null,
+        artist = artist,
+    )
 }

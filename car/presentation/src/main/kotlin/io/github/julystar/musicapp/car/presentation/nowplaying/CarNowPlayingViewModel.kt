@@ -27,6 +27,9 @@ data class CarNowPlayingUiState(
 
     val isFavorite: Boolean
         get() = currentTrackId?.let(favoriteTrackIds::contains) == true
+
+    val miniPlayerArtist: String?
+        get() = trackInfo?.artist?.takeIf { trackInfo.id == currentTrackId }
 }
 
 sealed interface CarNowPlayingAction {
