@@ -62,8 +62,14 @@ import io.github.julystar.musicapp.car.presentation.icon.CarIcon as IconView
 import io.github.julystar.musicapp.car.presentation.layout.CarLayoutMetrics
 import io.github.julystar.musicapp.car.presentation.layout.CarFullscreenMetrics
 import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
+import io.github.julystar.musicapp.core.domain.model.LyricLine
+import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.repository.ArtworkRepository
+import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
+import io.github.julystar.musicapp.core.lyrics.ui.toSyncedLyrics
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
+import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.absoluteValue
@@ -74,6 +80,7 @@ import kotlin.math.roundToInt
 @Composable
 fun CarFullscreenNowPlayingScreen(
     metrics: CarLayoutMetrics,
+    lyricDisplaySettings: LyricDisplaySettings = LyricDisplaySettings.Default,
     onExitPlayback: () -> Unit,
     onExitFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
@@ -99,7 +106,6 @@ fun CarFullscreenNowPlayingScreen(
     val currentArtwork = trackInfo?.artwork
         ?: state.currentItem?.libraryTrackId?.let { Artwork.LibraryTrack(it, true) }
     val lyricLines = trackInfo?.lyrics?.lines.orEmpty()
-    val lyricIndex = lyricLines.indexOfLast { it.duration.inWholeMilliseconds <= position.positionMs }
 
     BackHandler {
         if (coverFlow) coverFlow = false else onExitFullscreen()
@@ -169,8 +175,13 @@ fun CarFullscreenNowPlayingScreen(
                     fullscreen = fullscreen,
                     artwork = currentArtwork,
                     artworkRepository = artworkRepository,
-                    currentLyric = lyricLines.getOrNull(lyricIndex)?.text,
-                    nextLyric = lyricLines.getOrNull(lyricIndex + 1)?.text,
+                    lyricLines = lyricLines,
+                    trackTitle = state.currentItem?.title.orEmpty(),
+                    trackDurationMs = trackInfo?.durationMs ?: state.currentItem?.durationMs,
+                    positionMs = position.positionMs,
+                    isPlaying = state.status == PlaybackStatus.Playing,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    onSeek = { viewModel.onAction(CarNowPlayingAction.Seek(it)) },
                     onOpenCoverFlow = { coverFlow = true },
                     modifier = Modifier.offset(fullscreen.minimalOffset.x, fullscreen.minimalOffset.y),
                 )
@@ -280,8 +291,13 @@ private fun FullscreenMinimalContent(
     fullscreen: CarFullscreenMetrics,
     artwork: Artwork?,
     artworkRepository: ArtworkRepository,
-    currentLyric: String?,
-    nextLyric: String?,
+    lyricLines: List<LyricLine>,
+    trackTitle: String,
+    trackDurationMs: Long?,
+    positionMs: Long,
+    isPlaying: Boolean,
+    lyricDisplaySettings: LyricDisplaySettings,
+    onSeek: (Long) -> Unit,
     onOpenCoverFlow: () -> Unit,
     modifier: Modifier,
 ) {
@@ -309,35 +325,79 @@ private fun FullscreenMinimalContent(
                 modifier = Modifier,
             )
         }
-        Column(
-            verticalArrangement = Arrangement.spacedBy(28.dp),
+        FullscreenLyrics(
+            lyricLines = lyricLines,
+            trackTitle = trackTitle,
+            trackDurationMs = trackDurationMs,
+            positionMs = positionMs,
+            isPlaying = isPlaying,
+            lyricDisplaySettings = lyricDisplaySettings,
+            onSeek = onSeek,
             modifier = Modifier.size(fullscreen.lyricsSize),
-        ) {
-            BasicText(
-                currentLyric ?: "暂无歌词",
-                style = TextStyle(
-                    color = Color(0xFFF7F7F7),
-                    fontSize = 156.sp,
-                    lineHeight = 190.sp,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().height(fullscreen.currentLyricHeight),
-            )
-            BasicText(
-                nextLyric.orEmpty(),
-                style = TextStyle(
-                    color = Color(0xFFF7F7F7).copy(alpha = 0.56f),
-                    fontSize = 116.sp,
-                    lineHeight = 150.sp,
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().height(fullscreen.nextLyricHeight),
-            )
-        }
+        )
     }
+}
+
+@Composable
+private fun FullscreenLyrics(
+    lyricLines: List<LyricLine>,
+    trackTitle: String,
+    trackDurationMs: Long?,
+    positionMs: Long,
+    isPlaying: Boolean,
+    lyricDisplaySettings: LyricDisplaySettings,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier,
+) {
+    val syncedLyrics = remember(lyricLines, trackTitle, trackDurationMs, lyricDisplaySettings) {
+        lyricLines.toSyncedLyrics(trackTitle, trackDurationMs, lyricDisplaySettings)
+    }
+    if (syncedLyrics.lines.isEmpty()) {
+        BasicText(
+            "暂无歌词",
+            style = TextStyle(
+                color = Color(0xFFF7F7F7),
+                fontSize = 156.sp,
+                lineHeight = 190.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            modifier = modifier,
+        )
+        return
+    }
+    val textAlign = when (lyricDisplaySettings.textAlignment) {
+        LyricTextAlignment.Left -> TextAlign.Start
+        LyricTextAlignment.Center -> TextAlign.Center
+        LyricTextAlignment.Right -> TextAlign.End
+    }
+    LyricsView(
+        lyrics = syncedLyrics,
+        currentPositionMs = positionMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+        isPlaying = isPlaying,
+        onLineClick = { line -> onSeek(line.start.toLong()) },
+        activeColor = Color(0xFFF7F7F7),
+        inactiveColor = Color(0xFFF7F7F7).copy(alpha = 0.56f),
+        activeTextStyle = TextStyle(
+            fontSize = 156.sp,
+            lineHeight = 190.sp,
+            fontWeight = FontWeight.SemiBold,
+        ),
+        inactiveTextStyle = TextStyle(fontSize = 116.sp, lineHeight = 150.sp),
+        secondaryTextStyle = TextStyle(fontSize = 72.sp, lineHeight = 96.sp),
+        textAlign = textAlign,
+        lineSpacing = 28.dp,
+        showTranslation = lyricDisplaySettings.showTranslation,
+        wordLiftEnabled = lyricDisplaySettings.wordLiftEnabled,
+        useBlurEffect = lyricDisplaySettings.blurEffectEnabled,
+        perspectiveEffectEnabled = lyricDisplaySettings.perspectiveEffectEnabled,
+        perspectiveAngleDegrees = lyricDisplaySettings.perspectiveAngleDegrees.toFloat(),
+        tapToSeekEnabled = lyricDisplaySettings.tapToSeekEnabled,
+        verticalContentPaddingFraction = 0f,
+        lineHorizontalPadding = 0.dp,
+        lineVerticalPadding = 0.dp,
+        contextLinesBeforeActive = 0,
+        modifier = modifier,
+    )
 }
 
 @Composable

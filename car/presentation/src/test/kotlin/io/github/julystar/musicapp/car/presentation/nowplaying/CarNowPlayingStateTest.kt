@@ -3,6 +3,7 @@ package io.github.julystar.musicapp.car.presentation.nowplaying
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackPosition
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
+import io.github.julystar.musicapp.service.playback.domain.PlayerState
 import io.github.julystar.musicapp.core.domain.model.MediaId
 import io.github.julystar.musicapp.core.domain.model.MediaType
 import io.github.julystar.musicapp.core.domain.model.SourceId
@@ -11,10 +12,23 @@ import kotlin.test.assertEquals
 
 class CarNowPlayingStateTest {
     @Test
-    fun repeatModeCyclesThroughAllStates() {
-        assertEquals(RepeatMode.All, RepeatMode.Off.nextCarMode())
-        assertEquals(RepeatMode.One, RepeatMode.All.nextCarMode())
-        assertEquals(RepeatMode.Off, RepeatMode.One.nextCarMode())
+    fun playbackModeCyclesLikePhonePlayer() {
+        assertEquals(
+            CarPlaybackModeSelection(RepeatMode.All, shuffleEnabled = false),
+            PlayerState(repeatMode = RepeatMode.Off).nextCarPlaybackMode(),
+        )
+        assertEquals(
+            CarPlaybackModeSelection(RepeatMode.All, shuffleEnabled = true),
+            PlayerState(repeatMode = RepeatMode.All).nextCarPlaybackMode(),
+        )
+        assertEquals(
+            CarPlaybackModeSelection(RepeatMode.One, shuffleEnabled = false),
+            PlayerState(repeatMode = RepeatMode.All, shuffleEnabled = true).nextCarPlaybackMode(),
+        )
+        assertEquals(
+            CarPlaybackModeSelection(RepeatMode.All, shuffleEnabled = false),
+            PlayerState(repeatMode = RepeatMode.One).nextCarPlaybackMode(),
+        )
     }
 
     @Test

@@ -136,7 +136,7 @@ class CarLayoutProfileResolverTest {
         assertDpEquals(96.dp, fullscreen.exitPlaybackOffset.x)
         assertDpEquals(216.dp, fullscreen.exitPlaybackOffset.y)
         assertDpEquals(280.dp, fullscreen.metadataOffset.x)
-        assertDpEquals(228.5.dp, fullscreen.metadataOffset.y)
+        assertDpEquals(216.dp, fullscreen.metadataOffset.y)
         assertDpEquals(720.dp, fullscreen.artworkSize)
         assertDpEquals(380.dp, fullscreen.coverFlowTop)
         assertDpEquals(2200.dp, fullscreen.coverFlowCenterX)

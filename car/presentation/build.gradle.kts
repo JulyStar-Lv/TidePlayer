@@ -30,6 +30,8 @@ kotlin {
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(project(":core:lyrics-core"))
+    implementation(project(":core:lyrics-ui"))
     implementation(project(":service:librarysync:domain"))
     implementation(project(":service:playback:domain"))
     implementation(platform(libs.androidx.compose.bom))

@@ -19,7 +19,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":core:domain"))
             implementation(project(":core:lyrics-core"))
+            implementation(libs.kotlinx.collections.immutable)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.animation)
