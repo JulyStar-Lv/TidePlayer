@@ -148,6 +148,8 @@ jobs:
         run: |
           ./gradlew --no-daemon --stacktrace -Pdesktop.proguard.enabled=true :desktopApp:proguardReleaseJars
           test -s desktopApp/build/compose/proguard/mapping.txt
+      - name: Validate Desktop size audit script
+        run: node --check scripts/audit-desktop-size.js
       - name: Upload JVM crash logs
         if: failure()
         uses: actions/upload-artifact@v4

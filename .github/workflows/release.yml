@@ -210,7 +210,7 @@ jobs:
           sudo apt-get install --yes --no-install-recommends libasound2-dev pkg-config
       - name: Build desktop package
         shell: bash
-        run: ./gradlew --no-daemon --stacktrace "${{ matrix.gradle_task }}"
+        run: ./gradlew --no-daemon --stacktrace -Pdesktop.proguard.enabled=true "${{ matrix.gradle_task }}"
       - name: Rename desktop package with architecture
         shell: bash
         run: |
@@ -232,12 +232,28 @@ jobs:
             exit 1
           fi
           cp "${packages[0]}" "${{ matrix.artifact_output }}"
+      - name: Report desktop package composition and size
+        shell: bash
+        env:
+          DESKTOP_RELEASE_MAX_MIB: "50"
+          DESKTOP_RELEASE_SIZE_GATE: fail
+        run: |
+          set -euo pipefail
+          report="artifacts/desktop/desktop-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.format }}-size.txt"
+          node scripts/audit-desktop-size.js \
+            --platform "${{ matrix.platform }}" \
+            --arch "${{ matrix.arch }}" \
+            --format "${{ matrix.format }}" \
+            --installer "${{ matrix.artifact_output }}" \
+            2>&1 | tee "$report"
       - name: Audit release artifacts
         run: node scripts/audit-release.js
       - uses: actions/upload-artifact@v4
         with:
           name: tideplayer-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.format }}-${{ github.ref_name }}
-          path: ${{ matrix.artifact_output }}
+          path: |
+            ${{ matrix.artifact_output }}
+            artifacts/desktop/desktop-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.format }}-size.txt
           if-no-files-found: error
       - name: Upload desktop package to GitHub release
         shell: bash
@@ -245,19 +261,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.artifact_output }} --clobber
       - name: Prepare desktop ProGuard mapping asset
-        id: desktop_mapping
         shell: bash
         run: |
           mapping="desktopApp/build/compose/proguard/mapping.txt"
-          if [[ ! -f "$mapping" ]]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "Desktop ProGuard is disabled; skipping mapping asset."
-            exit 0
-          fi
+          test -s "$mapping"
           cp "$mapping" "artifacts/desktop/${{ matrix.mapping_asset }}"
-          echo "available=true" >> "$GITHUB_OUTPUT"
       - name: Upload desktop ProGuard mapping to GitHub release
-        if: steps.desktop_mapping.outputs.available == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
