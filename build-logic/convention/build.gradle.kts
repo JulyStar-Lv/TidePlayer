@@ -48,5 +48,11 @@ gradlePlugin {
             displayName = "MusicApp Cargo + UniFFI conventions"
             description = "Gobley Cargo and UniFFI build conventions for the shared module."
         }
+        register("desktopReleaseConvention") {
+            id = "io.github.julystar.musicapp.convention.desktop-release"
+            implementationClass = "io.github.julystar.musicapp.buildlogic.DesktopReleaseConventionPlugin"
+            displayName = "MusicApp Desktop release conventions"
+            description = "Optimizes packaged Desktop images and installers."
+        }
     }
 }

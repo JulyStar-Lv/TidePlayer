@@ -6,13 +6,14 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.jetbrains.compose)
+    id("io.github.julystar.musicapp.convention.desktop-release")
 }
 
 val appPackageVersion = rootProject.extra["appPackageVersion"] as String
 val desktopProguardDir = layout.buildDirectory.dir("compose/proguard")
 val desktopProguardEnabled = providers.gradleProperty("desktop.proguard.enabled")
     .map { value -> value.equals("true", ignoreCase = true) }
-    .orElse(false)
+    .orElse(true)
 val desktopTargetFormats = when {
     System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> arrayOf(
         TargetFormat.Dmg,
@@ -54,10 +55,8 @@ compose.desktop {
         buildTypes {
             release {
                 proguard {
-                    // Production hotfix default remains disabled because the previous
-                    // packaged build exposed DataStore/SQLite runtime regressions.
-                    // CI can explicitly enable shrinking with
-                    // -Pdesktop.proguard.enabled=true to validate keep rules safely.
+                    // Release packages shrink and obfuscate by default. The explicit
+                    // property remains available for troubleshooting local builds.
                     isEnabled.set(desktopProguardEnabled)
                     obfuscate.set(true)
                     // Kotlin coroutine state machines currently trigger a ProGuard
@@ -69,7 +68,7 @@ compose.desktop {
         }
         nativeDistributions {
             targetFormats(*desktopTargetFormats)
-            modules("jdk.unsupported")
+            modules("java.instrument", "jdk.security.auth", "jdk.unsupported")
             packageName = "TidePlayer"
             packageVersion = appPackageVersion
             linux {
