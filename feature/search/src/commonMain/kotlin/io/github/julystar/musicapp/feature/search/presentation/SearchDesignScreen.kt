@@ -59,16 +59,18 @@ import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.sample_cover_1
+import musicapp.core.presentation.generated.resources.sample_cover_2
+import musicapp.core.presentation.generated.resources.sample_cover_3
+import musicapp.core.presentation.generated.resources.sample_cover_4
+import musicapp.core.presentation.generated.resources.sample_cover_5
+import musicapp.core.presentation.generated.resources.sample_cover_6
+import musicapp.core.presentation.generated.resources.icon_timelapse
 import musicapp.feature.search.generated.resources.Res
 import musicapp.feature.search.generated.resources.icon_music_note
 import musicapp.feature.search.generated.resources.icon_search
 import musicapp.feature.search.generated.resources.search_clear
-import musicapp.feature.search.generated.resources.search_cover_1
-import musicapp.feature.search.generated.resources.search_cover_2
-import musicapp.feature.search.generated.resources.search_cover_3
-import musicapp.feature.search.generated.resources.search_cover_4
-import musicapp.feature.search.generated.resources.search_cover_5
-import musicapp.feature.search.generated.resources.search_cover_6
 import musicapp.feature.search.generated.resources.search_hint
 import musicapp.feature.search.generated.resources.search_connection_retry
 import musicapp.feature.search.generated.resources.search_no_matches_yet
@@ -86,8 +88,6 @@ import musicapp.feature.search.generated.resources.search_trending_library
 import musicapp.feature.search.generated.resources.search_trending_subtitle
 import musicapp.feature.search.generated.resources.search_try_query
 import musicapp.feature.search.generated.resources.searching_library
-import musicapp.core.presentation.generated.resources.Res as CoreRes
-import musicapp.core.presentation.generated.resources.icon_timelapse
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -828,10 +828,10 @@ private val defaultRecentSearches = listOf(
 )
 
 private val designTrendingTracks = listOf(
-    SearchTrendingTrack("Midnight Cascade", "Luna Waves", "Tidal Drift", Res.drawable.search_cover_1),
-    SearchTrendingTrack("Neon Undertow", "Prism Circuit", "Voltage Dreams", Res.drawable.search_cover_2),
-    SearchTrendingTrack("Silver Tide", "Coastal Drift", "Open Water", Res.drawable.search_cover_3),
-    SearchTrendingTrack("Aurora Sequence", "Polar Echo", "Northern Lights", Res.drawable.search_cover_4),
-    SearchTrendingTrack("Depth Protocol", "Ocean Syntax", "Subsonic", Res.drawable.search_cover_5),
-    SearchTrendingTrack("Glass Architecture", "Fractal Mind", "Prism", Res.drawable.search_cover_6),
+    SearchTrendingTrack("Midnight Cascade", "Luna Waves", "Tidal Drift", CoreRes.drawable.sample_cover_1),
+    SearchTrendingTrack("Neon Undertow", "Prism Circuit", "Voltage Dreams", CoreRes.drawable.sample_cover_2),
+    SearchTrendingTrack("Silver Tide", "Coastal Drift", "Open Water", CoreRes.drawable.sample_cover_3),
+    SearchTrendingTrack("Aurora Sequence", "Polar Echo", "Northern Lights", CoreRes.drawable.sample_cover_4),
+    SearchTrendingTrack("Depth Protocol", "Ocean Syntax", "Subsonic", CoreRes.drawable.sample_cover_5),
+    SearchTrendingTrack("Glass Architecture", "Fractal Mind", "Prism", CoreRes.drawable.sample_cover_6),
 )

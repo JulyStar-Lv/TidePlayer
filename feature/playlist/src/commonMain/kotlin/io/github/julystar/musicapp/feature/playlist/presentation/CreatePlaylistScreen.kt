@@ -27,8 +27,9 @@ import io.github.julystar.musicapp.core.presentation.components.ImportCover
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.feature.playlist.generated.resources.Res
-import musicapp.feature.playlist.generated.resources.icon_download
 import musicapp.feature.playlist.generated.resources.music_count_unit
 import musicapp.feature.playlist.generated.resources.playlists_dialog_button_cancel
 import musicapp.feature.playlist.generated.resources.playlists_dialog_button_ok
@@ -138,7 +139,7 @@ private fun FullImportSection(
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(
-                painter = painterResource(Res.drawable.icon_download),
+                painter = painterResource(CoreRes.drawable.icon_download),
                 contentDescription = null,
                 tint = MiuixTheme.colorScheme.primary,
             )

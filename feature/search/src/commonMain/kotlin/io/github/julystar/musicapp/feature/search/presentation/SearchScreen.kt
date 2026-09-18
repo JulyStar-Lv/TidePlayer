@@ -42,8 +42,9 @@ import io.github.julystar.musicapp.core.domain.search.LOCAL_LIBRARY_SOURCE_LABEL
 import io.github.julystar.musicapp.core.domain.search.SearchAlbumItem
 import io.github.julystar.musicapp.core.domain.search.SearchArtistItem
 import io.github.julystar.musicapp.core.domain.search.SearchTrackItem
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.feature.search.generated.resources.Res
-import musicapp.feature.search.generated.resources.icon_download
 import musicapp.feature.search.generated.resources.icon_music_note
 import musicapp.feature.search.generated.resources.icon_search
 import musicapp.feature.search.generated.resources.search_albums
@@ -417,7 +418,7 @@ private fun TrackResult(
         }
         if (track.mediaId != null) {
             Icon(
-                painter = painterResource(Res.drawable.icon_download),
+                painter = painterResource(CoreRes.drawable.icon_download),
                 tint = MiuixTheme.colorScheme.primary,
                 contentDescription = stringResource(Res.string.search_download),
                 modifier = Modifier

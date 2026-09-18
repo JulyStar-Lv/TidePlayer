@@ -33,10 +33,11 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignBotto
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.cover_default_image
+import musicapp.core.presentation.generated.resources.icon_drag
 import musicapp.feature.playlist.generated.resources.Res
-import musicapp.feature.playlist.generated.resources.cover_default_image
 import musicapp.feature.playlist.generated.resources.icon_adjust
-import musicapp.feature.playlist.generated.resources.icon_drag
 import musicapp.feature.playlist.generated.resources.icon_plus
 import musicapp.feature.playlist.generated.resources.icon_yes
 import musicapp.feature.playlist.generated.resources.playlist_add
@@ -229,7 +230,7 @@ private fun ReorderableCollectionItemScope.PlaylistItem(
                 if (playlist.cover == null) {
                     Image(
                         modifier = Modifier.fillMaxSize(),
-                        painter = painterResource(Res.drawable.cover_default_image),
+                        painter = painterResource(CoreRes.drawable.cover_default_image),
                         contentDescription = null,
                         contentScale = ContentScale.FillWidth,
                     )
@@ -271,7 +272,7 @@ private fun ReorderableCollectionItemScope.PlaylistItem(
             ) {
                 Icon(
                     modifier = Modifier.size(12.dp),
-                    painter = painterResource(Res.drawable.icon_drag),
+                    painter = painterResource(CoreRes.drawable.icon_drag),
                     tint = Color.White,
                     contentDescription = stringResource(Res.string.playlist_adjust),
                 )

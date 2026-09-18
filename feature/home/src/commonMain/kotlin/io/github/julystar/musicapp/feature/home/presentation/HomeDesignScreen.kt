@@ -60,6 +60,12 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_play_outline
+import musicapp.core.presentation.generated.resources.sample_cover_1
+import musicapp.core.presentation.generated.resources.sample_cover_2
+import musicapp.core.presentation.generated.resources.sample_cover_3
+import musicapp.core.presentation.generated.resources.sample_cover_4
+import musicapp.core.presentation.generated.resources.sample_cover_5
+import musicapp.core.presentation.generated.resources.sample_cover_6
 import musicapp.feature.home.generated.resources.Res
 import musicapp.feature.home.generated.resources.icon_activity
 import musicapp.feature.home.generated.resources.icon_bookmark
@@ -69,12 +75,6 @@ import musicapp.feature.home.generated.resources.icon_headphones
 import musicapp.feature.home.generated.resources.icon_mic_vocal
 import musicapp.feature.home.generated.resources.icon_section_chevron
 import musicapp.feature.home.generated.resources.icon_sparkles
-import musicapp.feature.home.generated.resources.home_cover_1
-import musicapp.feature.home.generated.resources.home_cover_2
-import musicapp.feature.home.generated.resources.home_cover_3
-import musicapp.feature.home.generated.resources.home_cover_4
-import musicapp.feature.home.generated.resources.home_cover_5
-import musicapp.feature.home.generated.resources.home_cover_6
 import musicapp.feature.home.generated.resources.home_cover_7
 import musicapp.feature.home.generated.resources.home_cover_8
 import musicapp.feature.home.generated.resources.home_good_evening
@@ -977,12 +977,12 @@ private fun HomeArtworkImage(
 }
 
 private fun homeCover(index: Int): DrawableResource = when ((index - 1).mod(8)) {
-    0 -> Res.drawable.home_cover_1
-    1 -> Res.drawable.home_cover_2
-    2 -> Res.drawable.home_cover_3
-    3 -> Res.drawable.home_cover_4
-    4 -> Res.drawable.home_cover_5
-    5 -> Res.drawable.home_cover_6
+    0 -> CoreRes.drawable.sample_cover_1
+    1 -> CoreRes.drawable.sample_cover_2
+    2 -> CoreRes.drawable.sample_cover_3
+    3 -> CoreRes.drawable.sample_cover_4
+    4 -> CoreRes.drawable.sample_cover_5
+    5 -> CoreRes.drawable.sample_cover_6
     6 -> Res.drawable.home_cover_7
     else -> Res.drawable.home_cover_8
 }

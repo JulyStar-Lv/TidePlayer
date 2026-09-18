@@ -67,6 +67,7 @@ import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandle
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_chevron_right
+import musicapp.core.presentation.generated.resources.icon_toggle_all
 import io.github.julystar.musicapp.source.api.SourceNode
 import io.github.julystar.musicapp.source.api.SourceNodeType
 import musicapp.feature.importing.generated.resources.Res
@@ -76,7 +77,6 @@ import musicapp.feature.importing.generated.resources.icon_file
 import musicapp.feature.importing.generated.resources.icon_folder
 import musicapp.feature.importing.generated.resources.icon_image
 import musicapp.feature.importing.generated.resources.icon_music_note
-import musicapp.feature.importing.generated.resources.icon_toggle_all
 import musicapp.feature.importing.generated.resources.icon_warning
 import musicapp.feature.importing.generated.resources.icon_yes
 import musicapp.feature.importing.generated.resources.import_library_current_folder
@@ -1249,7 +1249,7 @@ fun ImportScreen(
                         onClick = {
                             onAction(ImportAction.ToggleAll)
                         },
-                    ) { Icon(painterResource(Res.drawable.icon_toggle_all), contentDescription = null) }
+                    ) { Icon(painterResource(CoreRes.drawable.icon_toggle_all), contentDescription = null) }
                 }
             }
             if (state.selectionMode != ImportSelectionMode.CurrentDirectory) {
