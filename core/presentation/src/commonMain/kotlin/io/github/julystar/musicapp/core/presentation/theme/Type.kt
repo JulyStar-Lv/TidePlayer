@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.Font
 import musicapp.core.presentation.generated.resources.Res
 import musicapp.core.presentation.generated.resources.jetbrains_mono_wght
-import musicapp.core.presentation.generated.resources.noto_sans_sc_wght
 import musicapp.core.presentation.generated.resources.plus_jakarta_sans_wght
 import top.yukonga.miuix.kmp.theme.TextStyles
 import top.yukonga.miuix.kmp.theme.defaultTextStyles
@@ -25,12 +24,7 @@ object DesignFontFamilies {
 
     val Sans: FontFamily
         @Composable
-        get() = FontFamily(
-            Font(Res.font.noto_sans_sc_wght, weight = FontWeight.Normal),
-            Font(Res.font.noto_sans_sc_wght, weight = FontWeight.Medium),
-            Font(Res.font.noto_sans_sc_wght, weight = FontWeight.SemiBold),
-            Font(Res.font.noto_sans_sc_wght, weight = FontWeight.Bold),
-        )
+        get() = appSansFontFamily()
 
     val Mono: FontFamily
         @Composable
@@ -39,6 +33,9 @@ object DesignFontFamilies {
             Font(Res.font.jetbrains_mono_wght, weight = FontWeight.SemiBold),
         )
 }
+
+@Composable
+internal expect fun appSansFontFamily(): FontFamily
 
 @Composable
 internal fun designTextStyles(): TextStyles {

@@ -1,3 +1,5 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins {
     alias(libs.plugins.convention.cmp.library)
     alias(libs.plugins.convention.kmp.library)
@@ -64,5 +66,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+    }
+}
+
+tasks.withType<ProcessResources>().configureEach {
+    if (name == "desktopProcessResources") {
+        exclude("**/noto_sans_sc_wght.ttf")
+        exclude("**/noto_sans_sc_ofl.txt")
     }
 }
