@@ -1,4 +1,5 @@
 import gobley.gradle.GobleyHost
+import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.jvm
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
@@ -197,6 +198,7 @@ tasks.matching { task ->
 cargo {
     packageDirectory = layout.projectDirectory.dir("../../rust-libs/app-backend")
     builds.jvm {
+        jvmVariant = Variant.Release
         embedRustLibrary = rustTarget == GobleyHost.current.rustTarget
     }
 }
