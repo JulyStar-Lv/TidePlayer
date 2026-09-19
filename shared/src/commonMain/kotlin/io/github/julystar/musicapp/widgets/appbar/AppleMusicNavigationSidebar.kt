@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -33,14 +32,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.colorspace.ColorSpaces
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.julystar.musicapp.core.presentation.components.liquidGlassSurface
+import io.github.julystar.musicapp.core.presentation.components.desktopSidebarSurface
+import io.github.julystar.musicapp.core.presentation.components.desktopWindowBackgroundColor
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import io.github.julystar.musicapp.navigation.HomeTab
@@ -117,32 +117,19 @@ internal fun AppleMusicNavigationSidebar(
     modifier: Modifier = Modifier,
 ) {
     val titleBarInset = LocalDesktopTitleBarInset.current
-    val isDark = LocalDesignIsDarkTheme.current
-    val sidebarBase = if (isDark) Color(0xFF2A2A2A) else Color.White
     val panelShape = RoundedCornerShape(18.dp)
-    val panelBrush = if (isDark) {
-        Brush.horizontalGradient(
-            listOf(Color(0xFF252828).copy(alpha = 0.65f), Color(0xFF373031).copy(alpha = 0.65f)),
-        )
-    } else {
-        Brush.horizontalGradient(
-            listOf(Color(0xFFFAF9F9), Color(0xFFF9F9F9)),
-        )
-    }
-    val panelBorder = if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.10f)
     Box(
         modifier = modifier
             .width(AppleMusicSidebarWidth)
             .fillMaxHeight()
-            .background(sidebarBase),
+            .background(desktopWindowBackgroundColor()),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
-                .liquidGlassSurface(panelShape, intensity = 0.62f)
-                .background(panelBrush, panelShape)
-                .border(0.5.dp, panelBorder, panelShape),
+                .testTag("apple-music-sidebar-surface")
+                .desktopSidebarSurface(panelShape),
         )
         Column(
             modifier = Modifier
@@ -196,9 +183,9 @@ private fun AppleMusicSectionTitle(text: String) {
             .height(36.dp)
             .padding(start = 24.dp, top = 15.dp),
         color = if (LocalDesignIsDarkTheme.current) {
-            Color.White.copy(alpha = 0.42f)
+            Color.White.copy(alpha = 0.28f)
         } else {
-            Color(0xFF7B7B7B)
+            Color.Black.copy(alpha = 0.30f)
         },
         fontSize = 11.sp,
         lineHeight = 14.sp,
@@ -213,6 +200,7 @@ private fun AppleMusicNavigationItem(
     onClick: () -> Unit,
 ) {
     val isDark = LocalDesignIsDarkTheme.current
+    val isWindowFocused = LocalWindowInfo.current.isWindowFocused
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
     val pressed by interactionSource.collectIsPressedAsState()
@@ -227,21 +215,23 @@ private fun AppleMusicNavigationItem(
             colorSpace = ColorSpaces.DisplayP3,
         )
     }
-    val foreground = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF1A1919)
+    val foreground = if (isDark) Color.White.copy(alpha = 0.95f) else Color.Black
     val tint = when {
+        !isWindowFocused -> if (isDark) Color.White.copy(alpha = 0.38f) else Color.Black.copy(alpha = 0.32f)
         selected -> accent
         else -> foreground
     }
-    val selectedFill = if (isDark) Color.White.copy(alpha = 0.055f) else Color(0xFFF0EFEF)
-    val hoverFill = if (isDark) Color.White.copy(alpha = 0.035f) else Color(0xFFF5F4F4)
-    val selectedHoverFill = if (isDark) Color.White.copy(alpha = 0.072f) else Color(0xFFEDECEC)
-    val pressedFill = if (isDark) Color.White.copy(alpha = 0.085f) else Color(0xFFEAE9E9)
+    val stateOverlay = if (isDark) Color.White else Color.Black
+    val selectedFill = stateOverlay.copy(alpha = if (isDark) 0.08f else 0.045f)
+    val hoverFill = stateOverlay.copy(alpha = if (isDark) 0.04f else 0.022f)
+    val selectedHoverFill = stateOverlay.copy(alpha = if (isDark) 0.10f else 0.06f)
+    val pressedFill = stateOverlay.copy(alpha = if (isDark) 0.13f else 0.085f)
     val containerColor by animateColorAsState(
         targetValue = when {
-            pressed -> pressedFill
-            selected && hovered -> selectedHoverFill
+            isWindowFocused && pressed -> pressedFill
+            isWindowFocused && selected && hovered -> selectedHoverFill
             selected -> selectedFill
-            hovered -> hoverFill
+            isWindowFocused && hovered -> hoverFill
             else -> Color.Transparent
         },
         animationSpec = tween(durationMillis = 90),

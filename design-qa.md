@@ -1196,3 +1196,64 @@ final result: passed
 - `git diff --check`: passed.
 
 final result: passed
+
+---
+
+## MeloX desktop sidebar material — 2026-09-19
+
+### Source and scope
+
+- Reviewed MeloX commit `1fe5fbab3f554e8529c4847fc54281a472b7b61a`, specifically `MeloXDesktop/Features/Sidebar/DesktopSidebar.swift`, `DesktopSidebarVisibilityLock.swift`, and `MeloXDesktop/App/DesktopRootView.swift`.
+- MeloX uses `TabView(.sidebarAdaptable)`, hides the window toolbar background, uses `NSColor.windowBackgroundColor`, and sets the root tint to red. It does not implement a custom sidebar gradient, blur radius, shadow, or hover animation. These are native system-rendered effects; the Compose values below are calibrated approximations, not constants copied from MeloX.
+- The repository's remotely hosted desktop screenshots could not be loaded. A small local SwiftUI reference app rendered the same sidebar/window APIs on macOS 26.4. Its menus were reduced to the existing TidePlayer entries. This is a material reference, not a screenshot of the complete MeloX app. The probe's default blue selection is not used as a target: TidePlayer's existing red-label/neutral-selection design and explicit hover feedback remain intentional product differences.
+- Preserved the 208 dp navigation width, card shape, row spacing, typography sizes/weights, icon assets, routes, removed menu entries, and focus-independent navigation colors. Only desktop material and foreground/state colors changed; player glass and mobile chrome are unchanged.
+
+### Render comparison and changes
+
+- Evidence directory: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/melox-sidebar/`.
+- Native focused references: `02-native-reference-focused.png` and `05-native-reference-dark.png`. Final implementation: `06-tideplayer-final-dark.png`, `07-tideplayer-final-light.png`, and `08-tideplayer-final-hover.png`.
+- Native reference window: 980 × 652 pt; implementation: 980 × 600 pt, both at 2× scale. Compared material/foreground samples without rescaling; this pass does not claim a full-window pixel match.
+- Removed the sidebar's artwork/theme-derived glass tint, colored horizontal gradient, lens distortion, and dark outline. Added neutral backdrop blur, a thin white edge, and a diffuse shadow with an opaque fallback when no backdrop is available.
+- Light panel interior samples `250/250/250` in both reference and implementation; content samples `255/255/255`. Dark panel samples `29/29/29` in both; content samples `30/30/30`. The card underlay and content share one background function, with no separate vertical divider.
+- Ordinary foregrounds follow the reference's black/light and approximately `244/244/244`/dark hierarchy. Section headings follow the sampled tertiary hierarchy (approximately `174/174/174` light and `92/92/92` dark). Existing labels and glyph assets were not replaced.
+- First dark iteration was too bright (`#2D2D2D` composite); corrected the panel to the native reference's `#1D1D1D` before final verification.
+- Hovering Search changes its neutral interior from `250/250/250` to `244/244/244`; moving away clears it. Selected and pressed treatments remain neutral translucent overlays with the existing 90 ms transition.
+
+### Verification and limitations
+
+- `:shared:desktopTest --tests '*DesktopNavigationTest*'`: 2 tests, 0 failures/errors.
+- `:desktopApp:createDistributable`: successful. Existing Android NDK prerequisites were excluded from this macOS-only build with `-x :core:runtime:cargoBuildAndroidArm64Debug -x :core:runtime:rustUpTargetAddAndroidArm64`; no build-configuration files were changed.
+- Running packaged app verified: Recently Added and Settings navigation, Light → Dark → Light immediate updates, hover entry and exit. Original Light preference restored; final app left running.
+- `git diff --check`: passed.
+- System SwiftUI/AppKit material can vary with OS, wallpaper, accessibility settings, and window activation. This implementation approximates its neutral appearance inside Compose; it does not embed the native sidebar or reproduce system compositor behavior outside the app. Those boundaries are intentional, not a claim of exact native rendering.
+
+final result: passed for the scoped neutral material/color reproduction and retained navigation behavior
+
+### Follow-up: inactive navigation foregrounds — 2026-09-19
+
+- User clarified that navigation icons and labels **should turn gray when the window loses focus**. This supersedes the focus-independent behavior retained in the preceding pass.
+- Sidebar rows now read `LocalWindowInfo.current.isWindowFocused`. Inactive rows use neutral gray for both icons and labels, including the selected red item. Regaining focus restores the original foreground and accent. Section headings retain their existing gray style; selection, enabled state, and routes are unchanged.
+- Suppressed hover/pressed fills while inactive, without disabling navigation actions. Selected-row fill stays visible.
+- Added light/dark rendering regressions covering selected icon and text losing their red tint, ordinary row foreground changes, exact rendered color restoration, preserved selection, and a working click callback while inactive.
+- `DesktopNavigationTest`: 4 tests passed; desktop distribution rebuilt and launched; `git diff --check` passed. Inactive live-window screenshot: `/Users/shine/.codex/visualizations/2026/09/13/01a09908-3da4-79f2-8245-6f70e186032c/melox-sidebar/09-unfocused-gray-navigation.png`. Focus transitions were verified with controlled `WindowInfo` in the rendering tests; background UI automation does not reliably activate the native window.
+
+### Follow-up: inactive sidebar material — 2026-09-19
+
+- The previous follow-up muted only navigation foregrounds; the custom Compose sidebar surface remained at its focused color while MeloX's native sidebar material also changes with window activity.
+- Captured the installed MeloX desktop app itself while unfocused in `10-melox-actual-unfocused.png`. Its light sidebar interior samples `247/247/247`, compared with the focused native reference's `250/250/250`; the right content remains `255/255/255`.
+- `desktopSidebarSurface` now reads the same `LocalWindowInfo` focus state as navigation items. Light material transitions from the focused `250/250/250` composite to the measured inactive `247/247/247`; the dark inactive material receives the corresponding subtle lift. Inactive edge and drop-shadow strength are reduced to match the flatter native material.
+- Added a dedicated sidebar-surface test tag and extended both light/dark focus regressions to verify background luminance changes as well as foreground changes and restoration.
+- Final inactive TidePlayer capture `11-tideplayer-final-unfocused-surface.png` samples `247/247/247` in the sidebar and `255/255/255` in the content, matching the installed MeloX inactive sample. `DesktopNavigationTest`: 4 tests, 0 failures/errors; packaged desktop build succeeded and is running; `git diff --check` passed.
+
+### Follow-up: content-reactive sidebar material — 2026-09-19
+
+- The installed MeloX app confirms that its native sidebar material is content-reactive rather than a fixed blue overlay. Its appearance changes subtly when the Home cards and player behind the material change, while neutral pages remain close to the base sidebar color.
+- Reference and implementation were compared at the same `980 × 600 pt` light-theme window size in the unfocused state. Source: `10-melox-actual-unfocused.png`; final Home: `18-tideplayer-home-final-unfocused.png`; final Search: `19-tideplayer-search-final.png`.
+- Full-view comparison: `20-melox-vs-tide-home.png`. Focused sidebar comparison: `21-melox-vs-tide-sidebar.png`. TidePlayer Home/Search material comparison: `22-tide-home-vs-search-sidebar.png`.
+- Fonts and typography: unchanged. Spacing and layout rhythm: unchanged, including the 208 dp sidebar width, 8 dp inset, 18 dp radius, and navigation row positions. Colors and visual tokens: the neutral material now samples a wider area of the existing backdrop with mild saturation recovery; no route-specific blue was hardcoded. Image quality and assets: existing cards, covers, and navigation glyphs remain unchanged and act only as backdrop color sources. Copy and content: unchanged.
+- [P2] Iteration 1 used a 72 dp blur radius, but the real Home card begins about 64 dp beyond the sidebar edge; after blur falloff and the neutral material overlay, the live sidebar remained effectively uniform.
+- Fix: expanded the sampling radius to 132 dp and calibrated saturation to `1.18`, retaining the existing `0.78` neutral surface opacity. The change is deliberately subtle and continues to respect focus, light/dark theme, hover, and selection behavior.
+- Pixel analysis of the final right-side sidebar region shows a cool Home cast (`B−R +0.537`) and a warm Search cast (`B−R −0.345`), confirming that the material follows page content instead of a fixed tint. The regression fixture places a saturated blue card at the measured 64 dp gap and requires at least a `0.01` normalized increase in blue-versus-red at the content-facing sidebar edge.
+- `DesktopNavigationTest`: 5 tests, 0 failures/errors. `:desktopApp:createDistributable`: passed. `git diff --check`: passed. The packaged desktop app is running on Home.
+
+final result: passed

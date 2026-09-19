@@ -40,7 +40,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,6 +57,7 @@ import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignStickyHeaderStateSink
+import io.github.julystar.musicapp.core.presentation.components.desktopWindowBackgroundColor
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.core.presentation.layout.rememberWindowSizeClass
@@ -65,7 +65,6 @@ import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
-import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkSharedTransitionScope
 import io.github.julystar.musicapp.feature.album.presentation.navigation.albumGraph
@@ -909,7 +908,7 @@ private fun SecondaryRootNavigationLayout(
             -> false
         }
         val contentBackground = if (usesAppleMusicDesktopContent) {
-            if (LocalDesignIsDarkTheme.current) Color(0xFF2B2B2B) else Color.White
+            desktopWindowBackgroundColor()
         } else {
             MiuixTheme.colorScheme.background
         }
