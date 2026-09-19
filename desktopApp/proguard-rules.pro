@@ -11,6 +11,13 @@
 -keep class io.github.julystar.musicapp.plugin.runtime.** { *; }
 -keep class io.github.julystar.musicapp.plugin.management.** { *; }
 
+# The macOS title-bar bridge passes these structures and callback to JNA by
+# reflection. Keep the annotated field names and callback method intact.
+-keep class io.github.julystar.musicapp.NSPoint { *; }
+-keep class io.github.julystar.musicapp.NSSize { *; }
+-keep interface io.github.julystar.musicapp.DispatchCallback { *; }
+-keep class * implements io.github.julystar.musicapp.DispatchCallback { *; }
+
 # Room can resolve generated database implementations from the RoomDatabase
 # class name. Keep Room database subclasses as a defensive JVM/Desktop boundary;
 # the application database package above also protects TidePlayer's generated

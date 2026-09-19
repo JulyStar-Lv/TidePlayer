@@ -5,6 +5,9 @@ import com.sun.jna.Function
 import com.sun.jna.NativeLibrary
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import java.awt.EventQueue
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import javax.swing.JFrame
@@ -17,17 +20,41 @@ private const val AppleMusicTitleBarHeight = 40.0
 private const val AppleMusicWindowCornerRadius = 26.0
 
 internal fun positionMacTrafficLights(window: JFrame) {
-    val listener = object : WindowAdapter() {
-        override fun windowOpened(event: WindowEvent) {
-            window.removeWindowListener(this)
-            MacTrafficLightBridge.offsetButtons(
-                windowTitle = window.title,
-                frameWidth = window.width.toDouble(),
-                frameHeight = window.height.toDouble(),
-            )
+    var repositionScheduled = false
+    fun repositionButtons() {
+        MacTrafficLightBridge.offsetButtons(
+            windowTitle = window.title,
+            frameWidth = window.width.toDouble(),
+            frameHeight = window.height.toDouble(),
+        )
+    }
+    fun scheduleReposition() {
+        if (repositionScheduled) return
+        repositionScheduled = true
+        EventQueue.invokeLater {
+            repositionScheduled = false
+            repositionButtons()
         }
     }
-    window.addWindowListener(listener)
+
+    window.addWindowListener(object : WindowAdapter() {
+        override fun windowOpened(event: WindowEvent) {
+            scheduleReposition()
+        }
+
+        override fun windowActivated(event: WindowEvent) {
+            scheduleReposition()
+        }
+
+        override fun windowDeiconified(event: WindowEvent) {
+            scheduleReposition()
+        }
+    })
+    window.addComponentListener(object : ComponentAdapter() {
+        override fun componentResized(event: ComponentEvent) {
+            scheduleReposition()
+        }
+    })
 }
 
 private object MacTrafficLightBridge {
