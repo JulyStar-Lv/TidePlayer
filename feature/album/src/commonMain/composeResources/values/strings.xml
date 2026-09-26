@@ -16,6 +16,8 @@
     <string name="album_locate_current">Locate current song</string>
     <string name="album_add_favorite">Add %1$s to favorites</string>
     <string name="album_remove_favorite">Remove %1$s from favorites</string>
+    <string name="album_add_favorite_menu">Add to favorites</string>
+    <string name="album_remove_favorite_menu">Remove from favorites</string>
     <string name="album_track_more_actions">More actions for %1$s</string>
     <string name="album_unknown_artist">Unknown Artist</string>
     <string name="album_detail_summary">%1$d tracks · %2$s</string>
@@ -24,4 +26,6 @@
     <string name="album_duration_minutes_seconds">%1$dm %2$ds</string>
     <string name="album_duration_minutes">%1$dm</string>
     <string name="album_duration_seconds">%1$ds</string>
+    <string name="album_shuffle">Shuffle</string>
+    <string name="album_search">Search This Album</string>
 </resources>

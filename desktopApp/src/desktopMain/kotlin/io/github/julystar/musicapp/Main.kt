@@ -17,6 +17,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopAccountName
+import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopWindowFocused
 import io.github.julystar.musicapp.di.AppInitializer
 import io.github.julystar.musicapp.di.appModule
 import io.github.julystar.musicapp.di.initKoin
@@ -41,12 +42,17 @@ import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.app_display_name
 import androidx.compose.ui.res.painterResource
 import java.awt.Dimension
+import java.awt.Desktop
 import java.awt.GraphicsConfiguration
 import java.awt.GraphicsEnvironment
 import java.awt.Toolkit
+import java.awt.desktop.AppForegroundEvent
+import java.awt.desktop.AppForegroundListener
 import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import javax.swing.AbstractAction
 import javax.swing.JComponent
 import javax.swing.KeyStroke
@@ -80,6 +86,9 @@ private const val CycleRepeatAction = "musicapp.cycleRepeat"
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    if (IsMacOs) {
+        System.setProperty("apple.awt.application.appearance", "system")
+    }
     val windowTitle = runBlocking { getString(CoreRes.string.app_display_name) }
     FileKit.init(appId = "io.github.julystar.musicapp")
     DiagnosticsBootstrap.initialize()
@@ -115,6 +124,9 @@ fun main() {
             icon = painterResource("icon.png"),
             init = ::configureWindowChrome,
         ) {
+            var desktopWindowFocused by remember(window) {
+                mutableStateOf(window.isActive || window.isFocused)
+            }
             DisposableEffect(window) {
                 val availableSize = calculateAvailableScreenSize(window.graphicsConfiguration)
                 window.minimumSize = Dimension(
@@ -123,10 +135,45 @@ fun main() {
                 )
                 onDispose {}
             }
+            DisposableEffect(window) {
+                desktopWindowFocused = window.isActive || window.isFocused
+                val windowFocusListener = object : WindowAdapter() {
+                    override fun windowGainedFocus(event: WindowEvent) {
+                        desktopWindowFocused = true
+                    }
+
+                    override fun windowLostFocus(event: WindowEvent) {
+                        if (!IsMacOs) desktopWindowFocused = false
+                    }
+                }
+                window.addWindowFocusListener(windowFocusListener)
+                if (IsMacOs && Desktop.isDesktopSupported()) {
+                    val listener = object : AppForegroundListener {
+                        override fun appRaisedToForeground(event: AppForegroundEvent) {
+                            desktopWindowFocused = true
+                        }
+
+                        override fun appMovedToBackground(event: AppForegroundEvent) {
+                            desktopWindowFocused = false
+                        }
+                    }
+                    val desktop = Desktop.getDesktop()
+                    desktop.addAppEventListener(listener)
+                    onDispose {
+                        desktop.removeAppEventListener(listener)
+                        window.removeWindowFocusListener(windowFocusListener)
+                    }
+                } else {
+                    onDispose {
+                        window.removeWindowFocusListener(windowFocusListener)
+                    }
+                }
+            }
             CompositionLocalProvider(
                 LocalDesktopTitleBarInset provides
                     if (IsMacOs) IntegratedTitleBarInset else 0.dp,
                 LocalDesktopAccountName provides desktopAccountName,
+                LocalDesktopWindowFocused provides desktopWindowFocused,
             ) {
                 if (diagnosticsState.safeMode) {
                     Root(

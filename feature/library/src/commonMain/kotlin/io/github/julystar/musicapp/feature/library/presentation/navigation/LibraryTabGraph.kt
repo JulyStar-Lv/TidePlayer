@@ -5,10 +5,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import io.github.julystar.musicapp.feature.library.presentation.LibraryRoot
+import io.github.julystar.musicapp.feature.library.presentation.LibraryDesktopSection
 
 @Composable
 fun LibraryTabGraph(
     navController: NavHostController,
+    desktopSection: LibraryDesktopSection = LibraryDesktopSection.Songs,
     onNavigateToLibraryFolderImport: () -> Unit = {},
     onNavigateToAlbum: (Long) -> Unit = {},
     onNavigateToArtist: (Long) -> Unit = {},
@@ -22,6 +24,7 @@ fun LibraryTabGraph(
     ) {
         composable("library") {
             LibraryRoot(
+                desktopSection = desktopSection,
                 onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
                 onNavigateToAlbum = onNavigateToAlbum,
                 onNavigateToArtist = onNavigateToArtist,

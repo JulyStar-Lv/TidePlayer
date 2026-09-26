@@ -338,7 +338,7 @@ private fun HomeMediaSection(
             if (action != null) {
                 Text(
                     text = "$action  ›",
-                    color = MiuixTheme.colorScheme.primary,
+
                     style = MiuixTheme.textStyles.body2,
                     fontWeight = FontWeight.SemiBold,
                 )

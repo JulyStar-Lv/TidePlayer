@@ -15,6 +15,13 @@
     <string name="time_to_pause_minute">分钟</string>
     <string name="now_playing_title">正在播放</string>
     <string name="player_more_options">更多选项</string>
+    <string name="player_lyrics">歌词</string>
+    <string name="player_translation">翻译</string>
+    <string name="player_volume">音量</string>
+    <string name="player_mute">静音</string>
+    <string name="player_unmute">取消静音</string>
+    <string name="player_lossless_audio">无损音频</string>
+    <string name="player_dolby_audio">杜比音频</string>
     <string name="player_playback_source">选择音源</string>
     <string name="player_playback_source_title">播放音源</string>
     <string name="player_playback_source_description">选择后将在下次播放时优先使用；不可用时会自动切换到其他音源。</string>
@@ -29,6 +36,11 @@
     <string name="player_shuffle">随机播放</string>
     <string name="player_single_repeat">单曲循环</string>
     <string name="player_queue">播放队列</string>
+    <string name="player_queue_history">历史记录</string>
+    <string name="player_queue_continue">继续播放</string>
+    <string name="player_queue_clear">清除</string>
+    <string name="player_queue_autoplay">自动播放</string>
+    <string name="player_queue_automix">自动混音</string>
     <string name="player_close">关闭播放器</string>
     <string name="player_add_favorite">添加到收藏</string>
     <string name="player_remove_favorite">从收藏中移除</string>
@@ -40,4 +52,6 @@
     <string name="player_lyrics_tap_to_seek">歌词 · 点按跳转</string>
     <string name="player_lyrics_by">作词 · %1$s</string>
     <string name="player_composed_by">作曲 · %1$s</string>
+    <string name="player_exit_now_playing">退出正在播放</string>
+    <string name="player_open_mini_player">打开迷你播放器</string>
 </resources>

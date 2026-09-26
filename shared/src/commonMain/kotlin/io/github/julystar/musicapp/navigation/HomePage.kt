@@ -43,6 +43,7 @@ import io.github.julystar.musicapp.core.presentation.components.LocalDesignStick
 import io.github.julystar.musicapp.core.presentation.components.getBottomBarSpace
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
+import io.github.julystar.musicapp.feature.library.presentation.LibraryDesktopSection
 import io.github.julystar.musicapp.feature.settings.presentation.navigation.navigateToSourceSettings
 import io.github.julystar.musicapp.service.playback.presentation.shell.PlaybackMiniPlayerHost
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberHasPlaybackItem
@@ -54,6 +55,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun HomePage(
     scaffoldPadding: PaddingValues,
     currentTab: HomeTab,
+    desktopLibrarySection: LibraryDesktopSection = LibraryDesktopSection.Songs,
     onTabSelected: (HomeTab) -> Unit,
     onOpenQueue: () -> Unit,
     hostedByRootNavigationLayout: Boolean = false,
@@ -95,6 +97,9 @@ fun HomePage(
     val miniPlayerContent: @Composable () -> Unit = {
         PlaybackMiniPlayerHost(
             onOpenNowPlaying = onOpenNowPlaying,
+            onOpenLyrics = { trackId ->
+                globalNavController.navigate(MusicGraph.Lyrics(trackId))
+            },
             onOpenQueue = onOpenQueue,
         )
     }
@@ -114,6 +119,7 @@ fun HomePage(
     if (hostedByRootNavigationLayout) {
         HomeTabContent(
             currentTab = currentTab,
+            desktopLibrarySection = desktopLibrarySection,
             libraryNavController = libraryNavController,
             searchNavController = searchNavController,
             settingsNavController = settingsNavController,
@@ -167,6 +173,7 @@ fun HomePage(
         ) -> Unit = { tab, contentPadding, stickyHeaderSink ->
             HomeTabContent(
                 currentTab = tab,
+                desktopLibrarySection = desktopLibrarySection,
                 libraryNavController = libraryNavController,
                 searchNavController = searchNavController,
                 settingsNavController = settingsNavController,
@@ -307,14 +314,23 @@ internal fun RootContentPane(
 
     LiquidGlassOverlayScene(
         modifier = modifier,
-        contentBottomInset = DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs,
+        contentBottomInset = if (isDesktopPlatform()) {
+            0.dp
+        } else {
+            DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs
+        },
         backdropContent = { content() },
         overlayContent = {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(
+                        start = 12.dp,
+                        top = 8.dp,
+                        end = 12.dp,
+                        bottom = if (isDesktopPlatform()) 20.dp else 8.dp,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 miniPlayerContent()

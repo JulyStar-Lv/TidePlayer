@@ -51,6 +51,12 @@ fun AlbumRoot(
                         playbackController.play(items = items)
                     }
                 }
+                AlbumAction.Shuffle -> {
+                    val items = state.tracks.shuffled().map { it.toPlayableItem(state.artist) }
+                    coroutineScope.launch {
+                        playbackController.play(items = items)
+                    }
+                }
                 is AlbumAction.PlayTrack -> {
                     val items = state.tracks.map { it.toPlayableItem(state.artist) }
                     val startIndex = state.tracks.indexOfFirst { it.id == action.trackId }

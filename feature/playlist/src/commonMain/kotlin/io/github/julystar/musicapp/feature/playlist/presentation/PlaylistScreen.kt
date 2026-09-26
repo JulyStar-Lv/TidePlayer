@@ -408,7 +408,7 @@ private fun PlaylistActionBar(
                 )
                 Text(
                     text = stringResource(Res.string.playlist_play_all),
-                    color = MiuixTheme.colorScheme.primary.copy(alpha = if (canPlay) 1f else 0.35f),
+
                     style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 18.sp),
                     fontWeight = FontWeight.SemiBold,
                 )

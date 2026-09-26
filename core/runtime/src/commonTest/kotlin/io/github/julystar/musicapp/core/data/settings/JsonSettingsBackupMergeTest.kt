@@ -8,6 +8,26 @@ import kotlin.test.assertEquals
 
 class JsonSettingsBackupMergeTest {
     @Test
+    fun appearanceSelectionRestoresBothThemeColors() {
+        val merged = AppSettings.Default.mergeBackup(
+            backup = AppSettings.Default.copy(
+                manualThemeSeedArgb = 0xFF3D9AFFL,
+                darkManualThemeSeedArgb = 0xFF3DCA8AL,
+            ),
+            selection = SettingsBackupSelection(
+                appearance = true,
+                playback = false,
+                lyrics = false,
+                libraryAndMetadata = false,
+                networkAndCache = false,
+            ),
+        )
+
+        assertEquals(0xFF3D9AFFL, merged.manualThemeSeedArgb)
+        assertEquals(0xFF3DCA8AL, merged.darkManualThemeSeedArgb)
+    }
+
+    @Test
     fun playbackSelectionReplacesWholePlayerInteractionSettings() {
         val currentInteraction = PlayerInteractionSettings(
             immersiveAlbumCoverEnabled = false,

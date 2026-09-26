@@ -108,8 +108,8 @@ sealed interface SettingsConfirmation {
 
 sealed interface SettingsAction {
     data class SetThemeMode(val mode: AppThemeMode) : SettingsAction
-    data class SetArtworkThemeEnabled(val enabled: Boolean) : SettingsAction
     data class SetManualThemeSeedArgb(val argb: Long) : SettingsAction
+    data class SetDarkManualThemeSeedArgb(val argb: Long) : SettingsAction
     data class SetCustomThemeSeedArgbValues(val argbValues: List<Long>) : SettingsAction
     data class SetLanguageMode(val mode: AppLanguageMode) : SettingsAction
     data class SetAudioFocusMode(val mode: AudioFocusMode) : SettingsAction

@@ -43,15 +43,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
-import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import kotlinx.coroutines.launch
+import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_heart
@@ -85,6 +86,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
@@ -100,6 +102,16 @@ fun AlbumScreen(
     onToggleFavorite: (Long) -> Unit,
     onAction: (AlbumAction) -> Unit,
 ) {
+    if (isDesktopPlatform()) {
+        AppleMusicAlbumDesktopScreen(
+            state = state,
+            currentPlayingTrackId = currentPlayingTrackId,
+            favoriteTrackIds = favoriteTrackIds,
+            onToggleFavorite = onToggleFavorite,
+            onAction = onAction,
+        )
+        return
+    }
     val spacing = DesignTokens.spacing
     val bottomContentInset = LocalDesignBottomContentInset.current
     val defaultTitle = stringResource(Res.string.album_default_title)
@@ -211,16 +223,19 @@ fun AlbumScreen(
                     }
                 }
             }
-            LiquidGlassActionBar(
+            TopAppBar(
                 title = state.title.ifBlank { defaultTitle },
-                collapseFraction = if (state.error != null) {
-                    1f
-                } else {
-                    actionBarProgress
+                navigationIcon = {
+                    IconButton(
+                        onClick = { onAction(AlbumAction.NavigateBack) },
+                    ) {
+                        Icon(
+                            painter = painterResource(CoreRes.drawable.icon_chevron_left),
+                            contentDescription = stringResource(Res.string.album_back),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 },
-                onNavigateBack = { onAction(AlbumAction.NavigateBack) },
-                backContentDescription = stringResource(Res.string.album_back),
-                centerTitle = true,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -342,7 +357,7 @@ private fun AlbumActionBar(
             )
             Text(
                 text = stringResource(Res.string.album_play_all),
-                color = MiuixTheme.colorScheme.primary.copy(alpha = if (canPlay) 1f else 0.35f),
+
                 style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 18.sp),
                 fontWeight = FontWeight.SemiBold,
             )
@@ -354,7 +369,7 @@ private fun AlbumActionBar(
             onClick = onLocateCurrent,
         ) {
             Icon(
-                painterResource(CoreRes.drawable.icon_locate_fixed),
+                painterResource(CoreRes.drawable.icon_chevron_left),
                 stringResource(Res.string.album_locate_current),
                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
@@ -488,7 +503,7 @@ private fun AlbumTrackRow(
                                         text = stringResource(Res.string.album_download),
                                         icon = { modifier ->
                                             Icon(
-                                                painter = painterResource(CoreRes.drawable.icon_download),
+                                                painter = painterResource(CoreRes.drawable.icon_chevron_left),
                                                 contentDescription = null,
                                                 modifier = modifier,
                                             )

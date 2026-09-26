@@ -194,7 +194,7 @@ private fun BrowseGenreTags(
             )
             Text(
                 text = genres.size.toString(),
-                color = MiuixTheme.colorScheme.primary,
+
                 style = MiuixTheme.textStyles.footnote1,
             )
         }
@@ -219,7 +219,7 @@ private fun BrowseSectionTitle(title: String, count: Int) {
         SmallTitle(text = title)
         Text(
             text = count.toString(),
-            color = MiuixTheme.colorScheme.primary,
+
             style = MiuixTheme.textStyles.footnote1,
         )
     }

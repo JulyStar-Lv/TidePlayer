@@ -272,6 +272,12 @@ class LegacyPlaybackController(
         }
     }
 
+    override fun getVolume(): Float = legacyController.getVolume()
+
+    override fun setVolume(value: Float) {
+        legacyController.setVolume(value.coerceIn(0f, 1f))
+    }
+
     override fun seekTo(positionMs: Long) {
         restoredSession.value?.let { restored ->
             val durationMs = playerRepository.music.value?.meta?.duration?.inWholeMilliseconds

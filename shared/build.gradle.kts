@@ -83,8 +83,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
-            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
-            implementation(compose.uiTest)
+            implementation(libs.compose.ui.test)
             implementation(libs.kotlinx.coroutines.test)
         }
         androidMain.dependencies {

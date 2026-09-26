@@ -252,7 +252,7 @@ private fun MonthlyListeningReport(state: ListeningState) {
                     Text(
                         text = state.monthLabel,
                         style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.primary,
+
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
@@ -557,7 +557,7 @@ private fun ListeningActivityCard(days: List<ListeningDay>, modifier: Modifier =
                         visibleDays.lastOrNull()?.let { formatListeningDuration(it.listenedMs) },
                     ).joinToString(" · "),
                     style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.primary,
+
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -838,7 +838,7 @@ private fun InsightRow(
             Text(
                 text = stringResource(Res.string.listening_plays, it.playCount),
                 style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.primary,
+
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .clip(CircleShape)
@@ -862,7 +862,7 @@ private fun DistributionCard(
             ListeningCardHeader(title = title, icon = icon)
             if (buckets.isEmpty()) {
                 Text(
-                    stringResource(Res.string.listening_no_data),
+                    text = stringResource(Res.string.listening_no_data),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             } else {
@@ -872,9 +872,9 @@ private fun DistributionCard(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text(bucket.label, color = MiuixTheme.colorScheme.onSurface)
+                            Text(text = bucket.label, color = MiuixTheme.colorScheme.onSurface)
                             Text(
-                                bucket.trackCount.toString(),
+                                text = bucket.trackCount.toString(),
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
@@ -1075,7 +1075,7 @@ private fun SelectedListeningDayCard(
                 Text(
                     text = day.date.toString(),
                     style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.primary,
+
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
@@ -1148,14 +1148,14 @@ private fun HistoryRow(
             )
             Column(Modifier.weight(1f)) {
                 Text(
-                    item.title,
+                    text = item.title,
                     color = MiuixTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    listOfNotNull(item.artist, formatListeningTimestamp(item.playedAtEpochMs))
+                    text = listOfNotNull(item.artist, formatListeningTimestamp(item.playedAtEpochMs))
                         .joinToString(" · "),
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -1166,7 +1166,7 @@ private fun HistoryRow(
             Text(
                 text = formatListeningDuration(item.listenedMs),
                 style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.primary,
+
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .clip(CircleShape)

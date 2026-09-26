@@ -15,6 +15,7 @@ public fun CurrentTrackInfo.toNowPlayingTrackItem(): NowPlayingTrackItem {
         id = id,
         title = title,
         artist = this.artist?.takeIf { it.isNotBlank() },
+        album = album?.takeIf { it.isNotBlank() },
         durationMs = durationMs,
         artwork = artwork,
         lyrics = lyrics,
@@ -44,6 +45,15 @@ public fun PlaybackQueue.toNowPlayingQueueState(
     return NowPlayingQueueState(
         currentIndex = currentIndex,
         itemCount = items.size,
+        items = items.mapIndexed { index, item ->
+            NowPlayingQueueItem(
+                index = index,
+                title = item.title,
+                artist = item.artist?.takeIf(String::isNotBlank),
+                album = item.album?.takeIf(String::isNotBlank),
+                artwork = item.libraryTrackId?.let(Artwork::LibraryTrack),
+            )
+        },
         canPlayPrevious = canPlayPrevious,
         canPlayNext = canPlayNext,
         previousArtwork = previousArtwork,

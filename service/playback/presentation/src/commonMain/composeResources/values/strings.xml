@@ -14,6 +14,13 @@
     <string name="time_to_pause_minute">Minute</string>
     <string name="now_playing_title">Now Playing</string>
     <string name="player_more_options">More options</string>
+    <string name="player_lyrics">Lyrics</string>
+    <string name="player_translation">Translation</string>
+    <string name="player_volume">Volume</string>
+    <string name="player_mute">Mute</string>
+    <string name="player_unmute">Unmute</string>
+    <string name="player_lossless_audio">Lossless audio</string>
+    <string name="player_dolby_audio">Dolby audio</string>
     <string name="player_playback_source">Choose source</string>
     <string name="player_playback_source_title">Playback source</string>
     <string name="player_playback_source_description">The selected source is tried first next time. If unavailable, another source is used automatically.</string>
@@ -28,6 +35,11 @@
     <string name="player_shuffle">Shuffle</string>
     <string name="player_single_repeat">Single repeat</string>
     <string name="player_queue">Queue view</string>
+    <string name="player_queue_history">History</string>
+    <string name="player_queue_continue">Continue Playing</string>
+    <string name="player_queue_clear">Clear</string>
+    <string name="player_queue_autoplay">Autoplay</string>
+    <string name="player_queue_automix">AutoMix</string>
     <string name="player_close">Close player</string>
     <string name="player_add_favorite">Add to favorites</string>
     <string name="player_remove_favorite">Remove from favorites</string>
@@ -39,4 +51,6 @@
     <string name="player_lyrics_tap_to_seek">Lyrics · tap to seek</string>
     <string name="player_lyrics_by">Lyrics by · %1$s</string>
     <string name="player_composed_by">Composed by · %1$s</string>
+    <string name="player_exit_now_playing">Exit Now Playing</string>
+    <string name="player_open_mini_player">Open Mini Player</string>
 </resources>

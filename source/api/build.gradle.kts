@@ -28,7 +28,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.source.api"
     compileSdk = 36
     defaultConfig {

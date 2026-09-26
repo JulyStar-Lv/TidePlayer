@@ -186,6 +186,7 @@ data class LyricsViewportSpec(
 
 @Stable
 data class LyricsLineVisualSpec(
+    val balancedLineWrap: Boolean = true,
     val focusedScale: Float = 1f,
     val unfocusedScale: Float = 0.98f,
     val activeAlpha: Float = 1f,
@@ -218,6 +219,7 @@ data class LyricsMotionSpec(
     val unfocusedScaleAnimationDurationMs: Int = 300,
     val blurAnimationDurationMs: Int = 300,
     val accompanimentVisibilityAnimationDurationMs: Int = 600,
+    val manualScrollResumeDelayMs: Long = 4_000L,
 ) {
     fun placementStiffness(distanceWeight: Int): Float =
         (maxPlacementStiffness - distanceWeight * placementStiffnessDistanceStep)

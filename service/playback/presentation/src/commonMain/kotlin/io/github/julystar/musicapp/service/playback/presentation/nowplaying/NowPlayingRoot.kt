@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +61,7 @@ fun NowPlayingRoot(
     val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
     val coroutineScope = rememberCoroutineScope()
     var playerCoversStatusBar by remember { mutableStateOf(false) }
+    var desktopVolume by remember(playerViewModel) { mutableFloatStateOf(playerViewModel.volume()) }
     val exitNowPlaying: () -> Unit = {
         playerCoversStatusBar = false
         onNavigateBack()
@@ -126,6 +128,11 @@ fun NowPlayingRoot(
             playerInteractionSettings = settings.playerInteraction,
             currentPositionMs = playbackPosition.positionMs,
             isSeeking = playbackPosition.isSeeking,
+            desktopVolume = desktopVolume,
+            onDesktopVolumeChange = { value ->
+                desktopVolume = value
+                playerViewModel.setVolume(value)
+            },
             isFavorite = state.currentTrack?.id?.let(favoriteTrackIds::contains) == true,
             onToggleFavorite = {
                 state.currentTrack?.id?.let { trackId ->

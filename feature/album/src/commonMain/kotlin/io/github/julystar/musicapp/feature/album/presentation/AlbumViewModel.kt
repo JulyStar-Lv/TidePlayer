@@ -44,6 +44,7 @@ class AlbumViewModel(
             AlbumAction.NavigateBack -> Unit
             AlbumAction.Retry -> loadAlbum()
             AlbumAction.PlayAll -> Unit
+            AlbumAction.Shuffle -> Unit
             is AlbumAction.PlayTrack -> Unit
             is AlbumAction.DownloadTrack -> downloadTrack(action.track)
         }

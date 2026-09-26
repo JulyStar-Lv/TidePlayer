@@ -17,6 +17,8 @@
 -keep class io.github.julystar.musicapp.NSSize { *; }
 -keep interface io.github.julystar.musicapp.DispatchCallback { *; }
 -keep class * implements io.github.julystar.musicapp.DispatchCallback { *; }
+-keep interface io.github.julystar.musicapp.core.presentation.platform.MacThemeNotificationCallback { *; }
+-keep class * implements io.github.julystar.musicapp.core.presentation.platform.MacThemeNotificationCallback { *; }
 
 # Room can resolve generated database implementations from the RoomDatabase
 # class name. Keep Room database subclasses as a defensive JVM/Desktop boundary;

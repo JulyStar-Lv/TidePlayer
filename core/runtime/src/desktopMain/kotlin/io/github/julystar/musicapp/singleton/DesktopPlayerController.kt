@@ -331,6 +331,12 @@ class DesktopPlayerController(
         AudioReactiveMonitor.reset()
     }
 
+    override fun getVolume(): Float = playbackEngine.volume()
+
+    override fun setVolume(value: Float) {
+        playbackEngine.setVolume(value.coerceIn(0f, 1f))
+    }
+
     override fun stop() {
         playbackJob?.cancel()
         playbackJob = null

@@ -68,16 +68,32 @@ pub struct DesktopRodioPlayer {
     output_backend: Arc<dyn AudioOutputBackend>,
 }
 
-#[derive(Default)]
 struct DesktopRodioState {
     output: Option<RodioOutput>,
     active_device_id: Option<String>,
     loaded: bool,
     loaded_resource: Option<LoadedResource>,
     duration_ms: i64,
+    volume: f32,
     dsp_config: AudioDspConfig,
     crossfade_duration_ms: u64,
     dsp_input: Option<DesktopDspConfigInput>,
+}
+
+impl Default for DesktopRodioState {
+    fn default() -> Self {
+        Self {
+            output: None,
+            active_device_id: None,
+            loaded: false,
+            loaded_resource: None,
+            duration_ms: 0,
+            volume: 1.0,
+            dsp_config: AudioDspConfig::default(),
+            crossfade_duration_ms: 0,
+            dsp_input: None,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -120,6 +136,7 @@ impl DesktopRodioPlayer {
         let mut state = self.state.lock().unwrap();
         let dsp_config = state.dsp_config;
         let crossfade_duration_ms = state.crossfade_duration_ms;
+        let target_gain = state.volume;
         let was_loaded = state.loaded;
         let output = match state.ensure_output(self.output_backend.as_ref(), self.telemetry.clone())
         {
@@ -145,7 +162,6 @@ impl DesktopRodioPlayer {
                     return DesktopRodioLoadResult::Unsupported;
                 }
             };
-        let target_gain = 1.0;
         let should_crossfade = was_loaded && !old_player.is_paused() && crossfade_duration_ms > 0;
         if should_crossfade {
             output.player.set_volume(0.0);
@@ -183,6 +199,25 @@ impl DesktopRodioPlayer {
 
     pub fn pause(&self) {
         self.with_loaded_player(|player| player.pause());
+    }
+
+    pub fn volume(&self) -> f32 {
+        self.state.lock().unwrap().volume
+    }
+
+    pub fn set_volume(&self, volume: f32) {
+        let volume = if volume.is_finite() {
+            volume.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        let mut state = self.state.lock().unwrap();
+        state.volume = volume;
+        if state.loaded {
+            if let Some(output) = state.output.as_ref() {
+                output.player.set_volume(volume);
+            }
+        }
     }
 
     pub fn stop(&self) {
@@ -1112,6 +1147,19 @@ mod tests {
 
         assert!(player.take_playback_completed());
         assert!(!player.take_playback_completed());
+    }
+
+    #[test]
+    fn player_volume_is_app_local_and_clamped() {
+        let player = DesktopRodioPlayer::new();
+
+        assert!((player.volume() - 1.0).abs() < f32::EPSILON);
+        player.set_volume(0.37);
+        assert!((player.volume() - 0.37).abs() < f32::EPSILON);
+        player.set_volume(4.0);
+        assert!((player.volume() - 1.0).abs() < f32::EPSILON);
+        player.set_volume(f32::NAN);
+        assert!((player.volume() - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]

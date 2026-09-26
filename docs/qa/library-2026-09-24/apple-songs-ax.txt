@@ -1,0 +1,212 @@
+Window: "音乐", App: 音乐.
+0 标准窗口 音乐, Secondary Actions: Raise
+	1 单选按钮 0
+	2 单选按钮 Description: 注释行, Value: 0
+	3 分离组
+		4 滚动区 sidebarScroller
+			5 外框 Description: 边栏, ID: outline
+				6 row (selectable) 搜索
+				7 row (selectable) 主页
+				8 row (selectable) Description: 网格视图, Value: 新发现
+				9 row (selectable) 广播
+				10 row (selectable) 编辑, Value: 资料库
+				11 row (selected) 歌曲
+				12 row (selectable) 专辑
+				13 row (selectable) 艺人
+				14 row (selectable, expanded) Value: 播放列表, Secondary Actions: Collapse
+				15 row (selectable) 所有播放列表
+				16 row (selectable) Description: 个人收藏, Value: 喜爱歌曲
+				17 row (selectable) Demo
+		18 按钮 Description: Shine, ID: Music.accountButton
+		19 分离器 (disabled, settable, float) 208
+		20 分离组 (settable, float) 140
+			21 滚动区 Description: 歌曲, Secondary Actions: Scroll Up, Scroll Down
+				22 外框 音乐
+					23 container
+						24 排序按钮 状态
+						25 排序按钮 标题
+						26 排序按钮 艺人
+						27 排序按钮 专辑
+						28 排序按钮 时长
+						29 排序按钮 年份
+						30 排序按钮 喜爱
+					31 栏
+					32 栏
+					33 栏
+					34 栏
+					35 栏
+					36 栏
+					37 栏
+					38 row (selectable) Description: 已标记为喜爱, Value: 搁浅
+周杰伦
+七里香
+3:58
+2004
+已标记为喜爱
+					39 row (selectable) Description: 未标记为喜爱, Value: 将军
+周杰伦
+七里香
+3:22
+2004
+未标记为喜爱
+					40 row (selectable) Description: 已标记为喜爱, Value: 借口
+周杰伦
+七里香
+4:18
+2004
+已标记为喜爱
+					41 row (selectable) Description: 未标记为喜爱, Value: 困兽之斗
+周杰伦
+七里香
+4:27
+2004
+未标记为喜爱
+					42 row (selectable) Description: 未标记为喜爱, Value: 乱舞春秋
+周杰伦
+七里香
+4:38
+2004
+未标记为喜爱
+					43 row (selectable) Description: 已标记为喜爱, Value: 七里香
+周杰伦
+七里香
+4:57
+2004
+已标记为喜爱
+					44 row (selected) Description: 已标记为喜爱, Value: 外婆
+周杰伦
+七里香
+4:03
+2004
+已标记为喜爱
+					45 row (selectable) Description: 已标记为喜爱, Value: 唯一
+邓紫棋
+T.I.M.E. - EP
+4:14
+2023
+已标记为喜爱
+					46 row (selectable) Description: 已标记为喜爱, Value: 我不难过
+孙燕姿
+未完成
+5:20
+2003
+已标记为喜爱
+					47 row (selectable) Description: 已标记为喜爱, Value: 我的地盘
+周杰伦
+七里香
+4:03
+2004
+已标记为喜爱
+					48 row (selectable) Description: 已标记为喜爱, Value: 我怀念的
+孙燕姿
+逆光
+4:49
+2007
+已标记为喜爱
+					49 row (selectable) Description: 已标记为喜爱, Value: 稀客
+杨千嬅
+千嬅盛放
+3:10
+2005
+已标记为喜爱
+					50 row (selectable) Description: 已标记为喜爱, Value: 一路向北 (Bonus Track)
+周杰伦
+11月的萧邦
+4:54
+2005
+已标记为喜爱
+					51 row (selectable) Description: 未标记为喜爱, Value: 园游会
+周杰伦
+七里香
+4:14
+2004
+未标记为喜爱
+					52 row (selectable) Description: 未标记为喜爱, Value: 止战之殇
+周杰伦
+七里香
+4:35
+2004
+未标记为喜爱
+					53 row (selectable) Description: 未标记为喜爱, Value: All Of The Girls You Loved Before
+Taylor Swift
+The More Lover Chapter - EP
+3:41
+2023
+未标记为喜爱
+					54 row (selectable) Description: 已标记为喜爱, Value: Cruel Summer
+Taylor Swift
+The More Lover Chapter - EP
+2:58
+2019
+已标记为喜爱
+					55 row (selectable) Description: 已标记为喜爱, Value: Lover
+Taylor Swift
+Lover
+3:41
+2019
+已标记为喜爱
+					56 row (selectable) Description: 未标记为喜爱, Value: Lover
+Taylor Swift
+The More Lover Chapter - EP
+3:41
+2019
+未标记为喜爱
+					57 row (selectable) Description: 未标记为喜爱, Value: The Archer
+Taylor Swift
+The More Lover Chapter - EP
+3:31
+2019
+未标记为喜爱
+					58 row (selectable) Description: 未标记为喜爱, Value: The Man
+Taylor Swift
+The More Lover Chapter - EP
+3:10
+2019
+未标记为喜爱
+					59 row (selectable) Description: 已标记为喜爱, Value: The Very First Night (Taylor's Version) (From The Vault)
+Taylor Swift
+Red (Taylor’s Version) (+ A Message from Taylor)
+3:20
+2021
+已标记为喜爱
+				60 滚动条 (settable, float) 0
+					61 值指示器 (settable, float) 0
+					62 增箭头按钮
+					63 减箭头按钮
+					64 增页面按钮
+					65 减页面按钮
+		66 container Description: 迷你播放器, ID: Music.miniPlayer.contentView[viewState=mini,isPlaying=false]
+			67 按钮 Description: 不随机播放, ID: Music.miniPlayer.shuffleButton
+			68 按钮 Description: 上一首, ID: Music.miniPlayer.leadingTransportControl
+			69 按钮 Description: 播放, ID: Music.miniPlayer.playbackTransportControl
+			70 按钮 Description: 下一首, ID: Music.miniPlayer.trailingTransportControl
+			71 按钮 Description: 全部重复播放, ID: Music.miniPlayer.repeatButton
+			72 container Music.miniPlayer.metadataRegion[state=populated]
+				73 按钮 Description: 迷你播放器插图, ID: Music.miniPlayer.artwork
+				74 text Value: Soon You’ll Get Better (feat. The Chicks) Taylor Swift — Lover, ID: Music.miniPlayer.title
+				75 图像 Description: 杜比全景声, ID: Music.miniPlayer.audioBadge
+				76 按钮 Description: 更多, ID: Music.miniPlayer.contextMenu
+				77 滑块 (settable, float) Description: 音轨位置, Value: 0.1410265280303629, Details: 二十八秒钟（共三分钟二十二秒钟）, ID: Music.miniPlayer.playbackSlider
+			78 按钮 Description: 歌词, ID: Music.miniPlayer.lyricsButton
+			79 按钮 Description: 待播清单, ID: Music.miniPlayer.queueButton
+			80 按钮 Description: 音量, ID: Music.miniPlayer.volumeButton
+	81 工具栏
+		82 文本 Value: 歌曲, ID: title
+		83 菜单按钮 Description: 排序选项, ID: sortOptions, Secondary Actions: 移到上一项, 移到下一项, 从工具栏移除
+		84 搜索文本栏 (settable) Placeholder: 在歌曲中查找, ID: filterField
+			85 按钮 搜索
+	86 关闭按钮
+	87 全屏幕按钮 Help: 此按钮也可以执行缩放窗口的操作, Secondary Actions: 缩放窗口
+	88 最小化按钮
+89 menu bar
+	90 音乐
+	91 文件
+	92 编辑
+	93 歌曲
+	94 显示
+	95 控制
+	96 账户
+	97 窗口
+	98 帮助
+
+The focused UI element is 0 标准窗口 音乐, Secondary Actions: Raise

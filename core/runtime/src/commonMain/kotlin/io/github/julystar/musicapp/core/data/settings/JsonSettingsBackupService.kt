@@ -160,6 +160,7 @@ internal fun AppSettings.mergeBackup(
             themeMode = backup.themeMode,
             artworkThemeEnabled = backup.artworkThemeEnabled,
             manualThemeSeedArgb = backup.manualThemeSeedArgb,
+            darkManualThemeSeedArgb = backup.darkManualThemeSeedArgb,
             customThemeSeedArgbValues = backup.customThemeSeedArgbValues,
             languageMode = backup.languageMode,
         )

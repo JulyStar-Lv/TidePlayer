@@ -6,20 +6,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.AppLanguageMode
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
-import io.github.julystar.musicapp.core.presentation.theme.ArtworkThemeSeedStatus
-import io.github.julystar.musicapp.core.presentation.theme.LocalThemeSeedState
-import io.github.julystar.musicapp.core.presentation.theme.canSelectManualThemeColor
+import io.github.julystar.musicapp.core.domain.model.resolvedDarkManualThemeSeedArgb
+import io.github.julystar.musicapp.core.presentation.theme.themePrimaryColor
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.settings.generated.resources.*
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -29,7 +26,6 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 fun AppearanceSettingsSection(
@@ -38,12 +34,8 @@ fun AppearanceSettingsSection(
     onAction: (SettingsAction) -> Unit,
 ) {
     val settings = state.settings
-    val themeSeedState = LocalThemeSeedState.current
-    var colorPickerOpen by remember { mutableStateOf(false) }
-    val manualThemeColorEnabled = canSelectManualThemeColor(settings.artworkThemeEnabled)
-    LaunchedEffect(manualThemeColorEnabled) {
-        if (!manualThemeColorEnabled) colorPickerOpen = false
-    }
+    var colorPickerMode by remember { mutableStateOf<AppThemeMode?>(null) }
+    val darkSeedArgb = settings.resolvedDarkManualThemeSeedArgb()
 
     SettingsPageLayout(title = stringResource(Res.string.settings_appearance_title), onBack = onBack) {
         SmallTitle(
@@ -72,52 +64,31 @@ fun AppearanceSettingsSection(
             insideMargin = settingsSectionTitleMargin,
         )
         Card {
-            SwitchPreference(
-                title = stringResource(Res.string.settings_artwork_color),
-                summary = stringResource(Res.string.settings_artwork_color_summary),
-                checked = settings.artworkThemeEnabled,
-                onCheckedChange = { onAction(SettingsAction.SetArtworkThemeEnabled(it)) },
-            )
-            ArrowPreference(
-                title = stringResource(Res.string.settings_theme_color),
-                summary = if (settings.artworkThemeEnabled) {
-                    val artworkSummary = when (themeSeedState.artworkStatus) {
-                        ArtworkThemeSeedStatus.Available ->
-                            stringResource(Res.string.settings_theme_color_artwork_active)
-                        ArtworkThemeSeedStatus.Loading ->
-                            stringResource(Res.string.settings_theme_color_artwork_loading)
-                        ArtworkThemeSeedStatus.Failed ->
-                            stringResource(Res.string.settings_theme_color_artwork_failed)
-                        ArtworkThemeSeedStatus.Missing ->
-                            stringResource(Res.string.settings_theme_color_artwork_missing)
-                        else -> stringResource(
-                            Res.string.settings_theme_color_current,
-                            formatThemeSeedHex(settings.manualThemeSeedArgb),
-                        )
-                    }
-                    "$artworkSummary · ${
-                        stringResource(Res.string.settings_theme_color_edit_after_artwork_off)
-                    }"
-                } else {
-                    stringResource(
+            listOf(false, true).forEach { darkTheme ->
+                val argb = if (darkTheme) darkSeedArgb else settings.manualThemeSeedArgb
+                ArrowPreference(
+                    title = stringResource(
+                        if (darkTheme) Res.string.settings_theme_color_dark
+                        else Res.string.settings_theme_color_light,
+                    ),
+                    summary = stringResource(
                         Res.string.settings_theme_color_current,
-                        formatThemeSeedHex(settings.manualThemeSeedArgb),
-                    )
-                },
-                enabled = manualThemeColorEnabled,
-                onClick = {
-                    if (manualThemeColorEnabled) colorPickerOpen = true
-                },
-                endActions = {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(settings.manualThemeSeedArgb.toInt()))
-                            .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
-                    )
-                },
-            )
+                        formatThemePrimaryValue(argb, darkTheme),
+                    ),
+                    onClick = {
+                        colorPickerMode = if (darkTheme) AppThemeMode.Dark else AppThemeMode.Light
+                    },
+                    endActions = {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(themePrimaryColor(argb, darkTheme))
+                                .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
+                        )
+                    },
+                )
+            }
         }
 
         SmallTitle(
@@ -143,17 +114,22 @@ fun AppearanceSettingsSection(
     }
 
     ThemeColorPickerDialog(
-        show = colorPickerOpen && manualThemeColorEnabled,
-        savedArgb = settings.manualThemeSeedArgb,
+        show = colorPickerMode != null,
+        darkTheme = colorPickerMode == AppThemeMode.Dark,
+        savedArgb = if (colorPickerMode == AppThemeMode.Dark) darkSeedArgb else settings.manualThemeSeedArgb,
+        otherModeArgb = if (colorPickerMode == AppThemeMode.Dark) settings.manualThemeSeedArgb else darkSeedArgb,
         customArgbValues = settings.customThemeSeedArgbValues,
         onApply = { argb ->
-            onAction(SettingsAction.SetManualThemeSeedArgb(argb))
-            colorPickerOpen = false
+            onAction(
+                if (colorPickerMode == AppThemeMode.Dark) SettingsAction.SetDarkManualThemeSeedArgb(argb)
+                else SettingsAction.SetManualThemeSeedArgb(argb),
+            )
+            colorPickerMode = null
         },
         onCustomColorsChange = { values ->
             onAction(SettingsAction.SetCustomThemeSeedArgbValues(values))
         },
-        onDismiss = { colorPickerOpen = false },
+        onDismiss = { colorPickerMode = null },
     )
 }
 

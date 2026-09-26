@@ -74,6 +74,7 @@ import io.github.julystar.musicapp.feature.downloads.presentation.navigation.dow
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.importGraph
 import io.github.julystar.musicapp.feature.home.presentation.ListeningRoot
+import io.github.julystar.musicapp.feature.library.presentation.LibraryDesktopSection
 import io.github.julystar.musicapp.feature.lyrics.presentation.NowPlayingLyricsRoot
 import io.github.julystar.musicapp.feature.lyrics.presentation.navigation.lyricsGraph
 import io.github.julystar.musicapp.feature.playlist.presentation.CreatePlaylistRoot
@@ -362,6 +363,7 @@ internal fun RootNavHost(
         homeGraph(
             scaffoldPadding = args.scaffoldPadding,
             currentTab = args.selectedRootTab,
+            desktopLibrarySection = args.desktopLibrarySection,
             onTabSelected = args.onRootTabSelected,
             onOpenQueue = args.onOpenQueue,
         )
@@ -481,6 +483,7 @@ internal fun RootNavHost(
                 modifier = modifier,
                 scaffoldPadding = scaffoldPadding,
                 selectedRootTab = selectedRootTab,
+                desktopLibrarySection = selectedDesktopDestination.toLibraryDesktopSection(),
                 onRootTabSelected = onRootTabSelected,
                 onOpenQueue = { showQueue = true },
                 onSearchMetadata = { track -> metadataTrack = track },
@@ -505,13 +508,13 @@ internal fun RootNavHost(
             AppleMusicSidebarDestination.SEARCH -> selectRootTabAndReturnHome(HomeTab.SEARCH)
             AppleMusicSidebarDestination.HOME -> selectRootTabAndReturnHome(HomeTab.HOME)
             AppleMusicSidebarDestination.SETTINGS -> selectRootTabAndReturnHome(HomeTab.SETTINGS)
-            AppleMusicSidebarDestination.RECENTLY_ADDED ->
-                navController.navigate(MusicGraph.RecentlyAdded) { launchSingleTop = true }
-            AppleMusicSidebarDestination.SONGS -> selectRootTabAndReturnHome(HomeTab.LIBRARY)
+            AppleMusicSidebarDestination.SONGS,
             AppleMusicSidebarDestination.ALBUMS,
             AppleMusicSidebarDestination.ARTISTS,
-            AppleMusicSidebarDestination.GENRES,
-            -> navController.navigate(MusicGraph.Browse) { launchSingleTop = true }
+            -> {
+                selectRootTabAndReturnHome(HomeTab.LIBRARY)
+                selectedDesktopDestinationName = destination.name
+            }
             AppleMusicSidebarDestination.ALL_PLAYLISTS ->
                 navController.navigate(MusicGraph.Playlists) { launchSingleTop = true }
             AppleMusicSidebarDestination.FAVORITES ->
@@ -534,7 +537,12 @@ internal fun RootNavHost(
                     nowPlayingOverlayHostEntryId = currentBackStackEntry?.id
                     showNowPlayingOverlay = true
                 },
+                onOpenLyrics = { trackId ->
+                    navController.navigate(MusicGraph.Lyrics(trackId))
+                },
                 onOpenQueue = { showQueue = true },
+                lyricsSelected = isRouteLyrics(currentRoute),
+                queueSelected = showQueue,
                 captureStickyHeader = shouldCaptureSecondaryStickyHeader(currentRoute),
                 showChrome = showRootNavigationChrome,
                 contentUsesNavigationChrome = contentUsesNavigationChrome,
@@ -654,11 +662,18 @@ private data class RootNavigationContentArgs(
     val modifier: Modifier,
     val scaffoldPadding: PaddingValues,
     val selectedRootTab: HomeTab,
+    val desktopLibrarySection: LibraryDesktopSection,
     val onRootTabSelected: (HomeTab) -> Unit,
     val onOpenQueue: () -> Unit,
     val onSearchMetadata: (NowPlayingTrackItem) -> Unit,
     val onNavigateBackFromLyrics: () -> Unit,
 )
+
+private fun AppleMusicSidebarDestination.toLibraryDesktopSection(): LibraryDesktopSection = when (this) {
+    AppleMusicSidebarDestination.ALBUMS -> LibraryDesktopSection.Albums
+    AppleMusicSidebarDestination.ARTISTS -> LibraryDesktopSection.Artists
+    else -> LibraryDesktopSection.Songs
+}
 
 private fun immediateEnterTransition(durationMillis: Int) = fadeIn(
     initialAlpha = 0f,
@@ -763,9 +778,17 @@ internal fun desktopSidebarDestinationForRoute(
     val routeName = route?.substringBefore('/')?.substringBefore('?')
     return when {
         routeName == null || routeName == "Home" || routeName.endsWith(".Home") ->
-            selectedRootTab.defaultSidebarDestination()
-        routeName == "RecentlyAdded" || routeName.endsWith(".RecentlyAdded") ->
-            AppleMusicSidebarDestination.RECENTLY_ADDED
+            if (
+                selectedRootTab == HomeTab.LIBRARY && fallback in setOf(
+                    AppleMusicSidebarDestination.SONGS,
+                    AppleMusicSidebarDestination.ALBUMS,
+                    AppleMusicSidebarDestination.ARTISTS,
+                )
+            ) {
+                fallback
+            } else {
+                selectedRootTab.defaultSidebarDestination()
+            }
         routeName == "Favorites" || routeName.endsWith(".Favorites") ->
             AppleMusicSidebarDestination.FAVORITES
         routeName == "Playlists" || routeName.endsWith(".Playlists") ->
@@ -773,7 +796,6 @@ internal fun desktopSidebarDestinationForRoute(
         routeName == "Browse" || routeName.endsWith(".Browse") -> when (fallback) {
             AppleMusicSidebarDestination.ALBUMS,
             AppleMusicSidebarDestination.ARTISTS,
-            AppleMusicSidebarDestination.GENRES,
             -> fallback
             else -> AppleMusicSidebarDestination.ALBUMS
         }
@@ -850,7 +872,10 @@ private fun SecondaryRootNavigationLayout(
     onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit,
     scaffoldPadding: PaddingValues,
     onOpenNowPlaying: () -> Unit,
+    onOpenLyrics: (Long) -> Unit,
     onOpenQueue: () -> Unit,
+    lyricsSelected: Boolean,
+    queueSelected: Boolean,
     captureStickyHeader: Boolean,
     showChrome: Boolean,
     contentUsesNavigationChrome: Boolean,
@@ -863,7 +888,10 @@ private fun SecondaryRootNavigationLayout(
     val miniPlayerContent: @Composable () -> Unit = {
         PlaybackMiniPlayerHost(
             onOpenNowPlaying = onOpenNowPlaying,
+            onOpenLyrics = onOpenLyrics,
             onOpenQueue = onOpenQueue,
+            lyricsSelected = lyricsSelected,
+            queueSelected = queueSelected,
         )
     }
 
@@ -933,7 +961,11 @@ private fun SecondaryRootNavigationLayout(
                 windowSizeClass == WindowSizeClass.Compact ->
                     getBottomBarSpace(hasPlaybackItem, scaffoldPadding)
                 hasPlaybackItem ->
-                    DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs
+                    if (isDesktopPlatform()) {
+                        0.dp
+                    } else {
+                        DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs
+                    }
                 else -> 0.dp
             },
             backdropContent = {
@@ -1010,7 +1042,7 @@ private fun SecondaryRootNavigationLayout(
                                                     start = sideNavigationWidth + 12.dp,
                                                     top = 8.dp,
                                                     end = 12.dp,
-                                                    bottom = 8.dp,
+                                                    bottom = if (isDesktopPlatform()) 20.dp else 8.dp,
                                                 ),
                                             contentAlignment = Alignment.Center,
                                         ) {
@@ -1042,7 +1074,7 @@ private fun SecondaryRootNavigationLayout(
                                                     start = sideNavigationWidth + 12.dp,
                                                     top = 8.dp,
                                                     end = 12.dp,
-                                                    bottom = 8.dp,
+                                                    bottom = if (isDesktopPlatform()) 20.dp else 8.dp,
                                                 ),
                                             contentAlignment = Alignment.Center,
                                         ) {

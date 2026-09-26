@@ -617,14 +617,10 @@ fun KaraokeLineText(
                 }
             }
 
-            val wrappedLines by remember(initialLayouts, availableWidthPx, textMeasurer, textStyle) {
+            val wrappedLines by remember(initialLayouts, availableWidthPx, textMeasurer, textStyle, spec.line.balancedLineWrap) {
                 derivedStateOf {
-                    calculateBalancedLines(
-                        syllableLayouts = initialLayouts,
-                        availableWidthPx = availableWidthPx,
-                        textMeasurer = textMeasurer,
-                        style = textStyle
-                    )
+                    val wrap = if (spec.line.balancedLineWrap) ::calculateBalancedLines else ::calculateGreedyWrappedLines
+                    wrap(initialLayouts, availableWidthPx, textMeasurer, textStyle)
                 }
             }
 

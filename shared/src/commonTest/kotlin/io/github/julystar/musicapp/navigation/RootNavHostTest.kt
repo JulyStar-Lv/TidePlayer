@@ -91,6 +91,22 @@ class RootNavHostTest {
             ),
         )
         assertEquals(
+            AppleMusicSidebarDestination.ALBUMS,
+            desktopSidebarDestinationForRoute(
+                route = "Home",
+                selectedRootTab = HomeTab.LIBRARY,
+                fallback = AppleMusicSidebarDestination.ALBUMS,
+            ),
+        )
+        assertEquals(
+            AppleMusicSidebarDestination.ARTISTS,
+            desktopSidebarDestinationForRoute(
+                route = "Home",
+                selectedRootTab = HomeTab.LIBRARY,
+                fallback = AppleMusicSidebarDestination.ARTISTS,
+            ),
+        )
+        assertEquals(
             AppleMusicSidebarDestination.FAVORITES,
             desktopSidebarDestinationForRoute(
                 route = "Favorites",

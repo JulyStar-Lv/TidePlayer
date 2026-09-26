@@ -493,8 +493,9 @@ data class SettingsBackupSettings(
 @Serializable
 data class AppSettings(
     val themeMode: AppThemeMode = AppThemeMode.System,
-    val artworkThemeEnabled: Boolean = true,
+    val artworkThemeEnabled: Boolean = false,
     val manualThemeSeedArgb: Long = DEFAULT_MANUAL_THEME_SEED_ARGB,
+    val darkManualThemeSeedArgb: Long? = null,
     val customThemeSeedArgbValues: List<Long> = emptyList(),
     val languageMode: AppLanguageMode = AppLanguageMode.System,
     val audioFocusMode: AudioFocusMode = AudioFocusMode.Pause,
@@ -706,7 +707,8 @@ enum class LibraryRebuildStatus {
 }
 
 const val AUDIO_CACHE_LIMIT_DISABLED_BYTES = 0L
-const val DEFAULT_MANUAL_THEME_SEED_ARGB = 0xFFFF5B8AL
+const val DEFAULT_MANUAL_THEME_SEED_ARGB = 0xFFF31B34L
+const val DEFAULT_DARK_MANUAL_THEME_SEED_ARGB = 0xFFFF375FL
 const val MAX_CUSTOM_THEME_SEEDS = 12
 const val DEFAULT_AUDIO_CACHE_LIMIT_BYTES = 1_073_741_824L
 const val MAX_AUDIO_CACHE_LIMIT_BYTES = 10_737_418_240L
@@ -758,6 +760,13 @@ val DEFAULT_LYRIC_SOURCE_PRIORITY = LyricSourceKind.entries.toList()
 val DEFAULT_EQ_BAND_GAINS_DB = List(EQ_BAND_COUNT) { 0 }
 
 fun normalizeThemeSeedArgb(value: Long): Long = 0xFF000000L or (value and 0x00FFFFFFL)
+
+fun AppSettings.resolvedDarkManualThemeSeedArgb(): Long =
+    darkManualThemeSeedArgb ?: if (manualThemeSeedArgb == DEFAULT_MANUAL_THEME_SEED_ARGB) {
+        DEFAULT_DARK_MANUAL_THEME_SEED_ARGB
+    } else {
+        manualThemeSeedArgb
+    }
 
 fun normalizeCustomThemeSeedArgbValues(values: List<Long>): List<Long> {
     return values

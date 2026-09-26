@@ -203,7 +203,7 @@ cargo {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.core.runtime"
     compileSdk = 37
     defaultConfig {

@@ -91,4 +91,18 @@
     <string name="library_empty_collection_message">此收藏中暂时没有音乐。</string>
     <string name="library_empty_lossless_after_scan">扫描完成后，无损歌曲会显示在这里。</string>
     <string name="library_empty_hires_after_scan">扫描完成后，Hi-Res 歌曲会显示在这里。</string>
+    <string name="library_desktop_search_songs">在歌曲中查找</string>
+    <string name="library_desktop_search_albums">在专辑中查找</string>
+    <string name="library_desktop_search_artists">在艺人中查找</string>
+    <string name="library_desktop_artists_title">艺人</string>
+    <string name="library_desktop_status">状态</string>
+    <string name="library_desktop_title">标题</string>
+    <string name="library_desktop_artist">艺人</string>
+    <string name="library_desktop_album">专辑</string>
+    <string name="library_desktop_time">时长</string>
+    <string name="library_desktop_year">年份</string>
+    <string name="library_desktop_all_artists">所有艺人</string>
+    <string name="library_desktop_play">播放</string>
+    <string name="library_desktop_sort">排序</string>
+    <string name="library_desktop_more">更多</string>
 </resources>

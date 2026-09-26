@@ -40,7 +40,7 @@ kotlin {
                 implementation(project(":core:presentation"))
                 implementation(project(":service:playback:domain"))
                 implementation(compose.desktop.currentOs)
-                implementation(compose.components.resources)
+                implementation(libs.components.resources)
                 implementation(libs.koin.core)
                 implementation(libs.filekit.dialogs.compose)
                 implementation("net.java.dev.jna:jna:5.19.1")
@@ -96,6 +96,5 @@ afterEvaluate {
 
     tasks.named<JavaExec>("run") {
         javaLauncher.set(desktopRuntimeLauncher)
-        executable = desktopRuntimeLauncher.get().executablePath.asFile.absolutePath
     }
 }

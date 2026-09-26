@@ -46,13 +46,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.components.StatusMessageCard
-import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
 import io.github.julystar.musicapp.core.presentation.components.LocalDesignBottomContentInset
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
+import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.Res as CoreRes
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_play
@@ -80,6 +80,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -243,16 +244,19 @@ fun ArtistScreen(
                 }
             }
 
-            LiquidGlassActionBar(
+            TopAppBar(
                 title = state.name.ifBlank { defaultTitle },
-                collapseFraction = if (state.isLoading || state.error != null) {
-                    1f
-                } else {
-                    actionBarProgress
+                navigationIcon = {
+                    IconButton(
+                        onClick = { onAction(ArtistAction.NavigateBack) },
+                    ) {
+                        Icon(
+                            painter = painterResource(CoreRes.drawable.icon_chevron_left),
+                            contentDescription = stringResource(Res.string.artist_back),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 },
-                onNavigateBack = { onAction(ArtistAction.NavigateBack) },
-                backContentDescription = stringResource(Res.string.artist_back),
-                centerTitle = true,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -301,7 +305,7 @@ private fun ArtistHero(
         ) {
             Text(
                 text = stringResource(Res.string.artist_default_title),
-                color = MiuixTheme.colorScheme.primary,
+
                 style = MiuixTheme.textStyles.footnote2.copy(
                     fontSize = 11.sp,
                     lineHeight = 14.sp,
@@ -459,7 +463,7 @@ private fun ArtistSongsActionBar(
         )
         Text(
             text = stringResource(Res.string.artist_play_all),
-            color = MiuixTheme.colorScheme.primary.copy(alpha = if (canPlay) 1f else 0.35f),
+
             style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 18.sp),
             fontWeight = FontWeight.SemiBold,
         )
@@ -557,7 +561,7 @@ private fun ArtistTrackRow(
                     onClick = onDownload,
                 ) {
                     Icon(
-                        painter = painterResource(CoreRes.drawable.icon_download),
+                        painter = painterResource(CoreRes.drawable.icon_chevron_left),
                         contentDescription = stringResource(Res.string.artist_download_track, track.title),
                     )
                 }

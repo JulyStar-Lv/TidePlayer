@@ -81,7 +81,7 @@ fun EmptyState(
                     } else if (marker != null) {
                         Text(
                             text = marker,
-                            color = MiuixTheme.colorScheme.primary,
+
                             style = MiuixTheme.textStyles.title2,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,

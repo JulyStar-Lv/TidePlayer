@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import io.github.julystar.musicapp.feature.library.presentation.LibraryDesktopSection
 
 fun NavGraphBuilder.homeGraph(
     scaffoldPadding: PaddingValues,
     currentTab: HomeTab,
+    desktopLibrarySection: LibraryDesktopSection,
     onTabSelected: (HomeTab) -> Unit,
     onOpenQueue: () -> Unit,
 ) {
@@ -24,6 +26,7 @@ fun NavGraphBuilder.homeGraph(
             HomePage(
                 scaffoldPadding = scaffoldPadding,
                 currentTab = currentTab,
+                desktopLibrarySection = desktopLibrarySection,
                 onTabSelected = onTabSelected,
                 onOpenQueue = onOpenQueue,
                 hostedByRootNavigationLayout = true,

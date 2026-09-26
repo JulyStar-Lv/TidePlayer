@@ -32,6 +32,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import musicapp.core.presentation.generated.resources.Res
@@ -288,20 +289,29 @@ internal fun currentDesignBackdrop(): Backdrop? = LocalDesignBackdrop.current
 fun Modifier.liquidGlassSurface(
     shape: Shape,
     intensity: Float = 1f,
+    surfaceColor: Color? = null,
+    surfaceAlphaScale: Float = 1f,
+    vibrant: Boolean = false,
+    showHighlight: Boolean = true,
 ): Modifier {
     val fraction = intensity.coerceIn(0f, 1f)
+    val alphaScale = surfaceAlphaScale.coerceIn(0f, 1f)
     val backdrop = currentDesignBackdrop()
     return if (backdrop != null) {
         designLiquidGlass(
             backdrop = backdrop,
             shape = shape,
             intensity = fraction,
+            surfaceColor = surfaceColor,
+            surfaceAlphaScale = alphaScale,
+            vibrant = vibrant,
+            showHighlight = showHighlight,
         )
     } else {
         clip(shape)
             .background(
-                MiuixTheme.colorScheme.surfaceContainer.copy(
-                    alpha = LiquidGlassDefaults.fallbackSurfaceAlpha * fraction,
+                (surfaceColor ?: MiuixTheme.colorScheme.surfaceContainer).copy(
+                    alpha = LiquidGlassDefaults.fallbackSurfaceAlpha * fraction * alphaScale,
                 ),
             )
     }
@@ -312,12 +322,17 @@ fun Modifier.designLiquidGlass(
     backdrop: Backdrop,
     shape: Shape,
     intensity: Float = 1f,
+    surfaceColor: Color? = null,
+    surfaceAlphaScale: Float = 1f,
+    vibrant: Boolean = false,
+    showHighlight: Boolean = true,
 ): Modifier {
     val fraction = intensity.coerceIn(0f, 1f)
+    val alphaScale = surfaceAlphaScale.coerceIn(0f, 1f)
     if (fraction == 0f) return this
 
     val defaults = LiquidGlassDefaults
-    val surface = MiuixTheme.colorScheme.surfaceContainer
+    val surface = surfaceColor ?: MiuixTheme.colorScheme.surfaceContainer
     val surfaceAlpha = if (MiuixTheme.colorScheme.background.luminance() < 0.5f) {
         defaults.darkSurfaceAlpha
     } else {
@@ -327,27 +342,43 @@ fun Modifier.designLiquidGlass(
         backdrop = backdrop,
         shape = { shape },
         effects = {
-            colorControls(
-                contrast = 1f + (defaults.contrast - 1f) * fraction,
-                saturation = 1f + (defaults.saturation - 1f) * fraction,
-            )
-            blur((defaults.blurRadius * fraction).toPx())
-            lens(
-                refractionHeight = (defaults.refractionHeight * fraction).toPx(),
-                refractionAmount = (defaults.refractionAmount * fraction).toPx(),
-                depthEffect = defaults.depthEffect,
-            )
+            if (vibrant) {
+                vibrancy()
+                blur((8.dp * fraction).toPx())
+                lens(
+                    refractionHeight = (12.dp * fraction).toPx(),
+                    refractionAmount = (24.dp * fraction).toPx(),
+                    depthEffect = true,
+                )
+            } else {
+                colorControls(
+                    contrast = 1f + (defaults.contrast - 1f) * fraction,
+                    saturation = 1f + (defaults.saturation - 1f) * fraction,
+                )
+                blur((defaults.blurRadius * fraction).toPx())
+                lens(
+                    refractionHeight = (defaults.refractionHeight * fraction).toPx(),
+                    refractionAmount = (defaults.refractionAmount * fraction).toPx(),
+                    depthEffect = defaults.depthEffect,
+                )
+            }
         },
         highlight = {
-            Highlight(
-                width = defaults.highlightWidth,
-                blurRadius = defaults.highlightBlurRadius,
-                alpha = defaults.highlightAlpha * fraction,
-            )
+            if (!showHighlight) {
+                null
+            } else if (vibrant) {
+                Highlight.Plain.copy(alpha = fraction)
+            } else {
+                Highlight(
+                    width = defaults.highlightWidth,
+                    blurRadius = defaults.highlightBlurRadius,
+                    alpha = defaults.highlightAlpha * fraction,
+                )
+            }
         },
         shadow = { null },
         onDrawSurface = {
-            drawRect(surface.copy(alpha = surfaceAlpha * fraction))
+            drawRect(surface.copy(alpha = surfaceAlpha * fraction * alphaScale))
         },
     )
 }

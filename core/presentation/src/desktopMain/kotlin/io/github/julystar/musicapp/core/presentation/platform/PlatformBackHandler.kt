@@ -18,7 +18,6 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
         val processor = KeyEventPostProcessor { event ->
             val shouldNavigateBack =
                 currentEnabled &&
-                    !event.isConsumed &&
                     event.id == KeyEvent.KEY_PRESSED &&
                     event.keyCode == KeyEvent.VK_ESCAPE &&
                     event.modifiersEx == 0

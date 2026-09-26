@@ -1,8 +1,5 @@
 package io.github.julystar.musicapp.core.presentation.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -19,45 +16,44 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_DARK_MANUAL_THEME_SEED_ARGB
 import io.github.julystar.musicapp.core.presentation.platform.SystemBarsEffect
+import io.github.julystar.musicapp.core.presentation.platform.isSystemDarkTheme
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemeController
-import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
 @Composable
 fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean? = null,
     themeMode: AppThemeMode = AppThemeMode.System,
     themeSeedState: ThemeSeedState = ThemeSeedState.Default,
     forceDarkSystemBars: Boolean = false,
     manageSystemBars: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    val systemDarkTheme = if (themeMode == AppThemeMode.System && darkTheme == null) {
+        isSystemDarkTheme()
+    } else {
+        false
+    }
     val colorSchemeMode = when (themeMode) {
-        AppThemeMode.System -> ColorSchemeMode.MonetSystem
-        AppThemeMode.Light -> ColorSchemeMode.MonetLight
-        AppThemeMode.Dark -> ColorSchemeMode.MonetDark
+        AppThemeMode.System -> ColorSchemeMode.System
+        AppThemeMode.Light -> ColorSchemeMode.Light
+        AppThemeMode.Dark -> ColorSchemeMode.Dark
     }
     val effectiveDarkTheme = when (themeMode) {
-        AppThemeMode.System -> darkTheme
+        AppThemeMode.System -> darkTheme ?: systemDarkTheme
         AppThemeMode.Light -> false
         AppThemeMode.Dark -> true
     }
-    val targetSeed = Color(themeSeedState.effectiveSeedArgb.toInt())
-    val animatedSeed by animateColorAsState(
-        targetValue = targetSeed,
-        animationSpec = tween(DesignMotion().themeMillis),
-        label = "Theme color transition",
+    val targetSeed = Color(
+        (if (effectiveDarkTheme) themeSeedState.darkManualSeedArgb else themeSeedState.manualSeedArgb).toInt(),
     )
-    val controller = remember(colorSchemeMode, effectiveDarkTheme, animatedSeed) {
+    val controller = remember(colorSchemeMode, effectiveDarkTheme) {
         ThemeController(
             colorSchemeMode = colorSchemeMode,
-            keyColor = animatedSeed,
-            colorSpec = ThemeColorSpec.Spec2025,
-            paletteStyle = ThemePaletteStyle.TonalSpot,
             isDark = effectiveDarkTheme,
         )
     }
@@ -67,12 +63,7 @@ fun AppTheme(
     }
 
     MiuixTheme(controller = controller, textStyles = textStyles) {
-        // Keep the controller provider so Miuix exposes the active mode and dynamic-color state.
-        // The nested custom scheme only applies TidePlayer's intentional primary-color overrides.
-        val colors = MiuixTheme.colorScheme.withResolvedPrimary(
-            themeSeedState = themeSeedState,
-            darkTheme = effectiveDarkTheme,
-        )
+        val colors = MiuixTheme.colorScheme.withManualPrimary(targetSeed, effectiveDarkTheme)
         MiuixTheme(colors = colors, textStyles = MiuixTheme.textStyles) {
             CompositionLocalProvider(
                 LocalDesignIsDarkTheme provides effectiveDarkTheme,
@@ -98,12 +89,9 @@ fun ThemeSeedPreviewTheme(
     darkTheme: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val controller = remember(seedColor, darkTheme) {
+    val controller = remember(darkTheme) {
         ThemeController(
-            colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
-            keyColor = seedColor,
-            colorSpec = ThemeColorSpec.Spec2025,
-            paletteStyle = ThemePaletteStyle.TonalSpot,
+            colorSchemeMode = if (darkTheme) ColorSchemeMode.Dark else ColorSchemeMode.Light,
             isDark = darkTheme,
         )
     }
@@ -120,29 +108,10 @@ fun ThemeSeedPreviewTheme(
 
 val LocalDesignIsDarkTheme = staticCompositionLocalOf { false }
 
-private fun Colors.withResolvedPrimary(
-    themeSeedState: ThemeSeedState,
-    darkTheme: Boolean,
-): Colors {
-    return when (themeSeedState.source) {
-        ThemeSeedSource.Artwork,
-        ThemeSeedSource.PreviousArtwork,
-        -> this
-
-        ThemeSeedSource.Manual -> withManualPrimary(
-            seedColor = Color(themeSeedState.effectiveSeedArgb.toInt()),
-            darkTheme = darkTheme,
-        )
-    }
-}
-
 private fun Colors.withManualPrimary(seedColor: Color, darkTheme: Boolean): Colors {
-    val isDefaultBrand = seedColor.toArgb().toUInt().toLong() == DEFAULT_MANUAL_THEME_SEED_ARGB
-    val primaryColor = if (isDefaultBrand) {
-        if (darkTheme) DesignPalette.BrandButtonDark else DesignPalette.BrandButtonLight
-    } else {
-        seedColor
-    }
+    val defaultSeed = if (darkTheme) DEFAULT_DARK_MANUAL_THEME_SEED_ARGB else DEFAULT_MANUAL_THEME_SEED_ARGB
+    val isDefaultBrand = seedColor.toArgb().toUInt().toLong() == defaultSeed
+    val primaryColor = themePrimaryColor(seedColor.toArgb().toUInt().toLong(), darkTheme)
     val secondaryText = if (darkTheme) {
         DesignPalette.SecondaryTextDark
     } else {
@@ -155,7 +124,7 @@ private fun Colors.withManualPrimary(seedColor: Color, darkTheme: Boolean): Colo
     }
     return copy(
         primary = primaryColor,
-        onPrimary = primaryColor.highContrastContentColor(),
+        onPrimary = if (isDefaultBrand) Color.White else primaryColor.highContrastContentColor(),
         onSurfaceSecondary = if (isDefaultBrand) secondaryText else onSurfaceSecondary,
         onSurfaceVariantSummary = if (isDefaultBrand) secondaryText else onSurfaceVariantSummary,
         onSurfaceVariantActions = if (isDefaultBrand) tertiaryText else onSurfaceVariantActions,

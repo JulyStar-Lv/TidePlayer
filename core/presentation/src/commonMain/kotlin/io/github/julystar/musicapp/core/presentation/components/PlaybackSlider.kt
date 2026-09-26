@@ -62,6 +62,8 @@ fun PlaybackSlider(
     height: Dp = PlaybackSliderDefaults.Height,
     trackHeight: Dp = PlaybackSliderDefaults.TrackHeight,
     thumbSize: Dp = PlaybackSliderDefaults.ThumbSize,
+    thumbWidth: Dp = thumbSize,
+    thumbTravelInset: Dp = 0.dp,
     activeThumbSize: Dp = PlaybackSliderDefaults.ActiveThumbSize,
     trackColorOverride: Color? = null,
     bufferColorOverride: Color? = null,
@@ -201,10 +203,10 @@ fun PlaybackSlider(
         Box(
             modifier = Modifier
                 .offset(
-                    x = (sliderWidthDp * valueFraction) - (currentThumbSize / 2),
+                    x = thumbTravelInset + (sliderWidthDp - thumbTravelInset * 2) * valueFraction - (thumbWidth / 2),
                     y = 0.dp,
                 )
-                .size(currentThumbSize)
+                .size(width = thumbWidth, height = currentThumbSize)
                 .clip(RoundedCornerShape(DesignTokens.shapes.full))
                 .background(thumbColorOverride ?: thumbColor(enabled)),
         )

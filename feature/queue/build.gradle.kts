@@ -25,9 +25,9 @@ kotlin {
             implementation(project(":core:domain"))
             implementation(project(":core:presentation"))
             implementation(project(":service:playback:domain"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.animation)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
+            implementation(libs.animation)
             implementation(libs.miuix.ui)
             implementation(libs.components.resources)
             implementation(libs.koin.core)
@@ -45,7 +45,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.feature.queue"
     compileSdk = 37
     defaultConfig {

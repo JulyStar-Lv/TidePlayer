@@ -68,6 +68,17 @@ class DesktopPlaybackEngineTest {
     }
 
     @Test
+    fun rodioEngineDelegatesAppVolumeWithoutUsingSystemOutputVolume() {
+        val runtime = RecordingDesktopRodioRuntime(loadResult = true)
+        val engine = RodioDesktopPlaybackEngine(runtime)
+
+        engine.setVolume(0.37f)
+
+        assertEquals(0.37f, engine.volume())
+        assertEquals(listOf(0.37f), runtime.volumeChanges)
+    }
+
+    @Test
     fun rodioEngineConsumesNativePlaybackCompletion() {
         val runtime = RecordingDesktopRodioRuntime(loadResult = true)
         val engine = RodioDesktopPlaybackEngine(runtime)
@@ -230,6 +241,8 @@ private class RecordingDesktopRodioRuntime(
     var currentAudioDevice: DesktopAudioOutputDescriptor? = null
     var audioSelectionResult = DesktopAudioOutputSelectionResult.Unsupported
     val selectedAudioDeviceIds = mutableListOf<String?>()
+    var currentVolume = 1f
+    val volumeChanges = mutableListOf<Float>()
 
     override fun load(uri: String, headers: Map<String, String>): Boolean {
         loadedUris += uri
@@ -246,6 +259,13 @@ private class RecordingDesktopRodioRuntime(
     override fun pause() {
         assertTrue(loaded)
         pauseCalls += 1
+    }
+
+    override fun volume(): Float = currentVolume
+
+    override fun setVolume(value: Float) {
+        currentVolume = value
+        volumeChanges += value
     }
 
     override fun stop() {

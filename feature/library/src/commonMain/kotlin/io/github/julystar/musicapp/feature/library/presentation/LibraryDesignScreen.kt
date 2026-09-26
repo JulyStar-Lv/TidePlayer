@@ -77,6 +77,7 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import io.github.julystar.musicapp.core.presentation.transition.playlistArtworkSharedElement
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.DrawableResource
@@ -112,9 +113,12 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+enum class LibraryDesktopSection { Songs, Albums, Artists }
+
 @Composable
 fun LibraryDesignScreen(
     state: LibraryState,
+    desktopSection: LibraryDesktopSection = LibraryDesktopSection.Songs,
     currentPlayingTrackId: Long? = null,
     onNavigateToLibraryFolderImport: () -> Unit = {},
     onNavigateToAlbum: (Long) -> Unit = {},
@@ -124,6 +128,16 @@ fun LibraryDesignScreen(
     onNavigateToPlaylists: () -> Unit = {},
     onAction: (LibraryAction) -> Unit,
 ) {
+    if (isDesktopPlatform()) {
+        AppleMusicLibraryDesktopScreen(
+            state = state,
+            section = desktopSection,
+            currentPlayingTrackId = currentPlayingTrackId,
+            onNavigateToAlbum = onNavigateToAlbum,
+            onAction = onAction,
+        )
+        return
+    }
     var selectedCategory by remember { mutableStateOf(LibraryDesignCategory.Playlists) }
     var songQuery by remember { mutableStateOf("") }
     var artistQuery by remember { mutableStateOf("") }
@@ -814,7 +828,7 @@ private fun CategorySectionHeader(
             )
             Text(
                 text = localizedLibraryText(metadata),
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 style = MiuixTheme.textStyles.footnote1,
             )
         }
@@ -960,7 +974,7 @@ private fun LibrarySongRow(
                     color = if (playing) {
                         MiuixTheme.colorScheme.primary
                     } else {
-                        MiuixTheme.colorScheme.onBackground
+                        MiuixTheme.colorScheme.onSurface
                     },
                     style = MiuixTheme.textStyles.body1.copy(
                         fontSize = 14.sp,
@@ -972,7 +986,7 @@ private fun LibrarySongRow(
                 )
                 Text(
                     text = track.artist ?: localizedLibraryText("Unknown Artist"),
-                    color = MiuixTheme.colorScheme.onBackgroundVariant,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     style = MiuixTheme.textStyles.footnote1.copy(
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
@@ -1120,7 +1134,7 @@ private fun AlbumCard(
         if (metadata.isNotBlank()) {
             Text(
                 text = metadata,
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1141,7 +1155,7 @@ private fun LibraryArtistSectionHeader(letter: String) {
     ) {
         Text(
             text = letter,
-            color = MiuixTheme.colorScheme.primary,
+
             style = MiuixTheme.textStyles.footnote2,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -1195,7 +1209,7 @@ private fun LibraryArtistRow(
             )
             Text(
                 text = localizedLibraryText("${artist.trackCount} tracks"),
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
             )
@@ -1414,7 +1428,7 @@ private fun PlaylistListView(
                         )
                         Text(
                             text = localizedLibraryText(playlist.description),
-                            color = MiuixTheme.colorScheme.onBackgroundVariant,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             style = MiuixTheme.textStyles.footnote1.copy(
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp,

@@ -3,7 +3,10 @@ package io.github.julystar.musicapp.core.presentation.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import androidx.compose.ui.graphics.luminance
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_DARK_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -15,10 +18,16 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 object DesignPalette {
     val BrandPink = Color(0xFFFF5B8A)
-    val FavoriteRed = Color(0xFFFA233B)
-    val DefaultManualThemeSeed = BrandPink
-    val BrandButtonLight = Color(0xFFFA233B)
-    val BrandButtonDark = Color(0xFFFA2E48)
+    val FavoriteRed = Color(0xFFFA243C)
+    val DefaultManualThemeSeed = Color(0xFFFA243C)
+    val BrandButtonLight = Color(
+        red = 250f / 255f,
+        green = 36f / 255f,
+        blue = 60f / 255f,
+        alpha = 1f,
+        colorSpace = ColorSpaces.DisplayP3,
+    )
+    val BrandButtonDark = BrandButtonLight
     val SecondaryButtonLight = Color(0xFFECECEC)
     val SecondaryButtonDark = Color(0xFF404141)
     val OnSecondaryButtonLight = Color(0xFF242424)
@@ -36,6 +45,12 @@ object DesignPalette {
     val SupportEmerald = Color(0xFF2EAD72)
     val SupportCyan = Color(0xFF29C5C8)
     val SupportTeal = Color(0xFF117B8A)
+}
+
+fun themePrimaryColor(seedArgb: Long, darkTheme: Boolean): Color = when {
+    darkTheme && seedArgb == DEFAULT_DARK_MANUAL_THEME_SEED_ARGB -> DesignPalette.BrandButtonDark
+    !darkTheme && seedArgb == DEFAULT_MANUAL_THEME_SEED_ARGB -> DesignPalette.BrandButtonLight
+    else -> Color(seedArgb.toInt())
 }
 
 @Immutable

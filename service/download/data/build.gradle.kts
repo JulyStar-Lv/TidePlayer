@@ -30,7 +30,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.service.download.data"
     compileSdk = 36
     defaultConfig {

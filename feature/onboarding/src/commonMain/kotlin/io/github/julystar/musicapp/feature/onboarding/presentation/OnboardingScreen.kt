@@ -111,7 +111,7 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(28.dp))
             Text(
                 text = appName,
-                color = MiuixTheme.colorScheme.primary,
+
                 style = MiuixTheme.textStyles.title1,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,

@@ -26,10 +26,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:domain"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.components.resources)
-            implementation(compose.animation)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
+            implementation(libs.components.resources)
+            implementation(libs.animation)
             implementation(libs.miuix.ui)
             implementation(libs.miuix.preference)
             implementation(libs.koin.core)
@@ -45,9 +45,14 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
-            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
-            implementation(compose.uiTest)
+            implementation(libs.compose.ui.test)
             implementation(libs.kotlinx.coroutines.test)
+        }
+        val desktopMain by getting {
+            dependencies {
+                implementation("net.java.dev.jna:jna:5.19.1")
+                implementation("net.java.dev.jna:jna-platform:5.19.1")
+            }
         }
         val desktopTest by getting {
             dependencies {
@@ -57,7 +62,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.core.presentation"
     compileSdk = 37
     defaultConfig {

@@ -132,10 +132,10 @@ private fun ThemeVisualRegressionBoard(name: String) {
                     onClick = {},
                     colors = ButtonDefaults.buttonColorsPrimary(),
                 ) {
-                    Text("Play")
+                    ("Play")
                 }
                 Button(onClick = {}) {
-                    Text("Later")
+                    ("Later")
                 }
             }
         }

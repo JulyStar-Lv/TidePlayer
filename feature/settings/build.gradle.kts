@@ -27,11 +27,11 @@ kotlin {
             implementation(project(":source:api"))
             implementation(project(":service:librarysync:domain"))
             implementation(project(":service:playback:domain"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
             implementation(libs.miuix.ui)
             implementation(libs.miuix.preference)
-            implementation(compose.components.resources)
+            implementation(libs.components.resources)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
@@ -49,7 +49,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.feature.settings"
     compileSdk = 37
     defaultConfig {

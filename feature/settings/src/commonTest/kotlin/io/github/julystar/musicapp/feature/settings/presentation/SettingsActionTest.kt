@@ -18,15 +18,15 @@ class SettingsActionTest {
     }
 
     @Test
-    fun `theme color actions carry artwork manual and palette values`() {
-        val artwork = SettingsAction.SetArtworkThemeEnabled(false)
+    fun `theme color actions carry manual and palette values`() {
         val manual = SettingsAction.SetManualThemeSeedArgb(0xFFFF5B8AL)
+        val dark = SettingsAction.SetDarkManualThemeSeedArgb(0xFF7A6CFFL)
         val palette = SettingsAction.SetCustomThemeSeedArgbValues(
             listOf(0xFFFF5B8AL, 0xFF3D9AFFL),
         )
 
-        assertEquals(false, artwork.enabled)
         assertEquals(0xFFFF5B8AL, manual.argb)
+        assertEquals(0xFF7A6CFFL, dark.argb)
         assertEquals(listOf(0xFFFF5B8AL, 0xFF3D9AFFL), palette.argbValues)
     }
 

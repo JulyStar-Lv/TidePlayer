@@ -75,6 +75,7 @@ data class CurrentTrackInfo(
     val sourcePath: String,
     val coverArtwork: Artwork?,
     val artist: String? = null,
+    val album: String? = null,
     val mediaId: MediaId? = null,
     val annotation: String? = null,
     val playbackAudioInfo: PlaybackAudioInfo? = null,

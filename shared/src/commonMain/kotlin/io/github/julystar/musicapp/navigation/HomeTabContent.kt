@@ -28,6 +28,7 @@ import io.github.julystar.musicapp.core.presentation.navigation.MusicGraph
 import io.github.julystar.musicapp.core.presentation.transition.LocalDetailArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.feature.home.presentation.HomeRoot
 import io.github.julystar.musicapp.feature.library.presentation.navigation.LibraryTabGraph
+import io.github.julystar.musicapp.feature.library.presentation.LibraryDesktopSection
 import io.github.julystar.musicapp.feature.search.presentation.navigation.SearchTabGraph
 import io.github.julystar.musicapp.feature.settings.presentation.navigation.SettingsTabGraph
 import io.github.julystar.musicapp.platform.getAppBuildInfo
@@ -41,6 +42,7 @@ import io.github.julystar.musicapp.service.playback.presentation.shell.rememberO
 @Composable
 internal fun HomeTabContent(
     currentTab: HomeTab,
+    desktopLibrarySection: LibraryDesktopSection,
     libraryNavController: NavHostController,
     searchNavController: NavHostController,
     settingsNavController: NavHostController,
@@ -102,6 +104,7 @@ internal fun HomeTabContent(
                 )
                 HomeTab.LIBRARY -> LibraryTabGraph(
                     navController = libraryNavController,
+                    desktopSection = desktopLibrarySection,
                     onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
                     onNavigateToAlbum = onNavigateToAlbum,
                     onNavigateToArtist = onNavigateToArtist,

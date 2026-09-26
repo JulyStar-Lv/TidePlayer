@@ -67,6 +67,7 @@ internal val LibraryState.hasIndexedTracks: Boolean
 sealed interface LibraryAction {
     data object Refresh : LibraryAction
     data class PlayTrack(val trackId: Long) : LibraryAction
+    data class PlayTracks(val trackIds: List<Long>) : LibraryAction
     data class DownloadTrack(val track: LibraryTrackItem) : LibraryAction
 
     // Category navigation

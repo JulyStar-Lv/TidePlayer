@@ -236,7 +236,7 @@ fun ManualMetadataSearchDialog(
                     text = stringResource(Res.string.manual_metadata_current_track),
                     style = MiuixTheme.textStyles.footnote2,
                     fontWeight = FontWeight.SemiBold,
-                    color = MiuixTheme.colorScheme.primary,
+
                 )
                 Text(
                     text = activeTrack.title,
@@ -604,7 +604,7 @@ private fun MetadataCandidateRow(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.primary,
+
                         )
                     }
                     if (source != null && details.isNotEmpty()) {

@@ -27,6 +27,10 @@ interface DesktopPlaybackEngine : PlaybackEngine {
 
     fun audioReactiveSnapshot(): AudioReactiveSnapshot = AudioReactiveSnapshot()
 
+    fun volume(): Float = 1f
+
+    fun setVolume(value: Float) = Unit
+
     fun configureAudioProcessing(
         effects: AudioEffectSettings,
         playback: PlaybackAdvancedSettings,
@@ -122,6 +126,12 @@ class RodioDesktopPlaybackEngine internal constructor(
         runtime.pause()
     }
 
+    override fun volume(): Float = runtime.volume()
+
+    override fun setVolume(value: Float) {
+        runtime.setVolume(value.coerceIn(0f, 1f))
+    }
+
     override fun stop() {
         runtime.stop()
     }
@@ -159,6 +169,8 @@ internal interface DesktopRodioRuntime {
     fun load(uri: String, headers: Map<String, String>): Boolean
     fun play()
     fun pause()
+    fun volume(): Float = 1f
+    fun setVolume(value: Float) = Unit
     fun stop()
     fun seek(ms: ULong)
     fun currentPositionMs(): Long
@@ -194,6 +206,12 @@ private class UniffiDesktopRodioRuntime(
 
     override fun pause() {
         player.pause()
+    }
+
+    override fun volume(): Float = player.volume()
+
+    override fun setVolume(value: Float) {
+        player.setVolume(value.coerceIn(0f, 1f))
     }
 
     override fun stop() {

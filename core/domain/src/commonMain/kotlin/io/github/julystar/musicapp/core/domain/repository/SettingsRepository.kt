@@ -32,6 +32,7 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: AppThemeMode)
     suspend fun setArtworkThemeEnabled(enabled: Boolean)
     suspend fun setManualThemeSeedArgb(argb: Long)
+    suspend fun setDarkManualThemeSeedArgb(argb: Long)
     suspend fun setCustomThemeSeedArgbValues(argbValues: List<Long>)
     suspend fun setLanguageMode(mode: AppLanguageMode)
     suspend fun setAudioFocusMode(mode: AudioFocusMode)

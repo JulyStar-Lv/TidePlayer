@@ -5,6 +5,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode as AnimationRepeatMode
@@ -13,12 +14,18 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.MarqueeSpacing
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -33,6 +40,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.paddingFromBaseline
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -59,8 +68,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -69,11 +80,20 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -94,10 +114,13 @@ import io.github.julystar.musicapp.core.domain.model.LyricTextAlignment
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
 import io.github.julystar.musicapp.core.domain.model.PlayerInteractionSettings
 import io.github.julystar.musicapp.core.lyrics.ui.LyricsView
+import io.github.julystar.musicapp.core.lyrics.ui.reference.LyricsMotionSpec
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlButton
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlSize
 import io.github.julystar.musicapp.core.presentation.components.PlaybackControlVariant
 import io.github.julystar.musicapp.core.presentation.components.PlaybackSlider
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
+import io.github.julystar.musicapp.core.presentation.components.liquidGlassSurface
 import io.github.julystar.musicapp.core.presentation.components.dropShadow
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.PlayerBackgroundArtworkImage
@@ -108,6 +131,8 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.utils.toMusicDurationMs
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
+import io.github.julystar.musicapp.service.playback.presentation.miniplayer.DesktopAudioBadge
+import io.github.julystar.musicapp.service.playback.presentation.miniplayer.desktopAudioBadge
 import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkSharedElement
 import io.github.julystar.musicapp.service.playback.presentation.transition.playerArtworkTransitionShape
 import kotlinx.coroutines.Job
@@ -130,11 +155,48 @@ import musicapp.core.presentation.generated.resources.icon_search
 import musicapp.core.presentation.generated.resources.icon_settings_sliders
 import musicapp.service.playback.presentation.generated.resources.Res
 import musicapp.service.playback.presentation.generated.resources.downloads_title
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_dolby
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_favorite
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_favorite_outline
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lossless
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lyrics
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_more
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_next
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_pause
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_play
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_previous
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_queue
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat_one
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_shuffle
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_high
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_low
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_medium
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_mute
 import musicapp.service.playback.presentation.generated.resources.icon_back
+import musicapp.service.playback.presentation.generated.resources.icon_now_playing_translation
+import musicapp.service.playback.presentation.generated.resources.icon_now_playing_lyrics
+import musicapp.service.playback.presentation.generated.resources.icon_now_playing_close
+import musicapp.service.playback.presentation.generated.resources.icon_now_playing_mini
+import musicapp.service.playback.presentation.generated.resources.icon_desktop_queue
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact_filled
 import musicapp.service.playback.presentation.generated.resources.icon_lyrics
 import musicapp.service.playback.presentation.generated.resources.icon_more_compact
+import musicapp.service.playback.presentation.generated.resources.icon_melox_autoplay
+import musicapp.service.playback.presentation.generated.resources.icon_melox_favorite
+import musicapp.service.playback.presentation.generated.resources.icon_melox_favorite_filled
+import musicapp.service.playback.presentation.generated.resources.icon_melox_next
+import musicapp.service.playback.presentation.generated.resources.icon_melox_pause
+import musicapp.service.playback.presentation.generated.resources.icon_melox_play
+import musicapp.service.playback.presentation.generated.resources.icon_melox_previous
+import musicapp.service.playback.presentation.generated.resources.icon_melox_repeat
+import musicapp.service.playback.presentation.generated.resources.icon_melox_repeat_one
+import musicapp.service.playback.presentation.generated.resources.icon_melox_shuffle
+import musicapp.service.playback.presentation.generated.resources.icon_melox_volume_high
+import musicapp.service.playback.presentation.generated.resources.icon_melox_volume_low
+import musicapp.service.playback.presentation.generated.resources.icon_melox_volume_medium
+import musicapp.service.playback.presentation.generated.resources.icon_melox_volume_mute
 import musicapp.service.playback.presentation.generated.resources.icon_transport_next
 import musicapp.service.playback.presentation.generated.resources.icon_transport_pause
 import musicapp.service.playback.presentation.generated.resources.icon_transport_play
@@ -153,9 +215,16 @@ import musicapp.service.playback.presentation.generated.resources.music_player_c
 import musicapp.service.playback.presentation.generated.resources.music_player_search_metadata
 import musicapp.service.playback.presentation.generated.resources.now_playing_title
 import musicapp.service.playback.presentation.generated.resources.player_add_favorite
+import musicapp.service.playback.presentation.generated.resources.player_exit_now_playing
+import musicapp.service.playback.presentation.generated.resources.player_dolby_audio
 import musicapp.service.playback.presentation.generated.resources.player_loading_lyrics
+import musicapp.service.playback.presentation.generated.resources.player_lossless_audio
+import musicapp.service.playback.presentation.generated.resources.player_lyrics
+import musicapp.service.playback.presentation.generated.resources.player_translation
 import musicapp.service.playback.presentation.generated.resources.player_lyrics_unavailable
 import musicapp.service.playback.presentation.generated.resources.player_more_options
+import musicapp.service.playback.presentation.generated.resources.player_mute
+import musicapp.service.playback.presentation.generated.resources.player_open_mini_player
 import musicapp.service.playback.presentation.generated.resources.player_playback_source
 import musicapp.service.playback.presentation.generated.resources.player_playback_source_cancel
 import musicapp.service.playback.presentation.generated.resources.player_playback_source_current
@@ -166,11 +235,17 @@ import musicapp.service.playback.presentation.generated.resources.player_pause
 import musicapp.service.playback.presentation.generated.resources.player_play
 import musicapp.service.playback.presentation.generated.resources.player_previous_track
 import musicapp.service.playback.presentation.generated.resources.player_queue
+import musicapp.service.playback.presentation.generated.resources.player_queue_automix
+import musicapp.service.playback.presentation.generated.resources.player_queue_autoplay
+import musicapp.service.playback.presentation.generated.resources.player_queue_clear
+import musicapp.service.playback.presentation.generated.resources.player_queue_continue
+import musicapp.service.playback.presentation.generated.resources.player_queue_history
 import musicapp.service.playback.presentation.generated.resources.player_remove_favorite
 import musicapp.service.playback.presentation.generated.resources.player_list_repeat
 import musicapp.service.playback.presentation.generated.resources.player_shuffle
 import musicapp.service.playback.presentation.generated.resources.player_single_repeat
 import musicapp.service.playback.presentation.generated.resources.player_unknown_artist
+import musicapp.service.playback.presentation.generated.resources.player_unmute
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
@@ -183,11 +258,28 @@ import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val DesktopPlayerBreakpoint = 860.dp
+private val MeloXDesktopChromeHeight = 48.dp
+private val MeloXDesktopLyricsTopPadding = 40.dp
+private val MeloXDesktopPanelTrailingInset = 32.dp
+private val MeloXDesktopPlayerBaseWidth = 320.dp
+private val MeloXDesktopPlayerExpandedWidth = 422.dp
+private val MeloXDesktopArtworkBaseSize = 214.dp
+private val MeloXDesktopArtworkExpandedSize = 308.dp
+private val MeloXDesktopArtworkPausedScale = 0.74f
+private val MeloXDesktopPlayerBaseArtworkTopInset = 56.dp
+private val MeloXDesktopPlayerExpandedArtworkTopInset = 116.dp
+private val AppleMusicDesktopLyricsMotion = LyricsMotionSpec()
 private val NowPlayingDismissDistanceThreshold = 240.dp
 private val NowPlayingDismissVelocityThreshold = 1_250.dp
 private const val NowPlayingDismissSettleDurationMillis = 260
 private const val LandscapeControlsAutoHideDelayMs = 5_000L
 private val ZeroAudioReactiveSnapshot = MutableStateFlow(AudioReactiveSnapshot())
+
+private enum class MeloXDesktopNowPlayingPage {
+    Artwork,
+    Lyrics,
+    Queue,
+}
 
 internal fun doesPlayerCoverStatusBar(
     playerTopInWindowPx: Float,
@@ -225,25 +317,30 @@ private fun NowPlayingMoreButton(
     nowPlayingState: NowPlayingState,
     onAction: (NowPlayingAction) -> Unit,
     compact: Boolean = false,
+    compactButtonSize: Dp = 44.dp,
+    compactIconSize: Dp = 24.dp,
+    compactBackgroundAlpha: Float = 0f,
+    modifier: Modifier = Modifier,
 ) {
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var sourceDialogOpen by remember { mutableStateOf(false) }
     val menuContentColor = MiuixTheme.colorScheme.onSurfaceContainer
 
-    Box {
+    Box(modifier = modifier) {
         if (compact) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(compactButtonSize)
                     .clip(CircleShape)
+                    .appleMusicDesktopControlBackground(compactBackgroundAlpha)
                     .clickable { moreMenuExpanded = true },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(Res.drawable.icon_more_compact),
+                    painter = painterResource(Res.drawable.icon_apple_music_more),
                     contentDescription = stringResource(Res.string.player_more_options),
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(compactIconSize),
                 )
             }
         } else {
@@ -433,7 +530,7 @@ private fun PlaybackSourceDialog(
                     Text(
                         text = stringResource(Res.string.player_playback_source_current),
                         style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.primary,
+
                     )
                 }
             }
@@ -799,6 +896,16 @@ private fun CompactTransportButton(
     iconOffsetX: Dp = 0.dp,
     showShadow: Boolean = true,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.86f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh,
+        ),
+        label = "appleMusicTransportPressScale",
+    )
     Box(
         modifier = modifier.fillMaxHeight(),
         contentAlignment = Alignment.Center,
@@ -822,7 +929,16 @@ private fun CompactTransportButton(
                 )
                 .clip(CircleShape)
                 .background(background, CircleShape)
-                .clickable(enabled = enabled, onClick = onClick),
+                .graphicsLayer {
+                    scaleX = pressScale
+                    scaleY = pressScale
+                }
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -844,71 +960,988 @@ private fun DesktopNowPlayingLayout(
     playerInteractionSettings: PlayerInteractionSettings,
     currentPositionMs: Long,
     isSeeking: Boolean,
-    progressContent: @Composable (Long?) -> Unit,
+    desktopVolume: Float,
+    onDesktopVolumeChange: (Float) -> Unit,
     liked: Boolean,
     onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val track = state.currentTrack
+    var page by remember { mutableStateOf(MeloXDesktopNowPlayingPage.Lyrics) }
+    var translationVisible by remember { mutableStateOf(lyricDisplaySettings.showTranslation) }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(start = 34.dp, end = 28.dp, bottom = 26.dp),
-        horizontalArrangement = Arrangement.spacedBy(34.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(0.46f)
-                .fillMaxHeight()
-                .widthIn(max = 520.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            CoverImage(
-                artwork = track?.artwork,
-                swipeEnabled = playerInteractionSettings.coverSwipeEnabled,
-                onSwipePrevious = {
-                    if (state.queue.canPlayPrevious) onAction(NowPlayingAction.PlayPrevious)
-                },
-                onSwipeNext = {
-                    if (state.queue.canPlayNext) onAction(NowPlayingAction.PlayNext)
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(vertical = 10.dp),
-            )
-            TrackRow(
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val heightProgress = ((maxHeight.value - 600f) / 168f).coerceIn(0f, 1f)
+        val heightCompression = (600f - maxHeight.value).coerceIn(0f, 50f)
+        val elementScale = minOf(
+            (maxHeight.value / 768f).coerceAtLeast(1f),
+            (maxWidth.value / 1200f).coerceAtLeast(1f),
+        )
+        val playerWidth = (MeloXDesktopPlayerBaseWidth.value +
+            (MeloXDesktopPlayerExpandedWidth.value - MeloXDesktopPlayerBaseWidth.value) * heightProgress).dp * elementScale
+        val artworkSize = (MeloXDesktopArtworkBaseSize.value +
+            (MeloXDesktopArtworkExpandedSize.value - MeloXDesktopArtworkBaseSize.value) * heightProgress).dp * elementScale
+        val artworkTopInset = (MeloXDesktopPlayerBaseArtworkTopInset.value - heightCompression +
+            (MeloXDesktopPlayerExpandedArtworkTopInset.value - MeloXDesktopPlayerBaseArtworkTopInset.value) * heightProgress).dp * elementScale
+        val metadataTopInset = (68f + 10f * heightProgress).dp * elementScale
+        val panelLeading = maxWidth / 2f
+        val panelWidth = (maxWidth - panelLeading - MeloXDesktopPanelTrailingInset).coerceAtLeast(1.dp)
+        val lyricsPanelWidth = minOf(panelWidth, 400.dp * elementScale)
+        val lyricsPanelHeight = (maxHeight - MeloXDesktopChromeHeight - MeloXDesktopLyricsTopPadding).coerceAtLeast(1.dp)
+        val playerX = if (page == MeloXDesktopNowPlayingPage.Artwork) {
+            ((maxWidth - playerWidth) / 2f).coerceAtLeast(0.dp)
+        } else {
+            ((panelLeading - playerWidth) / 2f).coerceAtLeast(0.dp)
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            MeloXDesktopPlayerColumn(
                 state = state,
                 lyricDisplaySettings = lyricDisplaySettings,
-                showAudioTechnicalInfo = playerInteractionSettings.showAudioTechnicalInfo,
+                playerInteractionSettings = playerInteractionSettings,
+                currentPositionMs = currentPositionMs,
                 liked = liked,
                 onLikedChange = onLikedChange,
                 onAction = onAction,
-                modifier = Modifier.padding(top = 10.dp),
-                compact = false,
+                artworkSize = artworkSize,
+                artworkTopInset = artworkTopInset,
+                metadataTopInset = metadataTopInset,
+                elementScale = elementScale,
+                modifier = Modifier
+                    .offset(x = playerX, y = MeloXDesktopChromeHeight)
+                    .width(playerWidth)
+                    .fillMaxHeight(),
             )
-            Spacer(modifier = Modifier.height(14.dp))
-            progressContent(track?.durationMs)
-            Spacer(modifier = Modifier.height(20.dp))
-            CompactTransportPanel(
-                nowPlayingState = state,
-                onAction = onAction,
-                dense = false,
+
+            if (page == MeloXDesktopNowPlayingPage.Lyrics) {
+                LyricsSurface(
+                    track = track,
+                    lyricDisplaySettings = lyricDisplaySettings,
+                    currentPositionMs = currentPositionMs,
+                    isPlaying = state.controls.isPlaying && !isSeeking,
+                    showTranslation = translationVisible,
+                    // Apple Music keeps the active lyric near the upper part of the lyrics
+                    // viewport. The translation follows below it instead of moving the
+                    // primary line to the visual center of the whole bilingual row.
+                    focusLineCenterY = 85.dp * elementScale,
+                    onAction = onAction,
+                    modifier = Modifier
+                        .offset(x = panelLeading, y = MeloXDesktopChromeHeight + MeloXDesktopLyricsTopPadding)
+                        .width(lyricsPanelWidth)
+                        .height(lyricsPanelHeight),
+                )
+            }
+
+            if (page == MeloXDesktopNowPlayingPage.Queue) {
+                MeloXDesktopQueuePanel(
+                    queue = state.queue,
+                    isPlaying = state.controls.isPlaying,
+                    onAction = onAction,
+                    modifier = Modifier
+                        .offset(x = panelLeading, y = MeloXDesktopChromeHeight)
+                        .width(panelWidth)
+                        .fillMaxHeight(),
+                )
+            }
+
+            MeloXDesktopPageSwitcher(
+                page = page,
+                translationVisible = translationVisible,
+                hasTranslation = track?.lyrics?.lines?.toSyncedLyrics(
+                    trackTitle = track.title,
+                    trackDurationMs = track.durationMs,
+                    settings = lyricDisplaySettings,
+                )?.hasTranslation() == true,
+                onTranslationClick = { translationVisible = !translationVisible },
+                onLyricsClick = {
+                    page = if (page == MeloXDesktopNowPlayingPage.Lyrics) {
+                        MeloXDesktopNowPlayingPage.Artwork
+                    } else {
+                        MeloXDesktopNowPlayingPage.Lyrics
+                    }
+                },
+                onQueueClick = {
+                    page = if (page == MeloXDesktopNowPlayingPage.Queue) {
+                        MeloXDesktopNowPlayingPage.Artwork
+                    } else {
+                        MeloXDesktopNowPlayingPage.Queue
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 9.dp, bottom = 11.dp),
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            MeloXDesktopTitlebar(
+                volume = desktopVolume,
+                onVolumeChange = onDesktopVolumeChange,
+                onExit = { onAction(NowPlayingAction.NavigateBack) },
+                onOpenMiniPlayer = { onAction(NowPlayingAction.NavigateBack) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MeloXDesktopTitlebar(
+    volume: Float,
+    onVolumeChange: (Float) -> Unit,
+    onExit: () -> Unit,
+    onOpenMiniPlayer: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var volumeBeforeMute by remember { mutableFloatStateOf(volume.coerceAtLeast(0.2f)) }
+    val volumeIcon = when {
+        volume <= 0.001f -> Res.drawable.icon_apple_music_volume_mute
+        volume < 0.35f -> Res.drawable.icon_apple_music_volume_low
+        volume < 0.7f -> Res.drawable.icon_apple_music_volume_medium
+        else -> Res.drawable.icon_apple_music_volume_high
+    }
+
+    Box(modifier = modifier.height(44.dp)) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = 101.dp, y = 8.dp)
+                .size(width = 75.dp, height = 36.dp)
+                .appleMusicDesktopCapsule(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(modifier = Modifier.width(7.dp))
+            MeloXDesktopTitlebarButton(
+                painter = Res.drawable.icon_now_playing_close,
+                contentDescription = stringResource(Res.string.player_exit_now_playing),
+                iconSize = 18.dp,
+                onClick = onExit,
+            )
+            Spacer(modifier = Modifier.width(9.dp))
+            MeloXDesktopTitlebarButton(
+                painter = Res.drawable.icon_now_playing_mini,
+                contentDescription = stringResource(Res.string.player_open_mini_player),
+                iconSize = 26.dp,
+                onClick = onOpenMiniPlayer,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 8.dp, top = 8.dp)
+                .size(width = 180.dp, height = 36.dp)
+                .appleMusicDesktopCapsule()
+                .padding(start = 15.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlaybackSlider(
+                value = volume.coerceIn(0f, 1f),
+                onValueChange = { value ->
+                    if (value > 0.001f) volumeBeforeMute = value
+                    onVolumeChange(value)
+                },
+                modifier = Modifier.width(114.dp),
+                height = 22.dp,
+                trackHeight = 6.dp,
+                thumbSize = 13.dp,
+                thumbWidth = 24.dp,
+                thumbTravelInset = 12.dp,
+                activeThumbSize = 13.dp,
+                trackColorOverride = Color.White.copy(alpha = 0.28f),
+                activeTrackColorOverride = Color.White,
+                thumbColorOverride = Color.White,
+            )
+            Spacer(modifier = Modifier.width(9.dp))
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        if (volume <= 0.001f) {
+                            onVolumeChange(volumeBeforeMute.coerceAtLeast(0.2f))
+                        } else {
+                            volumeBeforeMute = volume
+                            onVolumeChange(0f)
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(volumeIcon),
+                    contentDescription = stringResource(
+                        if (volume <= 0.001f) Res.string.player_unmute else Res.string.player_mute,
+                    ),
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Modifier.appleMusicDesktopCapsule(): Modifier {
+    val focused = LocalWindowInfo.current.isWindowFocused
+    val surfaceAlpha by animateFloatAsState(
+        targetValue = if (focused) 0.10f else 0.035f,
+        animationSpec = tween(180),
+        label = "now-playing-capsule-focus",
+    )
+    val rimAlpha by animateFloatAsState(
+        targetValue = if (focused) 0.16f else 0f,
+        animationSpec = tween(180),
+        label = "now-playing-capsule-rim",
+    )
+    val shape = RoundedCornerShape(18.dp)
+    // All three capsules share the local backdrop tint and the focused window's thin rim.
+    return clip(shape)
+        .background(Color.White.copy(alpha = surfaceAlpha))
+        .border(
+            width = 0.75.dp,
+            brush = Brush.verticalGradient(
+                0f to Color.White.copy(alpha = rimAlpha),
+                0.5f to Color.White.copy(alpha = rimAlpha * 0.35f),
+                1f to Color.White.copy(alpha = rimAlpha),
+            ),
+            shape = shape,
+        )
+}
+
+@Composable
+private fun MeloXDesktopTitlebarButton(
+    painter: DrawableResource,
+    contentDescription: String,
+    iconSize: Dp,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(painter),
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.requiredSize(iconSize),
+        )
+    }
+}
+
+@Composable
+private fun MeloXDesktopPlayerColumn(
+    state: NowPlayingState,
+    lyricDisplaySettings: LyricDisplaySettings,
+    playerInteractionSettings: PlayerInteractionSettings,
+    currentPositionMs: Long,
+    liked: Boolean,
+    onLikedChange: (Boolean) -> Unit,
+    onAction: (NowPlayingAction) -> Unit,
+    artworkSize: Dp,
+    artworkTopInset: Dp,
+    metadataTopInset: Dp,
+    elementScale: Float,
+    modifier: Modifier = Modifier,
+) {
+    val track = state.currentTrack
+    val artworkScale by animateFloatAsState(
+        targetValue = if (state.controls.isPlaying) 1f / MeloXDesktopArtworkPausedScale else 1f,
+        animationSpec = tween(durationMillis = 480),
+        label = "melox-desktop-now-playing-artwork-scale",
+    )
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CoverImage(
+            artwork = track?.artwork,
+            maxArtworkSize = artworkSize,
+            cornerRadius = 11.dp,
+            shadowOffsetY = if (state.controls.isPlaying) 15.dp else 8.dp,
+            shadowBlurRadius = if (state.controls.isPlaying) 26.dp else 14.dp,
+            swipeEnabled = playerInteractionSettings.coverSwipeEnabled,
+            onSwipePrevious = {
+                if (state.queue.canPlayPrevious) onAction(NowPlayingAction.PlayPrevious)
+            },
+            onSwipeNext = {
+                if (state.queue.canPlayNext) onAction(NowPlayingAction.PlayNext)
+            },
+            modifier = Modifier
+                .padding(top = artworkTopInset)
+                .size(artworkSize)
+                .graphicsLayer {
+                    scaleX = artworkScale
+                    scaleY = artworkScale
+                },
+        )
+        MeloXDesktopMetadataRow(
+            state = state,
+            lyricDisplaySettings = lyricDisplaySettings,
+            elementScale = elementScale,
+            liked = liked,
+            onLikedChange = onLikedChange,
+            onAction = onAction,
+            modifier = Modifier.padding(top = metadataTopInset),
+        )
+        MeloXDesktopProgress(
+            track = track,
+            currentPositionMs = currentPositionMs,
+            durationMs = track?.durationMs ?: 0L,
+            elementScale = elementScale,
+            onAction = onAction,
+            modifier = Modifier.padding(top = 30.dp * elementScale),
+        )
+        MeloXDesktopTransportControls(
+            state = state,
+            elementScale = elementScale,
+            onAction = onAction,
+            modifier = Modifier.padding(top = 5.dp * elementScale),
+        )
+    }
+}
+
+@Composable
+internal fun MeloXDesktopMetadataRow(
+    state: NowPlayingState,
+    lyricDisplaySettings: LyricDisplaySettings,
+    elementScale: Float,
+    liked: Boolean,
+    onLikedChange: (Boolean) -> Unit,
+    onAction: (NowPlayingAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val track = state.currentTrack
+    val artistText = track?.artist?.takeIf(String::isNotBlank)
+        ?: stringResource(Res.string.player_unknown_artist)
+    val subtitle = listOfNotNull(artistText, track?.album?.takeIf(String::isNotBlank))
+        .joinToString(separator = " — ")
+        .replace('\'', '’')
+    val displayTitle = track?.title.orEmpty().replace('\'', '’')
+    val appleMusicPrimaryText = Color(0xFFF5F5F7)
+    val appleMusicSecondaryText = Color(0xFFB3B3B3)
+
+    Row(
+        modifier = modifier.fillMaxWidth().height(41.dp * elementScale),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).height(41.dp * elementScale)) {
+            Text(
+                text = displayTitle,
+                color = appleMusicPrimaryText,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                style = TextStyle(
+                    fontFamily = DesignFontFamilies.Sans,
+                    fontSize = 16.sp * elementScale,
+                    lineHeight = 20.sp * elementScale,
+                    fontWeight = FontWeight.Bold,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp * elementScale)
+                    .paddingFromBaseline(top = 16.dp * elementScale)
+                    .appleMusicMarqueeFade()
+                    .basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        repeatDelayMillis = 1_800,
+                        initialDelayMillis = 1_800,
+                        spacing = MarqueeSpacing(24.dp),
+                        velocity = 30.dp,
+                    ),
+            )
+            Text(
+                text = subtitle,
+                color = appleMusicSecondaryText,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                style = TextStyle(
+                    fontFamily = DesignFontFamilies.Sans,
+                    fontSize = 14.sp * elementScale,
+                    lineHeight = 18.sp * elementScale,
+                    fontWeight = FontWeight.Medium,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 3.dp * elementScale)
+                    .height(18.dp * elementScale)
+                    .paddingFromBaseline(top = 14.dp * elementScale)
+                    .appleMusicMarqueeFade()
+                    .basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        repeatDelayMillis = 1_800,
+                        initialDelayMillis = 1_800,
+                        spacing = MarqueeSpacing(24.dp),
+                        velocity = 30.dp,
+                    ),
+            )
+        }
+        MeloXDesktopGlassAction(
+            painter = if (liked) Res.drawable.icon_apple_music_favorite else Res.drawable.icon_apple_music_favorite_outline,
+            contentDescription = stringResource(
+                if (liked) Res.string.player_remove_favorite else Res.string.player_add_favorite,
+            ),
+            tint = if (liked) DesignPalette.FavoriteRed else Color.White,
+            elementScale = elementScale,
+            onClick = { onLikedChange(!liked) },
+        )
+        Spacer(modifier = Modifier.width(6.dp * elementScale))
+        NowPlayingMoreButton(
+            hasLyric = track?.hasLyric == true,
+            nowPlayingState = state,
+            onAction = onAction,
+            compact = true,
+            compactButtonSize = 28.dp * elementScale,
+            compactIconSize = 25.dp * elementScale,
+            compactBackgroundAlpha = AppleMusicDesktopControlFillAlpha,
+            modifier = Modifier.offset(x = 1.dp * elementScale),
+        )
+    }
+}
+
+private fun Modifier.appleMusicMarqueeFade(fadeWidth: Dp = 22.dp): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(Color.Black, Color.Transparent),
+                startX = (size.width - fadeWidth.toPx()).coerceAtLeast(0f),
+                endX = size.width,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+
+@Composable
+private fun MeloXDesktopGlassAction(
+    painter: DrawableResource,
+    contentDescription: String,
+    tint: Color,
+    elementScale: Float,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(28.dp * elementScale)
+            .clip(CircleShape)
+            .appleMusicDesktopControlBackground()
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(painter),
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(16.dp * elementScale),
+        )
+    }
+}
+
+@Composable
+internal fun MeloXDesktopProgress(
+    track: NowPlayingTrackItem?,
+    currentPositionMs: Long,
+    durationMs: Long,
+    elementScale: Float,
+    onAction: (NowPlayingAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubbedPositionMs by remember { mutableStateOf(currentPositionMs) }
+    val displayedPositionMs = if (scrubbing) scrubbedPositionMs else currentPositionMs
+    val progressTrackHeight by animateDpAsState(
+        targetValue = (if (scrubbing) 18.dp else 8.dp) * elementScale,
+        animationSpec = tween(durationMillis = if (scrubbing) 320 else 400),
+        label = "melox-desktop-now-playing-progress-height",
+    )
+    val totalDurationMs = durationMs.coerceAtLeast(1L)
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        PlaybackSlider(
+            value = displayedPositionMs.coerceIn(0L, totalDurationMs).toFloat(),
+            onValueChange = { value ->
+                scrubbedPositionMs = value.toLong().coerceIn(0L, totalDurationMs)
+            },
+            valueRange = 0f..totalDurationMs.toFloat(),
+            modifier = Modifier.fillMaxWidth(),
+            height = 18.dp * elementScale,
+            trackHeight = progressTrackHeight,
+            thumbSize = 0.dp,
+            activeThumbSize = 0.dp,
+            trackColorOverride = Color.White.copy(alpha = 0.22f),
+            activeTrackColorOverride = Color.White,
+            thumbColorOverride = Color.Transparent,
+            onValueChangeStarted = {
+                scrubbing = true
+                scrubbedPositionMs = currentPositionMs.coerceIn(0L, totalDurationMs)
+            },
+            onValueChangeFinished = {
+                onAction(NowPlayingAction.SeekTo(scrubbedPositionMs.toULong()))
+                scrubbing = false
+            },
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 3.dp * elementScale)
+                .height(18.dp * elementScale),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = formatPlayerDuration(displayedPositionMs.milliseconds),
+                color = Color.White.copy(alpha = 0.82f),
+                style = TextStyle(fontFamily = DesignFontFamilies.Mono, fontSize = 10.sp * elementScale),
+            )
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                track?.playbackAudioInfo?.desktopAudioBadge()?.let { badge ->
+                    MeloXDesktopAudioBadge(badge = badge)
+                }
+            }
+            Text(
+                text = "-${formatPlayerDuration((totalDurationMs - displayedPositionMs).coerceAtLeast(0L).milliseconds)}",
+                color = Color.White.copy(alpha = 0.82f),
+                style = TextStyle(fontFamily = DesignFontFamilies.Mono, fontSize = 10.sp * elementScale),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MeloXDesktopAudioBadge(badge: DesktopAudioBadge) {
+    val painter = painterResource(
+        when (badge) {
+            DesktopAudioBadge.Lossless -> Res.drawable.icon_apple_music_lossless
+            DesktopAudioBadge.Dolby -> Res.drawable.icon_apple_music_dolby
+        },
+    )
+    Icon(
+        painter = painter,
+        contentDescription = stringResource(
+            when (badge) {
+                DesktopAudioBadge.Lossless -> Res.string.player_lossless_audio
+                DesktopAudioBadge.Dolby -> Res.string.player_dolby_audio
+            },
+        ),
+        tint = Color.White.copy(alpha = 0.70f),
+        modifier = when (badge) {
+            DesktopAudioBadge.Lossless -> Modifier.width(25.dp).height(18.dp)
+            DesktopAudioBadge.Dolby -> Modifier.width(15.dp).height(14.dp)
+        },
+    )
+}
+
+@Composable
+private fun MeloXDesktopTransportControls(
+    state: NowPlayingState,
+    elementScale: Float,
+    onAction: (NowPlayingAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val controls = state.controls
+    val queue = state.queue
+    val repeatPainter = if (controls.repeatMode == RepeatMode.One) {
+        Res.drawable.icon_apple_music_repeat_one
+    } else {
+        Res.drawable.icon_apple_music_repeat
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(36.dp * elementScale),
+    ) {
+        AppleMusicDesktopTransportButton(
+            painter = Res.drawable.icon_apple_music_shuffle,
+            motion = AppleMusicDesktopTransportMotion.Shuffle,
+            contentDescription = stringResource(Res.string.player_shuffle),
+            tint = Color.White.copy(alpha = if (controls.shuffleEnabled) 0.90f else 0.58f),
+            selected = controls.shuffleEnabled,
+            iconSize = 40.dp * elementScale,
+            buttonWidth = 28.dp * elementScale,
+            onClick = { onAction(NowPlayingAction.ToggleShuffle) },
+            modifier = Modifier.fillMaxHeight().offset(x = 1.dp * elementScale),
+        )
+        AppleMusicDesktopTransportButton(
+            painter = Res.drawable.icon_apple_music_previous,
+            motion = AppleMusicDesktopTransportMotion.Seek,
+            seekDirection = -1,
+            contentDescription = stringResource(Res.string.player_previous_track),
+            tint = Color.White,
+            iconSize = 52.dp * elementScale,
+            buttonWidth = 36.dp * elementScale,
+            enabled = queue.canPlayPrevious,
+            onClick = { onAction(NowPlayingAction.PlayPrevious) },
+            modifier = Modifier.fillMaxHeight().offset(x = 58.dp * elementScale),
+        )
+        AppleMusicDesktopTransportButton(
+            painter = if (controls.isPlaying) Res.drawable.icon_apple_music_pause else Res.drawable.icon_apple_music_play,
+            motion = AppleMusicDesktopTransportMotion.PlayPause,
+            contentDescription = stringResource(
+                if (controls.isPlaying) Res.string.player_pause else Res.string.player_play,
+            ),
+            tint = Color.White,
+            iconSize = 43.dp * elementScale,
+            buttonWidth = 48.dp * elementScale,
+            enabled = controls.isPlaying || !controls.isLoading,
+            onClick = {
+                onAction(if (controls.isPlaying) NowPlayingAction.Pause else NowPlayingAction.Resume)
+            },
+            modifier = Modifier.fillMaxHeight().offset(x = 134.5.dp * elementScale),
+        )
+        AppleMusicDesktopTransportButton(
+            painter = Res.drawable.icon_apple_music_next,
+            motion = AppleMusicDesktopTransportMotion.Seek,
+            seekDirection = 1,
+            contentDescription = stringResource(Res.string.player_next_track),
+            tint = Color.White,
+            iconSize = 52.dp * elementScale,
+            buttonWidth = 36.dp * elementScale,
+            enabled = queue.canPlayNext,
+            onClick = { onAction(NowPlayingAction.PlayNext) },
+            modifier = Modifier.fillMaxHeight().offset(x = 227.dp * elementScale),
+        )
+        AppleMusicDesktopTransportButton(
+            painter = repeatPainter,
+            motion = AppleMusicDesktopTransportMotion.Repeat,
+            contentDescription = stringResource(
+                if (controls.repeatMode == RepeatMode.One) Res.string.player_single_repeat else Res.string.player_list_repeat,
+            ),
+            tint = Color.White.copy(alpha = if (controls.repeatMode == RepeatMode.Off) 0.58f else 0.90f),
+            selected = controls.repeatMode != RepeatMode.Off,
+            iconSize = 40.dp * elementScale,
+            buttonWidth = 28.dp * elementScale,
+            onClick = { onAction(NowPlayingAction.CycleRepeatMode) },
+            modifier = Modifier.fillMaxHeight().offset(x = 290.dp * elementScale),
+        )
+    }
+}
+
+@Composable
+private fun MeloXDesktopQueuePanel(
+    queue: NowPlayingQueueState,
+    isPlaying: Boolean,
+    onAction: (NowPlayingAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var autoplayEnabled by remember { mutableStateOf(false) }
+    var autoMixEnabled by remember { mutableStateOf(false) }
+    val history = queue.items.take(queue.currentIndex.coerceAtLeast(0))
+    val upcomingStart = (queue.currentIndex + 1).coerceAtLeast(0)
+    val upcoming = queue.items.drop(upcomingStart)
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 9.dp, vertical = 0.dp)
+                .padding(top = 38.dp)
+                .height(38.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
+        ) {
+            MeloXDesktopQueueModeButton(
+                selected = autoplayEnabled,
+                contentDescription = stringResource(Res.string.player_queue_autoplay),
+                onClick = { autoplayEnabled = !autoplayEnabled },
+                modifier = Modifier.weight(1f),
+            )
+            MeloXDesktopQueueModeButton(
+                selected = autoMixEnabled,
+                contentDescription = stringResource(Res.string.player_queue_automix),
+                onClick = { autoMixEnabled = !autoMixEnabled },
+                modifier = Modifier.weight(1f),
+            )
         }
 
-        LyricsSurface(
-            track = track,
-            lyricDisplaySettings = lyricDisplaySettings,
-            currentPositionMs = currentPositionMs,
-            isPlaying = state.controls.isPlaying && !isSeeking,
-            onAction = onAction,
+        LazyColumn(
             modifier = Modifier
-                .weight(0.54f)
-                .fillMaxHeight(),
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 64.dp),
+        ) {
+            if (history.isNotEmpty()) {
+                item(key = "history-header") {
+                    MeloXDesktopQueueHeader(stringResource(Res.string.player_queue_history))
+                }
+                items(history, key = { item -> "history-${item.index}" }) { item ->
+                    MeloXDesktopQueueRow(
+                        item = item,
+                        isPlaying = isPlaying && item.index == queue.currentIndex,
+                        onAction = onAction,
+                    )
+                }
+            }
+
+            item(key = "continue-header") {
+                MeloXDesktopQueueHeader(stringResource(Res.string.player_queue_continue))
+            }
+            items(upcoming, key = { item -> "upcoming-${item.index}" }) { item ->
+                MeloXDesktopQueueRow(
+                    item = item,
+                    isPlaying = isPlaying && item.index == queue.currentIndex,
+                    onAction = onAction,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeloXDesktopQueueModeButton(
+    selected: Boolean,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(19.dp))
+            .background(
+                if (selected) DesignPalette.FavoriteRed else Color.White.copy(alpha = 0.10f),
+            )
+            .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(19.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(Res.drawable.icon_melox_autoplay),
+            contentDescription = contentDescription,
+            tint = Color.White.copy(alpha = if (selected) 1f else 0.88f),
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun MeloXDesktopQueueHeader(
+    title: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .padding(horizontal = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            color = Color.White,
+            style = TextStyle(
+                fontFamily = DesignFontFamilies.Sans,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(Res.string.player_queue_clear),
+            color = DesignPalette.FavoriteRed,
+            style = TextStyle(
+                fontFamily = DesignFontFamilies.Sans,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun MeloXDesktopQueueRow(
+    item: NowPlayingQueueItem,
+    isPlaying: Boolean,
+    onAction: (NowPlayingAction) -> Unit,
+) {
+    val titleColor = if (isPlaying) DesignPalette.FavoriteRed else Color.White
+    val subtitle = listOfNotNull(item.artist, item.album).distinct().joinToString(" · ")
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onAction(NowPlayingAction.PlayQueueItem(item.index)) }
+                .padding(start = 15.dp, top = 7.dp, end = 9.dp, bottom = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(Color.White.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                item.artwork?.let { artwork ->
+                    ArtworkImage(
+                        artwork = artwork,
+                        contentScale = ContentScale.Crop,
+                        smoothTransition = true,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp),
+            ) {
+                Text(
+                    text = item.title,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        fontFamily = DesignFontFamilies.Sans,
+                        fontSize = 14.sp,
+                        lineHeight = 17.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                )
+                if (subtitle.isNotEmpty()) {
+                    Text(
+                        text = subtitle,
+                        color = Color.White.copy(alpha = 0.60f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(
+                            fontFamily = DesignFontFamilies.Sans,
+                            fontSize = 12.sp,
+                            lineHeight = 15.sp,
+                        ),
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+            Icon(
+                painter = painterResource(Res.drawable.icon_more_compact),
+                contentDescription = stringResource(Res.string.player_more_options),
+                tint = Color.White.copy(alpha = 0.68f),
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 15.dp)
+                .height(0.5.dp)
+                .background(Color.White.copy(alpha = 0.13f)),
+        )
+    }
+}
+
+@Composable
+private fun MeloXDesktopPageSwitcher(
+    page: MeloXDesktopNowPlayingPage,
+    translationVisible: Boolean,
+    hasTranslation: Boolean,
+    onTranslationClick: () -> Unit,
+    onLyricsClick: () -> Unit,
+    onQueueClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.size(width = 117.dp, height = 36.dp),
+    ) {
+        if (hasTranslation) {
+            MeloXDesktopPageSwitchButton(
+                painter = Res.drawable.icon_now_playing_translation,
+                contentDescription = stringResource(Res.string.player_translation),
+                selected = translationVisible,
+                selectedSize = 36.dp,
+                selectedCircleSize = 36.dp,
+                iconSize = 28.dp,
+                onClick = onTranslationClick,
+                modifier = Modifier.align(Alignment.CenterStart).appleMusicDesktopCapsule(),
+            )
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(width = 72.dp, height = 36.dp)
+                .appleMusicDesktopCapsule(),
+        ) {
+            MeloXDesktopPageSwitchButton(
+                painter = Res.drawable.icon_now_playing_lyrics,
+                contentDescription = stringResource(Res.string.player_lyrics),
+                selected = page == MeloXDesktopNowPlayingPage.Lyrics,
+                selectedSize = 36.dp,
+                selectedCircleSize = 30.dp,
+                iconSize = 25.dp,
+                onClick = onLyricsClick,
+            )
+            MeloXDesktopPageSwitchButton(
+                painter = Res.drawable.icon_apple_music_queue,
+                contentDescription = stringResource(Res.string.player_queue),
+                selected = page == MeloXDesktopNowPlayingPage.Queue,
+                selectedSize = 36.dp,
+                selectedCircleSize = 30.dp,
+                iconSize = 31.dp,
+                onClick = onQueueClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MeloXDesktopPageSwitchButton(
+    painter: DrawableResource,
+    contentDescription: String,
+    selected: Boolean,
+    selectedSize: Dp,
+    selectedCircleSize: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.9f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh,
+        ),
+        label = "appleMusicPageSwitchPressScale",
+    )
+    Box(
+        modifier = modifier
+            .size(selectedSize)
+            .clip(CircleShape)
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+                scaleX = scale
+                scaleY = scale
+            }
+            .semantics { this.selected = selected }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .size(selectedCircleSize)
+                    .background(Color.White.copy(alpha = 0.83f), CircleShape),
+            )
+        }
+        Icon(
+            painter = painterResource(painter),
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier
+                .size(iconSize)
+                .graphicsLayer {
+                    // Selected glyphs reveal the live material instead of a fixed black tint.
+                    blendMode = if (selected) BlendMode.DstOut else BlendMode.SrcOver
+                },
         )
     }
 }
@@ -919,6 +1952,8 @@ private fun LyricsSurface(
     lyricDisplaySettings: LyricDisplaySettings,
     currentPositionMs: Long,
     isPlaying: Boolean,
+    showTranslation: Boolean,
+    focusLineCenterY: Dp? = null,
     onAction: (NowPlayingAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -932,9 +1967,9 @@ private fun LyricsSurface(
         )
     }
     val primaryScale = lyricDisplaySettings.primaryFontScalePercent / 100f
-    val primaryFontSize = lyricDisplaySettings.primaryFontSizeSp * primaryScale
+    val primaryFontSize = lyricDisplaySettings.primaryFontSizeSp * primaryScale * 0.85f
     val secondaryScale = lyricDisplaySettings.secondaryFontScalePercent / 100f
-    val secondaryFontSize = lyricDisplaySettings.secondaryFontSizeSp * secondaryScale
+    val secondaryFontSize = lyricDisplaySettings.secondaryFontSizeSp * secondaryScale * 0.89f
     val lyricTextAlign = when (lyricDisplaySettings.textAlignment) {
         LyricTextAlignment.Left -> TextAlign.Start
         LyricTextAlignment.Center -> TextAlign.Center
@@ -943,12 +1978,10 @@ private fun LyricsSurface(
     val lyricFontFamily = if (lyricDisplaySettings.font.applyToLyricsPage) {
         val containsCjk = lyricLines.any { line -> line.text.any(Char::isCjkCharacter) }
         val choice = if (containsCjk) lyricDisplaySettings.font.cjkFont else lyricDisplaySettings.font.westernFont
-        choice.toFontFamily()
+        if (choice == LyricFontChoice.AppSans) DesignFontFamilies.Sans else choice.toFontFamily()
     } else {
-        FontFamily.Default
+        DesignFontFamilies.Sans
     }
-    val lyricFontWeight = FontWeight(lyricDisplaySettings.font.weight.coerceIn(100, 900))
-
     Box(
         modifier = modifier.clip(RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
@@ -1006,7 +2039,9 @@ private fun LyricsSurface(
                         onAction(NowPlayingAction.SeekTo(line.start.coerceAtLeast(0).toULong()))
                     },
                     activeColor = Color.White,
-                    inactiveColor = Color.White.copy(alpha = 0.42f),
+                    inactiveColor = Color.White.copy(alpha = 0.65f),
+                    activeSecondaryColor = Color.White.copy(alpha = 0.50f),
+                    inactiveSecondaryColor = Color.White.copy(alpha = 0.65f),
                     activeTextStyle = TextStyle(
                         fontFamily = lyricFontFamily,
                         fontSize = primaryFontSize.sp,
@@ -1015,7 +2050,7 @@ private fun LyricsSurface(
                     ),
                     inactiveTextStyle = TextStyle(
                         fontFamily = lyricFontFamily,
-                        fontSize = (primaryFontSize * 0.84f).sp,
+                        fontSize = (primaryFontSize * 0.96f).sp,
                         lineHeight = (primaryFontSize * 1.08f).sp,
                         fontWeight = FontWeight.SemiBold,
                     ),
@@ -1023,15 +2058,27 @@ private fun LyricsSurface(
                         fontFamily = lyricFontFamily,
                         fontSize = secondaryFontSize.sp,
                         lineHeight = (secondaryFontSize * 1.28f).sp,
-                        fontWeight = lyricFontWeight,
+                        fontWeight = FontWeight.SemiBold,
                     ),
                     textAlign = lyricTextAlign,
-                    showTranslation = lyricDisplaySettings.showTranslation,
+                    lineSpacing = 30.dp,
+                    showTranslation = showTranslation,
                     wordLiftEnabled = lyricDisplaySettings.wordLiftEnabled,
-                    useBlurEffect = lyricDisplaySettings.blurEffectEnabled,
+                    useBlurEffect = true,
                     perspectiveEffectEnabled = lyricDisplaySettings.perspectiveEffectEnabled,
                     perspectiveAngleDegrees = lyricDisplaySettings.perspectiveAngleDegrees.toFloat(),
                     tapToSeekEnabled = lyricDisplaySettings.tapToSeekEnabled,
+                    verticalContentPaddingFraction = 0.5f,
+                    focusLineCenterY = focusLineCenterY,
+                    focusLineContentAnchorFraction = 0f,
+                    focusPrimaryText = true,
+                    contextLinesBeforeActive = 0,
+                    motionSpec = AppleMusicDesktopLyricsMotion,
+                    blurAdjacentLines = true,
+                    balancedLineWrap = false,
+                    karaokeInactiveAlpha = 0.50f,
+                    lineBlendMode = BlendMode.Plus,
+                    topEdgeFadeHeight = 64.dp,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -1860,6 +2907,8 @@ fun NowPlayingScreen(
     playerInteractionSettings: PlayerInteractionSettings = PlayerInteractionSettings.Default,
     currentPositionMs: Long,
     isSeeking: Boolean = false,
+    desktopVolume: Float = 1f,
+    onDesktopVolumeChange: (Float) -> Unit = {},
     progressContent: @Composable (Long?) -> Unit,
     compactProgressContent: @Composable (Long?) -> Unit,
     isFavorite: Boolean,
@@ -1890,6 +2939,14 @@ fun NowPlayingScreen(
 
     BoxWithConstraints(
         modifier = modifier
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                    onAction(NowPlayingAction.NavigateBack)
+                    true
+                } else {
+                    false
+                }
+            }
             .onGloballyPositioned { coordinates ->
                 playerTopInWindowPx = coordinates.positionInWindow().y
             }
@@ -1985,62 +3042,59 @@ fun NowPlayingScreen(
             Modifier
         }
 
-        Box(
+        LiquidGlassOverlayScene(
             modifier = Modifier
                 .fillMaxSize()
                 .offset { IntOffset(x = 0, y = dragOffsetPx.roundToInt()) }
                 .clipToBounds()
                 .then(dismissGestureModifier),
-        ) {
-            if (drawBackground) {
-                ImmersivePlayerBackground(
-                    artwork = currentTrack?.artwork,
-                    enabled = playerInteractionSettings.audioReactiveBackgroundEnabled,
-                    audioReactiveSnapshot = audioReactiveSnapshot,
-                )
-            }
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = titleBarInset),
-            ) {
+            captureBackdrop = drawBackground && !usesCompactLayout,
+            backdropContent = {
+                if (drawBackground) {
+                    ImmersivePlayerBackground(
+                        artwork = currentTrack?.artwork,
+                        enabled = playerInteractionSettings.audioReactiveBackgroundEnabled,
+                        audioReactiveSnapshot = audioReactiveSnapshot,
+                        meloxDesktopStyle = !usesCompactLayout,
+                    )
+                }
+            },
+            overlayContent = {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 if (maxWidth >= DesktopPlayerBreakpoint && maxHeight >= 520.dp) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .statusBarsPadding(),
-                    ) {
-                        MusicPlayerHeader(onAction = onAction)
-                        DesktopNowPlayingLayout(
+                    DesktopNowPlayingLayout(
+                        state = state,
+                        lyricDisplaySettings = lyricDisplaySettings,
+                        playerInteractionSettings = playerInteractionSettings,
+                        currentPositionMs = currentPositionMs,
+                        isSeeking = isSeeking,
+                        desktopVolume = desktopVolume,
+                        onDesktopVolumeChange = onDesktopVolumeChange,
+                        liked = isFavorite,
+                        onLikedChange = { onToggleFavorite() },
+                        onAction = onAction,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize().padding(top = titleBarInset)) {
+                        CompactNowPlayingLayout(
                             state = state,
                             lyricDisplaySettings = lyricDisplaySettings,
                             playerInteractionSettings = playerInteractionSettings,
                             currentPositionMs = currentPositionMs,
                             isSeeking = isSeeking,
                             progressContent = progressContent,
+                            compactProgressContent = compactProgressContent,
                             liked = isFavorite,
                             onLikedChange = { onToggleFavorite() },
                             onAction = onAction,
-                            modifier = Modifier.weight(1f),
+                            audioReactiveSnapshot = audioReactiveSnapshot,
                         )
                     }
-                } else {
-                    CompactNowPlayingLayout(
-                        state = state,
-                        lyricDisplaySettings = lyricDisplaySettings,
-                        playerInteractionSettings = playerInteractionSettings,
-                        currentPositionMs = currentPositionMs,
-                        isSeeking = isSeeking,
-                        progressContent = progressContent,
-                        compactProgressContent = compactProgressContent,
-                        liked = isFavorite,
-                        onLikedChange = { onToggleFavorite() },
-                        onAction = onAction,
-                        audioReactiveSnapshot = audioReactiveSnapshot,
-                    )
                 }
             }
-        }
+            },
+        )
     }
 }
 
@@ -2061,6 +3115,7 @@ fun ImmersivePlayerBackground(
     artwork: Artwork?,
     enabled: Boolean = false,
     audioReactiveSnapshot: StateFlow<AudioReactiveSnapshot> = ZeroAudioReactiveSnapshot,
+    meloxDesktopStyle: Boolean = false,
 ) {
     val palette = rememberArtworkPalette(artwork)
     val topColor by animateColorAsState(
@@ -2078,7 +3133,9 @@ fun ImmersivePlayerBackground(
         animationSpec = tween(durationMillis = 700),
         label = "playerBackgroundAccentColor",
     )
-    if (enabled) {
+    if (meloxDesktopStyle) {
+        AppleMusicDesktopBackground(palette = palette)
+    } else if (enabled) {
         AudioReactiveBackground(
             artwork = artwork,
             audioReactiveSnapshot = audioReactiveSnapshot,
@@ -2347,9 +3404,9 @@ private fun PlayerBackgroundOverlays(
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        accentColor.copy(alpha = 0.28f),
-                        topColor.copy(alpha = 0.42f),
-                        Color.Black.copy(alpha = 0.34f),
+                        accentColor.copy(alpha = 0.52f),
+                        topColor.copy(alpha = 0.16f),
+                        accentColor.copy(alpha = 0.24f),
                     ),
                     start = Offset.Zero,
                     end = Offset.Infinite,
@@ -2362,9 +3419,9 @@ private fun PlayerBackgroundOverlays(
             .background(
                 Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0f to Color.Black.copy(alpha = 0.42f),
-                        0.5f to Color.Black.copy(alpha = 0.18f),
-                        1f to Color.Black.copy(alpha = 0.42f),
+                        0f to Color.Black.copy(alpha = 0.02f),
+                        0.5f to Color.Black.copy(alpha = 0.06f),
+                        1f to Color.Black.copy(alpha = 0.36f),
                     ),
                 ),
             ),

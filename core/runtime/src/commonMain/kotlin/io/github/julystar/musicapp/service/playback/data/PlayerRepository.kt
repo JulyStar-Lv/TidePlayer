@@ -375,7 +375,7 @@ class PlayerRepository(
     private suspend fun publishCurrentTrackInfo(music: Music) {
         if (_music.value?.meta?.id != music.meta.id) return
         val trackId = music.meta.id.value
-        val artist = roomLibraryStore.getTrackPrimaryArtist(trackId)
+        val metadata = roomLibraryStore.getPlaybackItemMetadata(trackId)
         val annotation = roomLibraryStore.getTrackAnnotation(trackId)
         val playbackAudioInfo = roomLibraryStore.getPlaybackAudioInfo(trackId)
         val lyrics = roomLibraryStore.getPlaybackLyrics(trackId)
@@ -383,7 +383,8 @@ class PlayerRepository(
         if (_music.value?.meta?.id == music.meta.id) {
             _currentTrackInfo.value = music.toCurrentTrackInfo(
                 storageLookup = storageLookup,
-                artist = artist,
+                artist = metadata.artist,
+                album = metadata.album,
                 artwork = artwork,
                 lyrics = lyrics,
                 annotation = annotation,
@@ -501,6 +502,7 @@ private fun Music.toListeningPlaybackTrack(): ListeningPlaybackTrack =
 private suspend fun Music.toCurrentTrackInfo(
     storageLookup: LegacyStorageLookup,
     artist: String?,
+    album: String?,
     artwork: Artwork?,
     lyrics: Lyrics,
     annotation: String?,
@@ -516,6 +518,7 @@ private suspend fun Music.toCurrentTrackInfo(
         sourcePath = loc.path,
         coverArtwork = artwork,
         artist = artist,
+        album = album,
         annotation = annotation,
         playbackAudioInfo = playbackAudioInfo,
         mediaId = legacyStorageTrackMediaIdOrNull(

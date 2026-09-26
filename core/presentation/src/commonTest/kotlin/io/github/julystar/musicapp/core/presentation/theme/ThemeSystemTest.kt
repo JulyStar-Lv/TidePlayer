@@ -10,9 +10,12 @@ import androidx.compose.runtime.setValue
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 @OptIn(ExperimentalTestApi::class)
 class ThemeSystemTest {
@@ -35,8 +38,8 @@ class ThemeSystemTest {
         }
         waitForIdle()
 
-        assertEquals(ColorSchemeMode.MonetLight, observedMode)
-        assertTrue(observedDynamicColor)
+        assertEquals(ColorSchemeMode.Light, observedMode)
+        assertFalse(observedDynamicColor)
         assertEquals(DesignPalette.BrandButtonLight, observedPrimary)
     }
 
@@ -62,13 +65,14 @@ class ThemeSystemTest {
     }
 
     @Test
-    fun `Spec2025 previews keep representative seeds readable`() = runComposeUiTest {
+    fun `manual theme colors leave backgrounds and text at Miuix defaults`() = runComposeUiTest {
         listOf(
-            "brand" to DesignPalette.DefaultManualThemeSeed,
-            "yellow" to DesignPalette.SupportYellow,
-            "blue" to DesignPalette.SupportBlue,
-        ).forEach { (name, seed) ->
+            Triple("brand", DesignPalette.DefaultManualThemeSeed, DesignPalette.BrandButtonDark),
+            Triple("yellow", DesignPalette.SupportYellow, DesignPalette.SupportYellow),
+            Triple("blue", DesignPalette.SupportBlue, DesignPalette.SupportBlue),
+        ).forEach { (name, lightSeed, darkSeed) ->
             listOf(false, true).forEach { darkTheme ->
+                val seed = if (darkTheme) darkSeed else lightSeed
                 var colors: ThemeColors? = null
                 setContent {
                     ThemeSeedPreviewTheme(seedColor = seed, darkTheme = darkTheme) {
@@ -86,6 +90,17 @@ class ThemeSystemTest {
                 waitForIdle()
 
                 val observedColors = requireNotNull(colors)
+                val defaults = if (darkTheme) darkColorScheme() else lightColorScheme()
+                val expectedPrimary = if (name == "brand") {
+                    if (darkTheme) DesignPalette.BrandButtonDark else DesignPalette.BrandButtonLight
+                } else {
+                    seed
+                }
+                assertEquals(expectedPrimary, observedColors.primary, "$name primary")
+                assertEquals(defaults.background, observedColors.background, "$name background")
+                assertEquals(defaults.surfaceContainer, observedColors.surfaceContainer, "$name surface")
+                assertEquals(defaults.onBackground, observedColors.onBackground, "$name text")
+                assertEquals(defaults.onBackgroundVariant, observedColors.onBackgroundVariant, "$name secondary text")
                 assertContrastAtLeast(
                     foreground = observedColors.onBackground,
                     background = observedColors.background,
@@ -95,6 +110,7 @@ class ThemeSystemTest {
                     foreground = observedColors.onBackgroundVariant,
                     background = observedColors.background,
                     label = "$name ${if (darkTheme) "dark" else "light"} background variant",
+                    minimum = 3f,
                 )
                 assertContrastAtLeast(
                     foreground = observedColors.onSurfaceContainer,
@@ -107,6 +123,30 @@ class ThemeSystemTest {
                     label = "$name ${if (darkTheme) "dark" else "light"} primary",
                 )
             }
+        }
+    }
+
+    @Test
+    fun `light and dark primary colors are independent`() = runComposeUiTest {
+        listOf(
+            false to Color(0xFF3D9AFF),
+            true to Color(0xFF3DCA8A),
+        ).forEach { (darkTheme, expectedPrimary) ->
+            var observedPrimary = Color.Unspecified
+            setContent {
+                AppTheme(
+                    themeMode = if (darkTheme) AppThemeMode.Dark else AppThemeMode.Light,
+                    themeSeedState = ThemeSeedState(
+                        manualSeedArgb = 0xFF3D9AFFL,
+                        darkManualSeedArgb = 0xFF3DCA8AL,
+                    ),
+                    manageSystemBars = false,
+                ) {
+                    observedPrimary = MiuixTheme.colorScheme.primary
+                }
+            }
+            waitForIdle()
+            assertEquals(expectedPrimary, observedPrimary)
         }
     }
 }
@@ -125,10 +165,11 @@ private fun assertContrastAtLeast(
     foreground: Color,
     background: Color,
     label: String,
+    minimum: Float = 4.5f,
 ) {
     val foregroundLuminance = foreground.luminance()
     val backgroundLuminance = background.luminance()
     val contrast = (maxOf(foregroundLuminance, backgroundLuminance) + 0.05f) /
         (minOf(foregroundLuminance, backgroundLuminance) + 0.05f)
-    kotlin.test.assertTrue(contrast >= 4.5f, "$label contrast was $contrast")
+    kotlin.test.assertTrue(contrast >= minimum, "$label contrast was $contrast")
 }

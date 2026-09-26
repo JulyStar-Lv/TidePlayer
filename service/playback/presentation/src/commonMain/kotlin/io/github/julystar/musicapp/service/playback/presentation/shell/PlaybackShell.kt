@@ -29,14 +29,20 @@ fun rememberHasPlaybackItem(
 @Composable
 fun PlaybackMiniPlayerHost(
     onOpenNowPlaying: () -> Unit,
+    onOpenLyrics: (Long) -> Unit,
     onOpenQueue: () -> Unit,
+    lyricsSelected: Boolean = false,
+    queueSelected: Boolean = false,
     playerVM: PlayerVM = koinViewModel(),
 ) {
     val playbackState by playerVM.playbackState.collectAsState()
     if (playbackState.currentItem != null) {
         MiniPlayer(
             onOpenNowPlaying = onOpenNowPlaying,
+            onOpenLyrics = onOpenLyrics,
             onOpenQueue = onOpenQueue,
+            lyricsSelected = lyricsSelected,
+            queueSelected = queueSelected,
             playerVM = playerVM,
         )
     }

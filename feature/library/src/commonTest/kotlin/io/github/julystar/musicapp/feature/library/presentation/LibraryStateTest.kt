@@ -101,7 +101,58 @@ class LibraryStateTest {
     @Test
     fun `show message event carries text`() {
         val event = LibraryEvent.ShowMessage(UiMessage.Text("hello"))
-        assertEquals("hello", event.message)
+        assertEquals(UiMessage.Text("hello"), event.message)
+    }
+
+    @Test
+    fun `desktop song selection replaces the selection on a normal click`() {
+        val selected = updateDesktopSongSelection(
+            current = setOf(1L, 2L),
+            orderedTrackIds = listOf(1L, 2L, 3L, 4L),
+            clickedIndex = 2,
+            lastSelectedIndex = 1,
+            shift = false,
+            additive = false,
+        )
+
+        assertEquals(setOf(3L), selected)
+    }
+
+    @Test
+    fun `desktop song selection toggles individual tracks with the command modifier`() {
+        val added = updateDesktopSongSelection(
+            current = setOf(1L),
+            orderedTrackIds = listOf(1L, 2L, 3L),
+            clickedIndex = 1,
+            lastSelectedIndex = 0,
+            shift = false,
+            additive = true,
+        )
+        val removed = updateDesktopSongSelection(
+            current = added,
+            orderedTrackIds = listOf(1L, 2L, 3L),
+            clickedIndex = 0,
+            lastSelectedIndex = 1,
+            shift = false,
+            additive = true,
+        )
+
+        assertEquals(setOf(1L, 2L), added)
+        assertEquals(setOf(2L), removed)
+    }
+
+    @Test
+    fun `desktop song selection selects an inclusive shift range`() {
+        val selected = updateDesktopSongSelection(
+            current = setOf(1L),
+            orderedTrackIds = listOf(1L, 2L, 3L, 4L, 5L),
+            clickedIndex = 4,
+            lastSelectedIndex = 1,
+            shift = true,
+            additive = false,
+        )
+
+        assertEquals(setOf(2L, 3L, 4L, 5L), selected)
     }
 
 }

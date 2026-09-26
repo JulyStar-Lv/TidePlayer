@@ -403,7 +403,7 @@ private fun TrackResult(
                 } else {
                     track.sourceLabel
                 },
-                color = MiuixTheme.colorScheme.primary,
+
                 style = MiuixTheme.textStyles.footnote2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -502,7 +502,7 @@ private fun ResultMarker(label: String) {
     ) {
         Text(
             text = label,
-            color = MiuixTheme.colorScheme.primary,
+
             style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.Bold,
         )

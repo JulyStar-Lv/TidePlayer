@@ -12,6 +12,7 @@ import io.github.julystar.musicapp.core.domain.model.Artwork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
+import kotlin.math.max
 
 /**
  * Palette colors extracted from artwork for dynamic backgrounds.
@@ -20,6 +21,7 @@ data class ArtworkPalette(
     val vibrant: Color,
     val muted: Color,
     val darkMuted: Color,
+    val flowingLightColors: List<Color> = emptyList(),
 ) {
     companion object {
         val Default = ArtworkPalette(
@@ -69,6 +71,10 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
     var topR = 0L; var topG = 0L; var topB = 0L; var topCount = 0
     var midR = 0L; var midG = 0L; var midB = 0L; var midCount = 0
     var botR = 0L; var botG = 0L; var botB = 0L; var botCount = 0
+    val gridR = LongArray(9)
+    val gridG = LongArray(9)
+    val gridB = LongArray(9)
+    val gridCount = IntArray(9)
 
     val bandHeight = height / 3
     val pixel = IntArray(1)
@@ -90,6 +96,12 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
             val r = (color shr 16) and 0xFF
             val g = (color shr 8) and 0xFF
             val b = color and 0xFF
+            val gridIndex = (sy * 3 / height).coerceIn(0, 2) * 3 +
+                (sx * 3 / width).coerceIn(0, 2)
+            gridR[gridIndex] += r
+            gridG[gridIndex] += g
+            gridB[gridIndex] += b
+            gridCount[gridIndex]++
 
             when {
                 sy < bandHeight -> {
@@ -115,6 +127,19 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
         )
     }
 
+    fun tuneBackgroundColor(color: Color, darkness: Float = 0f): Color {
+        if (color == Color.Unspecified) return color
+        val lift = 1f - darkness
+        val r = max(0f, color.red * lift)
+        val g = max(0f, color.green * lift)
+        val b = max(0f, color.blue * lift)
+        return Color(
+            red = r.coerceIn(0f, 1f),
+            green = g.coerceIn(0f, 1f),
+            blue = b.coerceIn(0f, 1f),
+        )
+    }
+
     val vibrant = average(midCount, midR, midG, midB).let { c ->
         if (c == Color.Unspecified) ArtworkPalette.Default.vibrant else c
     }
@@ -126,9 +151,21 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
     }
 
     return ArtworkPalette(
-        vibrant = vibrant,
-        muted = muted.copy(alpha = 0.85f),
-        darkMuted = darkMuted.copy(alpha = 0.95f),
+        // Apple Music keeps the artwork relationship visible while reducing
+        // brightness before applying blur/gradient layers.
+        vibrant = tuneBackgroundColor(vibrant, darkness = 0.08f),
+        muted = tuneBackgroundColor(muted, darkness = 0.18f).copy(alpha = 0.88f),
+        darkMuted = tuneBackgroundColor(darkMuted, darkness = 0.42f).copy(alpha = 0.96f),
+        flowingLightColors = List(9) { index ->
+            average(
+                gridCount[index],
+                gridR[index],
+                gridG[index],
+                gridB[index],
+            ).let { color ->
+                if (color == Color.Unspecified) vibrant else color
+            }
+        },
     )
 }
 

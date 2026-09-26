@@ -1072,6 +1072,7 @@ private class FakeSettingsRepository : SettingsRepository {
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
     override suspend fun setArtworkThemeEnabled(enabled: Boolean) = Unit
     override suspend fun setManualThemeSeedArgb(argb: Long) = Unit
+    override suspend fun setDarkManualThemeSeedArgb(argb: Long) = Unit
     override suspend fun setCustomThemeSeedArgbValues(argbValues: List<Long>) = Unit
     override suspend fun setLanguageMode(mode: AppLanguageMode) = Unit
     override suspend fun setAudioFocusMode(mode: AudioFocusMode) = Unit

@@ -15,6 +15,8 @@ interface PlaybackController {
     fun play()
     fun pause()
     fun togglePlayPause()
+    fun getVolume(): Float = 1f
+    fun setVolume(value: Float) = Unit
     fun seekTo(positionMs: Long)
     fun skipNext()
     fun skipPrevious()

@@ -321,7 +321,7 @@ private fun SearchQueryChips(
             if (onClear != null) {
                 Text(
                     text = stringResource(Res.string.search_clear),
-                    color = MiuixTheme.colorScheme.primary,
+
                     style = MiuixTheme.textStyles.body1,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
@@ -777,7 +777,7 @@ private fun SearchStatus(
             if (actionLabel != null && onAction != null) {
                 Text(
                     text = actionLabel,
-                    color = MiuixTheme.colorScheme.primary,
+
                     style = MiuixTheme.textStyles.body2,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier

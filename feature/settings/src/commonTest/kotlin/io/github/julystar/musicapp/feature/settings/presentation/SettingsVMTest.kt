@@ -105,15 +105,15 @@ class SettingsVMTest {
             advanceUntilIdle()
             assertEquals(AppThemeMode.Dark, repository.values.value.themeMode)
 
-            viewModel.onAction(SettingsAction.SetArtworkThemeEnabled(true))
             viewModel.onAction(SettingsAction.SetManualThemeSeedArgb(0xFF3D9AFFL))
+            viewModel.onAction(SettingsAction.SetDarkManualThemeSeedArgb(0xFF7A6CFFL))
             viewModel.onAction(
                 SettingsAction.SetCustomThemeSeedArgbValues(listOf(0xFF3D9AFFL, 0xFFFFD93DL)),
             )
             viewModel.onAction(SettingsAction.SetGaplessPlaybackEnabled(true))
             advanceUntilIdle()
-            assertTrue(repository.values.value.artworkThemeEnabled)
             assertEquals(0xFF3D9AFFL, repository.values.value.manualThemeSeedArgb)
+            assertEquals(0xFF7A6CFFL, repository.values.value.darkManualThemeSeedArgb)
             assertEquals(
                 listOf(0xFF3D9AFFL, 0xFFFFD93DL),
                 repository.values.value.customThemeSeedArgbValues,
@@ -838,6 +838,8 @@ private class FakeSettingsRepository(initial: AppSettings = AppSettings.Default)
         update { it.copy(artworkThemeEnabled = enabled) }
     override suspend fun setManualThemeSeedArgb(argb: Long) =
         update { it.copy(manualThemeSeedArgb = argb) }
+    override suspend fun setDarkManualThemeSeedArgb(argb: Long) =
+        update { it.copy(darkManualThemeSeedArgb = argb) }
     override suspend fun setCustomThemeSeedArgbValues(argbValues: List<Long>) =
         update { it.copy(customThemeSeedArgbValues = argbValues) }
     override suspend fun setLanguageMode(mode: AppLanguageMode) = update { it.copy(languageMode = mode) }

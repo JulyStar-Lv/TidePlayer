@@ -34,6 +34,7 @@ data class NowPlayingTrackItem(
     val id: Long,
     val title: String,
     val artist: String? = null,
+    val album: String? = null,
     val durationMs: Long?,
     val artwork: Artwork?,
     val lyrics: Lyrics = Lyrics(),
@@ -55,10 +56,20 @@ data class NowPlayingTrackItem(
 data class NowPlayingQueueState(
     val currentIndex: Int = -1,
     val itemCount: Int = 0,
+    val items: List<NowPlayingQueueItem> = emptyList(),
     val canPlayPrevious: Boolean = false,
     val canPlayNext: Boolean = false,
     val previousArtwork: Artwork? = null,
     val nextArtwork: Artwork? = null,
+)
+
+@Immutable
+data class NowPlayingQueueItem(
+    val index: Int,
+    val title: String,
+    val artist: String? = null,
+    val album: String? = null,
+    val artwork: Artwork? = null,
 )
 
 @Immutable
@@ -88,6 +99,8 @@ sealed interface NowPlayingAction {
     data object OpenSleepTimer : NowPlayingAction
     data object OpenLyrics : NowPlayingAction
     data object OpenQueue : NowPlayingAction
+    data object ToggleShuffle : NowPlayingAction
+    data class PlayQueueItem(val index: Int) : NowPlayingAction
     data object PlayPrevious : NowPlayingAction
     data object PlayNext : NowPlayingAction
     data object Resume : NowPlayingAction

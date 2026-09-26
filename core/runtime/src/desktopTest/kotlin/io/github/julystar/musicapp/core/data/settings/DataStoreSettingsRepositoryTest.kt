@@ -6,6 +6,9 @@ import io.github.julystar.musicapp.core.data.datastore.createAppDataStore
 import io.github.julystar.musicapp.core.domain.model.AppLanguageMode
 import io.github.julystar.musicapp.core.domain.model.AppSettings
 import io.github.julystar.musicapp.core.domain.model.AppThemeMode
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_DARK_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.resolvedDarkManualThemeSeedArgb
 import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.AudioEffectPreset
 import io.github.julystar.musicapp.core.domain.model.AudioEffectProfile
@@ -43,6 +46,38 @@ import kotlin.test.assertTrue
 
 class DataStoreSettingsRepositoryTest {
     @Test
+    fun oldDefaultPrimaryUsesNewDefaultUntilManuallySelectedAgain() =
+        withRepository { dataStore, repository ->
+            dataStore.edit { preferences ->
+                preferences[MANUAL_THEME_SEED_ARGB_KEY] = 0xFFFF5B8AL
+            }
+            assertEquals(DEFAULT_MANUAL_THEME_SEED_ARGB, repository.settingsValue().manualThemeSeedArgb)
+            assertEquals(
+                DEFAULT_DARK_MANUAL_THEME_SEED_ARGB,
+                repository.settingsValue().resolvedDarkManualThemeSeedArgb(),
+            )
+
+            repository.setManualThemeSeedArgb(0xFFFF5B8AL)
+            assertEquals(0xFFFF5B8AL, repository.settingsValue().manualThemeSeedArgb)
+        }
+
+    @Test
+    fun legacyCustomColorIsPreservedForDarkUntilEditedSeparately() =
+        withRepository { dataStore, repository ->
+            dataStore.edit { preferences ->
+                preferences[MANUAL_THEME_SEED_ARGB_KEY] = 0xFF3D9AFFL
+            }
+            assertEquals(0xFF3D9AFFL, repository.settingsValue().resolvedDarkManualThemeSeedArgb())
+
+            repository.setManualThemeSeedArgb(0xFFFFD93DL)
+            assertEquals(0xFFFFD93DL, repository.settingsValue().manualThemeSeedArgb)
+            assertEquals(0xFF3D9AFFL, repository.settingsValue().resolvedDarkManualThemeSeedArgb())
+
+            repository.setDarkManualThemeSeedArgb(0xFF3DCA8AL)
+            assertEquals(0xFF3DCA8AL, repository.settingsValue().resolvedDarkManualThemeSeedArgb())
+        }
+
+    @Test
     fun unrelatedPreferenceWritesDoNotRepublishSettings() =
         withRepository { dataStore, repository ->
             coroutineScope {
@@ -77,6 +112,7 @@ class DataStoreSettingsRepositoryTest {
         repository.setThemeMode(AppThemeMode.Light)
         repository.setArtworkThemeEnabled(false)
         repository.setManualThemeSeedArgb(0xFF3D9AFFL)
+        repository.setDarkManualThemeSeedArgb(0xFF7A6CFFL)
         repository.setCustomThemeSeedArgbValues(listOf(0xFF3D9AFFL, 0xFFFFD93DL))
         repository.setLanguageMode(AppLanguageMode.English)
         repository.setAudioFocusMode(AudioFocusMode.Duck)
@@ -119,6 +155,7 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(AppThemeMode.Light, settings.themeMode)
         assertFalse(settings.artworkThemeEnabled)
         assertEquals(0xFF3D9AFFL, settings.manualThemeSeedArgb)
+        assertEquals(0xFF7A6CFFL, settings.resolvedDarkManualThemeSeedArgb())
         assertEquals(listOf(0xFF3D9AFFL, 0xFFFFD93DL), settings.customThemeSeedArgbValues)
         assertEquals(AppLanguageMode.English, settings.languageMode)
         assertEquals(AudioFocusMode.Duck, settings.audioFocusMode)

@@ -22,18 +22,24 @@ kotlin {
             implementation(project(":core:domain"))
             implementation(project(":core:lyrics-core"))
             implementation(libs.kotlinx.collections.immutable)
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.animation)
-            implementation(compose.material3)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
+            implementation(libs.animation)
+            implementation(libs.compose.material3)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.compose.ui.test)
+                implementation(compose.desktop.currentOs)
+            }
+        }
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.core.lyrics.ui"
     compileSdk = 37
     defaultConfig {

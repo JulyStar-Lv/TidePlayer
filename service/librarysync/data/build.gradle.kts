@@ -44,7 +44,7 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.service.librarysync.data"
     compileSdk = 36
     defaultConfig {

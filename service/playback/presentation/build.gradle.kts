@@ -45,10 +45,21 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.collections.immutable)
         }
+        val desktopMain by getting {
+            dependencies {
+                implementation("net.java.dev.jna:jna:5.19.1")
+            }
+        }
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.compose.ui.test)
+                implementation(compose.desktop.currentOs)
+            }
+        }
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.service.playback.presentation"
     compileSdk = 37
     defaultConfig {

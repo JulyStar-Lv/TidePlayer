@@ -50,10 +50,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.domain.model.MAX_CUSTOM_THEME_SEEDS
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_DARK_MANUAL_THEME_SEED_ARGB
 import io.github.julystar.musicapp.core.domain.model.normalizeCustomThemeSeedArgbValues
 import io.github.julystar.musicapp.core.domain.model.normalizeThemeSeedArgb
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.theme.ThemeSeedPreviewTheme
+import io.github.julystar.musicapp.core.presentation.theme.themePrimaryColor
 import musicapp.feature.settings.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -70,8 +73,7 @@ private data class ThemePreset(
     val name: StringResource,
 )
 
-private val ThemePresets = listOf(
-    ThemePreset(0xFFFF5B8AL, Res.string.settings_theme_color_preset_pink),
+private val AdditionalThemePresets = listOf(
     ThemePreset(0xFF7A6CFFL, Res.string.settings_theme_color_preset_purple),
     ThemePreset(0xFF3D9AFFL, Res.string.settings_theme_color_preset_blue),
     ThemePreset(0xFFFF8A3DL, Res.string.settings_theme_color_preset_orange),
@@ -79,10 +81,19 @@ private val ThemePresets = listOf(
     ThemePreset(0xFFFFD93DL, Res.string.settings_theme_color_preset_yellow),
 )
 
+private fun themePresets(darkTheme: Boolean) = listOf(
+    ThemePreset(
+        if (darkTheme) DEFAULT_DARK_MANUAL_THEME_SEED_ARGB else DEFAULT_MANUAL_THEME_SEED_ARGB,
+        Res.string.settings_theme_color_preset_default,
+    ),
+) + AdditionalThemePresets
+
 @Composable
 internal fun ThemeColorPickerDialog(
     show: Boolean,
+    darkTheme: Boolean,
     savedArgb: Long,
+    otherModeArgb: Long,
     customArgbValues: List<Long>,
     onApply: (Long) -> Unit,
     onCustomColorsChange: (List<Long>) -> Unit,
@@ -101,7 +112,10 @@ internal fun ThemeColorPickerDialog(
         normalizeCustomThemeSeedArgbValues(customArgbValues)
     }
     val parsedHex = parseThemeSeedHex(hexInput)
-    val isDuplicate = ThemePresets.any { it.argb == draftArgb } || normalizedCustom.contains(draftArgb)
+    val presets = remember(darkTheme) { themePresets(darkTheme) }
+    val isDuplicate = presets.any { it.argb == draftArgb } || normalizedCustom.contains(draftArgb)
+    val lightPreviewArgb = if (darkTheme) otherModeArgb else draftArgb
+    val darkPreviewArgb = if (darkTheme) draftArgb else otherModeArgb
     val isAtLimit = normalizedCustom.size >= MAX_CUSTOM_THEME_SEEDS
 
     fun updateDraft(argb: Long) {
@@ -116,7 +130,10 @@ internal fun ThemeColorPickerDialog(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(Res.string.settings_theme_color_picker_title),
+            text = stringResource(
+                if (darkTheme) Res.string.settings_theme_color_picker_title_dark
+                else Res.string.settings_theme_color_picker_title_light,
+            ),
             style = MiuixTheme.textStyles.title3,
             color = MiuixTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
@@ -141,6 +158,8 @@ internal fun ThemeColorPickerDialog(
                 ) {
                     PickerEditor(
                         draftArgb = draftArgb,
+                        darkTheme = darkTheme,
+                        presets = presets,
                         savedArgb = savedArgb,
                         customArgbValues = normalizedCustom,
                         hexInput = hexInput,
@@ -156,7 +175,8 @@ internal fun ThemeColorPickerDialog(
                         modifier = Modifier.weight(1.15f),
                     )
                     ThemePreviews(
-                        draftArgb = draftArgb,
+                        lightArgb = lightPreviewArgb,
+                        darkArgb = darkPreviewArgb,
                         modifier = Modifier.weight(0.85f),
                     )
                 }
@@ -169,6 +189,8 @@ internal fun ThemeColorPickerDialog(
                 ) {
                     PickerEditor(
                         draftArgb = draftArgb,
+                        darkTheme = darkTheme,
+                        presets = presets,
                         savedArgb = savedArgb,
                         customArgbValues = normalizedCustom,
                         hexInput = hexInput,
@@ -182,7 +204,7 @@ internal fun ThemeColorPickerDialog(
                         },
                         onCustomColorsChange = onCustomColorsChange,
                     )
-                    ThemePreviews(draftArgb = draftArgb)
+                    ThemePreviews(lightArgb = lightPreviewArgb, darkArgb = darkPreviewArgb)
                 }
             }
         }
@@ -201,12 +223,12 @@ internal fun ThemeColorPickerDialog(
                 ) {
                     Button(
                         onClick = onDismiss,
-                    ) { Text(stringResource(Res.string.settings_cancel)) }
+                    ) { (stringResource(Res.string.settings_cancel)) }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         enabled = parsedHex != null,
                         onClick = { onApply(draftArgb) },
-                    ) { Text(stringResource(Res.string.settings_theme_color_apply)) }
+                    ) { (stringResource(Res.string.settings_theme_color_apply)) }
                 }
             } else {
                 Column(
@@ -217,11 +239,11 @@ internal fun ThemeColorPickerDialog(
                         enabled = parsedHex != null,
                         onClick = { onApply(draftArgb) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(Res.string.settings_theme_color_apply)) }
+                    ) { (stringResource(Res.string.settings_theme_color_apply)) }
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(Res.string.settings_cancel)) }
+                    ) { (stringResource(Res.string.settings_cancel)) }
                 }
             }
         }
@@ -232,6 +254,8 @@ internal fun ThemeColorPickerDialog(
 @Composable
 private fun PickerEditor(
     draftArgb: Long,
+    darkTheme: Boolean,
+    presets: List<ThemePreset>,
     savedArgb: Long,
     customArgbValues: List<Long>,
     hexInput: String,
@@ -263,13 +287,13 @@ private fun PickerEditor(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color(draftArgb.toInt()))
+                        .background(themePrimaryColor(draftArgb, darkTheme))
                         .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = formatThemeSeedHex(draftArgb),
+                        text = formatThemePrimaryValue(draftArgb, darkTheme),
                         style = MiuixTheme.textStyles.body1,
                         color = MiuixTheme.colorScheme.onSurface,
                         fontFamily = FontFamily.Monospace,
@@ -295,9 +319,10 @@ private fun PickerEditor(
                 horizontalArrangement = Arrangement.spacedBy(colorPicker.gridGap),
                 verticalArrangement = Arrangement.spacedBy(colorPicker.gridGap),
             ) {
-                ThemePresets.forEach { preset ->
+                presets.forEach { preset ->
                     ThemeColorSwatch(
                         argb = preset.argb,
+                        darkTheme = darkTheme,
                         name = stringResource(preset.name),
                         selected = draftArgb == preset.argb,
                         onClick = { onDraftChange(preset.argb) },
@@ -333,6 +358,7 @@ private fun PickerEditor(
                     customArgbValues.forEachIndexed { index, argb ->
                         SavedThemeColor(
                             argb = argb,
+                            darkTheme = darkTheme,
                             name = stringResource(
                                 Res.string.settings_theme_color_custom_name,
                                 index + 1,
@@ -363,7 +389,7 @@ private fun PickerEditor(
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(addLabel)) }
+            ) { (stringResource(addLabel)) }
         }
 
         PickerSection(title = stringResource(Res.string.settings_theme_color_custom_hsv)) {
@@ -436,6 +462,7 @@ private fun PickerSection(
 @Composable
 private fun ThemeColorSwatch(
     argb: Long,
+    darkTheme: Boolean,
     name: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -444,7 +471,7 @@ private fun ThemeColorSwatch(
     val pressed by interactionSource.collectIsPressedAsState()
     val hovered by interactionSource.collectIsHoveredAsState()
     var focused by remember { mutableStateOf(false) }
-    val color = Color(argb.toInt())
+    val color = themePrimaryColor(argb, darkTheme)
     val outlineColor = when {
         focused -> MiuixTheme.colorScheme.onSurface
         selected -> color
@@ -466,7 +493,7 @@ private fun ThemeColorSwatch(
                 .hoverable(interactionSource)
                 .onFocusChanged { focused = it.isFocused }
                 .semantics {
-                    contentDescription = "$name, ${formatThemeSeedHex(argb)}"
+                    contentDescription = "$name, ${formatThemePrimaryValue(argb, darkTheme)}"
                     this.selected = selected
                     role = Role.RadioButton
                 }
@@ -499,6 +526,7 @@ private fun ThemeColorSwatch(
 @Composable
 private fun SavedThemeColor(
     argb: Long,
+    darkTheme: Boolean,
     name: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -506,7 +534,13 @@ private fun SavedThemeColor(
 ) {
     val removeDescription = stringResource(Res.string.settings_theme_color_remove, name)
     Row(verticalAlignment = Alignment.Top) {
-        ThemeColorSwatch(argb = argb, name = name, selected = selected, onClick = onClick)
+        ThemeColorSwatch(
+            argb = argb,
+            darkTheme = darkTheme,
+            name = name,
+            selected = selected,
+            onClick = onClick,
+        )
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -528,18 +562,19 @@ private fun SavedThemeColor(
 
 @Composable
 private fun ThemePreviews(
-    draftArgb: Long,
+    lightArgb: Long,
+    darkArgb: Long,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ThemeSeedPreviewTheme(seedColor = Color(draftArgb.toInt()), darkTheme = false) {
-            ThemePreviewCard(dark = false)
+        ThemeSeedPreviewTheme(seedColor = Color(lightArgb.toInt()), darkTheme = false) {
+            ThemePreviewCard(dark = false, seedArgb = lightArgb)
         }
-        ThemeSeedPreviewTheme(seedColor = Color(draftArgb.toInt()), darkTheme = true) {
-            ThemePreviewCard(dark = true)
+        ThemeSeedPreviewTheme(seedColor = Color(darkArgb.toInt()), darkTheme = true) {
+            ThemePreviewCard(dark = true, seedArgb = darkArgb)
         }
         Text(
             text = stringResource(Res.string.settings_theme_color_preview_note),
@@ -555,7 +590,7 @@ private fun ThemePreviews(
 }
 
 @Composable
-private fun ThemePreviewCard(dark: Boolean) {
+private fun ThemePreviewCard(dark: Boolean, seedArgb: Long) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -581,6 +616,12 @@ private fun ThemePreviewCard(dark: Boolean) {
             ),
             color = MiuixTheme.colorScheme.onBackgroundVariant,
             style = MiuixTheme.textStyles.footnote2,
+        )
+        Text(
+            text = formatThemePrimaryValue(seedArgb, dark),
+            color = MiuixTheme.colorScheme.onBackground,
+            style = MiuixTheme.textStyles.footnote1,
+            fontFamily = FontFamily.Monospace,
         )
         Column(
             modifier = Modifier
@@ -620,12 +661,12 @@ private fun ThemePreviewCard(dark: Boolean) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {},
-                ) { Text(stringResource(Res.string.settings_theme_color_preview_primary)) }
+                ) { (stringResource(Res.string.settings_theme_color_preview_primary)) }
                 Button(
                     onClick = {},
                 ) {
                     Text(
-                        stringResource(Res.string.settings_theme_color_preview_secondary_action),
+                        text = stringResource(Res.string.settings_theme_color_preview_secondary_action),
                     )
                 }
             }
@@ -636,6 +677,13 @@ private fun ThemePreviewCard(dark: Boolean) {
 internal fun formatThemeSeedHex(argb: Long): String {
     return "#${(normalizeThemeSeedArgb(argb) and 0xFFFFFFL).toString(16).uppercase().padStart(6, '0')}"
 }
+
+internal fun formatThemePrimaryValue(argb: Long, darkTheme: Boolean): String =
+    if (!darkTheme && normalizeThemeSeedArgb(argb) == DEFAULT_MANUAL_THEME_SEED_ARGB) {
+        "Display P3 ${formatThemeSeedHex(argb)}"
+    } else {
+        "sRGB ${formatThemeSeedHex(argb)}"
+    }
 
 internal fun parseThemeSeedHex(value: String): Long? {
     val body = value.trim().removePrefix("#")

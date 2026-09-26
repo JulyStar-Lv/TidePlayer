@@ -43,7 +43,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.feature.recentlyplayed"
     compileSdk = 37
     defaultConfig {

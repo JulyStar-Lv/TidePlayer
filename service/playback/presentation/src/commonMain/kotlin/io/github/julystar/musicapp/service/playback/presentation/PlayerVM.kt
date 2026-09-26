@@ -121,7 +121,18 @@ class PlayerVM constructor(
                     canPlayNext = canPlayNext,
                 )
             }.collect { queue ->
-                _nowPlayingState.value = _nowPlayingState.value.copy(queue = queue)
+                val currentArtwork = _nowPlayingState.value.currentTrack?.artwork
+                _nowPlayingState.value = _nowPlayingState.value.copy(
+                    queue = queue.copy(
+                        items = queue.items.map { item ->
+                            if (item.index == queue.currentIndex) {
+                                item.copy(artwork = currentArtwork)
+                            } else {
+                                item
+                            }
+                        },
+                    ),
+                )
             }
         }
         viewModelScope.launch {
@@ -150,6 +161,8 @@ class PlayerVM constructor(
             NowPlayingAction.OpenSleepTimer -> Unit
             NowPlayingAction.OpenLyrics -> Unit
             NowPlayingAction.OpenQueue -> Unit
+            NowPlayingAction.ToggleShuffle -> toggleShuffle()
+            is NowPlayingAction.PlayQueueItem -> playQueueItem(action.index)
             NowPlayingAction.PlayPrevious -> playPrevious()
             NowPlayingAction.PlayNext -> playNext()
             NowPlayingAction.Resume -> resume()
@@ -165,6 +178,12 @@ class PlayerVM constructor(
 
     fun pause() {
         playbackController.pause()
+    }
+
+    fun volume(): Float = playbackController.getVolume()
+
+    fun setVolume(value: Float) {
+        playbackController.setVolume(value.coerceIn(0f, 1f))
     }
 
     fun stop() {
@@ -208,6 +227,27 @@ class PlayerVM constructor(
         val nextMode = playbackState.value.nextPlaybackMode()
         playbackController.setShuffle(nextMode.shuffleEnabled)
         playbackController.setRepeatMode(nextMode.repeatMode)
+    }
+
+    fun toggleShuffle() {
+        playbackController.setShuffle(!playbackState.value.shuffleEnabled)
+    }
+
+    fun playQueueItem(index: Int) {
+        val queue = playbackQueue.value
+        if (index !in queue.items.indices) return
+        viewModelScope.launch {
+            playbackController.play(queue.items, startIndex = index)
+        }
+    }
+
+    fun cycleRepeatMode() {
+        val nextMode = when (playbackState.value.repeatMode) {
+            RepeatMode.Off -> RepeatMode.All
+            RepeatMode.All -> RepeatMode.One
+            RepeatMode.One -> RepeatMode.Off
+        }
+        playbackController.setRepeatMode(nextMode)
     }
 
     fun removeLyric() {

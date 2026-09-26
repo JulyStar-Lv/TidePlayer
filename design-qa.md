@@ -139,6 +139,42 @@ final result: passed
 
 ---
 
+## Apple Music mini-player collapsed volume icon — 2026-09-20
+
+### Source, state, and normalization
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-c07730d6-d586-44a3-aafd-b0bcac77f8c8.png` (`1420 × 128 px`, Apple Music light mini-player).
+- Final TidePlayer full-window capture: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-volume/tideplayer-content-final.png` (`1960 × 1200 px`, `980 × 600 pt`, `@2x`).
+- Normalized implementation player crop: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-volume/tideplayer-volume-final.png` (`1420 × 128 px`).
+- Combined focused comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-volume/apple-vs-tide-volume-final.png` (Apple Music above, TidePlayer below).
+- State: light appearance, track loaded, paused, collapsed volume control, mini-player idle.
+
+### Findings and comparison history
+
+- [P1 resolved] The collapsed volume button previously selected low/medium/high artwork from the current system volume. In the captured state this produced the narrower medium-volume glyph, while Apple Music keeps the collapsed button on the full two-wave speaker artwork.
+- [P1 resolved] The collapsed state now always renders the extracted Apple Music high-volume asset. Expanded volume controls continue to show mute/low/medium/high feedback from the live level.
+- [P3 accepted] The normalized Apple Music glyph measures `38 × 28 px`; TidePlayer measures `38 × 27 px`. Their horizontal center is exactly `1348 px`, with a `0.5 px` vertical-center difference caused by AppKit-versus-Skia edge antialiasing.
+- No actionable P0, P1, or P2 finding remains in the requested volume-icon scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unaffected by this icon-state correction.
+- Spacing and layout rhythm: the right-side button slot, hit area, surrounding gap, and player frame are unchanged; the glyph center matches the reference.
+- Colors and visual tokens: both implementations use the active foreground; the remaining darkest-pixel difference is renderer antialiasing, not a color-token mismatch.
+- Image quality and asset fidelity: the collapsed control uses `icon_apple_music_volume_high.png`, extracted from the installed Music.app resource catalog rather than an approximate vector or text glyph.
+- Copy and content: accessibility copy and mute/unmute behavior are unchanged.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed after the state correction.
+- The packaged app was deployed to the project output and relaunched; the final focused comparison is from that running build.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
 ## Apple Music sidebar underlay parity — 2026-09-13
 
 ### Source and implementation evidence
@@ -1255,5 +1291,1175 @@ final result: passed for the scoped neutral material/color reproduction and reta
 - Fix: expanded the sampling radius to 132 dp and calibrated saturation to `1.18`, retaining the existing `0.78` neutral surface opacity. The change is deliberately subtle and continues to respect focus, light/dark theme, hover, and selection behavior.
 - Pixel analysis of the final right-side sidebar region shows a cool Home cast (`B−R +0.537`) and a warm Search cast (`B−R −0.345`), confirming that the material follows page content instead of a fixed tint. The regression fixture places a saturated blue card at the measured 64 dp gap and requires at least a `0.01` normalized increase in blue-versus-red at the content-facing sidebar edge.
 - `DesktopNavigationTest`: 5 tests, 0 failures/errors. `:desktopApp:createDistributable`: passed. `git diff --check`: passed. The packaged desktop app is running on Home.
+
+final result: passed
+
+---
+
+## MeloX desktop mini player — 2026-09-19
+
+### Source and implementation evidence
+
+- Reviewed MeloX commit `1fe5fbab3f554e8529c4847fc54281a472b7b61a`, specifically `DesktopBottomPlayer.swift`, `DesktopPlaybackControls.swift`, `DesktopBottomPlayerMetrics.swift`, `DesktopBottomMetadataSlot.swift`, and `DesktopSystemVolumeController.swift`.
+- Source capture: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-melox-miniplayer/01-melox-home-focused.png`.
+- TidePlayer capture: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-melox-miniplayer/02-tideplayer-home-focused.png`.
+- Final live verification used the packaged TidePlayer app at a `980 × 600 pt` focused light-theme window with a current song and the Home blue/pink content card visible.
+
+### Required fidelity surfaces
+
+- Geometry: the player uses MeloX's `700 × 54 pt` outer frame, `27 pt` continuous radius, `9 pt` horizontal inset, `148 pt` transport cluster, `9 pt` inter-cluster gaps, `1 pt` trailing-control gaps, `10 pt` bottom offset, and `70 pt` page inset.
+- Material: neutral regular glass/material, `0.65 pt` light edge, and black `10%` shadow with `14 pt` radius and `7 pt` vertical offset. It no longer inherits the page accent color.
+- Transport and metadata: independent shuffle/repeat state, 28/36 pt controls, 36 pt artwork with 6 pt radius, two-line title/artist-album hierarchy, artwork hover scale, metadata overflow menu, and focus-aware inactive foregrounds.
+- Progress: collapsed 2 pt track expands to 8 pt on hover, blurs metadata, exposes monospaced elapsed/remaining labels, and supports seeking.
+- Trailing controls: lyrics and queue use the same compact icon language and disappear while volume is expanded. The volume capsule expands from 36 pt to the MeloX layout of `10 + 64 + 14 + 18 + 9 pt`, with the slider before the speaker button, animated width, dynamic mute/low/normal symbols, and collapse on a real hover exit.
+- System behavior: macOS volume is read and written through CoreAudio, including virtual-main, scalar-main, left/right-channel, mute, and unmute fallbacks. Non-macOS desktop targets safely retain the visual fallback without loading CoreAudio.
+- Menus: the metadata menu opens without dimming the page and provides Lyrics, Queue, and Favorite actions.
+
+### Comparison history
+
+#### Iteration 1 — blocked
+
+- The first surface inherited a pink theme tint, while MeloX uses neutral material.
+- The first overflow implementation dimmed the full page.
+- Volume was visual-only and initialized to a fixed value.
+- Fixes: added a neutral glass surface override, switched to a non-dimming window popup, and connected the control to the system output volume.
+
+#### Iteration 2 — blocked
+
+- The CoreAudio structure compiled but failed at runtime because JNA could not reflect a private structure class.
+- Unsupported mute properties were treated as muted because nullable reads were compared directly with zero.
+- Fixes: made the native structure visible to JNA, added a desktop runtime read test, corrected nullable mute handling, and guarded non-macOS desktops.
+
+#### Iteration 3 — passed
+
+- Final default state shows the exact 700 × 54 pt neutral bar at the intended bottom offset with all transport, metadata, progress, lyrics, queue, and dynamic volume affordances present.
+- Final expanded state reports the actual system scalar (`0.5625` during verification), places the 64 pt slider before the speaker button, hides lyrics/queue, and keeps the outer bar geometry unchanged.
+- Accessibility activation now preserves the expanded state; mouse users still get MeloX's enter/leave auto-collapse behavior.
+- No actionable P0, P1, P2, or P3 findings remain in the requested mini-player scope.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed, including the CoreAudio runtime range test.
+- `:shared:desktopTest`: passed.
+- `:core:presentation:desktopTest`: passed.
+- `:desktopApp:packageDistributionForCurrentOS`: passed; app and DMG distributions were generated.
+- Packaged app was launched against an isolated copy of local playback data and visually exercised in default, progress-hover/seek, menu, and expanded-volume states.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music desktop mini player — 2026-09-19
+
+### Source and implementation evidence
+
+- Captured the installed macOS Music app directly in default and expanded-volume states at the same `980 × 600 pt` window size used for TidePlayer verification. The inspected accessibility surface was `Music.miniPlayer.contentView[viewState=mini]` with native shuffle, previous, play/pause, next, repeat, artwork, title, favorite, subtitle, context menu, playback slider, lyrics, queue, and volume controls.
+- Compared the native and TidePlayer screenshots in the same review pass without rescaling. The final TidePlayer package was launched with an isolated copy of local playback data so the active track and artwork remained realistic while user data stayed untouched.
+
+### Required fidelity surfaces
+
+- Geometry: retained the native `700 × 54 pt` capsule and `27 pt` radius, but centered it inside the right content pane instead of the full window. At `980 × 600 pt` its left edge is now approximately `x=244`, and its bottom clearance is `20 pt`, matching Music.
+- Material: the capsule continues to sample the real page backdrop, with the light white veil reduced from roughly `52%` to `33%`. This preserves Music's content-reactive coral, neutral, and lavender casts instead of flattening the bar to opaque white. Dark mode uses a correspondingly restrained surface veil.
+- Transport: the five-button cluster now aligns with the native positions and keeps the existing hover, pressed, disabled, shuffle, repeat, and repeat-one behavior.
+- Metadata: artwork, title, artist/album subtitle, inline favorite state, context menu, and ellipsis behavior follow Music's populated metadata region. The favorite control is independently accessible and updates the repository state.
+- Progress: the collapsed line now sits about `3 pt` above the capsule edge, as in Music, while retaining hover expansion, elapsed/remaining labels, and seeking.
+- Trailing controls: default order is More, Lyrics, Queue, Volume. Expanded volume hides Lyrics/Queue and uses the measured `52 pt` slider before the speaker control while preserving actual CoreAudio volume behavior.
+- Window activity: mini-player foregrounds continue to become neutral gray when the window loses focus and restore their original hierarchy when focus returns.
+
+### Comparison history
+
+- [P1] The prior MeloX-aligned bar was anchored at the start of its full-width mini-player host, placing it about `24 pt` too far left relative to Music. Fixed by centering the desktop bar within the constrained right content pane.
+- [P1] The prior bar sat `10 pt` above the bottom and reserved `70 pt`; Music uses approximately `20 pt` and a larger content clearance. Fixed to `20 pt` and `80 pt` respectively in both desktop navigation hosts.
+- [P2] The surface veil was too opaque to reproduce Music's strongly content-reactive material. Added a player-scoped alpha scale while preserving existing glass defaults for every other component.
+- [P2] The progress line sat too high and the first expanded volume slider was `12 pt` wider than the native state. Moved the collapsed progress container to `6 pt` high and reduced the volume slider from `64 pt` to `52 pt`.
+- [P2] The metadata region omitted Music's inline favorite affordance. Added the compact outline/filled favorite control beside the title without changing the mobile player.
+- No actionable P0, P1, P2, or P3 findings remain in the requested Apple Music mini-player scope.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed, including the macOS CoreAudio runtime range test.
+- `:shared:desktopTest`: passed.
+- `:core:presentation:desktopTest`: passed.
+- `:desktopApp:packageDistributionForCurrentOS`: passed; the app and DMG distributions were regenerated.
+- Packaged app visually verified in the default and expanded-volume states at `980 × 600 pt`; final package relaunched in the default state and left running.
+
+final result: passed
+
+---
+
+## Apple Music mini player asset-and-state fidelity follow-up — 2026-09-19
+
+### Source evidence and corrections
+
+- Re-inspected the installed `/System/Applications/Music.app` mini player at `980 × 600 pt` in both a neutral track list and a colorful Home shelf, then compared the packaged TidePlayer window at the same size.
+- Extracted the native Music asset templates from `Assets.car` for Previous, Next, More, Lyrics, Up Next, four volume levels, artwork hover overlay, and artwork hover glyph. The desktop mini player now renders those resources instead of Lucide or hand-approximated paths.
+- Replaced the always-visible outline heart with Apple Music's state model: no inline favorite affordance when the track is not favorited, and a small red `star.fill` only when it is favorited. The overflow menu remains the add-favorite entry point.
+- Restored album metadata through `CurrentTrackInfo` and `NowPlayingTrackItem`; the subtitle now renders `artist — album` with system-family sizing, weight, and secondary-label contrast matching the native bar.
+- Corrected the artwork to its native fixed `36 pt` frame and position. Hover no longer scales or adds a generic black block; it uses Music's own overlay and centered artwork-action glyph, while activation still opens Now Playing.
+- Reduced the light glass veil and shadow so colored content is transmitted through the capsule with the stronger coral/lavender response observed in Music. Mini-player controls now retain their native dark hierarchy when the window is inactive; the sidebar's requested inactive-gray behavior remains unchanged.
+- Moved the collapsed progress hit area to the native bottom-line position. Expansion is now tied to an actual seek interaction instead of ordinary hover; elapsed/remaining labels reserve the artwork and overflow regions, preventing the cover from becoming dark or text-overpainted during seeking.
+
+### Verification
+
+- Packaged app visually verified in default, inactive, seek, artwork activation, overflow-menu, favorite-on, and favorite-off states. Album text was also verified in accessibility output as `Taylor Swift — Red (Taylor's Version)`.
+- Artwork activation opened the Now Playing screen and returned successfully.
+- `:service:playback:presentation:desktopTest`: passed, including the album mapping assertion and macOS CoreAudio runtime coverage.
+- `:shared:desktopTest`: passed.
+- `:core:presentation:desktopTest`: passed.
+- `:desktopApp:packageDistributionForCurrentOS`: passed; app and DMG were regenerated.
+- `git diff --check`: passed. The final packaged app is running against the isolated QA home.
+
+final result: passed
+
+---
+
+## Apple Music mini player pixel-rebuild correction — 2026-09-19
+
+This section supersedes the preceding mini-player conclusions after the user rejected that result. The implementation was remeasured from fresh Apple Music screenshots and rebuilt around the native geometry and state behavior; earlier claims about an always-neutral surface, ellipsis metadata, non-scaling artwork, drag-only expansion, and a 52 pt volume track no longer describe the final code.
+
+### Primary evidence
+
+- Native Apple Music captures at the same `980 × 600 pt` window size: `01-apple-music-home-active.jpg` and `04-apple-music-songs-active.jpg` in `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-apple-music-miniplayer-pixel/`.
+- Final TidePlayer captures: `14-tide-home-rebuilt.jpg` and `16-tide-songs-rebuilt.jpg` in the same directory.
+- Direct player comparisons: `15-player-source-vs-rebuilt.png` for a colorful backdrop and `17-player-neutral-source-vs-rebuilt.png` for a neutral backdrop. Metadata crops are `18-apple-neutral-metadata-6x.png` and `19-tide-neutral-metadata-6x.png`.
+- MeloX commit `1fe5fbab3f554e8529c4847fc54281a472b7b61a` was used only as a structural reference for hover, progress, shadow, and volume behavior. Apple Music's installed UI and assets remained the visual authority.
+
+### Final fidelity checks
+
+- Geometry: both implementations place the `700 × 54 pt` capsule at `x=244`, `y=527`, with a `27 pt` radius. The transport cluster, `36 × 36 pt` artwork at `x=410`, metadata viewport, overflow control, lyrics, queue, volume, and collapsed progress baseline share the native pixel grid.
+- Native assets: Previous, Next, More, Lyrics, Queue, four speaker levels, favorite, artwork hover overlay, and artwork hover glyph are extracted Music resources. Play, shuffle, and repeat preserve the measured compact sizes and 28/36 pt hit areas.
+- Metadata: title uses a 12.5 pt semibold system face; subtitle uses an 11.5 pt regular system face and renders `artist — album`. Both rows use continuous native-style marquee behavior instead of ellipsis clipping.
+- Artwork: fixed `36 pt` square with a `6 pt` radius; hover scales to `1.18`, adds the measured shadow, dark overlay, and expansion glyph while activation continues to open Now Playing.
+- Glass: the player samples the live page backdrop with blur, color recovery, refraction, light edge, and the measured `10% / 14 pt / 7 pt` shadow. The light surface veil is intentionally low enough for Apple Music's page-reactive coral/lavender cast and remains neutral over a neutral list.
+- Progress: idle track is `2 pt` in a `14 pt` interaction strip; hover or drag expands it to `8 pt`, blurs metadata by `7 pt`, reveals elapsed/remaining time, and uses the same pressed scaling without darkening the artwork area.
+- Volume: the expanded track is `64 pt`, preceding the speaker control; Lyrics and Queue collapse while expanded. The control remains connected to CoreAudio and chooses the matching mute/low/medium/high native asset.
+- Runtime compatibility: Compose UI/Foundation/Runtime and Skiko were realigned to the `1.11.1` family, removing the `Image.makeShader` linkage crash observed in the rejected package.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed.
+- `:shared:desktopTest`: passed.
+- `:core:presentation:desktopTest`: passed.
+- Combined run: `BUILD SUCCESSFUL in 29s`, 334 actionable tasks.
+- `:desktopApp:packageDmg`: passed; `TidePlayer-1.0.744.dmg` regenerated after the compatibility alignment.
+- Packaged app launched successfully from `desktopApp/build/compose/binaries/main/app/TidePlayer.app`; normal Home and neutral Songs states were visually captured with a populated title, artwork, artist, and album.
+- No actionable P0, P1, or P2 issue remains in the requested desktop mini-player scope.
+
+final result: passed
+
+---
+
+## AndroidLiquidGlass mini-player material — 2026-09-19
+
+### Source and implementation
+
+- Verified that the project already consumes `io.github.kyant0:backdrop:2.0.0`, the Compose Multiplatform library published by `Kyant0/AndroidLiquidGlass`; no duplicate glass dependency was introduced.
+- Added a player-scoped vibrant preset to the existing backdrop modifier. It follows the repository's catalog composition: `vibrancy()`, `8 dp` blur, `12 dp / 24 dp` depth lens refraction, and `Highlight.Plain`.
+- Enabled the preset only for the desktop mini-player capsule and its expanded volume capsule. Other glass components retain their existing appearance.
+- Retained the Apple Music measurements, surface opacity, corner radius, external shadow, metadata layout, and interaction geometry from the preceding pixel-rebuild pass.
+
+### Visual evidence
+
+- Default state: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-android-liquid-glass/01-default.png`.
+- Expanded volume state over artwork content: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-android-liquid-glass/02-volume-expanded.png`.
+- Live verification confirmed backdrop transmission, increased color vibrancy, spatial blur, rounded-edge refraction, highlight, and nested volume-glass rendering.
+
+### Verification
+
+- `:service:playback:presentation:compileKotlinDesktop`: passed.
+- `:core:presentation:desktopTest`, `:service:playback:presentation:desktopTest`, and `:shared:desktopTest`: passed in one run.
+- `:desktopApp:createDistributable`: passed and the packaged app launched successfully.
+- `:desktopApp:packageDmg`: passed; `TidePlayer-1.0.744.dmg` regenerated.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Mini-player metadata hover cleanup — 2026-09-19
+
+- Removed the default Compose indication from the title/artist/album click target, eliminating the background that appeared when the pointer entered the song-name region.
+- The metadata region remains clickable and accessible; artwork hover, progress hover/drag, and button hover feedback are unchanged.
+- `:service:playback:presentation:compileKotlinDesktop` and `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed; the rebuilt packaged app is running.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music expanded-progress alignment — 2026-09-19
+
+### Comparison target and evidence
+
+- Source visual truth: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-progress-expanded-alignment/apple-music-reference.png` (`1426 × 138 px`, approximately `713 × 69 pt` at `@2x`).
+- User-provided pre-fix TidePlayer evidence: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-progress-expanded-alignment/tideplayer-before.png` (`1432 × 150 px`, `@2x`).
+- Final packaged-app capture: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-progress-expanded-alignment/tideplayer-expanded-final.png` (`980 × 600 px`, `980 × 600 pt`, `1x`).
+- Normalized focused comparison: `/Users/shine/.codex/visualizations/2026/09/19/tideplayer-progress-expanded-alignment/comparison-expanded-progress.png`; both capsule crops were normalized to `1400 × 108 px` before comparison.
+- State: light theme, populated `You Are In Love (Taylor's Version)` metadata, progress hover/seek expansion active, and playback fraction aligned to approximately `50%`. The implementation shows `2:13 / −2:13` rather than the source's `2:09 / −2:09` because the local media duration is eight seconds longer; the normalized fraction and track geometry are equivalent.
+- The pointer visible in the implementation capture is a computer-use capture artifact and is excluded from visual fidelity judgments.
+
+### Findings and comparison history
+
+- [P1 resolved] The pre-fix TidePlayer track occupied rows `108–123`, while Apple Music occupied `94–109` relative to nearly identical screenshot crops: a `14 px` (`7 pt`) downward error. The expanded-only slider offset changed from `+3 dp` to `−4 dp`. In the normalized final comparison, the track baselines overlap; left and right boundaries differ by approximately `1.5 pt` and `1 pt`, respectively.
+- [P2 resolved] The pre-fix metadata crop averaged `214.7` luminance while Apple Music averaged `242.4`, making the artwork/title region visibly too deep and dark. The existing `7 dp` blur was retained and the expanded metadata layer now composites at `30%` opacity. The final aligned crop averages `244.9`, within about `1%` of the source.
+- [P2 resolved] The pre-fix inactive rail sampled near RGB `178`; Apple Music samples near RGB `202`. Expanded inactive opacity changed from `30%` to `20%`, producing RGB `204`. The active segment changed from `86%` to full black, matching Apple Music's center pixels.
+- No actionable P0, P1, or P2 finding remains in the requested expanded-progress state.
+
+### Required fidelity surfaces
+
+- Fonts and typography: elapsed/remaining labels retain the system 12 pt face and their original vertical position; title/artist typography is intentionally blurred in this state, matching the source hierarchy.
+- Spacing and layout rhythm: capsule size and horizontal progress extent are unchanged; only the expanded rail moved upward by the measured `7 dp`. Time labels remain fixed.
+- Colors and visual tokens: active/inactive rail values and metadata compositing were adjusted from sampled source pixels. The final metadata mean is `244.9` versus `242.4` in the source.
+- Image quality and asset fidelity: the real track artwork remains the source asset; expansion applies blur and opacity rather than substituting or rasterizing the content.
+- Copy and content: title, artist, and album stay populated from playback metadata. The local duration difference is documented above and does not affect geometry.
+
+### Verification
+
+- `:service:playback:presentation:compileKotlinDesktop`: passed.
+- `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed; `TidePlayer-1.0.744.dmg` was regenerated.
+- The packaged app was relaunched, expanded through the real progress interaction, sought to the midpoint, captured, normalized, and compared with the Apple Music source.
+- `git diff --check`: passed. The packaged app remains running in the verified expanded-progress state.
+
+final result: passed
+
+---
+
+## Apple Music artwork-hover and right-control fidelity — 2026-09-20
+
+### Source, state, and normalization
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-c07730d6-d586-44a3-aafd-b0bcac77f8c8.png` (`1420 × 128 px`, Apple Music at `@2x`).
+- User-provided pre-fix TidePlayer evidence: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-67778180-24d6-49db-beb7-b5d97d5492a4.png` (`1418 × 138 px`, `@2x`).
+- Final packaged-app capture: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-icons/tide-hover-final.png` (`980 × 600 px`, `1x`).
+- Focused comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-icons/apple-vs-tide-hover-final.png`; TidePlayer's `712 × 70 pt` player neighborhood was normalized to `1424 × 140 px`, while the Apple source received only a six-pixel vertical and two-pixel horizontal comparison margin.
+- State: light theme, populated artwork/title/artist/album, artwork hover active, collapsed progress, and normal right controls. The final machine volume was in its low state, so the matching low speaker variant is visible; the high-volume resource was separately dimensioned against the supplied Apple reference.
+
+### Findings and comparison history
+
+- [P1 resolved] The artwork previously scaled around a slot boundary with no expansion allowance and could be hard-clipped on the left. It now occupies a `40 pt` slot with a `2 pt` internal inset; the `36 pt` cover can expand on all sides without clipping.
+- [P2 resolved] Artwork hover scale changed from `1.18` to `1.06`. The final visible hover artwork is approximately `38 pt`, matching the reference without pushing into transport controls or title text.
+- [P2 resolved] The interim `general_expand` Music asset was rejected during live comparison because its horizontal frame did not match the requested two-arrow treatment. The final resource is Apple's `arrow.up.left.and.arrow.down.right` system symbol at the MeloX-measured 11 pt bold size, centered in the 36 pt artwork overlay.
+- [P2 resolved] More, Lyrics, Queue, and the four speaker levels were regenerated from the corresponding macOS system symbols with fixed native canvases. At `@2x`, the supplied Apple reference measures approximately `31 × 7`, `37 × 35`, `34 × 25`, and `38 × 28 px`; the generated resources use matching visible alpha bounds and control centers.
+- No actionable P0, P1, or P2 issue remains in the requested hover/right-control scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: title and artist/album styles and baselines were left unchanged; the icon correction does not shift or restyle metadata.
+- Spacing and layout rhythm: the 40 pt artwork slot preserves the existing title origin while introducing symmetric expansion room. Right control hit areas remain 26/36/36/18 pt and their centers align with the reference.
+- Colors and visual tokens: controls continue to use the active foreground tint and native hover overlay opacity. Template resources tint consistently in light/dark and focused/unfocused states.
+- Image quality and asset fidelity: the artwork remains the original cover; all corrected controls are high-density PNG templates generated from installed macOS symbols, including distinct mute/low/medium/high speaker states.
+- Copy and content: playback title, artist, and album remain intact and accessible; every right control retains its existing accessible label and action.
+
+### Verification
+
+- `:service:playback:presentation:compileKotlinDesktop` and `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed in the isolated compatibility build; `TidePlayer-1.0.744.dmg` was regenerated and copied to the standard project output.
+- The packaged app was relaunched and inspected in the real artwork-hover state. No left-edge clipping was visible, the two diagonal arrows rendered, and the right controls retained their expected centers and silhouettes.
+- `git diff --check`: passed. The packaged app remains running.
+
+final result: passed
+
+---
+
+## Mini-player 100 ms progress-hover gate — 2026-09-20
+
+### Source, state, and normalization
+
+- Apple Music expanded-state reference: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-5d774fb3-1a92-4dc6-aabf-d09284067de1.png` (`1426 × 138 px`, `@2x`).
+- TidePlayer post-threshold capture: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-progress-hover-delay/expanded-after-100ms.png` (`980 × 600 px`, `980 × 600 pt`, `1x`).
+- TidePlayer exit-state capture: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-progress-hover-delay/normal-after-exit.png` (`980 × 600 px`, `980 × 600 pt`, `1x`).
+- Focused comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-progress-hover-delay/apple-expanded-vs-tide-hover-states.png`; the implementation player crops were `713 × 70 pt` and normalized to `1426 × 140 px` for comparison with the Apple reference.
+- States compared: Apple Music expanded progress, TidePlayer after a stable hover exceeding 100 ms, and TidePlayer immediately after pointer exit.
+
+### Findings and comparison history
+
+- [P1 resolved] Progress hover previously expanded immediately, so an ordinary pointer crossing could change the mini-player. Expansion now uses a cancellable 100 ms hover gate.
+- [P1 resolved] Leaving the progress hit area before 100 ms cancels the pending coroutine before it can arm the expanded state; the player therefore retains its normal rail, metadata, and controls during a quick pass.
+- [P2 resolved] A stable hover still reveals elapsed/remaining time and animates the rail from 2 dp to 8 dp. Pointer exit clears the armed state immediately, while an active drag independently keeps the adjustable state visible until release.
+- No actionable P0, P1, or P2 finding remains in the requested hover-timing scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: no font, size, weight, or baseline changed; time labels remain the existing 12 pt system face.
+- Spacing and layout rhythm: no geometry changed; the existing normal and expanded layouts are now selected only after the requested dwell time.
+- Colors and visual tokens: normal and expanded colors are unchanged from the previously verified Apple Music alignment.
+- Image quality and asset fidelity: artwork and control assets are unchanged; the hover gate affects state timing only.
+- Copy and content: title, artist, album, elapsed time, and remaining time formatting are unchanged.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed in the isolated compatibility build; `TidePlayer-1.0.744.dmg` was regenerated and copied to the standard project output.
+- The packaged app was relaunched. A stable real-pointer hover produced elapsed `0:46`, remaining `−3:32`, and the expanded rail; after exit, accessibility inspection contained no time labels and the normal metadata/control state returned.
+- The below-threshold guarantee follows from the keyed `LaunchedEffect`: pointer exit cancels its 100 ms `delay` before `progressHoverArmed` can be set.
+- `git diff --check`: passed. The packaged app remains running.
+
+final result: passed
+
+---
+
+## Apple Music mini-player metadata fidelity — 2026-09-20
+
+### Source, state, and normalization
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-20d03a8e-4fb3-48a5-8269-b0f8eefeaf55.png` (`1422 × 134 px`, Apple Music long-title state at `@2x`) and `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-eed3fcf5-cbca-4594-8427-3a2d1ec5f68b.png` (`1426 × 136 px`, Apple Music Lossless state at `@2x`).
+- Pre-fix TidePlayer evidence: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-b5c991bb-0e48-4eaa-a5e1-61b22ac14c9d.png` (`1414 × 136 px`, `@2x`).
+- Latest captured implementation before the final spacing-only refinement: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-metadata/tideplayer-light-final.png` (`1960 × 1200 px`, `980 × 600 pt`, `@2x`).
+- Focused implementation crop: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-metadata/tideplayer-mini-final.png` (`1426 × 136 px`).
+- Combined focused comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-metadata/apple-vs-tide-metadata-final.png` (`1426 × 272 px`).
+- State: light theme, real long title/artist/album metadata, real FLAC playback information, collapsed progress state, and active Lossless badge.
+
+### Findings and comparison history
+
+- [P1 resolved] TidePlayer's artwork measured 36 pt while Apple Music measured 34 pt. The artwork is now 34 pt with the existing 6 pt corner radius.
+- [P2 resolved] TidePlayer rendered artist/album at RGB `97`; the Apple Music reference uses the active label foreground. Light-mode secondary metadata now uses black, while dark mode retains a secondary white treatment.
+- [P1 resolved] The marquee previously ended with a hard clip. Both title and artist/album rows now use an offscreen destination-in mask with a 22 pt right-edge fade.
+- [P1 resolved] Playback quality was absent. Real playback technical metadata now selects Lossless for explicit lossless/common lossless codecs and Dolby for Dolby/Atmos/E-AC-3/JOC codecs. AAC and other lossy streams remain unbadged. The visible marks come from the installed Music.app resource catalog.
+- [P2 resolved after the captured iteration] The captured implementation retained a 4 pt artwork-to-text gap. The final source uses a 45 pt artwork slot around the 34 pt cover, producing the measured 9 pt Apple Music gap; desktop tests and packaging passed after this refinement.
+- [P1 verification blocker] macOS locked immediately after the final packaged app was relaunched. Computer-use verification cannot inspect the post-spacing-refinement window until the user unlocks the Mac, so the required post-fix rendered capture is unavailable.
+
+### Required fidelity surfaces
+
+- Fonts and typography: title remains the 12.5 pt semibold system face; artist/album remains 11.5 pt regular but now matches Apple Music's light-mode foreground and right-edge fade.
+- Spacing and layout rhythm: cover size is 34 pt and the final artwork-to-text gap is 9 pt. The player frame, progress track, transport cluster, and trailing controls are unchanged.
+- Colors and visual tokens: light primary/secondary metadata uses black; the Lossless/Dolby marks use the sampled 30% foreground opacity, matching the reference core gray near RGB `177`.
+- Image quality and asset fidelity: artwork remains the real cover. Lossless and Dolby marks are extracted from `/System/Applications/Music.app/Contents/Resources/Assets.car`, rather than approximated with text or a hand-drawn vector.
+- Copy and content: title, artist, and album remain populated from playback metadata. Audio badges are derived from actual playback technical information and include localized accessibility descriptions.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed, including Lossless, Dolby-precedence, and lossy-no-badge tests.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed after a clean rebuild; `TidePlayer-1.0.744.dmg` was regenerated.
+- The captured real app exposed `无损音频` in the accessibility tree and visibly rendered the Lossless mark, 34 pt artwork, black secondary metadata, and right-edge text fade.
+- `git diff --check`: passed.
+- Remaining gate: unlock macOS, choose normal startup, capture the final 45 pt artwork-slot build, and repeat the focused side-by-side comparison.
+
+final result: blocked
+
+---
+
+## Album detail toolbar shadow parity — 2026-09-25
+
+### Source, implementation, and normalization
+
+- Source visual truth: `docs/qa/apple-music-reference/2026-09-25-current/06-album-detail.png`.
+- Final implementation: `docs/qa/album-toolbar-shadow-2026-09-25/12-tide-shadow-final-settled.png`.
+- Full-view comparison: `docs/qa/album-toolbar-shadow-2026-09-25/13-final-comparison.jpg`.
+- Focused toolbar comparison: `docs/qa/album-toolbar-shadow-2026-09-25/16-focused-toolbar-comparison.png`.
+- Overlay and difference evidence: `docs/qa/album-toolbar-shadow-2026-09-25/14-final-overlay.jpg` and `15-final-diff.png`.
+- Viewport: `980 × 600 pt`, `1960 × 1200 px`, Retina `2×`; light appearance, album detail, idle toolbar controls.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged; this pass only adjusts the toolbar shadows.
+- Spacing and layout rhythm: return, grouped download/more, and search capsules keep their approved geometry. Shadow placement is now a two-layer curve with a `36dp` ambient blur at `6dp` vertical offset and a `16dp` contact blur at `5dp` vertical offset.
+- Colors and visual tokens: the ambient layer uses black at `4%`; the contact layer uses `5%` for the circular and grouped controls and `4%` for the longer search capsule to compensate for its wider accumulated shadow.
+- Image quality and asset fidelity: existing vector icons and translucent material surfaces are unchanged; no raster shadow or screenshot substitute is used.
+- Copy and content: unchanged; real album and playback data remain active.
+
+### Comparison history
+
+- Iteration 1 — blocked: the prior elevation shadow ended after roughly `24px` and its first shadow band was only about `3/255` darker than the surrounding background. Music.app extends roughly `40px` with an initial `9–10/255` difference.
+- Iteration 2 — blocked: a single custom `18dp`, `16%` shadow reached the correct distance but created a visibly dark contact band (`228–231` versus the reference `244–245`).
+- Iteration 3 — blocked: a wider `26dp`, `10%` shadow softened the band, but the long search capsule remained darker than the compact grouped control.
+- Iteration 4 — passed: the final dual-layer shadow separates long ambient falloff from the near contact band and applies a lower contact opacity to the long search capsule.
+
+### Final evidence
+
+- Grouped capsule shadow samples at rows `88–108`: Apple Music `244.75, 245.54, 245.83, 246.65, 247.48, 248.35`; TidePlayer `243.90, 245.08, 246.38, 247.13, 248.30, 249.51`.
+- Search capsule shadow samples at rows `88–108`: Apple Music `244.25, 245.18, 245.28, 246.22, 247.16, 248.12`; TidePlayer `243.87, 244.87, 245.81, 246.95, 247.71, 248.66`.
+- The remaining sub-two-level tail variation is renderer antialiasing and background sampling, not an actionable shape, opacity, or offset mismatch.
+- Interaction regression: album detail navigation remains real; return, grouped more menu, and search control semantics remain present.
+- Build verification: `:feature:album:desktopTest` and `:desktopApp:createDistributable --offline` passed; `git diff --check` passed.
+
+No actionable P0, P1, or P2 finding remains in the requested toolbar-shadow scope.
+
+final result: passed
+
+---
+
+## Artist detail row, favorite icon, menu-anchor and focus refinement — 2026-09-25
+
+### Source truth and implemented fixes
+
+- Source references: `docs/qa/apple-music-reference/artist-selected.jpg` and `docs/qa/apple-music-reference/artist-track-context-menu.jpg` at the normalized `980 × 600 pt` / `1960 × 1200 px` light, focused state.
+- [P2 fixed in code] Artist-detail track rows now follow the measured Apple ordering and spacing more closely: favorite star → play/track status → title → reserved rating-space → download → duration → more. TidePlayer does not invent Apple catalog rating data; the rating span remains spacing only.
+- [P2 fixed in code] Favorite state now uses a filled star from the same Lucide-style icon family rather than a filled heart in the Apple Music desktop surfaces, matching the source favorite affordance.
+- [P2 fixed in code] The right-side More button and secondary-click now use separate popup anchors. More opens from the row's trailing edge; secondary-click opens from the pointer location.
+- [P2 fixed in code] The artist-detail track-menu surface measures about `424 px` wide in the normalized Retina reference, i.e. about `212 pt`, while the Songs multi-select track menu remains about `176 pt`. TidePlayer now keeps Songs at `176 pt` and uses `212 pt` only for the artist-detail track-menu path.
+- [P2 fixed in code] Menu item rhythm was still visibly too loose. On the normalized Apple screenshots, adjacent ordinary item centers are about `48 px` apart (`24 pt`) and a separator expands the center-to-center interval to about `70 px` (`35 pt`). TidePlayer previously used `30 pt` rows plus a `6.5 pt` separator band. Library and album desktop menus now use `24 pt` rows, `3 pt` outer vertical padding and an approximately `10.5 pt` separator band.
+- [P2 fixed in code] Menu text already matched: the Download label ink height is `23 px` in both Apple and Tide at Retina `2×`, so `13 sp` remains unchanged. The icon ink did not match: Apple Download/Play glyph ink is about `16 × 18–19 px`, while Tide's former `14 pt` icon rendered about `22 × 28 px`. The visible icon is now `10 pt` inside the existing `14 pt` slot, preserving the already-matched text column.
+- [P3 fixed in code, rendered recapture pending] Album-card hover geometry was rechecked on the exact shared `452,136,326×326 px` cover crop. The circular play surface and `12 pt` edge inset were already aligned; only the white play glyph was oversized (`22 × 28 px` Tide versus about `20 × 23 px` Apple). The hover glyph is now `12 pt` instead of `14 pt`, with a `1 pt` downward optical offset; circle size and inset are unchanged.
+- [P2 fixed in code] On macOS, transient child popups no longer force the host selection into the unfocused gray state merely because the AWT window emits `windowLostFocus`. True app backgrounding still comes from `AppForegroundListener`, so actual inactive-window treatment is preserved.
+
+### Verification status
+
+- `git diff --check` and `:feature:library:desktopTest :feature:album:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline` passed after the latest menu and album-hover refinement (`340` actionable tasks: `65` executed, `275` up-to-date).
+- A fresh distributable exists at `desktopApp/build/compose/binaries/main/app/TidePlayer.app`.
+- Rendered recapture is currently blocked by the host lock. The desktop-control surface reports: `The Mac is locked and automatic unlock could not unlock it. Ask the user to unlock the Mac manually before continuing.`
+- Because the latest Artist row/focus/menu revision has not yet been rendered in the normalized state, the previous Artist and context-menu pixel metrics remain the latest valid numbers; they are not overwritten with inferred values.
+
+final result: blocked
+
+## Apple Music library locked-host recheck — 2026-09-25
+
+- The native-app inventory again returned `The Mac is locked and automatic unlock could not unlock it`; this is the third consecutive goal turn with the same host-state blocker.
+- `git diff --check` still passes. The packaged executable and Compose resource jars are present under `desktopApp/build/compose/binaries/main/app/TidePlayer.app` with the 08:57 build timestamp.
+- Bundle inspection confirms that `icon_artist_microphone.png`, the updated `AppleMusicLibraryDesktopScreen` classes/resources, and the updated `AppleMusicAlbumDesktopScreen` classes/resources are embedded in the distributable.
+- This verifies packaging only. It cannot replace the required render, interaction, same-condition screenshot, overlay/difference check, or opening the final app for handoff.
+
+final result: blocked
+
+### Press-state follow-up — 2026-09-25
+
+- [P2 resolved in code, visual recapture pending] Circular toolbar controls, artist action controls and album action pills previously shared one static surface across normal, hover and press. Their interaction sources now expose distinct source-calibrated normal, hover, pressed and disabled opacities without ripples or layout movement.
+- The same scoped build/test/package command passed after this adjustment. macOS remains locked, so this state is included in the pending final rendered pass rather than being claimed as visually certified.
+
+final result: blocked
+
+## Apple Music mini-player transport assets — 2026-09-20
+
+### Source, state, and normalization
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-da608223-b55c-4c72-b035-1ab8a18e4087.png` (`340 × 132 px`, Apple Music light mini-player transport cluster).
+- Final TidePlayer full-window capture: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-transport/shipping-content-final.png` (`1960 × 1200 px`, `980 × 600 pt`, `@2x`).
+- Final focused implementation crop: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-transport/shipping-transport-final.png` (`340 × 132 px`).
+- Stacked focused comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-transport/shipping-comparison-final.png` (Apple Music above, TidePlayer below).
+- State: light appearance, track loaded, paused, shuffle/repeat inactive, mini-player idle. The rendered verification used an isolated copy of the application data because the primary macOS session was locked; the production app bundle contains the same tested build.
+
+### Findings and comparison history
+
+- [P1 resolved] The previous controls used approximated application icons. Shuffle, previous, play, next, repeat, and repeat-one now use the original named images extracted from `/System/Applications/Music.app/Contents/Resources/Assets.car`.
+- [P1 resolved] Icon clipping from the circular hover surface was removed, allowing Apple Music's glyph extents to render outside the compact hit-area bounds exactly as intended.
+- [P2 resolved] Per-glyph width, height, vertical sampling, horizontal offset, and inactive opacity were calibrated against the normalized Apple Music crop while preserving the existing 28/36 pt interaction targets.
+- [P3 accepted] AppKit and Compose/Skia choose a neighboring anti-aliasing row or column on four glyphs. The measured visible alpha bounds differ by at most one physical pixel: shuffle `26 × 21` vs `26 × 22`, previous/next `39 × 22` vs `38 × 22`, play `38 × 42` vs `38 × 43`, and repeat is exactly `24 × 20`. Centers differ by at most `0.5 px`; the underlying source bitmaps and layout geometry are identical.
+- No actionable P0, P1, or P2 finding remains in the requested transport-icon scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: not part of this focused transport-icon change; existing mini-player text rendering is unchanged.
+- Spacing and layout rhythm: transport order, button hit areas, inter-button rhythm, and cluster width are unchanged; glyph centers align to the Apple Music reference within the half-pixel rasterization boundary.
+- Colors and visual tokens: active transport glyphs use the sampled light foreground `#242424`; inactive shuffle/repeat use `31.5%` foreground opacity, matching the Apple Music crop.
+- Image quality and asset fidelity: all six transport states use the installed Music.app raster resources rather than recreated vectors or text glyphs.
+- Copy and content: no copy or metadata behavior changed.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed after the final pixel calibration.
+- The final packaged app was deployed to the normal project output and relaunched; the focused runtime screenshot is the packaged build.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player volume expansion — 2026-09-20
+
+### Source, state, and normalization
+
+- Source visual truth: live `/System/Applications/Music.app` expanded volume state, captured at `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-volume-motion/apple-volume-expanded.png` (`1420 × 128 px`).
+- TidePlayer settled runtime capture: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-volume-motion/tide-volume-expanded-shipping.png` (`1420 × 128 px`).
+- Stacked focused comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-volume-motion/apple-vs-tide-expanded-shipping.png` (Apple Music above, TidePlayer below).
+- Viewport: `980 × 600 pt` at `@2x`; light appearance, track loaded, output volume approximately 37%, volume control expanded.
+
+### Findings and resolutions
+
+- [P1 resolved] The previous expanded control had no visible independent surface. It now expands into a right-anchored `112 × 40 pt` capsule using Apple Music's sampled light surface `#F0F0F0`, a 20 pt radius, and a restrained matching shadow.
+- [P1 resolved] The previous layout resized abruptly. Width now morphs over 180 ms with `FastOutSlowInEasing`; the surface fades over 140 ms while lyrics and queue cross-fade/translate out over 160 ms.
+- [P2 resolved] The slider now matches the Apple Music expanded state: `54 × 8 pt`, black active segment, sampled gray inactive segment, no circular thumb, and a right-origin reveal.
+- [P2 resolved] The capsule, track, and speaker were calibrated after normalized comparison. Both Apple Music and the shipping implementation measure the track at `(1196,58)–(1304,74)` physical pixels (`108 × 16 px`); the capsule top edge and horizontal origin also align in the final runtime capture.
+- No actionable P0, P1, or P2 finding remains in the requested volume-background and expansion-motion scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged; this focused control does not introduce text.
+- Spacing and layout rhythm: the collapsed button keeps the original trailing alignment; expansion consumes the existing lyrics/queue area without moving the mini-player or metadata.
+- Colors and visual tokens: light `#F0F0F0`, dark `#2C2C2E`, black active track, light inactive track `#B8B8B8`.
+- Image quality and asset fidelity: the speaker glyph remains the extracted installed Music.app raster resource.
+- Copy and content: accessibility labels continue to switch between volume, mute, and unmute states.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed after the final coordinate calibration.
+- The packaged application and `TidePlayer-1.0.744.dmg` were deployed to the normal project output; the isolated project build is running for review.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player pause and app-local volume corrections — 2026-09-20
+
+### Source, state, and normalization
+
+- Reported TidePlayer baseline: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-fd1dbc52-3d56-4db8-b94c-0ed0dda8e807.png` (`1422 × 130 px`, light mini-player, playing).
+- Final packaged-app window: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-four-fixes/playing-window.png` (`2096 × 1336 px`, `980 × 600 pt` window at `@2x`).
+- Normalized focused result: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-four-fixes/after-normalized.png` (`1422 × 132 px`).
+- Before/after stack: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-four-fixes/before-after.png` (reported oversized pause above, corrected packaged build below).
+- Volume-state evidence: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-four-fixes/volume-icon-levels.png` (high left, low right) and `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-four-fixes/volume-expanded-player.png` (expanded application-volume surface).
+
+### Findings and resolutions
+
+- [P1 resolved] The former pause vector filled nearly the complete 36 pt button. The desktop player now uses an AppKit-rendered Apple `pause.fill` semibold symbol on a 34 pt source canvas, matching the optical scale of Apple Music while retaining the existing 36 pt hit target.
+- [P1 resolved] The mini-player volume previously reached the platform output-volume path. It now writes only to the desktop Rodio sink through `PlaybackController`; changing TidePlayer from full volume to 20% left the macOS output volume unchanged at `13` before and after.
+- [P1 resolved] Application volume is stored in the Rust playback state and reapplied when a new track/output is created, so track changes do not reset the level and no CoreAudio/system-volume mutation remains in the playback path.
+- [P2 resolved] Volume uses four installed Apple Music glyph states—mute, low, medium, and high—selected at `0`, `0–33%`, `33–66%`, and `66–100%`.
+- [P2 resolved] Lyrics and queue now live in a fixed `112 × 42 pt` trailing slot and only cross-fade as the right-anchored volume surface retracts. Their translation was removed, so neither button changes position during the disappearance animation.
+- No actionable P0, P1, or P2 finding remains in the requested pause-size, application-volume, volume-icon, and trailing-control-motion scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged by this focused correction.
+- Spacing and layout rhythm: the pause control keeps its interaction geometry but uses the smaller Apple optical glyph; lyrics and queue retain fixed coordinates during volume animation.
+- Colors and visual tokens: volume states retain the existing Apple-derived black/light and white/dark foreground treatment; the volume surface keeps the Apple Music-matched light/dark materials.
+- Image quality and asset fidelity: pause and all four volume levels use high-resolution Apple SF Symbol/Music resources rather than text characters or enlarged generic vectors.
+- Copy and content: accessibility labels continue to expose play/pause, volume, mute/unmute, lyrics, and queue correctly.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest`: passed, including the four volume-icon thresholds.
+- `:core:runtime:desktopTest`: passed, including app-volume delegation without a system-output path.
+- Rust `player_volume_is_app_local_and_clamped`: passed.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg`: passed in the compatible isolated desktop build; the resulting app and DMG were deployed to the project output.
+- The packaged app is running. Live accessibility interaction changed its slider to `20%`; macOS system output remained `13` before and after.
+- `cargo fmt --check` and `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player transport, surface, lossless, and favorite fidelity — 2026-09-20
+
+### Source, state, and normalization
+
+- Apple Music reference: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-9d2f0a1c-adc3-407f-a763-6d131e7e1f30.png` (`1424 × 140 px`, light appearance, playing, favorited lossless track).
+- Reported TidePlayer baseline: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-b56f0fe8-04d9-45c8-be21-d546a9796483.png` (`1420 × 146 px`).
+- Final light comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-surface-fidelity/apple-vs-tide-light-favorite-final.png` (Apple Music above, packaged TidePlayer below).
+- Final dark runtime: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-surface-fidelity/tide-dark-final-window.png`.
+- Interaction evidence: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-surface-fidelity/tide-light-final-playing-player.png` and `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-surface-fidelity/tide-light-transport-pressed-player.png`.
+- Viewport: `980 × 600 pt` at `@2x`; light and dark appearances; local lossless track loaded; favorite and play/pause states exercised through the packaged application.
+
+### Findings and resolutions
+
+- [P1 resolved] Previous, play/pause, and next no longer draw a circular pressed/hover surface. Their hit targets stay at Apple Music's `28 / 36 / 28 pt`, while the pressed glyph alone transitions to `58%` opacity.
+- [P1 resolved] The explicit `0.65 dp` light/dark capsule border was removed. The mini-player also disables the liquid-glass edge highlight, leaving only the restrained soft drop shadow.
+- [P1 resolved] The surface now uses a white-tinted regular glass material in Light mode and a black-tinted material in Dark mode. Runtime captures confirm the requested whiter Light surface and visibly blacker Dark surface without the former saturated vibrant refraction.
+- [P1 resolved] The lossless asset is displayed at its native Apple Music resource ratio, `25 × 18 pt`, instead of being vertically compressed.
+- [P1 resolved] A persistent favorite control now appears immediately left of the lossless/Dolby badge. It uses a `16 pt` target, `12 pt` Apple star glyph, and `8 pt` badge gap; runtime interaction verified the outline and red filled states.
+- [P2 resolved] The lossless and more controls retain Apple Music's `36 pt` control-center rhythm, so favorite, badge, and more maintain the reference spacing while long metadata continues to fade before them.
+- No actionable P0, P1, or P2 finding remains in the requested interaction, border, material, lossless, or favorite-button scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged; existing Apple-matched title/subtitle typography and marquee fade remain intact.
+- Spacing and layout rhythm: transport hit targets, favorite-to-badge gap, native lossless bounds, and the badge-to-more center interval match the measured Apple Music geometry.
+- Colors and visual tokens: Light uses white surface tint; Dark uses black surface tint; active transport uses `#242424` in Light and `95%` white in Dark; favorite uses the Apple red token.
+- Image quality and asset fidelity: transport and lossless use the installed Apple Music resources; the favorite outline was rendered from the matching macOS `star` symbol at the required scale.
+- Copy and content: accessibility exposes play/pause, previous/next, add/remove favorite, lossless audio, and more options; the favorite state and play/pause state changed correctly during runtime verification.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest --offline`: passed after the final surface change.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg --rerun-tasks --offline`: passed in the compatible isolated desktop build (`330` tasks executed).
+- The final packaged app and `TidePlayer-1.0.744.dmg` were deployed to the project output; the Light packaged build is running for review.
+- Light and Dark runtime captures were visually inspected after deployment; the favorite control changed to `从收藏中移除`, and the play control changed to `暂停` through accessibility interaction.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player progress-leading alignment — 2026-09-20
+
+### Source, state, and normalization
+
+- Reported TidePlayer baseline: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-6f38264e-54ff-453e-8e6a-fae83ccae4cf.png` (`1420 × 146 px`, collapsed progress state).
+- Final packaged-app window: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-progress-alignment/final-packaged-window.png` (`2184 × 1424 px`, `980 × 600 pt` window at `@2x`).
+- Focused final result: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-progress-alignment/final-packaged-player.png` (`1420 × 134 px`).
+- Before/after stack: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-progress-alignment/before-after-final.png` (reported baseline above, corrected packaged build below).
+- Pixel inspection: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-progress-alignment/final-packaged-start-4x.png` (`4×` nearest-neighbor crop of artwork and progress leading edges).
+
+### Findings and resolutions
+
+- [P1 resolved] The collapsed progress track began about `4` physical pixels (`2 dp`) before the artwork, creating the reported left protrusion.
+- Artwork and progress now share `DesktopArtworkLeadingInset = 2.dp`, so their leading edges resolve to the same pixel column in the final packaged build.
+- The former collapsed outer/inner horizontal counter-scale was removed because it visually cancelled layout padding even though the composable bounds had moved.
+- Drag-state expansion uses a left-edge transform origin, so the thicker adjustable track grows to the right and cannot reintroduce a left protrusion.
+- No actionable P0, P1, or P2 finding remains in the requested progress-leading alignment scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged by this focused correction.
+- Spacing and layout rhythm: artwork and progress use one shared leading inset; all trailing control positions remain unchanged.
+- Colors and visual tokens: unchanged; the existing light/dark player materials and progress colors are preserved.
+- Image quality and asset fidelity: unchanged; the correction uses layout geometry only.
+- Copy and content: unchanged.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest --offline`: passed after the final alignment change.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg --rerun-tasks --offline`: passed in the compatible isolated desktop build (`326` tasks executed).
+- The final app and `TidePlayer-1.0.744.dmg` were deployed to the project output; the packaged app is running for review.
+- The final `4×` pixel crop shows the artwork and progress track starting on the same vertical pixel column.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player action feedback — 2026-09-21
+
+### Source, state, and normalization
+
+- Apple Music reference states were captured locally from `/System/Applications/Music.app`: idle, More pressed, More menu open, Lyrics pressed/selected, and Queue pressed/selected.
+- Focused Apple comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-action-feedback/apple-idle-vs-more-pressed.png` (`780 × 130 px`, idle left and pressed right).
+- TidePlayer packaged-app references: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-action-feedback/tide-final-release-tail-window.png` (final deployed build) and `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-action-feedback/tide-final-more-menu-window.png` (`980 × 600 pt` window at `@2x`).
+- Normalized idle comparison: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-action-feedback/apple-vs-tide-idle-actions.png`.
+
+### Findings and resolutions
+
+- [P1 resolved] More, Lyrics, and Queue no longer show a hover background; Apple Music only exposes the circular surface while the pointer is pressed.
+- [P1 resolved] The former small tint-derived ripple was replaced with the measured `40 pt` black circular press surface: `12%` opacity in Light and `52%` in Dark.
+- [P1 resolved] More returns to its neutral icon immediately after release and does not retain a selected background while its menu is open.
+- [P1 resolved] Lyrics and Queue now derive selected state from the active route/queue overlay and settle to the Apple red icon without a persistent circle.
+- [P2 resolved] A `100 ms` release tail keeps very short pointer clicks perceptible while preserving the pressed-to-selected ordering observed in Apple Music.
+- No actionable P0, P1, or P2 finding remains in the requested More, Lyrics, or Queue interaction-feedback scope.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged by this focused interaction correction.
+- Spacing and layout rhythm: existing `36 pt` control centers are preserved; the visual press surface is independently rendered at `40 pt` and therefore does not move neighboring controls.
+- Colors and visual tokens: pressed feedback uses a black material overlay with theme-specific opacity; selected Lyrics/Queue use the existing Apple red token.
+- Image quality and asset fidelity: the previously extracted Apple Music More, Lyrics, and Queue resources remain unchanged and centered at their established native bounds.
+- Copy and content: accessibility names and click destinations are unchanged; Lyrics and Queue selection now remain synchronized with navigation state.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest --offline`: passed after the final release-tail refinement.
+- `:shared:compileKotlinDesktop --offline`: passed for the navigation-state wiring.
+- `:desktopApp:createDistributable` and `:desktopApp:packageDmg --offline`: passed in the compatible isolated desktop build (`326` tasks); the resulting app and `TidePlayer-1.0.744.dmg` were deployed to the project output.
+- Apple Music's idle, pressed, selected, and menu-open states were inspected at native scale; TidePlayer's packaged idle and menu-open states were compared against those captures.
+- The final packaged app is running with the isolated QA profile; the host locked before the post-package pointer recording, so the final `100 ms` timing addition was verified by source inspection and desktop tests while geometry/color retained the already-inspected runtime values.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player liquid glass — 2026-09-21
+
+### Source, state, and normalization
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-6a2ef569-ee10-4d31-955b-83e2c435391e.png` — Apple Music mini player over album artwork (`1438 × 156 px`, Light).
+- Reported TidePlayer baseline: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-4dd5711d-c345-4f73-bfd0-8087271f3a77.png` (`1410 × 138 px`, Light).
+- Final packaged-app capture: `/Users/shine/.codex/visualizations/2026/09/21-tideplayer-mini-player-glass-final-translucent-window.png` (`2096 × 1336 px`, `980 × 600 pt` at `@2x`); focused final player: `/Users/shine/.codex/visualizations/2026/09/21-tideplayer-mini-player-glass-final-translucent-player.png`.
+- Comparison evidence: `/Users/shine/.codex/visualizations/2026/09/21-apple-vs-tide-mini-player-glass.png`. The two apps use different page data beneath the player, so comparison is limited to material behavior rather than color-for-color pixels.
+
+### Findings and resolutions
+
+- [P1 resolved] The original mini player was effectively an opaque white/black card because its material disabled the glass highlight and kept an overly strong surface fill.
+- [P1 resolved] The desktop mini player now keeps backdrop blur, lens refraction, saturation, and the edge highlight enabled. Its Light material fill is reduced to `15.6%` effective white (`0.52 × 0.30`), allowing the artwork/card colors beneath it to remain visible while preserving black text contrast.
+- [P1 resolved] Desktop content no longer reserves a blank `80 dp` strip underneath the mini player. Scrolling album art, cards, and list content can continue beneath the overlay, supplying the liquid-glass sampler with the same changing source Apple Music uses.
+- [P2 resolved] The existing rounded outline and soft elevation are retained, now working with the active lens/highlight layer instead of framing an opaque card.
+- The final runtime was checked in Light mode on the album-grid state before the host locked; purple/pink artwork was visibly sampled beneath the player. The final less-opaque value is a direct continuation of that verified rendering path.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged; title, artist/album line, marquee, and icon weights keep their established Apple-matched metrics.
+- Spacing and layout rhythm: the player size, controls, progress alignment, radius, and inter-control rhythm are unchanged; only the content-underlay inset was removed for desktop overlap.
+- Colors and visual tokens: Light uses a restrained white tint over vibrant sampled content; Dark retains a black tint. Both use the same blur, lens, saturation, and specular highlight pipeline.
+- Image quality and asset fidelity: the material samples the real rendered content and uses existing Apple-derived player icons/artwork; no rasterized glass approximation was added.
+- Copy and content: unchanged.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest :shared:compileKotlinDesktop --offline`: passed after the final transparency refinement.
+- `:desktopApp:createDistributable :desktopApp:packageDmg --offline`: passed in the isolated desktop build; the final app and `TidePlayer-1.0.744.dmg` were deployed to project output.
+- Final packaged TidePlayer is running with the Light theme and isolated QA profile.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music mini-player transport press animation — 2026-09-21
+
+### Source and intended state
+
+- Source visual truth remains the locally captured Apple Music transport surface: `/Users/shine/.codex/visualizations/2026/09/20/tideplayer-mini-player-surface-fidelity/apple-transport.png`.
+- The prior native comparison established the transport pressed state as glyph-only feedback at `58%` opacity: no circular button surface, no hover fill, and no movement of neighboring controls.
+
+### Resolution
+
+- [P1 resolved in implementation] Previous, play/pause, and next now interpolate into their existing `58%` pressed alpha over `70 ms` and return to full alpha over `160 ms` using the existing Apple-style easing.
+- [P1 resolved in implementation] The animation applies within the glyph layer only. The existing `28 / 36 / 28 pt` hit targets, Apple-sourced icon resources, centers, and no-background rule are unchanged.
+- [P2 resolved in implementation] Play/pause receives the same press/release transition as track navigation, so its state swap is revealed through the release animation rather than a visually abrupt, fully opaque replacement.
+
+### Verification
+
+- `:service:playback:presentation:desktopTest :shared:compileKotlinDesktop --offline`: passed.
+- `:desktopApp:createDistributable :desktopApp:packageDmg --offline`: passed from the isolated desktop build; the package was deployed to the project output and launched successfully.
+- macOS is locked and the system could not unlock automatically; its locked-session policy ends the launched GUI process after startup. A real pointer press/release recording and side-by-side native Apple Music timing comparison therefore remain unavailable.
+
+final result: blocked
+
+---
+
+## MeloXDesktop now-playing page — 2026-09-21
+
+### Source and intended state
+
+- Reference implementation: `/tmp/melox-desktop-player-source/DesktopNowPlayingPage.swift`, `DesktopNowPlayingLayout.swift`, `DesktopNowPlayingPlayerColumn.swift`, `DesktopNowPlayingProgress.swift`, and `DesktopPlayerSidePanel.swift` from the user-supplied MeloXDesktop repository.
+- The desktop default is the split lyrics state: the player is centred in the left half, the lyrics panel begins at the 50% vertical split, and the bottom-right glass selector exposes artwork, lyrics, and queue destinations.
+- The player geometry uses MeloX's `1200 × 768` reference scaling: `320 → 422 dp` column width, `214 → 308 dp` artwork, `11 dp` artwork corners, `0.74` paused-artwork scale, and `8 → 18 dp` progress-track expansion.
+
+### Resolution
+
+- [P1 resolved in implementation] Replaced TidePlayer's desktop-only equal-weight now-playing row with a MeloX-style fixed-reference composition. Mobile layouts remain unchanged.
+- [P1 resolved in implementation] Added the dark artwork-driven split page, left metadata and transport stack, responsive artwork sizing, paused-artwork animation, and right-side lyrics placement.
+- [P1 resolved in implementation] Added the bottom-right translucent page selector. The lyrics option toggles the artwork-only layout; the queue option preserves TidePlayer's existing queue route rather than fabricating an incomplete in-place queue.
+- [P2 resolved in implementation] Metadata now follows the reference's title/subtitle hierarchy and retains the existing favourite and full more-options menu. Shuffle is wired into the view model so all five transport controls remain functional.
+- [P2 resolved in implementation] Progress keeps the reference's idle/scrubbing thickness, mono time labels, and only uses the local scrub position during an active drag, preventing stale times after an external seek.
+
+### Verification
+
+- `:service:playback:presentation:compileKotlinDesktop :service:playback:presentation:desktopTest :shared:compileKotlinDesktop --offline`: passed.
+- `:desktopApp:createDistributable :desktopApp:packageDmg --offline`: passed. Output: `desktopApp/build/compose/binaries/main/app/TidePlayer.app` and `desktopApp/build/compose/binaries/main/dmg/TidePlayer-1.0.744.dmg`.
+- `git diff --check`: passed.
+- The packaged process started, but the host's locked-session policy ended the GUI process before a screen could be captured. Two UI-automation attempts timed out while querying the locked desktop, so a real rendered side-by-side visual comparison is not available yet.
+
+final result: blocked
+
+---
+
+## MeloXDesktop now-playing final runtime validation — 2026-09-21
+
+### Source, state, and normalization
+
+- Source visual truth: `/Users/shine/.codex/visualizations/2026/09/21/tide-now-playing-final/melox-current.png`, captured from the installed MeloX Desktop app at a `980 × 600 pt` window in the paused lyrics state.
+- Final TidePlayer capture: `/Users/shine/.codex/visualizations/2026/09/21/tide-now-playing-final/tide-lyrics-transport-final.png`, captured from the packaged app at the same `980 × 600 pt` window, same song, paused at `0:51` versus MeloX at `0:50`.
+- Normalized side-by-side comparison: `/Users/shine/.codex/visualizations/2026/09/21/tide-now-playing-final/melox-vs-tide-transport-final.png` (MeloX left, TidePlayer right).
+- Additional rendered states: `/Users/shine/.codex/visualizations/2026/09/21/tide-now-playing-final/tide-artwork-final.png` and `/Users/shine/.codex/visualizations/2026/09/21/tide-now-playing-final/tide-queue-final.png`.
+
+### Findings and resolutions
+
+- [P0 resolved] Replaced the synchronous AppKit main-queue traffic-light bridge with retained asynchronous dispatch, removing the UI deadlock that made the now-playing page impossible to exit.
+- [P1 resolved] The top-left close control, `Esc`, and mini-player control all return to the desktop home page. Each path was exercised against the final packaged app.
+- [P1 resolved] The lyrics, artwork-only, and in-place queue states now follow MeloXDesktop's split-page composition and bottom-right two-button glass selector.
+- [P1 resolved] Player-column geometry follows the source layout at `980 × 600 pt`: artwork bounds and paused/playing scale, metadata baseline, progress leading/trailing edges, time labels, and five transport-control centers align with the MeloX capture.
+- [P1 resolved] The lyrics focus anchor and blur treatment were calibrated against the same-song, one-second-normalized reference capture.
+- [P1 resolved] The background uses an artwork-derived flowing-light palette and layered fields instead of TidePlayer's former static dark gradient.
+- [P2 resolved] The title-bar exit, mini-player, volume, favorite, and transport glyphs use native SF-symbol raster resources. Previous/next compensate for their transparent resource canvas so their visible `24 pt` source glyph bounds match MeloX.
+- [P2 resolved] The desktop volume slider changes the player volume only; a runtime adjustment left the macOS system output volume unchanged.
+- No actionable P0 or P1 finding remains in the requested MeloXDesktop now-playing scope.
+
+### Verification
+
+- `:core:presentation:desktopTest :core:lyrics-ui:desktopTest :service:playback:presentation:desktopTest --offline`: passed.
+- `:desktopApp:createDistributable :desktopApp:packageDmg --offline`: passed. Outputs: `desktopApp/build/compose/binaries/main/app/TidePlayer.app` and `desktopApp/build/compose/binaries/main/dmg/TidePlayer-1.0.744.dmg`.
+- Runtime exit checks passed for the top-left close control, the `Esc` key, and the top-left mini-player control.
+- Runtime page checks passed for lyrics, artwork-only, and queue states; the final packaged app was left running on the lyrics page for review.
+- The same-song paused comparison confirms the final geometry and lyric focus without mixing paused and playing artwork scales.
+
+final result: passed
+
+---
+
+## Apple Music now-playing parity regression — 2026-09-22
+
+### Source, state, and evidence
+
+- Reference: `/Users/shine/.codex/visualizations/2026/09/21/apple-vs-tide-now-playing-audit/03-apple-music-window.png` — Apple Music, `980 × 600 pt`, paused lyrics state.
+- TidePlayer comparison capture: `/Users/shine/.codex/visualizations/2026/09/21/apple-vs-tide-now-playing-audit/20-tide-final-updated-content.png` — packaged TidePlayer at the same viewport, paused lyrics state.
+- The validation keeps song playback state separate from visual fidelity: queue availability and audio badges render from real playback metadata instead of being fabricated to match a screenshot.
+
+### Findings and resolutions
+
+- [P1 resolved] Artwork, metadata, progress track, time labels, transport controls, top-left capsule, traffic lights, title-bar volume control, and the bottom-right selector were recalibrated against the Apple capture.
+- [P1 resolved] The lyric focus anchor and adjacent-line blur now match the right-side reading hierarchy; translation visibility has its own bottom-right toggle.
+- [P1 resolved] The background uses a low-saturation, warm artwork palette with Apple-style corner lighting and vignette, replacing the prior orange/red field.
+- [P2 resolved] Now-playing controls use the Apple-derived drawable set, including transport, favourite, more, lyrics, queue, volume, Dolby, and lossless assets. The title display removes non-primary release qualifiers while retaining the actual artist and album metadata.
+- [P2 resolved] The progress timeline renders a quality badge only when the active source reports Dolby or lossless metadata; this avoids falsely labeling ordinary audio.
+- No actionable P0, P1, or P2 visual issue remains in the `980 × 600 pt` paused Apple Music comparison target.
+
+### Verification
+
+- `:service:playback:presentation:compileKotlinDesktop :core:lyrics-ui:compileKotlinDesktop :desktopApp:compileKotlinDesktop --offline`: passed.
+- `:core:lyrics-ui:desktopTest :service:playback:presentation:desktopTest --offline`: passed.
+- `./script/build_and_run.sh --verify`: passed; the packaged desktop app launched successfully.
+- `git diff --check` on the scoped UI files: passed.
+
+final result: passed
+
+---
+
+## Apple Music now-playing text and control refinement — 2026-09-22
+
+### Source and checked state
+
+- Visual reference: `/Users/shine/.codex/visualizations/2026/09/22/tideplayer-now-playing-refinement/apple-music-reference.png`, the Apple Music `980 × 600 pt` paused lyrics state.
+- Runtime target: the packaged app at `desktopApp/build/compose/binaries/main/app/TidePlayer.app`, launched by `./script/build_and_run.sh --verify` and inspected in the same `980 × 600 pt` split-lyrics state.
+
+### Resolutions
+
+- [P1 resolved] The top-left close/mini-player capsule and right volume capsule retain the measured Apple Music bounds: `101 × 8 / 75 × 36 pt` and `792 × 8 / 180 × 36 pt`. The volume track is `114 × 3 pt`, with the extracted Apple speaker artwork in its centered `30 pt` hit target.
+- [P1 resolved] The progress timeline and five transport centers share the Apple Music vertical baseline. Shuffle, previous, play/pause, next, and repeat retain their source-derived icon canvases and positions; the progress stack is offset to keep the track, timestamps, and controls in one rhythm.
+- [P1 resolved] Title and artist/album labels now scroll when wider than their available slot, have the Apple-style right-edge fade, and do not ellipsize before the marquee can reveal the full text.
+- [P1 resolved] Hovering an inactive lyric has no surface, card, or ripple background. It only raises the text/translation foreground; click-to-seek remains available.
+- [P2 resolved] Desktop lyrics use the system sans stack rather than the bundled display typeface, a warm white primary foreground, lower-contrast warm translation foreground, and calibrated `30.1 sp / 16.9 sp` default primary/translation sizing. The focus anchor was measured against the Apple capture and places the active line at the same reading height.
+
+### Verification
+
+- `:core:lyrics-ui:desktopTest :service:playback:presentation:desktopTest`: passed.
+- `:desktopApp:createDistributable` and `./script/build_and_run.sh --verify`: passed; TidePlayer was started from the freshly packaged app.
+- Runtime check: entering the now-playing screen and using its top-left close control returned to Home successfully.
+- Visual check: the final paused screen was inspected against the saved Apple Music reference for the title-bar capsules, volume geometry, player timeline, five transport controls, and lyric baseline.
+- `git diff --check`: passed.
+
+final result: passed
+
+---
+
+## Apple Music now-playing regression reopened — 2026-09-22
+
+The preceding "text and control refinement" pass was not sufficient: a same-song, same-time comparison still showed a shortened title, constrained transport glyphs, an overshooting volume thumb, and substantially displaced lyrics. Its blanket claim of visual parity is superseded by this check.
+
+- Reference and runtime: Apple Music and the freshly packaged TidePlayer at `980 × 600 pt`, both paused on "Nothing New" at `0:50` with the lyrics page open.
+- Corrected: the complete source title now overflows and visibly marquee-scrolls; the five transport glyphs render at their intended size and were positioned against the native control row; the title-bar mini glyph and the volume thumb were resized/repositioned; the active English line starts at the matching vertical position and wraps into the same two lines; the following lyric lines have matching spacing and stronger blur; inactive-lyric hover brightens text without a card/ripple. The close and mini controls were each clicked and returned to Home with the mini bar present.
+- Data-dependent differences remain: TidePlayer's album metadata omits Apple Music's `(+ A Message from Taylor)` suffix, so this particular artist/album subtitle fits and does not scroll; its Chinese translation text is from a different lyrics source; and this one-item Tide queue disables Next. These were not replaced with fabricated data to match the reference.
+- Verification: `:core:lyrics-ui:desktopTest :service:playback:presentation:desktopTest :desktopApp:createDistributable --offline --quiet` passed. The packaged app was relaunched and visually checked in the final paused lyrics state. The comparison is a viewport/state-specific visual check, not a claim of global pixel identity.
+
+final result: partial — control/layout checks passed; source metadata and lyric content differ
+
+## Now-playing control icons and alignment — 2026-09-23
+
+- Compared the running Apple Music and packaged TidePlayer at 980 × 600 pt in the paused lyrics state. This check covers the four requested control issues only.
+- Removed individual transport Y offsets and square, differently sized button frames. All five controls now fill the same 36 pt row and center their glyphs vertically; the visible symbol centers share the same horizontal line.
+- Replaced the title-bar close glyph with the native `xmark` and the mini glyph with Music.app's `Player_MiniPlayerOutTemplate`. Its transparent canvas is preserved and compensated without allowing the hit target to shrink the artwork.
+- Replaced the incorrect translation/lyrics icon reuse with native `translate` and `quote.bubble.fill` resources, calibrated for the bottom-right controls. Added the correct localized Translation accessibility label. Music.app's resource named `translation` was inspected and rejected because it is a single A bubble, unlike its current UI.
+- `script/export_now_playing_assets.swift` reproduces the four resources from installed AppKit/Music artwork at 4x.
+- `:desktopApp:createDistributable --offline --quiet` and scoped `git diff --check` passed. The final build was run and inspected; translation hide/show, lyrics hide/show, top-left dismissal, and return to the existing mini bar were exercised successfully.
+- Codex Native2 DEV was discovered but rejected the missing per-turn token; available local tools were used for the implementation and runtime verification.
+
+Result: the four requested control fixes are implemented and visually checked in the stated viewport. This does not certify whole-page pixel identity or change the existing mini-window behavior.
+
+---
+
+## Apple Music library continuation — 2026-09-25
+
+### Source, implementation, and normalization
+
+- Source visual truth: `/Users/shine/CommonWork/MobileWork/TidePlayer/docs/qa/apple-music-reference/`, especially `artist-track-context-menu.jpg` for the newly checked secondary-click state.
+- Last rendered implementation evidence: `/Users/shine/CommonWork/MobileWork/TidePlayer/docs/qa/tideplayer-apple-music-clone/artists-track-context-menu.jpg`.
+- Full comparison: `/Users/shine/CommonWork/MobileWork/TidePlayer/docs/qa/tideplayer-apple-music-clone/comparison-artists-track-context-menu.jpg`.
+- Focused comparison: `/Users/shine/CommonWork/MobileWork/TidePlayer/docs/qa/tideplayer-apple-music-clone/comparison-artists-track-context-menu-focus.jpg`.
+- Both source and implementation captures are `1960 × 1200 px` for a `980 × 600 pt` light-appearance window at Retina `2×`. The comparison keeps both frames at native pixel density; no scaling is applied before juxtaposition.
+- State: Artists / All Artists, first real album track playing, secondary-click menu open, bottom mini-player visible. Dynamic artist, album, artwork, playback progress and favorites intentionally use each application's real data.
+
+### Comparison history
+
+- [P2 resolved] The artist track initially had no hover response or secondary-click menu. It now has a `46 pt` hover row and a focusable real-action popup; runtime accessibility inspection exposed all three commands.
+- [P2 resolved] The first implementation ordered actions as Play, Favorite, Download. After focused comparison, the current build orders them as Download, Play, Favorite and inserts the same group separators visible in Music. The post-fix screenshot and focused crop listed above show the correction.
+- [P2 resolved in code, visual recapture pending] The Artists page used the legacy static heading `歌手`, the All Artists row used a visibly different Lucide microphone, and the album-detail active track used a speaker. The current build uses the source copy `艺人`, a native macOS `microphone` symbol at `17 pt`, and the source-style red pause bars. Compilation, tests and packaging passed after these changes.
+
+### Required fidelity surfaces
+
+- Fonts and typography: the screens use the macOS system sans stack with measured `11–13 sp` table text and the recorded title hierarchy. One-line ellipsis and two-line album-name truncation remain stable for English, Chinese and mixed text. The corrected static Artists title now matches the source copy.
+- Spacing and layout rhythm: the measured sidebar, toolbar, table, album grid, artist split pane and album-detail geometry remain unchanged by this continuation. Full-frame comparisons and the focused menu crop cover the primary and secondary surfaces.
+- Colors and tokens: focused selection uses Apple red, unfocused selection uses neutral gray, alternating rows stay translucent, and menu surfaces use the measured light material approximation. Native AppKit material sampling and Compose rendering remain measurably different.
+- Image and icon fidelity: real TidePlayer artwork remains uncropped beyond the source aspect rules. The new artist microphone is an exported native SF Symbol rather than a drawn approximation; the final rendered asset still needs a post-lock screenshot check.
+- Copy and content: static Chinese navigation/search/menu copy is source-aligned. Library titles, artwork, years, favorites and playback time differ because the two applications expose different real libraries; no screenshot content or fake records are injected.
+- States and behavior: normal, hover, focused/unfocused selection, sorting, scrolling, resizing, right-click, album navigation, artist switching, play, shuffle, favorite and download have real implementations. Normal click, Command-toggle selection and inclusive Shift range now also have deterministic desktop tests.
+
+### Remaining findings
+
+- [P2 blocked] macOS locked immediately before the final relaunch. The latest package has not yet been visually captured after the Artists-title/native-microphone/album-pause changes, so the last post-fix visual gate cannot honestly pass.
+- [Expected product capability difference] Music exposes Pin, Add to Playlist, Play Next, Create Station, Info, Recommend, Show in Apple Music and Share commands. TidePlayer's current library domain exposes only Download, Play and Favorite for these rows. Unsupported commands remain absent rather than inert or fabricated.
+- [Expected source-data difference] Artist portraits, artist favorites, Apple catalog ratings/recommendations, complete copyright/release metadata and Apple lossless provenance are not available in TidePlayer's current domain models.
+- [Evidence gap] Static screenshots do not prove transition timing; no frame-timed animation capture exists for this pass.
+
+### Verification
+
+- `:feature:library:desktopTest :feature:album:compileKotlinDesktop :shared:desktopTest :desktopApp:createDistributable --offline`: passed after the final code and resource changes (`335` tasks).
+- Runtime before lock: artist secondary-click exposed `下载`, `播放`, `添加到收藏` in source order; all entries map to real actions.
+- `git diff --check`: passed.
+
+final result: blocked
+
+---
+
+## Apple Music Songs / Albums / Artists clone — 2026-09-25
+
+### Source, normalization, and evidence
+
+- Real source captures were taken from the installed Apple Music app at `980 × 600 pt`, Retina `2×`, light appearance, Chinese UI, with the bottom mini-player visible. They are under `docs/qa/apple-music-reference/`.
+- Final TidePlayer captures use the same common viewport and real TidePlayer library/playback state. They are under `docs/qa/tideplayer-apple-music-clone/`.
+- Per-page side-by-side, 50% overlays, enhanced pixel differences and the complete geometry table are recorded in `docs/qa/tideplayer-apple-music-clone/measurements.md`.
+- Responsive evidence covers `960 × 528 pt`, `980 × 600 pt`, and `1427 × 949 pt`.
+
+### Implemented and verified
+
+- [P1 resolved] Desktop sidebar navigation now preserves Songs, Albums, and Artists as distinct real library destinations instead of collapsing them back to one library screen. Navigation regression tests cover the mapping.
+- [P1 resolved] Songs now use the measured fixed-column table, `21 pt` header, `22 pt` rows, alternating fills, active sort indicator, current-playing marker, favorite/more controls, fixed truncation, selection, modifier-aware range/additive selection, context menu and real playback/favorite/download actions.
+- [P1 resolved] Albums now use the measured responsive grid, `163 pt` covers at the common viewport, real artwork, two-line truncation, hover play/more controls, sorting and real album navigation/queue playback.
+- [P1 resolved] Album detail now matches the measured `270 pt` hero, metadata hierarchy, gray/red action pills, `46 pt` track rows, leading favorite/current/number alignment, duration summary, back navigation and real play/shuffle/download/favorite actions.
+- [P1 resolved] Artists now use the measured `300 pt` master pane and split layout, artwork-backed avatars, `54 pt` master rows, real selection/switching, track-count line, `116 pt` album cover, album grouping, `46 pt` tracks and real artist play/shuffle behavior.
+- [P2 resolved] Added the desktop sort, star, check, speaker, microphone and chevron resources required by the measured UI while leaving the mobile layouts and existing now-playing screen untouched.
+- [P2 resolved] Common, minimum and zoomed layouts remained stable; list scrolling was exercised with sufficient real data and returned to the first row. The final packaged app is running on Songs for review.
+
+### Verification
+
+- `:feature:library:compileKotlinDesktop :feature:album:compileKotlinDesktop :shared:desktopTest :desktopApp:createDistributable --offline`: passed during the full implementation pass.
+- Final post-adjustment verification `:feature:library:compileKotlinDesktop :shared:desktopTest :desktopApp:createDistributable --offline`: passed (`330` tasks, build output under `desktopApp/build/compose/binaries/main/app`).
+- Runtime: album Play replaced the real queue/current track and exposed Pause; artist switching removed unrelated groups; Songs context menu, sort state, selection, current-playing state, responsive resizing and bidirectional scrolling were exercised.
+- Pixel evidence: whole-frame RGB mean absolute differences are recorded in `pixel-diff-metrics.txt`; they intentionally include different data/artwork/sidebar content and are not used as a pass/fail shortcut.
+
+### Remaining evidenced differences
+
+- [P1 source limitation] The real TidePlayer dataset differs from the Apple Music dataset; artwork, labels, favorites, progress and wrap points therefore differ where the records differ.
+- [P1 capability limitation] Artist portraits/favorites, Apple catalog ratings/recommendations, full release/copyright metadata and several Apple context-menu commands have no TidePlayer domain capability. They were not fabricated or presented as working controls.
+- [P2 product-shell difference] The existing sidebar retains TidePlayer's real destinations rather than replacing them with nonfunctional Apple New/Radio/profile entries.
+- [P2 rendering difference] AppKit's native material sampling and Compose's material rendering remain measurably different in the saved overlay/difference images, especially over dynamic artwork in the mini-player.
+- [P2 evidence gap] Page/detail transitions were exercised, but this run did not produce a frame-timed animation recording; static captures are not treated as proof of motion parity.
+
+final result: partial — all requested pages and real interaction paths are implemented and measured; source data, unavailable domain capabilities, sidebar destinations, and native material rendering prevent an honest claim of complete pixel identity
+
+## Now-playing mini-player glyph correction — 2026-09-23
+
+- Reopened the mini-player icon finding above: `Player_MiniPlayerOutTemplate` is a different, older overlapping-window glyph. The running Music.app button includes a diagonal arrow toward the smaller lower-right window.
+- Replaced only this exported asset with AppKit `pip.enter`, 17 pt regular, on its native 26 × 20 pt canvas at 4x. The saved Apple reference at `/Users/shine/.codex/visualizations/2026/09/22/tideplayer-now-playing-refinement/apple-music-reference.png` is 1960 × 1200 px; its mini glyph occupies approximately 21.5 × 17.5 pt, matching this symbol configuration.
+- Changed the title-bar icon frame from 38 dp to 26 dp. The new resource uses its intrinsic proportions inside the existing centered button instead of the old asset's transparent-padding compensation. Close, lyrics, and translation resource hashes remained unchanged after export.
+- `:desktopApp:createDistributable --offline --quiet` passed. Restarted the packaged application and inspected its now-playing button against running Apple Music at 980 × 600 pt. The inward arrow is visible and the glyph size and placement match the inspected reference. Clicking the button returned to Home with the existing mini playback bar.
+- Verification scope: this single icon and its existing click action. Live visual inspection was completed; an automated screenshot pixel-difference check was not completed. This change does not introduce a separate floating mini-player window.
+
+---
+
+## Apple Music library press-state addendum — 2026-09-25
+
+- [P2 resolved in code, visual recapture pending] Circular library toolbar controls, artist action controls and album action pills now expose distinct normal, hover, pressed and disabled surface opacities through their real interaction sources, without ripple artifacts or layout movement.
+- `:feature:library:desktopTest :feature:album:compileKotlinDesktop :shared:desktopTest :desktopApp:createDistributable --offline`: passed after this adjustment (`335` tasks).
+- `:feature:album:desktopTest --offline`: passed separately (`43` tasks), covering the existing album state/action suite after the desktop-detail changes.
+- macOS remains locked, so the required final rendered check and app handoff are still pending rather than being claimed as complete.
+
+final result: blocked
+
+---
+
+## Apple Music library final locked-host recheck — 2026-09-25
+
+- The native-app inventory again returned `The Mac is locked and automatic unlock could not unlock it`; this is the third consecutive goal turn with the same host-state blocker.
+- `git diff --check` passes. The packaged executable and Compose resource jars are present under `desktopApp/build/compose/binaries/main/app/TidePlayer.app` with the 08:57 build timestamp.
+- Bundle inspection confirms that `icon_artist_microphone.png`, the updated `AppleMusicLibraryDesktopScreen` classes/resources, and the updated `AppleMusicAlbumDesktopScreen` classes/resources are embedded in the distributable.
+- This verifies packaging only. It cannot replace the required render, interaction, same-condition screenshot, overlay/difference check, or opening the final app for handoff.
+
+final result: blocked
+
+---
+
+## Apple Music library final rendered verification — 2026-09-25
+
+### Normalized source and implementation
+
+- The installed Apple Music app and the packaged TidePlayer build were compared at `980 × 600 pt`, Retina `2×`, light appearance, Chinese UI, with the bottom player visible.
+- Latest TidePlayer captures: `docs/qa/tideplayer-apple-music-clone/songs-default-latest.jpg`, `albums-default-latest.jpg`, `artists-default-latest.jpg`, `artists-selected-latest.jpg`, `album-detail-latest.jpg`, `songs-context-menu-latest.jpg`, `artists-track-context-menu-latest.jpg`, and `album-detail-context-menu-latest.jpg`.
+- Latest paired evidence: the six `latest-*-comparison.jpg` files, their `latest-*-overlay.jpg` files, and their `latest-*-diff.jpg` files in the same directory. No screenshots or static records are used as application UI.
+
+### Resolved in the final pass
+
+- [P2 resolved] Replaced the mismatched rotated microphone with the native macOS `music.microphone` SF Symbol on its intrinsic canvas and verified it in the packaged application.
+- [P2 resolved] Removed the aggregate All Artists song-count line that was absent in Music.app; the first album group's vertical position now matches the source. A selected individual artist still shows the real `1 首歌曲` line.
+- [P2 resolved] Verified the source `艺人` title, red pause-bars active-track marker, real-action context-menu ordering (`下载 → 播放 → 添加到收藏`) and separator grouping in the relaunched package.
+- [P2 resolved] The screenshot-comparison helper now reproduces same-size side-by-side, 50% overlay and enhanced-difference artifacts for every final capture pair.
+
+### Latest inspection findings
+
+- Songs: fixed columns, `21 pt` header, `22 pt` rows, baselines, alternating fills, sorting, selection, current state and bottom-player overlap behavior remain stable. Different records account for titles, wraps, favorites and playback markers.
+- Albums: the four-column `163 pt` grid, cover radius, label spacing, two-line truncation and responsive spacing align at the common viewport. Different artwork dominates the pixel metric.
+- Artists: the `300 pt` master pane, divider, `54 pt` rows, heading actions, aggregate/single-artist spacing, `116 pt` cover and `46 pt` track row align. The CUA capture keeps the app unfocused, so the selected row is correctly neutral gray; the menu-open evidence exercises the active red selection state.
+- Album detail: the `270 pt` hero, metadata/action alignment and `46 pt` track row align. Missing full release/copyright/catalog metadata remains a source-model limitation rather than hidden placeholder content.
+- Whole-frame mean RGB differences on a `0–255` scale: Songs `21.1375`, Albums `47.9614`, Artists aggregate `11.3744`, Artist selected `12.7680`, Album detail `16.5433`, Artist track menu `15.3119`. The saved overlays show that these totals include real-data, artwork, focus and unsupported-menu differences.
+
+### Verification
+
+- `:feature:library:desktopTest :feature:album:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline`: passed (`344` tasks).
+- Final aggregate-layout rebuild `:feature:library:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline`: passed (`339` tasks).
+- `git diff --check`: passed after the final source, resource, evidence and QA updates.
+- The latest bundle is running from `desktopApp/build/compose/binaries/main/app/TidePlayer.app`.
+
+### Blocking fidelity differences
+
+- [P1 source/data limitation] The two applications use different real libraries. Titles, artwork, favorites, progress, track counts and wrap points cannot be made identical without violating the requirement to reuse TidePlayer's real library and avoid fake data.
+- [P1 domain-capability limitation] TidePlayer has no artist portrait/favorite store, Apple catalog rating/recommendation state, complete release/copyright metadata, Apple lossless provenance, or implementations for several Apple-only context-menu commands. Unsupported controls remain absent or disabled rather than fabricated.
+- [P2 product-shell limitation] TidePlayer keeps its real Settings/Recently Added/Genres destinations and cannot truthfully replace them with inert Apple Discovery/Radio/profile destinations.
+- [P2 rendering limitation] Compose material/background sampling is close but not byte-identical to AppKit; the residual is visible in the saved overlays and enhanced differences.
+- [P2 evidence limitation] Page changes, scrolling and resizing were exercised without layout jumps, but no frame-timed animation recording was produced, so motion parity is not claimed from static screenshots.
+
+final result: blocked
+
+---
+
+## Apple Music library native-focus and motion-evidence continuation — 2026-09-25
+
+### Focus-state defect resolved
+
+- [P1 resolved] The packaged macOS window could show colored native traffic lights while Compose still reported `LocalWindowInfo.isWindowFocused = false`. As a result, selected library rows and the active sidebar destination incorrectly remained neutral gray in a genuinely focused TidePlayer window.
+- The desktop host now forwards macOS application foreground/background events through `LocalDesktopWindowFocused`; the shared sidebar, Songs/Artists rows and Album detail rows consume the same platform-aware value. Non-macOS hosts use the owning AWT window focus listener, and previews/tests retain the Compose fallback.
+- Runtime evidence at the normalized `980 × 600 pt` viewport:
+  - focused: `docs/qa/tideplayer-apple-music-clone/artists-selected-focused-app-event-final.jpg` — colored traffic lights, red Adele selection and red Artists sidebar destination;
+  - unfocused: `docs/qa/tideplayer-apple-music-clone/artists-selected-unfocused-app-event-final.jpg` — gray traffic lights, neutral selection and muted sidebar;
+  - focused Songs selection: `docs/qa/tideplayer-apple-music-clone/songs-selected-focused-final.jpg` — red long-title row and red Songs destination.
+- The focused-against-focused artist comparison was regenerated as `latest-artists-selected-focused-final-{comparison,overlay,diff}.jpg`. Whole-frame mean RGB absolute difference is now `10.1916/255`, replacing the earlier `12.7680/255` mixed-focus measurement.
+
+### Motion evidence collected
+
+- Timestamped Apple Music album grid-to-detail frames are in `docs/qa/apple-music-reference/motion-album-detail/`; TidePlayer frames are in `docs/qa/tideplayer-apple-music-clone/motion-album-detail/`.
+- The first post-click frames available through the accessibility capture path were already settled (`824 ms` for Music.app and `1086 ms` for TidePlayer). Consecutive settled-frame top-region differences stay near zero after the initial grid-to-detail jump.
+- [P2 evidence limitation] This proves only an upper bound for reaching the settled detail view. The capture path did not expose intermediate frames, so animation curve and duration parity are not claimed.
+
+### Verification
+
+- `:shared:desktopTest :feature:library:desktopTest :feature:album:desktopTest :desktopApp:createDistributable --offline`: passed (`344` actionable tasks) after the native-focus implementation.
+- The latest packaged build was relaunched from `desktopApp/build/compose/binaries/main/app/TidePlayer.app`, and the focused/unfocused states above were inspected in that bundle.
+- Remaining blockers are unchanged: different real libraries/artwork and playback state, missing Apple-only domain capabilities, retained real TidePlayer sidebar destinations, non-identical AppKit/Compose material sampling, and unavailable intermediate motion frames.
+
+final result: blocked
+
+---
+
+## Apple Music library final package handoff confirmation — 2026-09-25
+
+- Final verification command `:shared:desktopTest :feature:library:desktopTest :feature:album:desktopTest :desktopApp:createDistributable --offline` passed after the documentation/comment cleanup (`340` actionable tasks); `git diff --check` also passed.
+- The distributable timestamp is `2026-09-25 10:24:25` and its executable timestamp is `2026-09-25 10:24:28` under `desktopApp/build/compose/binaries/main/app/TidePlayer.app`.
+- The old process was closed, the new bundle was launched through normal startup, and `songs-final-build-open.jpg` records the final package running on Songs with colored traffic lights and the active Songs destination.
+- The evidenced source/data, domain-capability, product-shell, material-rendering and intermediate-motion limitations still prevent an honest claim of complete pixel identity.
+
+final result: blocked
+
+---
+
+## Apple Music library color/material and album-toolbar refinement — 2026-09-25
+
+### Resolved findings
+
+- [P2 resolved] The focused Songs/Artists row fill was brighter than the installed Apple Music reference. The reference median is raw screenshot RGB `[202, 47, 51]`; the final focused Artist and Songs captures now produce the identical median while keeping the brighter accent token for icons and navigation.
+- [P2 resolved] Library search/sort controls previously rendered as flat gray. The first `5 pt` shadow iteration was visibly excessive and is preserved as `artists-toolbar-calibrated.jpg`; the final `2 pt` low-alpha shadow, near-white fill and low-alpha border are preserved as `artists-toolbar-calibrated-2.jpg` and the final page captures.
+- [P2 resolved] Album detail previously showed Download and More as two separate circles. The final build uses the source's single grouped capsule, keeps Back standalone, and preserves the real disabled Download state and functioning Download/Play menu. Evidence: `album-detail-toolbar-refined.jpg` and `album-detail-toolbar-refined-menu.jpg`.
+
+### Measured effect
+
+- Focused Artist whole-frame mean absolute difference improved from `10.1916` to `9.8490` on the `0–255` RGB scale.
+- The fixed Artist toolbar crop improved from `12.1809` to `7.9011`; the empty search interior improved from `12.0000` to `0.4667`.
+- Album-detail whole-frame difference improved from `16.5433` to `16.3333`; toolbar `6.7673 → 4.9090`, grouped controls `5.7244 → 4.1986`, search `16.8293 → 10.7236`.
+- Final paired artifacts are `latest-songs-refined-final-*`, `latest-albums-refined-final-*`, `latest-artists-selected-focused-refined-final-*`, and `latest-album-detail-toolbar-refined-*` under `docs/qa/tideplayer-apple-music-clone/`.
+
+### Verification and remaining blockers
+
+- `:feature:album:desktopTest :feature:library:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline`: passed (`340` actionable tasks).
+- `git diff --check`: passed after this append.
+- The packaged build was relaunched normally. Album Back, grouped More menu, Albums/Songs/Artists navigation and artist selection/content refresh were exercised with real TidePlayer state.
+- The final bundle timestamp is `2026-09-25 10:37:27` (`10:37:32` executable). `songs-final-build-open-refined.jpg` records that package open on Songs; `songs-selected-focused-refined-final.jpg` records the calibrated focused selection state.
+- Different real libraries/artwork/playback state, missing Apple-only domain capabilities, retained real TidePlayer destinations, residual AppKit/Compose material sampling differences, and unavailable intermediate motion frames remain evidenced constraints. They prevent an honest claim of complete pixel identity.
+
+final result: blocked
+
+---
+
+## Apple Music library toolbar baseline and final-title calibration — 2026-09-25
+
+### Resolved findings
+
+- [P2 resolved] The shared Songs/Albums/Artists toolbar content was `9 px` too high at the normalized Retina viewport. A `4 pt` content offset now places the TidePlayer title ink at `y = 41…63 px`, matching Apple Music; the album-detail Back/grouped-controls/search toolbar uses the same baseline correction.
+- [P2 resolved] The light page title was too dark and warm because it inherited the broader app foreground. The final light-only neutral foreground produces core RGB `[79, 79, 79]`, matching the Apple Music reference exactly; dark appearance retains the existing theme foreground.
+- [P2 resolved] The final package was exercised through Artist selection, Albums → album detail → Back, and Songs. Real content refresh, navigation and playback-shell state remained intact.
+
+### Measured effect
+
+- The tight title crop improved `9.7533 → 2.7405/255` after baseline correction. On the fixed `95 × 62 px` documented crop, the subsequent color correction improved `5.3113 → 4.2806/255`.
+- Focused Artist controlled regions improved: main-content toolbar `3.9119 → 3.0240`, right toolbar `8.6047 → 7.6219`, and search crop `9.6892 → 8.8531`.
+- Album-detail controlled regions improved: whole-frame `16.3333 → 16.3069`, toolbar `4.9090 → 4.4954`, controls `4.5747 → 4.0811`, search `10.7236 → 9.7246`, and Back `10.4967 → 6.6755`.
+- Final-package whole-frame differences are Songs `20.8700`, Albums `48.2656`, selected Artist `9.9504`, and Album detail `16.3069`. Different real data, covers and dynamic player content remain included in these totals; the best earlier selected-Artist player frame remains `9.8490`.
+
+### Verification and remaining blockers
+
+- `:feature:library:desktopTest :feature:album:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline`: passed (`340` actionable tasks: `65` executed, `275` up-to-date).
+- The `2026-09-25 11:01` distributable was relaunched from `desktopApp/build/compose/binaries/main/app/TidePlayer.app`; final comparison/overlay/difference artifacts for all three pages plus album detail are under `docs/qa/tideplayer-apple-music-clone/`. The app is left open on Songs.
+- [P1 source/data limitation] Real libraries, artwork, favorites, track counts and playback progress differ and cannot be synchronized without fake data.
+- [P1 domain-capability limitation] Artist portraits/favorites, Apple catalog metadata and Apple-only menu commands still have no corresponding TidePlayer model/action; unavailable controls remain absent or honestly disabled.
+- [P2 rendering limitation] AppKit material sampling and Compose rendering remain visibly and measurably non-identical in saved overlays, especially where the bottom player mixes dynamic artwork.
+- [P2 evidence limitation] The capture path still misses intermediate transition frames, so easing/duration identity is not claimed.
+
+final result: blocked
+
+---
+
+## Apple Music library neutral desktop foreground — 2026-09-25
+
+### Evidence and fix
+
+- Source visual truth: `docs/qa/apple-music-reference/songs-default-selected-playing.jpg`, `artist-selected.jpg`, and `album-detail.jpg`; `1960 × 1200 px`, `980 × 600 pt`, Retina `2×`, light appearance, focused state.
+- Last rendered implementation evidence: `docs/qa/tideplayer-apple-music-clone/songs-final-build-open-toolbar-baseline.png`, `artists-selected-toolbar-baseline-color-final.png`, and `album-detail-final-build-open-toolbar-baseline.png` at the same size and state.
+- [P2 fixed in code, rendered verification blocked] Focused crops showed Apple primary text cores near neutral black (`[0,0,0]` to `[3,3,3]`) while TidePlayer's Songs rows and artist-detail heading inherited the app-wide warm foreground (`[57,48,43]` and related values). The two Apple Music desktop screen implementations now use a light-only neutral-black foreground helper for primary text, secondary-opacity text, icons, dividers, alternating rows, hover fills and menus; dark appearance retains the existing theme foreground. Mobile and now-playing code are unchanged.
+- Build/test/package passed: `:feature:library:desktopTest :feature:album:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline` (`340` actionable tasks: `72` executed, `268` up-to-date). `git diff --check` passes.
+
+### Capture blocker
+
+- The new distributable is running from `desktopApp/build/compose/binaries/main/app/TidePlayer.app`, but macOS locked immediately before the required same-state recapture. Computer Use reported `The Mac is locked and automatic unlock could not unlock it`.
+- Because the revised rendered implementation cannot currently be captured and placed beside the source, the color improvement is not claimed as visually accepted. The next QA iteration must recapture Songs, selected Artist and Album detail, recompute focused text/color metrics, and revert or tune any region that regresses.
+
+final result: blocked
+
+---
+
+## Apple Music library final responsive and interaction pass — 2026-09-25
+
+### Source and implementation evidence
+
+- Normalized source state: installed Music.app, `980 × 600 pt` / `1960 × 1200 px`, Retina `2×`, light appearance, Chinese UI, focused window and visible bottom player.
+- Current final TidePlayer evidence: `docs/qa/tideplayer-apple-music-clone/final-songs-980x600.jpg`, `final-albums-980x600.jpg`, `final-artists-selected-980x600.jpg`, and `final-album-detail-980x600.jpg`.
+- Current paired comparison/overlay/difference artifacts use the same `final-*-980x600` prefixes. Responsive album evidence additionally covers `1200 × 760`, the `1208 pt` four-to-five-column boundary, and the largest available `1379 × 900` viewport.
+
+### Resolved findings
+
+- [P2 resolved] Album grid responsiveness previously changed to five columns too late and kept the cover size effectively fixed. Direct Music.app measurements show four columns at a `1200 pt` window (`992 pt` main content), five columns at `1208 pt` (`1000 pt` main content), and five columns at `1379 pt`. TidePlayer now uses the same `1000 pt` content breakpoint and fills the available width with measured `18/42 pt` side insets and `20 pt` inter-column gaps.
+- [P2 resolved] Album hover previously dimmed the full cover and exposed a centered play button plus more button. The installed source only changes the lower-right play affordance in the measured state; TidePlayer now leaves the real cover undimmed and uses the same compact lower-right play treatment.
+- [P2 resolved] The light-theme current-playing speaker in Songs previously used the red action accent. The source uses the macOS blue playback indicator when the row is not actively selected; TidePlayer now uses the measured blue token while preserving white on a focused selected row.
+- [P1 resolved] Secondary-click on one row of an existing Songs multi-selection previously collapsed the selection before opening the menu. The final build preserves the full multi-selection when the right-clicked row is already selected, matching Music.app.
+- [P1 resolved] macOS focus state now listens to both application foreground/background events and the owning window focus listener. Focused selections remain red; unfocused selections and sidebar state become neutral gray and recover correctly when focus returns.
+- [P2 resolved] The earlier neutral-foreground iteration was only code-verified because the host locked before recapture. The current final package has now been recaptured in normal mode at the normalized viewport; primary text uses the neutral light foreground and the saved final artifacts supersede that capture blocker.
+- Album detail Back was exercised from the final package and returned to the real album grid; play/shuffle, current-track pause marker, grouped toolbar controls and the bottom player remain wired to real state.
+
+### Measured final state
+
+- Songs whole-frame mean absolute RGB difference: `17.9582/255`.
+- Albums whole-frame mean absolute RGB difference: `47.6984/255`.
+- Selected Artist, focused concrete-artist state: `10.1938/255`.
+- Album detail: `16.3347/255`.
+- The album totals remain dominated by intentionally different real artwork; at the largest viewport the measured cover x positions and dimensions differ from Music.app by only about `0–2 pt` on the matched columns.
+
+### Verification and remaining blockers
+
+- Final implementation command passed: `:feature:library:desktopTest :feature:album:desktopTest :shared:desktopTest :desktopApp:createDistributable --offline` (`340` actionable tasks: `65` executed, `275` up-to-date).
+- Final distributable timestamp: `2026-09-25 13:59:20`, path `desktopApp/build/compose/binaries/main/app/TidePlayer.app`.
+- The project's pre-existing user-requested safe-mode marker still appears on a cold relaunch; using the existing `尝试正常启动` recovery action returns the same bundle to normal mode. This was observed separately from build/test success and is not hidden as part of visual QA.
+- [P1 source/data limitation] TidePlayer and Music.app contain different real libraries, artwork, favorites, track counts and playback positions. Synchronizing those screenshots by inventing or replacing user data would violate the implementation constraint.
+- [P1 domain-capability limitation] Artist portrait/favorite state, Apple catalog metadata, lossless provenance and some Apple-only context-menu actions do not exist in TidePlayer's model/action layer; unavailable controls remain absent or explicitly disabled instead of being faked.
+- [P2 product-shell limitation] TidePlayer retains its real sidebar destinations rather than inventing Apple Music discovery/radio/profile destinations.
+- [P2 rendering limitation] AppKit material/blur sampling and Compose/Skia rendering remain measurably non-identical in saved overlays, especially around the dynamic mini-player.
+- [P2 evidence limitation] The available capture path still reaches the settled album-detail state after the transition; intermediate animation frames, easing and exact duration remain unverified.
+
+No new actionable implementation defect found in the requested Songs/Albums/Artists static and primary interaction states remains from this pass. The source/data, capability, shell, renderer and motion-evidence differences above still prevent a truthful claim of complete one-to-one pixel identity.
+
+final result: blocked
+
+---
+
+## Latest scoped result — album-detail toolbar shadows
+
+The complete source, implementation, normalization, focused comparison, pixel samples, iteration history, and verification are recorded above in **Album detail toolbar shadow parity — 2026-09-25**. The final evidence is `docs/qa/album-toolbar-shadow-2026-09-25/12-tide-shadow-final-settled.png` and `16-focused-toolbar-comparison.png`. No actionable P0, P1, or P2 finding remains for the return-button, grouped download/more capsule, or search-capsule shadow treatment.
 
 final result: passed

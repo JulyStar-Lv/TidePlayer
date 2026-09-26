@@ -10,12 +10,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.shadow.Shadow
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
+import io.github.julystar.musicapp.core.presentation.platform.rememberPlatformWindowFocused
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 
 // macOS 26 windowBackgroundColor; shared by the sidebar underlay and content pane.
@@ -30,7 +30,7 @@ fun desktopWindowBackgroundColor(): Color =
 @Composable
 fun Modifier.desktopSidebarSurface(shape: Shape): Modifier {
     val isDark = LocalDesignIsDarkTheme.current
-    val isWindowFocused = LocalWindowInfo.current.isWindowFocused
+    val isWindowFocused = rememberPlatformWindowFocused()
     val backdrop = currentDesignBackdrop()
     val surface = when {
         isDark && isWindowFocused -> Color(0xFF1D1D1D)

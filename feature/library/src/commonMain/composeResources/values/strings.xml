@@ -91,4 +91,18 @@
     <string name="library_empty_collection_message">No music is available in this collection yet.</string>
     <string name="library_empty_lossless_after_scan">Lossless tracks appear after scan.</string>
     <string name="library_empty_hires_after_scan">Hi-Res tracks appear after scan.</string>
+    <string name="library_desktop_search_songs">Search Songs</string>
+    <string name="library_desktop_search_albums">Search Albums</string>
+    <string name="library_desktop_search_artists">Search Artists</string>
+    <string name="library_desktop_artists_title">Artists</string>
+    <string name="library_desktop_status">Status</string>
+    <string name="library_desktop_title">Title</string>
+    <string name="library_desktop_artist">Artist</string>
+    <string name="library_desktop_album">Album</string>
+    <string name="library_desktop_time">Time</string>
+    <string name="library_desktop_year">Year</string>
+    <string name="library_desktop_all_artists">All Artists</string>
+    <string name="library_desktop_play">Play</string>
+    <string name="library_desktop_sort">Sort</string>
+    <string name="library_desktop_more">More</string>
 </resources>

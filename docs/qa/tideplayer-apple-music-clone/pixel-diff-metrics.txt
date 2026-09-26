@@ -1,0 +1,6 @@
+songs final package (current): RGB mean absolute difference = 17.9582/255 (includes different library data, artwork, playback state and sidebar destinations)
+albums final package (current): RGB mean absolute difference = 47.6984/255 (includes different library data, artwork, playback state and sidebar destinations)
+artist selected final package (current, focused concrete-artist state): RGB mean absolute difference = 10.1938/255 (includes different artist data/artwork, playback state and sidebar destinations)
+album-detail final package (current): RGB mean absolute difference = 16.3347/255 (includes different album data/artwork, playback state and sidebar destinations)
+artist track context menu: RGB mean absolute difference = 15.3119/255 (includes different library data, artwork, playback state, menu capability and sidebar destinations)
+artist row/focus/menu latest refinement: not recomputed yet (new package builds/tests pass, but the host locked before same-state recapture; previous measured values above remain authoritative)

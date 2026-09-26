@@ -177,7 +177,7 @@ private fun SourceCard(
                 )
                 Text(
                     text = stringResource(Res.string.sources_music, source.musicCount),
-                    color = MiuixTheme.colorScheme.primary,
+
                     style = MiuixTheme.textStyles.footnote1,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

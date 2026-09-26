@@ -215,7 +215,7 @@ internal fun GraphicEqualizerEditor(
                     Text(
                         text = formatDb(preciseGain),
                         style = MiuixTheme.textStyles.title2,
-                        color = MiuixTheme.colorScheme.primary,
+
                     )
                     TextButton(
                         text = "+",

@@ -22,6 +22,7 @@ class ThemeColorPickerTest {
     @Test
     fun `formatter emits uppercase rgb without alpha`() {
         assertEquals("#FF5B8A", formatThemeSeedHex(0x12FF5B8AL))
+        assertEquals("Display P3 #F31B34", formatThemePrimaryValue(0xFFF31B34L, false))
+        assertEquals("sRGB #FF375F", formatThemePrimaryValue(0xFFFF375FL, true))
     }
 }
-

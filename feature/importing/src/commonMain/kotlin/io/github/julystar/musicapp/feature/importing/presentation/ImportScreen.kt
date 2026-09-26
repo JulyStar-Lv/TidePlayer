@@ -385,7 +385,7 @@ private fun CurrentDirectoryAction(
                 minWidth = 132.dp,
                 enabled = enabled,
                 onClick = onClick,
-            ) { Text(stringResource(Res.string.import_library_select_current)) }
+            ) { (stringResource(Res.string.import_library_select_current)) }
         }
     }
 }
@@ -681,7 +681,7 @@ private fun FolderPickerEntries(
                     )
                     Text(
                         text = stringResource(Res.string.import_folder_clear_selection),
-                        color = MiuixTheme.colorScheme.primary,
+
                         style = MiuixTheme.textStyles.footnote1,
                         modifier = Modifier
                             .clickable {
@@ -788,7 +788,7 @@ private fun FolderPickerEntries(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(Res.string.import_folder_save))
+                    (stringResource(Res.string.import_folder_save))
                 }
             }
         }
@@ -1084,7 +1084,7 @@ private fun ImportMusicsWarningImpl(
                     Button(
                         minWidth = 144.dp,
                         onClick = onClick,
-                    ) { Text(label) }
+                    ) { (label) }
                 }
             }
         }

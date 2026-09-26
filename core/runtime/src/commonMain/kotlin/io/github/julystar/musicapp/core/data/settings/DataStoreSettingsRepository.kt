@@ -16,6 +16,7 @@ import io.github.julystar.musicapp.core.domain.model.AudioFocusMode
 import io.github.julystar.musicapp.core.domain.model.AutoScanMode
 import io.github.julystar.musicapp.core.domain.model.BackupSchedule
 import io.github.julystar.musicapp.core.domain.model.DEFAULT_MANUAL_THEME_SEED_ARGB
+import io.github.julystar.musicapp.core.domain.model.DEFAULT_DARK_MANUAL_THEME_SEED_ARGB
 import io.github.julystar.musicapp.core.domain.model.DownloadFinalizationSettings
 import io.github.julystar.musicapp.core.domain.model.LyricFontChoice
 import io.github.julystar.musicapp.core.domain.model.LyricFontSettings
@@ -54,6 +55,7 @@ import io.github.julystar.musicapp.core.domain.model.normalizeNetworkRetryCount
 import io.github.julystar.musicapp.core.domain.model.normalizePlaybackAdvancedSettings
 import io.github.julystar.musicapp.core.domain.model.normalizeCustomThemeSeedArgbValues
 import io.github.julystar.musicapp.core.domain.model.normalizeThemeSeedArgb
+import io.github.julystar.musicapp.core.domain.model.resolvedDarkManualThemeSeedArgb
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.platform.applyAppLanguageMode
 import kotlinx.coroutines.flow.Flow
@@ -73,10 +75,10 @@ class DataStoreSettingsRepository(
             themeMode = preferences[THEME_MODE_KEY].enumOrDefault(AppSettings.Default.themeMode),
             artworkThemeEnabled = preferences[ARTWORK_THEME_ENABLED_KEY]
                 ?: preferences[DYNAMIC_COLOR_ENABLED_KEY]
-                ?: true,
-            manualThemeSeedArgb = normalizeThemeSeedArgb(
-                preferences[MANUAL_THEME_SEED_ARGB_KEY] ?: DEFAULT_MANUAL_THEME_SEED_ARGB,
-            ),
+                ?: false,
+            manualThemeSeedArgb = preferences.resolvedLightThemeSeedArgb(),
+            darkManualThemeSeedArgb =
+                preferences[DARK_MANUAL_THEME_SEED_ARGB_KEY]?.let(::normalizeThemeSeedArgb),
             customThemeSeedArgbValues = normalizeCustomThemeSeedArgbValues(
                 preferences[CUSTOM_THEME_SEED_ARGB_VALUES_KEY].toThemeSeedList(),
             ),
@@ -266,8 +268,18 @@ class DataStoreSettingsRepository(
     override suspend fun setArtworkThemeEnabled(enabled: Boolean) =
         set(ARTWORK_THEME_ENABLED_KEY, enabled)
 
-    override suspend fun setManualThemeSeedArgb(argb: Long) =
-        set(MANUAL_THEME_SEED_ARGB_KEY, normalizeThemeSeedArgb(argb))
+    override suspend fun setManualThemeSeedArgb(argb: Long) {
+        dataStore.edit { preferences ->
+            if (preferences[DARK_MANUAL_THEME_SEED_ARGB_KEY] == null) {
+                preferences[DARK_MANUAL_THEME_SEED_ARGB_KEY] = preferences.resolvedDarkThemeSeedArgb()
+            }
+            preferences[MANUAL_THEME_SEED_ARGB_KEY] = normalizeThemeSeedArgb(argb)
+            preferences[MANUAL_THEME_SEED_UPDATED_KEY] = true
+        }
+    }
+
+    override suspend fun setDarkManualThemeSeedArgb(argb: Long) =
+        set(DARK_MANUAL_THEME_SEED_ARGB_KEY, normalizeThemeSeedArgb(argb))
 
     override suspend fun setCustomThemeSeedArgbValues(argbValues: List<Long>) =
         set(
@@ -456,6 +468,7 @@ class DataStoreSettingsRepository(
         setThemeMode(settings.themeMode)
         setArtworkThemeEnabled(settings.artworkThemeEnabled)
         setManualThemeSeedArgb(settings.manualThemeSeedArgb)
+        setDarkManualThemeSeedArgb(settings.resolvedDarkManualThemeSeedArgb())
         setCustomThemeSeedArgbValues(settings.customThemeSeedArgbValues)
         setLanguageMode(settings.languageMode)
         setAudioFocusMode(settings.audioFocusMode)
@@ -600,9 +613,27 @@ private fun String?.toThemeSeedList(): List<Long> {
         .orEmpty()
 }
 
+private fun Preferences.resolvedLightThemeSeedArgb(): Long =
+    this[MANUAL_THEME_SEED_ARGB_KEY]
+        ?.let { saved ->
+            if (saved == LEGACY_DEFAULT_MANUAL_THEME_SEED_ARGB &&
+                this[MANUAL_THEME_SEED_UPDATED_KEY] != true
+            ) DEFAULT_MANUAL_THEME_SEED_ARGB else normalizeThemeSeedArgb(saved)
+        }
+        ?: DEFAULT_MANUAL_THEME_SEED_ARGB
+
+private fun Preferences.resolvedDarkThemeSeedArgb(): Long =
+    this[DARK_MANUAL_THEME_SEED_ARGB_KEY]?.let(::normalizeThemeSeedArgb)
+        ?: if (this[MANUAL_THEME_SEED_ARGB_KEY] == null ||
+            resolvedLightThemeSeedArgb() == DEFAULT_MANUAL_THEME_SEED_ARGB
+        ) DEFAULT_DARK_MANUAL_THEME_SEED_ARGB else resolvedLightThemeSeedArgb()
+
 internal val THEME_MODE_KEY = stringPreferencesKey("settings.themeMode")
 internal val ARTWORK_THEME_ENABLED_KEY = booleanPreferencesKey("settings.artworkThemeEnabled")
 internal val MANUAL_THEME_SEED_ARGB_KEY = longPreferencesKey("settings.manualThemeSeedArgb")
+internal val DARK_MANUAL_THEME_SEED_ARGB_KEY = longPreferencesKey("settings.darkManualThemeSeedArgb")
+private val MANUAL_THEME_SEED_UPDATED_KEY = booleanPreferencesKey("settings.manualThemeSeedUpdated")
+private const val LEGACY_DEFAULT_MANUAL_THEME_SEED_ARGB = 0xFFFF5B8AL
 internal val CUSTOM_THEME_SEED_ARGB_VALUES_KEY =
     stringPreferencesKey("settings.customThemeSeedArgbValues")
 // Read-only migration input from the former Android system-wallpaper setting.
@@ -737,6 +768,8 @@ private val SETTINGS_KEYS = setOf(
     THEME_MODE_KEY,
     ARTWORK_THEME_ENABLED_KEY,
     MANUAL_THEME_SEED_ARGB_KEY,
+    DARK_MANUAL_THEME_SEED_ARGB_KEY,
+    MANUAL_THEME_SEED_UPDATED_KEY,
     CUSTOM_THEME_SEED_ARGB_VALUES_KEY,
     DYNAMIC_COLOR_ENABLED_KEY,
     LANGUAGE_MODE_KEY,

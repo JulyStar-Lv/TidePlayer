@@ -32,8 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.colorspace.ColorSpaces
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.presentation.components.desktopSidebarSurface
 import io.github.julystar.musicapp.core.presentation.components.desktopWindowBackgroundColor
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
+import io.github.julystar.musicapp.core.presentation.platform.rememberPlatformWindowFocused
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import io.github.julystar.musicapp.navigation.HomeTab
 import musicapp.shared.generated.resources.Res
@@ -72,6 +71,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal val AppleMusicSidebarWidth = 208.dp
 
@@ -84,11 +84,9 @@ enum class AppleMusicSidebarDestination(
     SEARCH(Res.drawable.icon_apple_search, Res.string.nav_search, HomeTab.SEARCH),
     HOME(Res.drawable.icon_apple_home, Res.string.nav_home, HomeTab.HOME),
     SETTINGS(Res.drawable.icon_apple_settings, Res.string.nav_settings, HomeTab.SETTINGS),
-    RECENTLY_ADDED(Res.drawable.icon_apple_recent, Res.string.sidebar_recently_added),
     SONGS(Res.drawable.icon_apple_songs, Res.string.sidebar_songs, HomeTab.LIBRARY),
     ALBUMS(Res.drawable.icon_apple_albums, Res.string.sidebar_albums),
     ARTISTS(Res.drawable.icon_apple_artists, Res.string.sidebar_artists),
-    GENRES(Res.drawable.icon_apple_genres, Res.string.sidebar_genres),
     ALL_PLAYLISTS(Res.drawable.icon_apple_playlists, Res.string.sidebar_all_playlists),
     FAVORITES(Res.drawable.icon_apple_favorites, Res.string.sidebar_favorite_songs),
 }
@@ -99,11 +97,9 @@ private val PrimaryDestinations = listOf(
     AppleMusicSidebarDestination.SETTINGS,
 )
 private val LibraryDestinations = listOf(
-    AppleMusicSidebarDestination.RECENTLY_ADDED,
     AppleMusicSidebarDestination.SONGS,
     AppleMusicSidebarDestination.ALBUMS,
     AppleMusicSidebarDestination.ARTISTS,
-    AppleMusicSidebarDestination.GENRES,
 )
 private val PlaylistDestinations = listOf(
     AppleMusicSidebarDestination.ALL_PLAYLISTS,
@@ -200,21 +196,11 @@ private fun AppleMusicNavigationItem(
     onClick: () -> Unit,
 ) {
     val isDark = LocalDesignIsDarkTheme.current
-    val isWindowFocused = LocalWindowInfo.current.isWindowFocused
+    val isWindowFocused = rememberPlatformWindowFocused()
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
     val pressed by interactionSource.collectIsPressedAsState()
-    val accent = if (isDark) {
-        Color(0xFFFF375F)
-    } else {
-        Color(
-            red = 243f / 255f,
-            green = 27f / 255f,
-            blue = 52f / 255f,
-            alpha = 1f,
-            colorSpace = ColorSpaces.DisplayP3,
-        )
-    }
+    val accent = MiuixTheme.colorScheme.primary
     val foreground = if (isDark) Color.White.copy(alpha = 0.95f) else Color.Black
     val tint = when {
         !isWindowFocused -> if (isDark) Color.White.copy(alpha = 0.38f) else Color.Black.copy(alpha = 0.32f)

@@ -244,11 +244,11 @@ class SettingsVM(
     fun onAction(action: SettingsAction) {
         when (action) {
             is SettingsAction.SetThemeMode -> updateSetting { settingsRepository.setThemeMode(action.mode) }
-            is SettingsAction.SetArtworkThemeEnabled -> updateSetting {
-                settingsRepository.setArtworkThemeEnabled(action.enabled)
-            }
             is SettingsAction.SetManualThemeSeedArgb -> updateSetting {
                 settingsRepository.setManualThemeSeedArgb(action.argb)
+            }
+            is SettingsAction.SetDarkManualThemeSeedArgb -> updateSetting {
+                settingsRepository.setDarkManualThemeSeedArgb(action.argb)
             }
             is SettingsAction.SetCustomThemeSeedArgbValues -> updateSetting {
                 settingsRepository.setCustomThemeSeedArgbValues(action.argbValues)

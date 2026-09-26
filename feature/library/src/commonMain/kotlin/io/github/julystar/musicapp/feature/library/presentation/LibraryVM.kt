@@ -200,6 +200,7 @@ class LibraryVM(
         when (action) {
             LibraryAction.Refresh -> Unit
             is LibraryAction.PlayTrack -> Unit
+            is LibraryAction.PlayTracks -> Unit
             is LibraryAction.DownloadTrack -> downloadTrack(action.track)
             is LibraryAction.SelectGenre -> Unit
             is LibraryAction.BrowseFolder -> Unit

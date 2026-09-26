@@ -10,12 +10,13 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JFrame
 
 // Native title-bar coordinates measured from the 980 × 600 Apple Music reference.
-private val AppleMusicTrafficLightOriginsX = doubleArrayOf(19.0, 42.0, 65.0)
-private const val AppleMusicTrafficLightSize = 14.0
-private const val AppleMusicTrafficLightOriginY = 7.0
+private val AppleMusicTrafficLightOriginsX = doubleArrayOf(17.0, 40.0, 63.0)
+private const val AppleMusicTrafficLightSize = 18.0
+private const val AppleMusicTrafficLightOriginY = 5.0
 private const val AppleMusicTitleBarHeight = 40.0
 private const val AppleMusicWindowCornerRadius = 26.0
 
@@ -63,7 +64,8 @@ private object MacTrafficLightBridge {
     private val objcMsgSend: Function by lazy { objectiveC.getFunction("objc_msgSend") }
     private val selRegisterName: Function by lazy { objectiveC.getFunction("sel_registerName") }
     private val system by lazy { NativeLibrary.getInstance("System") }
-    private val dispatchSync: Function by lazy { system.getFunction("dispatch_sync_f") }
+    private val dispatchAsync: Function by lazy { system.getFunction("dispatch_async_f") }
+    private val pendingCallbacks = ConcurrentHashMap.newKeySet<DispatchCallback>()
     private val mainQueue: Pointer by lazy {
         checkNotNull(system.getGlobalVariableAddress("_dispatch_main_q"))
     }
@@ -138,9 +140,21 @@ private object MacTrafficLightBridge {
 
     private fun onAppKitThread(block: () -> Unit) {
         val callback = object : DispatchCallback {
-            override fun invoke(context: Pointer?) = block()
+            override fun invoke(context: Pointer?) {
+                try {
+                    block()
+                } finally {
+                    pendingCallbacks.remove(this)
+                }
+            }
         }
-        dispatchSync.invoke(Void.TYPE, arrayOf(mainQueue, null, callback))
+        pendingCallbacks.add(callback)
+        try {
+            dispatchAsync.invoke(Void.TYPE, arrayOf(mainQueue, null, callback))
+        } catch (error: Throwable) {
+            pendingCallbacks.remove(callback)
+            throw error
+        }
     }
 
     private fun findWindow(title: String): Pointer? {

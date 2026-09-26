@@ -16,6 +16,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun LibraryRoot(
+    desktopSection: LibraryDesktopSection = LibraryDesktopSection.Songs,
     onNavigateToLibraryFolderImport: () -> Unit = {},
     onNavigateToAlbum: (Long) -> Unit = {},
     onNavigateToArtist: (Long) -> Unit = {},
@@ -40,6 +41,7 @@ fun LibraryRoot(
 
     LibraryDesignScreen(
         state = state,
+        desktopSection = desktopSection,
         currentPlayingTrackId = playerState.currentItem?.libraryTrackId,
         onNavigateToLibraryFolderImport = onNavigateToLibraryFolderImport,
         onNavigateToAlbum = onNavigateToAlbum,
@@ -58,6 +60,15 @@ fun LibraryRoot(
                                 items = items,
                                 startIndex = startIndex,
                             )
+                        }
+                    }
+                }
+                is LibraryAction.PlayTracks -> {
+                    val tracksById = state.tracks.associateBy { it.id }
+                    val items = action.trackIds.mapNotNull(tracksById::get).map { it.toPlayableItem() }
+                    if (items.isNotEmpty()) {
+                        coroutineScope.launch {
+                            playbackController.play(items = items, startIndex = 0)
                         }
                     }
                 }

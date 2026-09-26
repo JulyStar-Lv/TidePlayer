@@ -45,6 +45,7 @@ class NowPlayingStateTest {
             sourceStorageId = 5,
             sourcePath = "/Music/Now.flac",
             artist = "The Artist",
+            album = "The Album",
             annotation = "Live version",
             coverArtwork = Artwork.LegacyStorageEntry(storageId = 9, path = "/Covers/Now.jpg"),
         )
@@ -54,6 +55,7 @@ class NowPlayingStateTest {
         assertEquals(7, item.id)
         assertEquals("Now Playing", item.title)
         assertEquals("The Artist", item.artist)
+        assertEquals("The Album", item.album)
         assertEquals("Live version", item.annotation)
         assertEquals(123_000, item.durationMs)
         assertEquals(Artwork.LegacyStorageEntry(storageId = 9, path = "/Covers/Now.jpg"), item.artwork)

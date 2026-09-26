@@ -20,6 +20,8 @@ interface PlayerController : SleepController {
     )
     fun resume()
     fun pause()
+    fun getVolume(): Float = 1f
+    fun setVolume(value: Float) = Unit
     fun stop()
     fun playNext()
     fun playPrevious()

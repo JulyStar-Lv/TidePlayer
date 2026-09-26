@@ -23,9 +23,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:presentation"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.components.resources)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
+            implementation(libs.components.resources)
             implementation(libs.miuix.ui)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
@@ -41,7 +41,7 @@ kotlin {
     }
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "io.github.julystar.musicapp.feature.onboarding"
     compileSdk = 37
     defaultConfig {

@@ -42,9 +42,19 @@ import {
 const cn = (...i: unknown[]) => twMerge(clsx(i));
 const APP_VERSION = __APP_VERSION__;
 const APP_VERSION_CODE = __APP_VERSION_CODE__;
+const CAPSULE_SHADOW = "shadow-[0_8px_24px_rgba(0,0,0,0.10)]";
 const preventMouseFocus = (event: React.PointerEvent<HTMLButtonElement>) => {
   if (event.pointerType === "mouse") event.preventDefault();
 };
+
+function FilterCapsuleButton({ label = "Filter" }: { label?: string }) {
+  return (
+    <button type="button" aria-label={label}
+      className={cn("flex h-10 w-10 items-center justify-center rounded-full bg-card text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40", CAPSULE_SHADOW)}>
+      <Filter className="h-4 w-4"/>
+    </button>
+  );
+}
 const LIST_ROW_TRANSITION = {type:"spring" as const,stiffness:400,damping:30};
 const LIST_ROW_INTERACTION = "rounded-sm outline-none transition-colors duration-[180ms] hover:bg-muted/50 active:bg-muted/70 focus-visible:ring-2 focus-visible:ring-primary/40";
 
@@ -672,10 +682,13 @@ function PlaylistDetailPage({ playlist, initialTracks, collectionType="playlist"
             </motion.p>
           )}
         </AnimatePresence>
-        <button type="button" aria-label={`More ${collectionType} actions`}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40">
-          <MoreHorizontal className="h-5 w-5"/>
-        </button>
+        <div className="flex items-center gap-2">
+          <FilterCapsuleButton label={`Filter ${collectionType}`} />
+          <button type="button" aria-label={`More ${collectionType} actions`}
+            className={cn("flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40", CAPSULE_SHADOW)}>
+            <MoreHorizontal className="h-5 w-5"/>
+          </button>
+        </div>
       </div>
 
       <AnimatePresence initial={false}>
@@ -819,10 +832,13 @@ function ArtistDetailPage({ artist, currentSong, isPlaying, onBack, onPlay, onOp
           className="flex h-10 w-10 items-center justify-center rounded-full text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/40">
           <ArrowLeft className="h-5 w-5"/>
         </button>
-        <button type="button" aria-label="More artist actions"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40">
-          <MoreHorizontal className="h-5 w-5"/>
-        </button>
+        <div className="flex items-center gap-2">
+          <FilterCapsuleButton label="Filter artist" />
+          <button type="button" aria-label="More artist actions"
+            className={cn("flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40", CAPSULE_SHADOW)}>
+            <MoreHorizontal className="h-5 w-5"/>
+          </button>
+        </div>
       </div>
 
       <section className="pt-3 lg:pt-5">
@@ -4147,7 +4163,7 @@ function LibraryPage({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, pinned
               {tab==="songs" ? (
                 <button ref={filterTriggerRef} type="button" onPointerDown={preventMouseFocus} onClick={showFilterMenu}
                   aria-label={`Filter songs${activeSongFilterCount?`, ${activeSongFilterCount} active`:""}`} aria-haspopup="menu" aria-expanded={filterMenuOpen}
-                  className={cn("relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-card outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/30",filterMenuOpen||activeSongFilterCount?"border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
+                  className={cn("relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-card outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/30", CAPSULE_SHADOW, filterMenuOpen||activeSongFilterCount?"border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
                   <Filter className="h-4 w-4"/>
                   {activeSongFilterCount>0&&<span aria-hidden="true" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary"/>}
                 </button>
