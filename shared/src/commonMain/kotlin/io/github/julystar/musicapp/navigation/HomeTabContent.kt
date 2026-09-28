@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import io.github.julystar.musicapp.core.LocalNavController
 import io.github.julystar.musicapp.core.domain.model.SourceAccountId
@@ -182,6 +183,7 @@ internal fun LiquidGlassStickyHeaderHost(
     state: StickyHeaderState?,
     statusBarInset: Dp,
     modifier: Modifier = Modifier,
+    contentStartInset: Dp = 0.dp,
 ) {
     val transitionDurationMillis = state?.transitionDurationMillis ?: 0
     AnimatedContent(
@@ -199,17 +201,22 @@ internal fun LiquidGlassStickyHeaderHost(
         }
         val header = state?.takeIf { it.transitionKey == transitionKey } ?: retainedHeader
         header?.let {
-            LiquidGlassActionBar(
-                title = it.title,
-                subtitle = it.subtitle,
-                collapseFraction = it.collapseFraction,
-                statusBarInset = statusBarInset,
-                onNavigateBack = it.onNavigateBack,
-                backContentDescription = it.backContentDescription,
-                actions = it.actions,
-                centerTitle = true,
-                compactTitle = it.compactTitle,
-            )
+            CompositionLocalProvider(LocalDesignStickyHeaderStateSink provides null) {
+                LiquidGlassActionBar(
+                    title = it.title,
+                    subtitle = it.subtitle,
+                    collapseFraction = it.collapseFraction,
+                    statusBarInset = statusBarInset,
+                    contentStartInset = contentStartInset,
+                    onNavigateBack = it.onNavigateBack,
+                    backContentDescription = it.backContentDescription,
+                    actions = it.actions,
+                    compactTitle = it.compactTitle,
+                    navigationIcon = it.navigationIcon,
+                    content = it.content,
+                    extraContentHeight = it.extraContentHeight,
+                )
+            }
         }
     }
 }

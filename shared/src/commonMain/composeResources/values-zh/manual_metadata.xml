@@ -2,7 +2,7 @@
 <resources>
     <string name="manual_metadata_title">搜索元数据</string>
     <string name="manual_metadata_summary">选择搜索结果以更新音乐库中的歌曲信息，不会修改音乐文件本身。</string>
-    <string name="manual_metadata_current_track">当前歌曲</string>
+    <string name="manual_metadata_current_track">当前歌曲：%1$s — %2$s</string>
     <string name="manual_metadata_keyword">歌曲名或艺术家</string>
     <string name="manual_metadata_search">搜索</string>
     <string name="manual_metadata_searching">正在搜索…</string>
@@ -14,10 +14,17 @@
     <string name="manual_metadata_partial_failure">找到 %1$d 个结果，%2$d 个来源搜索失败。</string>
     <string name="manual_metadata_unknown_artist">未知艺术家</string>
     <string name="manual_metadata_source">来源：%1$s</string>
-    <string name="manual_metadata_reset">从文件恢复</string>
-    <string name="manual_metadata_resetting">正在恢复…</string>
+    <string name="manual_metadata_reset">重置</string>
+    <string name="manual_metadata_resetting">正在重置…</string>
     <string name="manual_metadata_apply">应用</string>
     <string name="manual_metadata_applying">正在应用…</string>
     <string name="manual_metadata_apply_failed">应用元数据失败。</string>
     <string name="manual_metadata_reset_failed">无法从音乐文件恢复元数据。</string>
+    <string name="manual_metadata_lyrics_checking">检查中</string>
+    <string name="manual_metadata_lyrics_failed">检查失败</string>
+    <string name="manual_metadata_lyrics_none">无歌词</string>
+    <string name="manual_metadata_lyrics_ttml">TTML歌词</string>
+    <string name="manual_metadata_lyrics_word">逐字歌词</string>
+    <string name="manual_metadata_lyrics_line">逐行歌词</string>
+    <string name="manual_metadata_lyrics_text">纯文本歌词</string>
 </resources>

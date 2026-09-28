@@ -16,6 +16,7 @@ fun NavGraphBuilder.playerGraph(
     onOpenQueue: () -> Unit,
     onNavigateToLyricImport: () -> Unit,
     onSearchMetadata: (NowPlayingTrackItem) -> Unit,
+    onOpenMetadataSources: () -> Unit,
 ) {
     composable<MusicGraph.NowPlaying> {
         val animatedVisibilityScope = this
@@ -28,6 +29,7 @@ fun NavGraphBuilder.playerGraph(
                 onOpenQueue = onOpenQueue,
                 onNavigateToLyricImport = onNavigateToLyricImport,
                 onSearchMetadata = onSearchMetadata,
+                onOpenMetadataSources = onOpenMetadataSources,
             )
             TimeToPauseModal()
         }

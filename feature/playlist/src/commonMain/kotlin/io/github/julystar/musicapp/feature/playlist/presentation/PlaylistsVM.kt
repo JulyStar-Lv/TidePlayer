@@ -79,6 +79,7 @@ class PlaylistsVM constructor(
                 musicCount = "$musicCount",
                 durationLabel = formatDuration(durationMs.milliseconds),
                 cover = coverArtwork,
+                createdAt = createdAt,
             )
         }
     }

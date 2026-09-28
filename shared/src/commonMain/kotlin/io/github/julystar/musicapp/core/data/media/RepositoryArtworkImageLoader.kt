@@ -10,10 +10,19 @@ import io.github.julystar.musicapp.platform.byteArrayToImageBitmap
 class RepositoryArtworkImageLoader(
     private val artworkRepository: ArtworkRepository,
 ) : ArtworkImageLoader {
+    override val revision get() = artworkRepository.revision
+    private var cachedRevision = revision?.value
+
     private val bitmapCache = HashMap<Artwork, ImageBitmap>()
     private val remoteArtwork = HashSet<Artwork>()
 
     override fun cachedBitmap(artwork: Artwork): ImageBitmap? {
+        val currentRevision = revision?.value
+        if (cachedRevision != currentRevision) {
+            bitmapCache.clear()
+            remoteArtwork.clear()
+            cachedRevision = currentRevision
+        }
         if (artwork in remoteArtwork) return null
         bitmapCache[artwork]?.let { return it }
         val bytes = artworkRepository.cached(artwork) ?: return null
@@ -21,6 +30,7 @@ class RepositoryArtworkImageLoader(
     }
 
     override suspend fun loadBitmap(artwork: Artwork): ImageBitmap? {
+        val loadRevision = revision?.value
         if ((artworkRepository as? RemoteArtworkCacheAware)?.isRemoteArtwork(artwork) == true) {
             remoteArtwork += artwork
             val bytes = artworkRepository.load(artwork) ?: return null
@@ -28,6 +38,7 @@ class RepositoryArtworkImageLoader(
         }
         cachedBitmap(artwork)?.let { return it }
         val bytes = artworkRepository.load(artwork) ?: return null
+        if (revision?.value != loadRevision) return loadBitmap(artwork)
         return bytes.toCachedBitmap(artwork)
     }
 

@@ -52,8 +52,8 @@ import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
 import kotlinx.coroutines.launch
-import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_heart
 import musicapp.core.presentation.generated.resources.icon_heart_filled
@@ -86,7 +86,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import io.github.julystar.musicapp.core.presentation.components.DesignTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
@@ -369,7 +369,7 @@ private fun AlbumActionBar(
             onClick = onLocateCurrent,
         ) {
             Icon(
-                painterResource(CoreRes.drawable.icon_chevron_left),
+                painterResource(CoreRes.drawable.icon_locate_fixed),
                 stringResource(Res.string.album_locate_current),
                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
@@ -503,7 +503,7 @@ private fun AlbumTrackRow(
                                         text = stringResource(Res.string.album_download),
                                         icon = { modifier ->
                                             Icon(
-                                                painter = painterResource(CoreRes.drawable.icon_chevron_left),
+                                                painter = painterResource(CoreRes.drawable.icon_download),
                                                 contentDescription = null,
                                                 modifier = modifier,
                                             )

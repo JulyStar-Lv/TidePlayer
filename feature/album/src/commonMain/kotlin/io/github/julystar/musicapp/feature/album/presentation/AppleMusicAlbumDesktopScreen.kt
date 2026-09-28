@@ -60,6 +60,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
+import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.platform.rememberPlatformWindowFocused
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
@@ -124,60 +127,67 @@ internal fun AppleMusicAlbumDesktopScreen(
             query.isBlank() || track.title.contains(query, true) || track.artist.orEmpty().contains(query, true)
         }
     }
-    Column(Modifier.fillMaxSize().background(MiuixTheme.colorScheme.background)) {
-        AlbumDesktopToolbar(
-            query = query,
-            onQueryChange = { query = it },
-            canDownload = state.tracks.any { it.canDownload },
-            onBack = { onAction(AlbumAction.NavigateBack) },
-            onDownloadAll = {
-                state.tracks.filter { it.canDownload }.forEach { onAction(AlbumAction.DownloadTrack(it)) }
-            },
-            onPlay = { onAction(AlbumAction.PlayAll) },
-        )
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 40.dp, end = 40.dp, bottom = 86.dp),
-        ) {
-            item("album-hero") {
-                AlbumDesktopHero(state = state, onAction = onAction)
-            }
-            itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
-                AlbumDesktopTrackRow(
-                    track = track,
-                    number = index + 1,
-                    selected = selectedTrackId == track.id,
-                    playing = currentPlayingTrackId == track.id,
-                    favorite = track.id in favoriteTrackIds,
-                    onSelect = { selectedTrackId = track.id },
-                    onPlay = { onAction(AlbumAction.PlayTrack(track.id)) },
-                    onToggleFavorite = { onToggleFavorite(track.id) },
-                    onDownload = track.takeIf { it.canDownload }?.let {
-                        { onAction(AlbumAction.DownloadTrack(it)) }
-                    },
-                )
-            }
-            if (!state.isLoading && state.error == null) {
-                item("album-summary") {
-                    Text(
-                        text = stringResource(
-                            Res.string.album_detail_summary,
-                            state.tracks.size,
-                            desktopAlbumDuration(state.tracks.sumOf { it.durationMs ?: 0L }),
-                        ),
-                        modifier = Modifier.padding(top = 25.dp, bottom = 12.dp),
-                        color = albumDesktopForeground().copy(alpha = 0.48f),
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
+    LiquidGlassOverlayScene(
+        modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.background),
+        backdropContent = {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 40.dp, top = DesignTokens.adaptive.compactHeaderHeight, end = 40.dp, bottom = 86.dp),
+            ) {
+                item("album-hero") {
+                    AlbumDesktopHero(state = state, onAction = onAction)
+                }
+                itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
+                    AlbumDesktopTrackRow(
+                        track = track,
+                        number = index + 1,
+                        selected = selectedTrackId == track.id,
+                        playing = currentPlayingTrackId == track.id,
+                        favorite = track.id in favoriteTrackIds,
+                        onSelect = { selectedTrackId = track.id },
+                        onPlay = { onAction(AlbumAction.PlayTrack(track.id)) },
+                        onToggleFavorite = { onToggleFavorite(track.id) },
+                        onDownload = track.takeIf { it.canDownload }?.let {
+                            { onAction(AlbumAction.DownloadTrack(it)) }
+                        },
                     )
                 }
+                if (!state.isLoading && state.error == null) {
+                    item("album-summary") {
+                        Text(
+                            text = stringResource(
+                                Res.string.album_detail_summary,
+                                state.tracks.size,
+                                desktopAlbumDuration(state.tracks.sumOf { it.durationMs ?: 0L }),
+                            ),
+                            modifier = Modifier.padding(top = 25.dp, bottom = 12.dp),
+                            color = albumDesktopForeground().copy(alpha = 0.48f),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                        )
+                    }
+                }
             }
-        }
-    }
+        },
+        overlayContent = {
+            AlbumDesktopToolbar(
+                title = state.title,
+                query = query,
+                onQueryChange = { query = it },
+                canDownload = state.tracks.any { it.canDownload },
+                onBack = { onAction(AlbumAction.NavigateBack) },
+                onDownloadAll = {
+                    state.tracks.filter { it.canDownload }.forEach { onAction(AlbumAction.DownloadTrack(it)) }
+                },
+                onPlay = { onAction(AlbumAction.PlayAll) },
+            )
+        },
+    )
 }
 
 @Composable
 private fun AlbumDesktopToolbar(
+    title: String,
     query: String,
     onQueryChange: (String) -> Unit,
     canDownload: Boolean,
@@ -188,82 +198,93 @@ private fun AlbumDesktopToolbar(
     var menuOpen by remember { mutableStateOf(false) }
     val isDark = LocalDesignIsDarkTheme.current
     val groupedShape = RoundedCornerShape(18.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .background(
-                MiuixTheme.colorScheme.background.copy(alpha = 0.42f)
-            )
-            .padding(start = 8.dp, end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AlbumRoundButton(stringResource(Res.string.album_back), onBack) {
-            Icon(
-                painterResource(CoreRes.drawable.icon_chevron_left),
-                null,
-                tint = albumToolbarIconColor(),
-                modifier = Modifier.size(15.dp).offset(x = (-1.5).dp),
-            )
-        }
-        Spacer(Modifier.weight(1f))
-        Row(
-            modifier = Modifier
-                .height(36.dp)
-                .albumToolbarShadow(groupedShape, isDark)
-                .clip(groupedShape)
-                .background(albumToolbarSurfaceColor(isDark))
-                .border(
-                    0.5.dp,
-                    albumToolbarBorderColor(isDark),
-                    groupedShape,
-                ),
-        ) {
-            AlbumRoundButton(
-                description = stringResource(Res.string.album_download),
-                onClick = onDownloadAll,
-                enabled = canDownload,
-                standalone = false,
+    LiquidGlassActionBar(
+        title = title,
+        collapseFraction = 1f,
+        content = {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(DesignTokens.adaptive.compactHeaderHeight)
+                    .padding(start = 8.dp, end = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painterResource(CoreRes.drawable.icon_apple_music_download),
-                    null,
-                    tint = albumToolbarIconColor().copy(alpha = if (canDownload) 1f else 0.28f),
-                    modifier = Modifier.size(20.dp).offset(x = 0.5.dp, y = 0.5.dp),
-                )
-            }
-            Box {
-                AlbumRoundButton(
-                    stringResource(Res.string.album_more_actions),
-                    { menuOpen = true },
-                    standalone = false,
-                ) {
+                AlbumRoundButton(stringResource(Res.string.album_back), onBack) {
                     Icon(
-                        painterResource(CoreRes.drawable.icon_apple_music_more),
+                        painterResource(CoreRes.drawable.icon_chevron_left),
                         null,
                         tint = albumToolbarIconColor(),
-                        modifier = Modifier.size(20.dp).offset(x = (-0.5).dp),
+                        modifier = Modifier.size(15.dp).offset(x = (-1.5).dp),
                     )
                 }
-                AlbumCompactMenu(
-                    show = menuOpen,
-                    onDismiss = { menuOpen = false },
-                    entries = listOf(
-                        AlbumMenuEntry(stringResource(Res.string.album_download), CoreRes.drawable.icon_download) {
-                            menuOpen = false; onDownloadAll()
-                        },
-                        AlbumMenuEntry(
-                            text = stringResource(Res.string.album_play),
-                            icon = CoreRes.drawable.icon_play,
-                            separatorBefore = true,
-                        ) { menuOpen = false; onPlay() },
-                    ),
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f).padding(horizontal = 20.dp),
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = MiuixTheme.textStyles.title3.fontSize,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Row(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .albumToolbarShadow(groupedShape, isDark)
+                        .clip(groupedShape)
+                        .background(albumToolbarSurfaceColor(isDark))
+                        .border(
+                            0.5.dp,
+                            albumToolbarBorderColor(isDark),
+                            groupedShape,
+                        ),
+                ) {
+                    AlbumRoundButton(
+                        description = stringResource(Res.string.album_download),
+                        onClick = onDownloadAll,
+                        enabled = canDownload,
+                        standalone = false,
+                    ) {
+                        Icon(
+                            painterResource(CoreRes.drawable.icon_apple_music_download),
+                            null,
+                            tint = albumToolbarIconColor().copy(alpha = if (canDownload) 1f else 0.28f),
+                            modifier = Modifier.size(20.dp).offset(x = 0.5.dp, y = 0.5.dp),
+                        )
+                    }
+                    Box {
+                        AlbumRoundButton(
+                            stringResource(Res.string.album_more_actions),
+                            { menuOpen = true },
+                            standalone = false,
+                        ) {
+                            Icon(
+                                painterResource(CoreRes.drawable.icon_apple_music_more),
+                                null,
+                                tint = albumToolbarIconColor(),
+                                modifier = Modifier.size(20.dp).offset(x = (-0.5).dp),
+                            )
+                        }
+                        AlbumCompactMenu(
+                            show = menuOpen,
+                            onDismiss = { menuOpen = false },
+                            entries = listOf(
+                                AlbumMenuEntry(stringResource(Res.string.album_download), CoreRes.drawable.icon_download) {
+                                    menuOpen = false; onDownloadAll()
+                                },
+                                AlbumMenuEntry(
+                                    text = stringResource(Res.string.album_play),
+                                    icon = CoreRes.drawable.icon_play,
+                                    separatorBefore = true,
+                                ) { menuOpen = false; onPlay() },
+                            ),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                AlbumSearchField(query, onQueryChange)
             }
-        }
-        Spacer(Modifier.width(10.dp))
-        AlbumSearchField(query, onQueryChange)
-    }
+        },
+    )
 }
 
 @Composable

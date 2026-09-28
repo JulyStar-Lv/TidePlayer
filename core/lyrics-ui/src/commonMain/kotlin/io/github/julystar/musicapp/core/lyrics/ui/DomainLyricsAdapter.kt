@@ -8,6 +8,7 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeSyllable
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import io.github.julystar.musicapp.core.domain.model.LyricDisplaySettings
 import io.github.julystar.musicapp.core.domain.model.LyricLine
+import io.github.julystar.musicapp.core.domain.model.normalizedLyricTranslation
 import io.github.julystar.musicapp.core.domain.model.filterLyricLinesForDisplay
 
 /** Converts TidePlayer timestamped lyric lines into the shared animated lyrics timeline. */
@@ -97,7 +98,7 @@ private fun String.lyricTextParts(): LyricTextParts {
     val parts = lineSequence().map(String::trim).filter(String::isNotBlank).toList()
     return LyricTextParts(
         primary = parts.firstOrNull().orEmpty(),
-        secondary = parts.drop(1).joinToString("\n").takeIf(String::isNotBlank),
+        secondary = parts.drop(1).joinToString("\n").normalizedLyricTranslation(),
     )
 }
 

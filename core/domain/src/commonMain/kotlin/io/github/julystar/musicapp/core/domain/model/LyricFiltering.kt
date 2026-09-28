@@ -5,6 +5,13 @@ import kotlinx.collections.immutable.toPersistentList
 
 const val LYRIC_HEADER_PLACEHOLDER = "•••"
 
+/** Some providers use a standalone double slash for lines with no translation. */
+fun String.normalizedLyricTranslation(): String? = lineSequence()
+    .filterNot { line -> line.trim() == "//" }
+    .joinToString("\n")
+    .trim()
+    .takeIf(String::isNotEmpty)
+
 /** Shared filtering used by the full lyrics page, player lyrics, and platform outputs. */
 fun LyricDisplaySettings.isLyricLineVisible(rawText: String): Boolean {
     if (rawText.normalizedLyricText().isEmpty()) return false

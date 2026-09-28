@@ -64,6 +64,7 @@ internal class MediaControllerAndroidPlaybackEngine(
                 item = request.item,
                 player = mediaController,
                 playbackUri = resource.uri,
+                startPlayback = false,
             )
             PlaybackEngineLoadResult.Ready
         }
@@ -85,8 +86,8 @@ internal class MediaControllerAndroidPlaybackEngine(
                 androidMediaQueueMatches(existingMediaIds, requestedMediaIds) &&
                 mediaController.isCommandAvailable(COMMAND_SEEK_TO_MEDIA_ITEM)
             ) {
+                mediaController.pause()
                 mediaController.seekTo(window.currentIndex, request.startPositionMs.coerceAtLeast(0L))
-                mediaController.play()
                 return@runOnApplicationThread PlaybackEngineLoadResult.Ready
             }
 
@@ -96,13 +97,13 @@ internal class MediaControllerAndroidPlaybackEngine(
                 )
             }
 
+            mediaController.pause()
             mediaController.setMediaItems(
                 window.mediaItems,
                 window.currentIndex,
                 request.startPositionMs.coerceAtLeast(0L),
             )
             mediaController.prepare()
-            mediaController.play()
             PlaybackEngineLoadResult.Ready
         }
     }

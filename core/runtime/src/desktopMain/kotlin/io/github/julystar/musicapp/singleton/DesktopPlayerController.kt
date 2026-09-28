@@ -199,6 +199,7 @@ class DesktopPlayerController(
         id: MusicId,
         playlistId: PlaylistId,
         startPositionMs: Long,
+        startPlayback: Boolean,
     ) {
         play(
             id,
@@ -206,6 +207,7 @@ class DesktopPlayerController(
             forceReload = false,
             allowTransition = true,
             startPositionMs = startPositionMs,
+            startPlayback = startPlayback,
         )
     }
 
@@ -215,6 +217,7 @@ class DesktopPlayerController(
         forceReload: Boolean,
         allowTransition: Boolean,
         startPositionMs: Long = 0L,
+        startPlayback: Boolean = true,
     ) {
         val normalizedStartPositionMs = startPositionMs.coerceAtLeast(0L)
         if (
@@ -226,7 +229,7 @@ class DesktopPlayerController(
             if (normalizedStartPositionMs > 0L) {
                 playbackEngine.seekTo(normalizedStartPositionMs)
             }
-            resume()
+            if (startPlayback) resume() else pause()
             return
         }
 
@@ -234,7 +237,7 @@ class DesktopPlayerController(
         playbackJob = scope.launch(playbackDispatcher) {
             playerRepository.setIsLoading(true)
             val transitionDurationMs = currentSettings.playbackAdvanced.crossfadeDurationMs
-            val canTransition = allowTransition &&
+            val canTransition = startPlayback && allowTransition &&
                 transitionDurationMs > 0 &&
                 playerRepository.playing.value
             val previousResource = playbackResource.takeIf { canTransition }
@@ -277,8 +280,8 @@ class DesktopPlayerController(
                         if (normalizedStartPositionMs > 0L) {
                             playbackEngine.seekTo(normalizedStartPositionMs)
                         }
-                        playbackEngine.play()
-                        playerRepository.setIsPlaying(true)
+                        if (startPlayback) playbackEngine.play()
+                        playerRepository.setIsPlaying(startPlayback)
                         crossfadeAdvancedTrackId = null
                         playerRepository.notifyDurationChanged()
                         previousResource?.let { resource ->
@@ -352,7 +355,7 @@ class DesktopPlayerController(
         val music = playerRepository.nextMusic.value
         val playlist = playerRepository.playlist.value
         if (music != null && playlist != null) {
-            play(music.meta.id, playlist.abstr.meta.id)
+            play(music.meta.id, playlist.abstr.meta.id, startPlayback = playerRepository.playing.value)
         }
     }
 
@@ -376,7 +379,7 @@ class DesktopPlayerController(
         val music = playerRepository.previousMusic.value
         val playlist = playerRepository.playlist.value
         if (music != null && playlist != null) {
-            play(music.meta.id, playlist.abstr.meta.id)
+            play(music.meta.id, playlist.abstr.meta.id, startPlayback = playerRepository.playing.value)
         }
     }
 

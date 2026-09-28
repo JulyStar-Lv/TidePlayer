@@ -400,13 +400,17 @@ class RootNavHostTest {
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Listening",
             "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.PluginSettings",
             "settings/appearance",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Downloads",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Playlists",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.BrowseGenre/{genre}",
+            "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.RecentlyPlayed",
         ).forEach { route ->
             assertTrue(shouldCaptureSecondaryStickyHeader(route), route)
         }
     }
 
     @Test
-    fun `secondary sticky header is hoisted only in compact windows`() {
+    fun `secondary sticky header is hoisted in all window sizes`() {
         assertTrue(
             shouldHoistSecondaryStickyHeader(
                 captureStickyHeader = true,
@@ -419,7 +423,7 @@ class RootNavHostTest {
             WindowSizeClass.Large,
             WindowSizeClass.XL,
         ).forEach { windowSizeClass ->
-            assertFalse(
+            assertTrue(
                 shouldHoistSecondaryStickyHeader(
                     captureStickyHeader = true,
                     windowSizeClass = windowSizeClass,

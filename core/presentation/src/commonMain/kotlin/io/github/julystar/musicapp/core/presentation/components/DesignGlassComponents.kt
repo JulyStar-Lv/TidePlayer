@@ -1,8 +1,12 @@
 package io.github.julystar.musicapp.core.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,7 +22,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -35,12 +39,16 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import musicapp.core.presentation.generated.resources.Res
 import musicapp.core.presentation.generated.resources.icon_chevron_left
 import org.jetbrains.compose.resources.painterResource
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import top.yukonga.miuix.kmp.basic.IconButton
 
 private val LocalDesignBackdrop = staticCompositionLocalOf<Backdrop?> { null }
@@ -56,6 +64,9 @@ data class StickyHeaderState(
     val backContentDescription: String? = null,
     val actions: (@Composable () -> Unit)? = null,
     val compactTitle: Boolean = false,
+    val navigationIcon: (@Composable () -> Unit)? = null,
+    val content: (@Composable () -> Unit)? = null,
+    val extraContentHeight: Dp = 0.dp,
     val transitionKey: String = title,
     val isNavigationTarget: Boolean = true,
     val transitionDurationMillis: Int = 0,
@@ -150,8 +161,27 @@ fun LiquidGlassOverlayScene(
     }
 }
 
+/** Shared fixed-height app bar; buttons remain supplied by each screen. */
+@Composable
+fun DesignTopAppBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String = "",
+    navigationIcon: (@Composable () -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    LiquidGlassActionBar(
+        title = title,
+        subtitle = subtitle.takeIf { it.isNotEmpty() },
+        collapseFraction = 1f,
+        modifier = modifier,
+        navigationIcon = navigationIcon,
+        actions = { Row(verticalAlignment = Alignment.CenterVertically, content = actions) },
+    )
+}
+
 /**
- * A compact ActionBar that progressively applies the shared liquid-glass treatment.
+ * A fixed-height, left-aligned app bar with the shared liquid-glass treatment.
  */
 @Composable
 fun LiquidGlassActionBar(
@@ -160,11 +190,15 @@ fun LiquidGlassActionBar(
     collapseFraction: Float,
     modifier: Modifier = Modifier,
     statusBarInset: Dp = 0.dp,
+    contentStartInset: Dp = 0.dp,
     onNavigateBack: (() -> Unit)? = null,
     backContentDescription: String? = null,
     actions: (@Composable () -> Unit)? = null,
     centerTitle: Boolean = false,
     compactTitle: Boolean = false,
+    navigationIcon: (@Composable () -> Unit)? = null,
+    content: (@Composable () -> Unit)? = null,
+    extraContentHeight: Dp = 0.dp,
 ) {
     val fraction = collapseFraction.coerceIn(0f, 1f)
     val latestOnNavigateBack = rememberUpdatedState(onNavigateBack)
@@ -183,6 +217,14 @@ fun LiquidGlassActionBar(
             { latestActions.value?.invoke() }
         }
     }
+    val latestNavigationIcon = rememberUpdatedState(navigationIcon)
+    val stableNavigationIcon: (@Composable () -> Unit)? = remember(navigationIcon != null) {
+        if (navigationIcon == null) null else { { latestNavigationIcon.value?.invoke() } }
+    }
+    val latestContent = rememberUpdatedState(content)
+    val stableContent: (@Composable () -> Unit)? = remember(content != null) {
+        if (content == null) null else { { latestContent.value?.invoke() } }
+    }
     val stateOwner = remember { Any() }
     val stateSink = LocalDesignStickyHeaderStateSink.current
     val transitionContext = LocalStickyHeaderTransitionContext.current
@@ -198,6 +240,9 @@ fun LiquidGlassActionBar(
                     backContentDescription = backContentDescription,
                     actions = stableActions,
                     compactTitle = compactTitle,
+                    navigationIcon = stableNavigationIcon,
+                    content = stableContent,
+                    extraContentHeight = extraContentHeight,
                     transitionKey = transitionContext?.key ?: title,
                     isNavigationTarget = transitionContext?.isNavigationTarget ?: true,
                     transitionDurationMillis = transitionContext?.durationMillis ?: 0,
@@ -210,76 +255,123 @@ fun LiquidGlassActionBar(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .height(DesignTokens.adaptive.compactHeaderHeight + statusBarInset),
+                .height(DesignTokens.adaptive.compactHeaderHeight + extraContentHeight + statusBarInset),
         )
         return
-    }
-
-    val adaptive = DesignTokens.adaptive
-    val titleFraction = ((fraction - 0.72f) / 0.28f).coerceIn(0f, 1f)
-    val backdrop = currentDesignBackdrop()
-    val glassModifier = if (backdrop != null && fraction > 0f) {
-        Modifier.designLiquidGlass(
-            backdrop = backdrop,
-            shape = RoundedCornerShape(0.dp),
-            intensity = fraction,
-        )
-    } else if (backdrop == null) {
-        Modifier.background(MiuixTheme.colorScheme.background.copy(alpha = fraction))
-    } else {
-        Modifier
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(adaptive.compactHeaderHeight + statusBarInset)
-            .then(glassModifier),
+            .height(DesignTokens.adaptive.compactHeaderHeight + extraContentHeight + statusBarInset)
+            .designTopAppBarSurface(),
     ) {
-        Box(
+        if (stableContent != null) {
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .padding(start = contentStartInset)
+                .height(DesignTokens.adaptive.compactHeaderHeight + extraContentHeight)) {
+                stableContent()
+            }
+            return
+        }
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(
-                    adaptive.compactHeaderHeight + statusBarInset,
-                ),
-            contentAlignment = Alignment.Center,
+                .padding(start = contentStartInset)
+                .height(DesignTokens.adaptive.compactHeaderHeight),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (stableOnNavigateBack != null) {
-                SmallTopAppBar(
-                    title = title,
-                    color = Color.Transparent,
-                    modifier = Modifier.alpha(titleFraction),
-                    defaultWindowInsetsPadding = false,
-                    navigationIcon = {
-                        IconButton(
-                            onClick = stableOnNavigateBack,
-                        ) {
+            if (stableNavigationIcon != null || stableOnNavigateBack != null) {
+                Box(Modifier.padding(start = TopAppBarDefaults.NavigationIconPadding)) {
+                    if (stableNavigationIcon != null) {
+                        stableNavigationIcon()
+                    } else {
+                        IconButton(onClick = { stableOnNavigateBack?.invoke() }) {
                             Icon(
                                 painter = painterResource(Res.drawable.icon_chevron_left),
                                 contentDescription = backContentDescription,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
-                    },
-                    actions = { stableActions?.invoke() },
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f).padding(horizontal = TopAppBarDefaults.TitlePadding),
+            ) {
+                Text(
+                    text = title,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = MiuixTheme.textStyles.title3.fontSize,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-            } else {
-                SmallTopAppBar(
-                    title = title,
-                    color = Color.Transparent,
-                    subtitle = subtitle.orEmpty(),
-                    defaultWindowInsetsPadding = false,
-                    actions = { stableActions?.invoke() },
-                    modifier = Modifier.alpha(titleFraction),
-                )
+                if (!subtitle.isNullOrEmpty()) {
+                    Text(
+                        text = subtitle,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MiuixTheme.textStyles.footnote1,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Box(Modifier.padding(end = TopAppBarDefaults.ActionIconPadding)) {
+                stableActions?.invoke()
             }
         }
     }
 }
 
+/** Shared backdrop treatment for standard and desktop app bars. */
+@Composable
+fun Modifier.designTopAppBarSurface(): Modifier {
+    val backdrop = currentDesignBackdrop()
+    val surface = MiuixTheme.colorScheme.surfaceContainer
+    val surfaceAlpha = if (LocalDesignIsDarkTheme.current) {
+        LiquidGlassDefaults.darkSurfaceAlpha
+    } else {
+        LiquidGlassDefaults.lightSurfaceAlpha
+    }
+    val material = if (backdrop != null) {
+        drawBackdrop(
+            backdrop = backdrop,
+            shape = { RoundedCornerShape(0.dp) },
+            effects = { blur(LiquidGlassDefaults.blurRadius.toPx()) },
+            highlight = { null },
+            shadow = { null },
+            onDrawSurface = { drawRect(surface.copy(alpha = surfaceAlpha)) },
+        )
+    } else {
+        background(surface.copy(alpha = LiquidGlassDefaults.fallbackSurfaceAlpha))
+    }
+    return material.pointerInput(Unit) { detectTapGestures { } }
+}
+
 @Composable
 internal fun currentDesignBackdrop(): Backdrop? = LocalDesignBackdrop.current
+
+/** Frosted menu material without the lens distortion used by liquid-glass controls. */
+@Composable
+fun Modifier.frostedMenuSurface(shape: Shape, backdropOverride: Backdrop? = null): Modifier {
+    val dark = LocalDesignIsDarkTheme.current
+    val tint = if (dark) Color(0xFF25251F) else Color(0xFFF8F8F8)
+    val backdrop = backdropOverride ?: currentDesignBackdrop()
+    return if (backdrop != null) {
+        drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = { blur(24.dp.toPx()) },
+            highlight = { null },
+            shadow = { null },
+            onDrawSurface = { drawRect(tint.copy(alpha = if (dark) 0.76f else 0.82f)) },
+        )
+    } else {
+        clip(shape).background(tint.copy(alpha = 0.98f))
+    }
+}
 
 /**
  * Applies the shared liquid-glass treatment when this surface is hosted by a captured scene.
@@ -346,8 +438,8 @@ fun Modifier.designLiquidGlass(
                 vibrancy()
                 blur((8.dp * fraction).toPx())
                 lens(
-                    refractionHeight = (12.dp * fraction).toPx(),
-                    refractionAmount = (24.dp * fraction).toPx(),
+                    refractionHeight = (14.dp * fraction).toPx(),
+                    refractionAmount = (28.dp * fraction).toPx(),
                     depthEffect = true,
                 )
             } else {

@@ -356,10 +356,14 @@ class PlayerRepository(
     }
 
     suspend fun restorePlaybackQueueOrder() {
-        val playlistId = _playlist.value?.abstr?.meta?.id ?: return
-        val playlist = roomLibraryStore.getPlaylist(playlistId) ?: return
-        _playlist.value = playlist.copy(
-            musics = queueOrderKeyManager.normalize(playlist.musics),
+        val queue = _playlist.value ?: return
+        val playlist = roomLibraryStore.getPlaylist(queue.abstr.meta.id) ?: return
+        val queueById = queue.musics.associateBy { it.meta.id }
+        val libraryIds = playlist.musics.map { it.meta.id }.toSet()
+        val ordered = playlist.musics.mapNotNull { queueById[it.meta.id] } +
+            queue.musics.filterNot { it.meta.id in libraryIds }
+        _playlist.value = queue.copy(
+            musics = queueOrderKeyManager.normalize(ordered),
         )
     }
 
@@ -464,25 +468,24 @@ internal fun playbackQueueNavigation(
     val currentIndex = musics.indexOfFirst { item -> item.meta.id == currentMusicId }
     if (currentIndex !in musics.indices) return PlaybackQueueNavigation.Empty
 
+    val wraps = playMode == PlayMode.LIST_LOOP
     val previous = if (
-        currentIndex == 0 && (playMode == PlayMode.SINGLE || playMode == PlayMode.LIST)
+        currentIndex == 0 && !wraps
     ) {
         null
     } else {
         musics[(currentIndex + musics.size - 1) % musics.size]
     }
     val next = if (
-        currentIndex == musics.lastIndex &&
-        (playMode == PlayMode.SINGLE || playMode == PlayMode.LIST)
+        currentIndex == musics.lastIndex && !wraps
     ) {
         null
     } else {
         musics[(currentIndex + 1) % musics.size]
     }
     val onComplete = when {
-        playMode == PlayMode.SINGLE -> null
-        playMode == PlayMode.LIST && currentIndex == musics.lastIndex -> null
         playMode == PlayMode.SINGLE_LOOP -> musics[currentIndex]
+        !wraps && currentIndex == musics.lastIndex -> null
         else -> musics[(currentIndex + 1) % musics.size]
     }
     return PlaybackQueueNavigation(

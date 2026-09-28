@@ -18,11 +18,14 @@ import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +34,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,8 +42,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -52,6 +58,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,18 +69,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -103,6 +120,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.PopupPositionProvider as ComposePopupPositionProvider
 import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
@@ -121,6 +144,7 @@ import io.github.julystar.musicapp.core.presentation.components.PlaybackControlV
 import io.github.julystar.musicapp.core.presentation.components.PlaybackSlider
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.liquidGlassSurface
+import io.github.julystar.musicapp.core.presentation.components.frostedMenuSurface
 import io.github.julystar.musicapp.core.presentation.components.dropShadow
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.PlayerBackgroundArtworkImage
@@ -129,6 +153,7 @@ import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleB
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignPalette
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
+import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import io.github.julystar.musicapp.core.utils.toMusicDurationMs
 import io.github.julystar.musicapp.service.playback.domain.RepeatMode
 import io.github.julystar.musicapp.service.playback.presentation.miniplayer.DesktopAudioBadge
@@ -149,10 +174,13 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.core.presentation.generated.resources.Res as CoreRes
-import musicapp.core.presentation.generated.resources.icon_deleteseep
-import musicapp.core.presentation.generated.resources.icon_download
-import musicapp.core.presentation.generated.resources.icon_search
+import musicapp.core.presentation.generated.resources.icon_apple_music_download
+import musicapp.core.presentation.generated.resources.icon_chevron_right
+import musicapp.core.presentation.generated.resources.icon_pencil
 import musicapp.core.presentation.generated.resources.icon_settings_sliders
+import musicapp.core.presentation.generated.resources.icon_settings_list_music
+import musicapp.core.presentation.generated.resources.icon_star
+import musicapp.core.presentation.generated.resources.icon_star_filled
 import musicapp.service.playback.presentation.generated.resources.Res
 import musicapp.service.playback.presentation.generated.resources.downloads_title
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_dolby
@@ -161,6 +189,7 @@ import musicapp.service.playback.presentation.generated.resources.icon_apple_mus
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lossless
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lyrics
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_more
+import musicapp.service.playback.presentation.generated.resources.icon_apple_music_playlist_add
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_next
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_pause
 import musicapp.service.playback.presentation.generated.resources.icon_apple_music_play
@@ -211,8 +240,15 @@ import musicapp.service.playback.presentation.generated.resources.music_lyric_fa
 import musicapp.service.playback.presentation.generated.resources.music_lyric_no_desc
 import musicapp.service.playback.presentation.generated.resources.music_lyric_remove
 import musicapp.service.playback.presentation.generated.resources.music_lyric_try_add_desc
-import musicapp.service.playback.presentation.generated.resources.music_player_context_menu_remove
-import musicapp.service.playback.presentation.generated.resources.music_player_search_metadata
+import musicapp.service.playback.presentation.generated.resources.player_add_to_playlist
+import musicapp.service.playback.presentation.generated.resources.player_download_to_local
+import musicapp.service.playback.presentation.generated.resources.player_menu_add_favorite
+import musicapp.service.playback.presentation.generated.resources.player_menu_remove_favorite
+import musicapp.service.playback.presentation.generated.resources.player_no_playlists
+import musicapp.service.playback.presentation.generated.resources.player_update_metadata
+import musicapp.service.playback.presentation.generated.resources.player_default_metadata_source
+import musicapp.service.playback.presentation.generated.resources.player_new_playlist
+import musicapp.service.playback.presentation.generated.resources.player_all_playlists
 import musicapp.service.playback.presentation.generated.resources.now_playing_title
 import musicapp.service.playback.presentation.generated.resources.player_add_favorite
 import musicapp.service.playback.presentation.generated.resources.player_exit_now_playing
@@ -243,19 +279,20 @@ import musicapp.service.playback.presentation.generated.resources.player_queue_h
 import musicapp.service.playback.presentation.generated.resources.player_remove_favorite
 import musicapp.service.playback.presentation.generated.resources.player_list_repeat
 import musicapp.service.playback.presentation.generated.resources.player_shuffle
+import musicapp.service.playback.presentation.generated.resources.player_shuffle_on
+import musicapp.service.playback.presentation.generated.resources.player_shuffle_off
+import musicapp.service.playback.presentation.generated.resources.player_repeat_off
 import musicapp.service.playback.presentation.generated.resources.player_single_repeat
 import musicapp.service.playback.presentation.generated.resources.player_unknown_artist
 import musicapp.service.playback.presentation.generated.resources.player_unmute
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.DropdownDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private val DesktopPlayerBreakpoint = 860.dp
 private val MeloXDesktopChromeHeight = 48.dp
@@ -273,6 +310,7 @@ private val NowPlayingDismissDistanceThreshold = 240.dp
 private val NowPlayingDismissVelocityThreshold = 1_250.dp
 private const val NowPlayingDismissSettleDurationMillis = 260
 private const val LandscapeControlsAutoHideDelayMs = 5_000L
+private val LocalNowPlayingMenuBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 private val ZeroAudioReactiveSnapshot = MutableStateFlow(AudioReactiveSnapshot())
 
 private enum class MeloXDesktopNowPlayingPage {
@@ -313,8 +351,9 @@ private fun MusicPlayerHeader(
 
 @Composable
 private fun NowPlayingMoreButton(
-    hasLyric: Boolean,
     nowPlayingState: NowPlayingState,
+    liked: Boolean,
+    onLikedChange: (Boolean) -> Unit,
     onAction: (NowPlayingAction) -> Unit,
     compact: Boolean = false,
     compactButtonSize: Dp = 44.dp,
@@ -323,9 +362,6 @@ private fun NowPlayingMoreButton(
     modifier: Modifier = Modifier,
 ) {
     var moreMenuExpanded by remember { mutableStateOf(false) }
-    var sourceDialogOpen by remember { mutableStateOf(false) }
-    val menuContentColor = MiuixTheme.colorScheme.onSurfaceContainer
-
     Box(modifier = modifier) {
         if (compact) {
             Box(
@@ -353,130 +389,357 @@ private fun NowPlayingMoreButton(
                 )
             }
         }
-        Box(
-            contentAlignment = Alignment.TopEnd,
-            modifier = Modifier.offset(20.dp, 20.dp),
-        ) {
-            OverlayDropdownPopup(
-                DropdownEntry(
-                    items = listOfNotNull(
-                        DropdownItem(
-                            text = stringResource(Res.string.music_player_search_metadata),
-                            icon = { modifier ->
-                                Icon(
-                                    painter = painterResource(CoreRes.drawable.icon_search),
-                                    contentDescription = null,
-                                    modifier = modifier,
-                                    tint = menuContentColor,
-                                )
-                            },
-                            onClick = {
-                                moreMenuExpanded = false
-                                onAction(NowPlayingAction.SearchMetadata)
-                            },
-                        ),
-                        if (hasLyric) {
-                            DropdownItem(
-                                text = stringResource(Res.string.music_lyric_remove),
-                                icon = { modifier ->
-                                    Icon(
-                                        painter = painterResource(CoreRes.drawable.icon_deleteseep),
-                                        contentDescription = null,
-                                        modifier = modifier,
-                                        tint = menuContentColor,
-                                    )
-                                },
+        NowPlayingMoreMenuPopup(
+            show = moreMenuExpanded,
+            nowPlayingState = nowPlayingState,
+            liked = liked,
+            onLikedChange = onLikedChange,
+            onAction = onAction,
+            onDismiss = { moreMenuExpanded = false },
+        )
+    }
+}
+
+/** Menu anchored to its caller, available from any application window. */
+@Composable
+fun NowPlayingMoreMenuPopup(
+    show: Boolean,
+    nowPlayingState: NowPlayingState,
+    liked: Boolean,
+    onLikedChange: (Boolean) -> Unit,
+    onAction: (NowPlayingAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var playlistMenuExpanded by remember { mutableStateOf(false) }
+    var createPlaylistOpen by remember { mutableStateOf(false) }
+    var playlistName by remember { mutableStateOf("") }
+    val menuScope = rememberCoroutineScope()
+    var submenuDismissJob by remember { mutableStateOf<Job?>(null) }
+
+    fun onMenuHoverChanged(hovered: Boolean) {
+        submenuDismissJob?.cancel()
+        if (!hovered) {
+            // Allow the pointer to cross from the main menu into the separate popup.
+            submenuDismissJob = menuScope.launch {
+                delay(180)
+                playlistMenuExpanded = false
+            }
+        }
+    }
+
+    fun dismissMenus() {
+        submenuDismissJob?.cancel()
+        playlistMenuExpanded = false
+        onDismiss()
+    }
+
+    AppleMusicNowPlayingPopup(
+        show = show,
+        onDismiss = ::dismissMenus,
+        onHoverChanged = ::onMenuHoverChanged,
+    ) {
+        NowPlayingMoreMenuItem(
+            text = stringResource(Res.string.player_default_metadata_source),
+            icon = CoreRes.drawable.icon_settings_sliders,
+            onHover = { playlistMenuExpanded = false },
+            onClick = {
+                dismissMenus()
+                onAction(NowPlayingAction.OpenMetadataSources)
+            },
+        )
+        NowPlayingMoreMenuItem(
+            text = stringResource(Res.string.player_update_metadata),
+            icon = CoreRes.drawable.icon_pencil,
+            onHover = { playlistMenuExpanded = false },
+            onClick = {
+                dismissMenus()
+                onAction(NowPlayingAction.SearchMetadata)
+            },
+        )
+        NowPlayingMoreMenuItem(
+            text = stringResource(Res.string.player_download_to_local),
+            icon = CoreRes.drawable.icon_apple_music_download,
+            onHover = { playlistMenuExpanded = false },
+            onClick = {
+                dismissMenus()
+                onAction(NowPlayingAction.DownloadCurrentTrack)
+            },
+        )
+        AppleMusicMenuSeparator()
+        Box(Modifier.fillMaxWidth()) {
+            NowPlayingMoreMenuItem(
+                text = stringResource(Res.string.player_add_to_playlist),
+                icon = Res.drawable.icon_apple_music_playlist_add,
+                trailingIcon = CoreRes.drawable.icon_chevron_right,
+                selected = playlistMenuExpanded,
+                onHover = { playlistMenuExpanded = true },
+                onClick = { playlistMenuExpanded = true },
+            )
+            AppleMusicNowPlayingPopup(
+                show = playlistMenuExpanded,
+                submenu = true,
+                onDismiss = { playlistMenuExpanded = false },
+                onHoverChanged = ::onMenuHoverChanged,
+            ) {
+                NowPlayingMoreMenuItem(
+                    text = stringResource(Res.string.player_new_playlist),
+                    icon = null,
+                    onClick = {
+                        dismissMenus()
+                        playlistName = ""
+                        createPlaylistOpen = true
+                    },
+                )
+                AppleMusicMenuSeparator()
+                Text(
+                    text = stringResource(Res.string.player_all_playlists),
+                    color = Color.White.copy(alpha = 0.38f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+                )
+                if (nowPlayingState.playlists.isEmpty()) {
+                    NowPlayingMoreMenuItem(
+                        text = stringResource(Res.string.player_no_playlists),
+                        icon = null,
+                        enabled = false,
+                        onClick = {},
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                        items(nowPlayingState.playlists, key = { it.id }) { playlist ->
+                            NowPlayingMoreMenuItem(
+                                text = playlist.title,
+                                icon = CoreRes.drawable.icon_settings_list_music,
                                 onClick = {
-                                    moreMenuExpanded = false
-                                    onAction(NowPlayingAction.RemoveLyric)
+                                    dismissMenus()
+                                    onAction(NowPlayingAction.AddCurrentTrackToPlaylist(playlist.id))
                                 },
                             )
+                        }
+                    }
+                }
+            }
+        }
+        NowPlayingMoreMenuItem(
+            text = stringResource(
+                if (liked) {
+                    Res.string.player_menu_remove_favorite
+                } else {
+                    Res.string.player_menu_add_favorite
+                },
+            ),
+            icon = if (liked) CoreRes.drawable.icon_star_filled else CoreRes.drawable.icon_star,
+            onHover = { playlistMenuExpanded = false },
+            onClick = {
+                dismissMenus()
+                onLikedChange(!liked)
+            },
+        )
+    }
+    NowPlayingCreatePlaylistDialog(
+        show = createPlaylistOpen,
+        name = playlistName,
+        currentTrackTitle = nowPlayingState.currentTrack?.title,
+        currentTrackArtwork = nowPlayingState.currentTrack?.artwork,
+        onNameChange = { playlistName = it },
+        onCancel = { createPlaylistOpen = false },
+        onCreate = {
+            createPlaylistOpen = false
+            onAction(NowPlayingAction.CreatePlaylistWithCurrentTrack(playlistName.trim()))
+        },
+    )
+}
+
+@Composable
+private fun AppleMusicNowPlayingPopup(
+    show: Boolean,
+    submenu: Boolean = false,
+    onDismiss: () -> Unit,
+    onHoverChanged: (Boolean) -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
+    var previouslyHovered by remember { mutableStateOf(false) }
+    LaunchedEffect(hovered) {
+        if (hovered != previouslyHovered) {
+            previouslyHovered = hovered
+            onHoverChanged(hovered)
+        }
+    }
+    val isDark = LocalDesignIsDarkTheme.current
+    val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
+    val positionProvider = remember(gap) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowBounds: IntRect,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+                popupMargin: IntRect,
+                alignment: PopupPositionProvider.Align,
+            ): IntOffset {
+                val width = popupContentSize.width
+                val height = popupContentSize.height
+                val x = anchorBounds.left
+                val y = if (anchorBounds.top - height - gap >= windowBounds.top) {
+                    anchorBounds.top - height - gap
+                } else {
+                    anchorBounds.bottom + gap
+                }
+                return IntOffset(
+                    x.coerceIn(windowBounds.left, (windowBounds.right - width).coerceAtLeast(windowBounds.left)),
+                    y.coerceIn(windowBounds.top, (windowBounds.bottom - height).coerceAtLeast(windowBounds.top)),
+                )
+            }
+
+            override fun getMargins(): PaddingValues = PaddingValues(0.dp)
+        }
+    }
+    val menuContent: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier
+                .width(if (submenu) 156.dp else 212.dp)
+                .hoverable(interactionSource)
+                .shadow(14.dp, RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(10.dp))
+                .frostedMenuSurface(RoundedCornerShape(10.dp), LocalNowPlayingMenuBackdrop.current)
+                .border(
+                    width = 0.5.dp,
+                    color = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp),
+                )
+                .padding(vertical = 5.dp),
+            content = content,
+        )
+    }
+    if (submenu) {
+        if (show) {
+            val submenuPositionProvider = remember(gap) {
+                object : ComposePopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: IntRect,
+                        windowSize: IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: IntSize,
+                    ): IntOffset {
+                        val width = popupContentSize.width
+                        val height = popupContentSize.height
+                        val x = if (anchorBounds.right + width - gap <= windowSize.width) {
+                            anchorBounds.right - gap
                         } else {
-                            DropdownItem(
-                                text = stringResource(Res.string.music_lyric_add),
-                                icon = { modifier ->
-                                    Icon(
-                                        painter = painterResource(Res.drawable.icon_lyrics),
-                                        contentDescription = null,
-                                        modifier = modifier,
-                                        tint = menuContentColor,
-                                    )
-                                },
-                                onClick = {
-                                    moreMenuExpanded = false
-                                    onAction(NowPlayingAction.AddLyric)
-                                },
-                            )
-                        },
-                        if (nowPlayingState.currentTrack?.canDownload == true) {
-                            DropdownItem(
-                                text = stringResource(Res.string.downloads_title),
-                                icon = { modifier ->
-                                    Icon(
-                                        painter = painterResource(CoreRes.drawable.icon_download),
-                                        contentDescription = null,
-                                        modifier = modifier,
-                                        tint = menuContentColor,
-                                    )
-                                },
-                                onClick = {
-                                    moreMenuExpanded = false
-                                    onAction(NowPlayingAction.DownloadCurrentTrack)
-                                },
-                            )
-                        } else null,
-                        if (nowPlayingState.playbackSources.size > 1) {
-                            DropdownItem(
-                                text = stringResource(Res.string.player_playback_source),
-                                icon = { modifier ->
-                                    Icon(
-                                        painter = painterResource(CoreRes.drawable.icon_settings_sliders),
-                                        contentDescription = null,
-                                        modifier = modifier,
-                                        tint = menuContentColor,
-                                    )
-                                },
-                                onClick = {
-                                    moreMenuExpanded = false
-                                    sourceDialogOpen = true
-                                },
-                            )
-                        } else null,
-                        DropdownItem(
-                            text = stringResource(Res.string.music_player_context_menu_remove),
-                            icon = { modifier ->
-                                Icon(
-                                    painter = painterResource(CoreRes.drawable.icon_deleteseep),
-                                    contentDescription = null,
-                                    modifier = modifier,
-                                    tint = menuContentColor,
-                                )
-                            },
-                            onClick = {
-                                moreMenuExpanded = false
-                                onAction(NowPlayingAction.RemoveCurrentTrack)
-                            },
-                        ),
-                    ),
-                ),
-                show = moreMenuExpanded,
-                onDismiss = { moreMenuExpanded = false },
-                onDismissFinished = {},
-                maxHeight = if (compact) 360.dp else null,
-                dropdownColors = DropdownDefaults.dropdownColors(),
-                renderInRootScaffold = true,
+                            anchorBounds.left - width + gap
+                        }
+                        return IntOffset(
+                            x.coerceIn(0, (windowSize.width - width).coerceAtLeast(0)),
+                            (anchorBounds.top - gap).coerceIn(0, (windowSize.height - height).coerceAtLeast(0)),
+                        )
+                    }
+                }
+            }
+            Popup(
+                popupPositionProvider = submenuPositionProvider,
+                onDismissRequest = onDismiss,
+                properties = PopupProperties(focusable = false),
+                content = menuContent,
+            )
+        }
+    } else {
+        WindowListPopup(
+            show = show,
+            popupPositionProvider = positionProvider,
+            onDismissRequest = onDismiss,
+            enableWindowDim = false,
+            minWidth = 0.dp,
+            content = menuContent,
+        )
+    }
+}
+
+@Composable
+private fun AppleMusicMenuSeparator() {
+    val foreground = if (LocalDesignIsDarkTheme.current) Color.White else Color.Black
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 9.dp, vertical = 5.dp)
+            .height(0.5.dp)
+            .background(foreground.copy(alpha = 0.13f)),
+    )
+}
+
+@Composable
+private fun NowPlayingMoreMenuItem(
+    text: String,
+    icon: DrawableResource?,
+    trailingIcon: DrawableResource? = null,
+    enabled: Boolean = true,
+    selected: Boolean = false,
+    onHover: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
+    val pressed by interactionSource.collectIsPressedAsState()
+    val isDark = LocalDesignIsDarkTheme.current
+    val foreground = (if (isDark) Color.White else Color.Black)
+        .copy(alpha = if (enabled) 1f else 0.42f)
+    LaunchedEffect(hovered) { if (hovered && enabled) onHover?.invoke() }
+    val highlighted = enabled && (hovered || pressed || selected)
+    val contentColor = foreground
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .padding(horizontal = 5.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(if (highlighted) foreground.copy(alpha = 0.18f) else Color.Transparent)
+            .hoverable(interactionSource)
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .padding(horizontal = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Box(Modifier.size(14.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(11.dp),
+                )
+            }
+            Spacer(Modifier.width(9.dp))
+        }
+        Text(
+            text = text,
+            color = contentColor,
+            style = TextStyle(
+                fontFamily = DesignFontFamilies.Sans,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Normal,
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        trailingIcon?.let { resource ->
+            Icon(
+                painter = painterResource(resource),
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(10.dp),
             )
         }
     }
-    PlaybackSourceDialog(
-        show = sourceDialogOpen,
-        sources = nowPlayingState.playbackSources,
-        onSelect = { sourceItemId ->
-            sourceDialogOpen = false
-            onAction(NowPlayingAction.SelectPlaybackSource(sourceItemId))
-        },
-        onDismiss = { sourceDialogOpen = false },
-    )
 }
 
 @Composable
@@ -821,7 +1084,7 @@ private fun CompactTransportPanel(
             tint = playbackModeTint,
             buttonSize = secondaryButtonSize,
             iconSize = if (dense) 21.dp else 24.dp,
-            onClick = { onAction(NowPlayingAction.CycleRepeatMode) },
+            onClick = { onAction(NowPlayingAction.CyclePlaybackMode) },
             modifier = Modifier.weight(1f),
         )
         CompactTransportButton(
@@ -852,7 +1115,7 @@ private fun CompactTransportPanel(
                 dense -> 32.dp
                 else -> 36.dp
             },
-            enabled = controls.isPlaying || !controls.isLoading,
+            enabled = !controls.isLoading,
             onClick = {
                 onAction(if (controls.isPlaying) NowPlayingAction.Pause else NowPlayingAction.Resume)
             },
@@ -968,6 +1231,13 @@ private fun DesktopNowPlayingLayout(
     modifier: Modifier = Modifier,
 ) {
     val track = state.currentTrack
+    val palette = rememberArtworkPalette(track?.artwork)
+    val backgroundColors = remember(palette) { desktopBackgroundColors(palette) }
+    val capsuleBackgroundColor by animateColorAsState(
+        targetValue = lerp(backgroundColors[3], backgroundColors[5], 0.5f),
+        animationSpec = tween(900),
+        label = "now-playing-capsule-background-color",
+    )
     var page by remember { mutableStateOf(MeloXDesktopNowPlayingPage.Lyrics) }
     var translationVisible by remember { mutableStateOf(lyricDisplaySettings.showTranslation) }
 
@@ -1046,6 +1316,7 @@ private fun DesktopNowPlayingLayout(
             }
 
             MeloXDesktopPageSwitcher(
+                backgroundColor = capsuleBackgroundColor,
                 page = page,
                 translationVisible = translationVisible,
                 hasTranslation = track?.lyrics?.lines?.toSyncedLyrics(
@@ -1073,6 +1344,7 @@ private fun DesktopNowPlayingLayout(
                     .padding(end = 9.dp, bottom = 11.dp),
             )
             MeloXDesktopTitlebar(
+                backgroundColor = capsuleBackgroundColor,
                 volume = desktopVolume,
                 onVolumeChange = onDesktopVolumeChange,
                 onExit = { onAction(NowPlayingAction.NavigateBack) },
@@ -1085,6 +1357,7 @@ private fun DesktopNowPlayingLayout(
 
 @Composable
 private fun MeloXDesktopTitlebar(
+    backgroundColor: Color,
     volume: Float,
     onVolumeChange: (Float) -> Unit,
     onExit: () -> Unit,
@@ -1105,7 +1378,7 @@ private fun MeloXDesktopTitlebar(
                 .align(Alignment.TopStart)
                 .offset(x = 101.dp, y = 8.dp)
                 .size(width = 75.dp, height = 36.dp)
-                .appleMusicDesktopCapsule(),
+                .appleMusicDesktopCapsule(backgroundColor),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Spacer(modifier = Modifier.width(7.dp))
@@ -1128,7 +1401,7 @@ private fun MeloXDesktopTitlebar(
                 .align(Alignment.TopEnd)
                 .padding(end = 8.dp, top = 8.dp)
                 .size(width = 180.dp, height = 36.dp)
-                .appleMusicDesktopCapsule()
+                .appleMusicDesktopCapsule(backgroundColor)
                 .padding(start = 15.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1154,7 +1427,10 @@ private fun MeloXDesktopTitlebar(
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
-                    .clickable {
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
                         if (volume <= 0.001f) {
                             onVolumeChange(volumeBeforeMute.coerceAtLeast(0.2f))
                         } else {
@@ -1177,8 +1453,11 @@ private fun MeloXDesktopTitlebar(
     }
 }
 
+private val NowPlayingCapsuleShape = RoundedCornerShape(18.dp)
+
 @Composable
-private fun Modifier.appleMusicDesktopCapsule(): Modifier {
+internal fun Modifier.appleMusicDesktopCapsule(backgroundColor: Color): Modifier {
+    val highlightColor = lerp(Color.White, backgroundColor.copy(alpha = 1f), 0.35f)
     val focused = LocalWindowInfo.current.isWindowFocused
     val surfaceAlpha by animateFloatAsState(
         targetValue = if (focused) 0.10f else 0.035f,
@@ -1186,23 +1465,43 @@ private fun Modifier.appleMusicDesktopCapsule(): Modifier {
         label = "now-playing-capsule-focus",
     )
     val rimAlpha by animateFloatAsState(
-        targetValue = if (focused) 0.16f else 0f,
+        targetValue = if (focused) 1f else 0.35f,
         animationSpec = tween(180),
         label = "now-playing-capsule-rim",
     )
-    val shape = RoundedCornerShape(18.dp)
-    // All three capsules share the local backdrop tint and the focused window's thin rim.
-    return clip(shape)
-        .background(Color.White.copy(alpha = surfaceAlpha))
-        .border(
-            width = 0.75.dp,
-            brush = Brush.verticalGradient(
-                0f to Color.White.copy(alpha = rimAlpha),
-                0.5f to Color.White.copy(alpha = rimAlpha * 0.35f),
-                1f to Color.White.copy(alpha = rimAlpha),
-            ),
-            shape = shape,
+    return drawWithCache {
+        // Keep the whole stroke inside the surface and out of its clipping layer.
+        val width = 1.dp.toPx().coerceAtLeast(1f)
+        val inset = width / 2f
+        val rim = Path().apply {
+            addRoundRect(
+                RoundRect(
+                    left = 0f,
+                    top = 0f,
+                    right = size.width - width,
+                    bottom = size.height - width,
+                    cornerRadius = CornerRadius(18.dp.toPx() - inset),
+                ),
+            )
+        }
+        val brush = Brush.linearGradient(
+            0f to highlightColor.copy(alpha = 0.65f * rimAlpha),
+            0.38f to highlightColor.copy(alpha = 0.32f * rimAlpha),
+            0.65f to highlightColor.copy(alpha = 0.24f * rimAlpha),
+            1f to highlightColor.copy(alpha = 0.50f * rimAlpha),
+            start = Offset.Zero,
+            end = Offset(size.width, size.height),
         )
+        val stroke = Stroke(width)
+        onDrawWithContent {
+            drawContent()
+            translate(inset, inset) {
+                drawPath(rim, brush, style = stroke)
+            }
+        }
+    }
+        .clip(NowPlayingCapsuleShape)
+        .background(Color.White.copy(alpha = surfaceAlpha))
 }
 
 @Composable
@@ -1216,7 +1515,11 @@ private fun MeloXDesktopTitlebarButton(
         modifier = Modifier
             .size(26.dp)
             .clip(CircleShape)
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -1389,8 +1692,9 @@ internal fun MeloXDesktopMetadataRow(
         )
         Spacer(modifier = Modifier.width(6.dp * elementScale))
         NowPlayingMoreButton(
-            hasLyric = track?.hasLyric == true,
             nowPlayingState = state,
+            liked = liked,
+            onLikedChange = onLikedChange,
             onAction = onAction,
             compact = true,
             compactButtonSize = 28.dp * elementScale,
@@ -1559,7 +1863,9 @@ private fun MeloXDesktopTransportControls(
         AppleMusicDesktopTransportButton(
             painter = Res.drawable.icon_apple_music_shuffle,
             motion = AppleMusicDesktopTransportMotion.Shuffle,
-            contentDescription = stringResource(Res.string.player_shuffle),
+            contentDescription = stringResource(
+                if (controls.shuffleEnabled) Res.string.player_shuffle_off else Res.string.player_shuffle_on,
+            ),
             tint = Color.White.copy(alpha = if (controls.shuffleEnabled) 0.90f else 0.58f),
             selected = controls.shuffleEnabled,
             iconSize = 40.dp * elementScale,
@@ -1588,7 +1894,7 @@ private fun MeloXDesktopTransportControls(
             tint = Color.White,
             iconSize = 43.dp * elementScale,
             buttonWidth = 48.dp * elementScale,
-            enabled = controls.isPlaying || !controls.isLoading,
+            enabled = !controls.isLoading,
             onClick = {
                 onAction(if (controls.isPlaying) NowPlayingAction.Pause else NowPlayingAction.Resume)
             },
@@ -1610,7 +1916,11 @@ private fun MeloXDesktopTransportControls(
             painter = repeatPainter,
             motion = AppleMusicDesktopTransportMotion.Repeat,
             contentDescription = stringResource(
-                if (controls.repeatMode == RepeatMode.One) Res.string.player_single_repeat else Res.string.player_list_repeat,
+                when (controls.repeatMode) {
+                    RepeatMode.Off -> Res.string.player_repeat_off
+                    RepeatMode.All -> Res.string.player_list_repeat
+                    RepeatMode.One -> Res.string.player_single_repeat
+                },
             ),
             tint = Color.White.copy(alpha = if (controls.repeatMode == RepeatMode.Off) 0.58f else 0.90f),
             selected = controls.repeatMode != RepeatMode.Off,
@@ -1835,6 +2145,7 @@ private fun MeloXDesktopQueueRow(
 
 @Composable
 private fun MeloXDesktopPageSwitcher(
+    backgroundColor: Color,
     page: MeloXDesktopNowPlayingPage,
     translationVisible: Boolean,
     hasTranslation: Boolean,
@@ -1855,14 +2166,14 @@ private fun MeloXDesktopPageSwitcher(
                 selectedCircleSize = 36.dp,
                 iconSize = 28.dp,
                 onClick = onTranslationClick,
-                modifier = Modifier.align(Alignment.CenterStart).appleMusicDesktopCapsule(),
+                modifier = Modifier.align(Alignment.CenterStart).appleMusicDesktopCapsule(backgroundColor),
             )
         }
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .size(width = 72.dp, height = 36.dp)
-                .appleMusicDesktopCapsule(),
+                .appleMusicDesktopCapsule(backgroundColor),
         ) {
             MeloXDesktopPageSwitchButton(
                 painter = Res.drawable.icon_now_playing_lyrics,
@@ -2271,8 +2582,9 @@ private fun TrackRow(
                 )
             }
             NowPlayingMoreButton(
-                hasLyric = track?.hasLyric == true,
                 nowPlayingState = state,
+                liked = liked,
+                onLikedChange = onLikedChange,
                 onAction = onAction,
                 compact = true,
             )
@@ -3042,59 +3354,71 @@ fun NowPlayingScreen(
             Modifier
         }
 
-        LiquidGlassOverlayScene(
-            modifier = Modifier
-                .fillMaxSize()
-                .offset { IntOffset(x = 0, y = dragOffsetPx.roundToInt()) }
-                .clipToBounds()
-                .then(dismissGestureModifier),
-            captureBackdrop = drawBackground && !usesCompactLayout,
-            backdropContent = {
-                if (drawBackground) {
-                    ImmersivePlayerBackground(
-                        artwork = currentTrack?.artwork,
-                        enabled = playerInteractionSettings.audioReactiveBackgroundEnabled,
-                        audioReactiveSnapshot = audioReactiveSnapshot,
-                        meloxDesktopStyle = !usesCompactLayout,
+        val menuBackdrop = rememberLayerBackdrop()
+        // Popups are drawn outside this layer; glass controls still sample only the background.
+        CompositionLocalProvider(LocalNowPlayingMenuBackdrop provides menuBackdrop) {
+            LiquidGlassOverlayScene(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(menuBackdrop)
+                    .offset { IntOffset(x = 0, y = dragOffsetPx.roundToInt()) }
+                    .clipToBounds()
+                    .then(dismissGestureModifier)
+                    .then(if (drawBackground) Modifier.background(Color(0xFF121212)) else Modifier),
+                captureBackdrop = drawBackground && !usesCompactLayout,
+                backdropContent = {
+                    if (drawBackground) {
+                        ImmersivePlayerBackground(
+                            artwork = currentTrack?.artwork,
+                            enabled = playerInteractionSettings.audioReactiveBackgroundEnabled,
+                            audioReactiveSnapshot = audioReactiveSnapshot,
+                            meloxDesktopStyle = !usesCompactLayout,
+                        )
+                    }
+                },
+                overlayContent = {
+                    // A sibling behind the controls catches empty-space taps without consuming their gestures.
+                    Box(
+                        Modifier.matchParentSize().pointerInput(Unit) {
+                            detectTapGestures(onTap = {})
+                        },
                     )
-                }
-            },
-            overlayContent = {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                if (maxWidth >= DesktopPlayerBreakpoint && maxHeight >= 520.dp) {
-                    DesktopNowPlayingLayout(
-                        state = state,
-                        lyricDisplaySettings = lyricDisplaySettings,
-                        playerInteractionSettings = playerInteractionSettings,
-                        currentPositionMs = currentPositionMs,
-                        isSeeking = isSeeking,
-                        desktopVolume = desktopVolume,
-                        onDesktopVolumeChange = onDesktopVolumeChange,
-                        liked = isFavorite,
-                        onLikedChange = { onToggleFavorite() },
-                        onAction = onAction,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize().padding(top = titleBarInset)) {
-                        CompactNowPlayingLayout(
+                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    if (maxWidth >= DesktopPlayerBreakpoint && maxHeight >= 520.dp) {
+                        DesktopNowPlayingLayout(
                             state = state,
                             lyricDisplaySettings = lyricDisplaySettings,
                             playerInteractionSettings = playerInteractionSettings,
                             currentPositionMs = currentPositionMs,
                             isSeeking = isSeeking,
-                            progressContent = progressContent,
-                            compactProgressContent = compactProgressContent,
+                            desktopVolume = desktopVolume,
+                            onDesktopVolumeChange = onDesktopVolumeChange,
                             liked = isFavorite,
                             onLikedChange = { onToggleFavorite() },
                             onAction = onAction,
-                            audioReactiveSnapshot = audioReactiveSnapshot,
+                            modifier = Modifier.fillMaxSize(),
                         )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize().padding(top = titleBarInset)) {
+                            CompactNowPlayingLayout(
+                                state = state,
+                                lyricDisplaySettings = lyricDisplaySettings,
+                                playerInteractionSettings = playerInteractionSettings,
+                                currentPositionMs = currentPositionMs,
+                                isSeeking = isSeeking,
+                                progressContent = progressContent,
+                                compactProgressContent = compactProgressContent,
+                                liked = isFavorite,
+                                onLikedChange = { onToggleFavorite() },
+                                onAction = onAction,
+                                audioReactiveSnapshot = audioReactiveSnapshot,
+                            )
+                        }
                     }
                 }
-            }
-            },
-        )
+                },
+            )
+        }
     }
 }
 

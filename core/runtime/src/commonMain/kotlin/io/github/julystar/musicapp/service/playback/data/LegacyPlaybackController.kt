@@ -307,7 +307,11 @@ class LegacyPlaybackController(
             val playlist = playerRepository.playlist.value ?: return
             val currentId = playerRepository.music.value?.meta?.id
             val next = playlist.musics.filterNot { it.meta.id == currentId }.randomOrNull() ?: return
-            legacyController.play(next.meta.id, playlist.abstr.meta.id)
+            legacyController.play(
+                next.meta.id,
+                playlist.abstr.meta.id,
+                startPlayback = playerRepository.playing.value,
+            )
         } else {
             legacyController.playNext()
         }

@@ -17,6 +17,13 @@ data class NowPlayingState(
     val queue: NowPlayingQueueState = NowPlayingQueueState(),
     val controls: NowPlayingControlsState = NowPlayingControlsState(),
     val playbackSources: List<NowPlayingSourceItem> = emptyList(),
+    val playlists: List<NowPlayingPlaylistItem> = emptyList(),
+)
+
+@Immutable
+data class NowPlayingPlaylistItem(
+    val id: Long,
+    val title: String,
 )
 
 @Immutable
@@ -92,9 +99,12 @@ sealed interface NowPlayingAction {
     data object NavigateBack : NowPlayingAction
     data object AddLyric : NowPlayingAction
     data object SearchMetadata : NowPlayingAction
+    data object OpenMetadataSources : NowPlayingAction
+    data class CreatePlaylistWithCurrentTrack(val title: String) : NowPlayingAction
     data object RemoveLyric : NowPlayingAction
     data object RemoveCurrentTrack : NowPlayingAction
     data object DownloadCurrentTrack : NowPlayingAction
+    data class AddCurrentTrackToPlaylist(val playlistId: Long) : NowPlayingAction
     data class SelectPlaybackSource(val sourceItemId: Long) : NowPlayingAction
     data object OpenSleepTimer : NowPlayingAction
     data object OpenLyrics : NowPlayingAction
@@ -106,6 +116,7 @@ sealed interface NowPlayingAction {
     data object Resume : NowPlayingAction
     data object Pause : NowPlayingAction
     data object CycleRepeatMode : NowPlayingAction
+    data object CyclePlaybackMode : NowPlayingAction
     data class SeekTo(val positionMs: ULong) : NowPlayingAction
 }
 

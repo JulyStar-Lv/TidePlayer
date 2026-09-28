@@ -61,6 +61,53 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class PlayerControllerRepositoryTest {
     @Test
+    fun pausedSkippingDoesNotResumeAnAlreadyLoadedTrack() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingAndroidPlaybackEngine(PlaybackEngineLoadResult.Ready),
+    ) { harness ->
+        harness.controller.play(MusicId(TRACK_ID), PlaylistId(PLAYLIST_ID))
+        awaitUntil { harness.playerState.playing.value && !harness.playerState.loading.value }
+        harness.controller.pause()
+        harness.playerState.nextMusic.value = musicAbstract(TRACK_ID, TRACK_TITLE)
+        harness.playerState.previousMusic.value = musicAbstract(TRACK_ID, TRACK_TITLE)
+        val initialPlayCalls = harness.engine.playCalls
+
+        harness.controller.playNext()
+        harness.controller.playPrevious()
+
+        assertFalse(harness.playerState.playing.value)
+        assertEquals(initialPlayCalls, harness.engine.playCalls)
+    }
+
+    @Test
+    fun loadingWhilePausedDoesNotStartQueueOrFallbackEngine() {
+        for (queueResult in listOf(
+            PlaybackEngineLoadResult.Ready,
+            PlaybackEngineLoadResult.Unsupported(),
+        )) {
+            withHarness(
+                sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+                engine = RecordingAndroidPlaybackEngine(
+                    PlaybackEngineLoadResult.Ready,
+                    queueLoadResult = queueResult,
+                ),
+            ) { harness ->
+                harness.controller.play(
+                    MusicId(TRACK_ID),
+                    PlaylistId(PLAYLIST_ID),
+                    startPlayback = false,
+                )
+                awaitUntil {
+                    harness.playerState.music.value?.meta?.id?.value == TRACK_ID &&
+                        !harness.playerState.loading.value
+                }
+                assertFalse(harness.playerState.playing.value)
+                assertEquals(0, harness.engine.playCalls)
+            }
+        }
+    }
+
+    @Test
     fun readyEngineStartsPlaybackAndReleasesResourceOnStop() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
         engine = RecordingAndroidPlaybackEngine(PlaybackEngineLoadResult.Ready),
@@ -74,7 +121,7 @@ class PlayerControllerRepositoryTest {
 
         assertEquals(listOf(TEST_RESOURCE.uri), harness.engine.loadedRequests.map { it.resource.uri })
         assertEquals(listOf(TRACK_TITLE), harness.engine.loadedRequests.map { it.item.title })
-        assertEquals(0, harness.engine.playCalls)
+        assertEquals(1, harness.engine.playCalls)
         assertEquals(TRACK_TITLE, harness.playerState.music.value?.meta?.title)
         assertEquals(PLAYLIST_ID, harness.playerState.playlist.value?.abstr?.meta?.id?.value)
         assertEquals(listOf(TEST_RESOURCE.uri), harness.source.resolvedUris)
@@ -88,7 +135,7 @@ class PlayerControllerRepositoryTest {
         awaitUntil { TEST_RESOURCE.uri in harness.playbackResolver.releasedUris }
         assertEquals(listOf(5_000L), harness.engine.seekCalls)
         assertEquals(1, harness.engine.pauseCalls)
-        assertEquals(1, harness.engine.playCalls)
+        assertEquals(2, harness.engine.playCalls)
         assertFalse(harness.playerState.playing.value)
         assertNull(harness.playerState.music.value)
     }
@@ -403,7 +450,7 @@ private class FakeAndroidPlayerStateStore : AndroidPlayerStateStore {
     override val previousMusic = MutableStateFlow<MusicAbstract?>(null)
     override val pauseRequest: Flow<Unit> = MutableSharedFlow()
     val loading = MutableStateFlow(false)
-    val playing = MutableStateFlow(false)
+    override val playing = MutableStateFlow(false)
     var durationChangedCount = 0
 
     override fun setIsLoading(loading: Boolean) {

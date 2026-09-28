@@ -1,5 +1,7 @@
 package io.github.julystar.musicapp.plugin.runtime
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import okio.ByteString.Companion.encodeUtf8
@@ -12,6 +14,11 @@ class PluginScriptBundleBuilder(
 ) {
     fun build(plugin: PluginRuntimeDescriptor): PluginScriptBundle {
         val root = plugin.directory.toPath(normalize = true)
+        val manifestFile = root / "manifest.json"
+        val manifest = if (fileSystem.exists(manifestFile)) {
+            Json.parseToJsonElement(fileSystem.read(manifestFile) { readUtf8() }) as JsonObject
+        } else JsonObject(emptyMap())
+        val i18n = PluginI18n.read(root, manifest, fileSystem)
         val includeSources = mutableListOf<Pair<String, String>>()
         plugin.includeDirs.forEach { declared ->
             val directory = resolveUnder(root, declared)
@@ -53,6 +60,7 @@ class PluginScriptBundleBuilder(
 
         val segments = mutableListOf(
             "host-bootstrap.js" to HOST_BOOTSTRAP,
+            "i18n-bootstrap.js" to i18n.bootstrap(),
             "include-bootstrap.js" to includeBootstrap,
         )
         segments += includeSources

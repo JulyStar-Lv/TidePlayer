@@ -52,8 +52,8 @@ import io.github.julystar.musicapp.core.presentation.overlay.resolve
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.transition.albumArtworkSharedElement
-import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.icon_chevron_left
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_play
 import musicapp.feature.artist.generated.resources.Res
@@ -80,7 +80,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TabRow
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import io.github.julystar.musicapp.core.presentation.components.DesignTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -561,7 +561,7 @@ private fun ArtistTrackRow(
                     onClick = onDownload,
                 ) {
                     Icon(
-                        painter = painterResource(CoreRes.drawable.icon_chevron_left),
+                        painter = painterResource(CoreRes.drawable.icon_download),
                         contentDescription = stringResource(Res.string.artist_download_track, track.title),
                     )
                 }

@@ -16,7 +16,7 @@ import kotlin.test.assertNull
 
 class ManualMetadataServiceTest {
     @Test
-    fun keepsOnlyResultsWithLyricsAndCover() {
+    fun showsCoveredResultsWithoutWaitingForLyrics() {
         val candidate = MetaSongCandidate(
             id = "song-1",
             title = "Song",
@@ -42,7 +42,8 @@ class ManualMetadataServiceTest {
         )
         assertNull(candidate.copy(pictureUrl = "  ").toManualMetadataResult(listOf(lyrics)))
         assertNull(candidate.copy(pictureUrl = null).toManualMetadataResult(listOf(lyrics)))
-        assertNull(candidate.toManualMetadataResult(emptyList()))
+        assertEquals(ManualMetadataResult(candidate), candidate.toManualMetadataResult())
+        assertEquals(20, MANUAL_METADATA_RESULTS_PER_SOURCE)
 
         assertEquals(
             MetaCoverCandidate(
@@ -93,6 +94,106 @@ class ManualMetadataServiceTest {
         )
 
         assertEquals(listOf("exact", "other"), ranked.map(MetaSongCandidate::id))
+    }
+
+    @Test
+    fun removesDuplicateEditionsButKeepsDistinctSourcesAlbumsVersionsAndRecordings() {
+        val song = MetaSongCandidate(
+            "edition-1", "See You Again", artist = "Wiz Khalifa", album = "Furious 7",
+            date = "2015-03-10", durationMs = 229_000, sourceId = "apple",
+            pictureUrl = "https://images.test/cover/100x100bb.jpg",
+        )
+        val ranked = rankManualMetadataCandidates(
+            listOf(
+                song,
+                song.copy(id = "edition-2", pictureUrl = "https://images.test/cover/600x600bb.jpg"),
+                song.copy(id = "edition-3", pictureUrl = song.pictureUrl + "?size=100"),
+                song.copy(id = "another-source", sourceId = "qq"),
+                song.copy(id = "another-album", album = "Greatest Hits"),
+                song.copy(id = "live", title = "See You Again (Live)"),
+                song.copy(id = "another-cover", pictureUrl = "https://images.test/alternate/100x100bb.jpg"),
+                song.copy(id = "another-recording", durationMs = 245_000),
+                song.copy(id = "regional-date", date = "2015-03-17"),
+            ),
+            NowPlayingTrackItem(1, "See You Again", "Wiz Khalifa", durationMs = 229_000, artwork = null, mediaId = null),
+            "See You Again Wiz Khalifa",
+        )
+        assertEquals(setOf("edition-1", "another-source", "another-album", "live", "another-recording"), ranked.map { it.id }.toSet())
+    }
+
+    @Test
+    fun filtersArtistOnlyAlbumOnlyAndDurationOnlyMatches() {
+        val track = NowPlayingTrackItem(
+            id = 1, title = "充氧期", artist = "孙燕姿", album = "跳舞的梵谷",
+            durationMs = 226_000, artwork = null, mediaId = null,
+        )
+        val ranked = rankManualMetadataCandidates(
+            listOf(
+                MetaSongCandidate("other-song", "天黑黑", artist = "孙燕姿", durationMs = 226_000),
+                MetaSongCandidate("album-only", "序曲", artist = "其他歌手", album = "充氧期"),
+                MetaSongCandidate("empty-title", "", artist = "孙燕姿"),
+                MetaSongCandidate("same-song", "充氧期", artist = "孙燕姿", album = "跳舞的梵谷"),
+                MetaSongCandidate("cover", "充氧期（Cover 孙燕姿）", artist = "阿张"),
+            ),
+            track, "充氧期 孙燕姿",
+        )
+        assertEquals(listOf("same-song", "cover"), ranked.map { it.id })
+    }
+
+    @Test
+    fun preservesVersionsWithoutAcceptingPartialOrDifferentTitles() {
+        val track = NowPlayingTrackItem(
+            id = 1, title = "Song", artist = "Artist", durationMs = null,
+            artwork = null, mediaId = null,
+        )
+        val ranked = rankManualMetadataCandidates(
+            listOf(
+                MetaSongCandidate("live", "Song (Live at Wembley)"),
+                MetaSongCandidate("remaster", "Song - 2011 Remaster"),
+                MetaSongCandidate("partial", "Another Song"),
+                MetaSongCandidate("part-two", "Song (Part II)"),
+            ), track, "Song Artist",
+        )
+        assertEquals(setOf("live", "remaster"), ranked.map { it.id }.toSet())
+    }
+
+    @Test
+    fun editedKeywordCanCorrectFileMetadataAndDoesNotMatchOnlyAnAlbum() {
+        val track = NowPlayingTrackItem(
+            id = 1, title = "错误歌名", artist = "错误歌手", durationMs = null,
+            artwork = null, mediaId = null,
+        )
+        val ranked = rankManualMetadataCandidates(
+            listOf(
+                MetaSongCandidate("correct", "兰亭序", artist = "周杰伦"),
+                MetaSongCandidate("same-artist", "七里香", artist = "周杰伦"),
+                MetaSongCandidate("album-only", "Intro", artist = "周杰伦", album = "兰亭序"),
+            ), track, "兰亭序 周杰伦",
+        )
+        assertEquals(listOf("correct"), ranked.map { it.id })
+        assertEquals(
+            listOf("correct", "same-artist", "album-only"),
+            rankManualMetadataCandidates(ranked + listOf(
+                MetaSongCandidate("same-artist", "七里香", artist = "周杰伦"),
+                MetaSongCandidate("album-only", "Intro", artist = "周杰伦", album = "兰亭序"),
+            ), track, "周杰伦").map { it.id },
+        )
+    }
+
+    @Test
+    fun prefersCurrentAlbumOverCompilationWithSameSongArtistAndDuration() {
+        val track = NowPlayingTrackItem(
+            id = 1, title = "充氧期", artist = "孙燕姿", album = "跳舞的梵谷",
+            durationMs = 226_000, artwork = null, mediaId = null,
+        )
+        val ranked = rankManualMetadataCandidates(
+            listOf(
+                MetaSongCandidate("compilation", "充氧期", artist = "孙燕姿", album = "派对必备歌单", durationMs = 226_000),
+                MetaSongCandidate("album-with-prefix", "充氧期", artist = "孙燕姿", album = "孙燕姿 No.13 作品：跳舞的梵谷", durationMs = 226_000),
+                MetaSongCandidate("album", "充氧期", artist = "孙燕姿", album = "跳舞的梵谷", durationMs = 226_000),
+            ), track, "充氧期 孙燕姿",
+        )
+        assertEquals(listOf("album", "album-with-prefix", "compilation"), ranked.map { it.id })
     }
 
     @Test

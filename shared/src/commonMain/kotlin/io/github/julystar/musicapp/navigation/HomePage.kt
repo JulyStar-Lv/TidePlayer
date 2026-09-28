@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -49,6 +50,7 @@ import io.github.julystar.musicapp.service.playback.presentation.shell.PlaybackM
 import io.github.julystar.musicapp.service.playback.presentation.shell.rememberHasPlaybackItem
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
 import io.github.julystar.musicapp.widgets.appbar.HomeNavigationRail
+import io.github.julystar.musicapp.widgets.appbar.getHomeNavigationRailWidth
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -235,54 +237,28 @@ fun HomePage(
                     },
                 )
             }
-            WindowSizeClass.Medium -> {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding(),
-                ) {
-                    HomeNavigationRail(
-                        currentTab = currentTab,
-                        onTabSelected = onTabSelected,
-                        expanded = false,
-                        modifier = Modifier.fillMaxHeight(),
-                    )
-                    RootContentPane(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(top = contentTitleBarInset),
-                        showMiniPlayer = showMiniPlayer,
-                        miniPlayerContent = miniPlayerContent,
-                    ) {
-                        tabContent(currentTab, scaffoldPadding, null)
-                    }
-                }
-            }
+            WindowSizeClass.Medium,
             WindowSizeClass.Expanded,
             WindowSizeClass.Large,
             WindowSizeClass.XL -> {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding(),
-                ) {
-                    HomeNavigationRail(
-                        currentTab = currentTab,
-                        onTabSelected = onTabSelected,
-                        expanded = true,
-                        modifier = Modifier.fillMaxHeight(),
-                    )
+                val expandedNavigation = windowSizeClass != WindowSizeClass.Medium
+                val navigationWidth = getHomeNavigationRailWidth(expanded = expandedNavigation)
+                Box(Modifier.fillMaxSize().statusBarsPadding()) {
                     RootContentPane(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(top = contentTitleBarInset),
+                        modifier = Modifier.fillMaxSize().padding(top = contentTitleBarInset),
+                        contentStartInset = navigationWidth,
                         showMiniPlayer = showMiniPlayer,
                         miniPlayerContent = miniPlayerContent,
                     ) {
-                        tabContent(currentTab, scaffoldPadding, null)
+                        tabContent(currentTab, scaffoldPadding, it)
                     }
+                    HomeNavigationRail(
+                        currentTab = currentTab,
+                        onTabSelected = onTabSelected,
+                        expanded = expandedNavigation,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                            .fillMaxHeight().zIndex(1f),
+                    )
                 }
             }
         }
@@ -305,28 +281,36 @@ internal fun RootContentPane(
     showMiniPlayer: Boolean,
     miniPlayerContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    contentStartInset: Dp = 0.dp,
+    content: @Composable (StickyHeaderStateSink) -> Unit,
 ) {
-    if (!showMiniPlayer) {
-        Box(modifier = modifier) { content() }
-        return
-    }
+    var headerState by remember { mutableStateOf<StickyHeaderState?>(null) }
+    val headerSink = remember { OwnedDesignStickyHeaderStateSink { headerState = it } }
 
     LiquidGlassOverlayScene(
         modifier = modifier,
-        contentBottomInset = if (isDesktopPlatform()) {
+        contentBottomInset = if (!showMiniPlayer || isDesktopPlatform()) {
             0.dp
         } else {
             DesignTokens.player.miniBarHeight + DesignTokens.spacing.xs
         },
-        backdropContent = { content() },
+        backdropContent = {
+            Box(Modifier.fillMaxSize().padding(start = contentStartInset)) {
+                content(headerSink)
+            }
+        },
         overlayContent = {
-            Box(
+            LiquidGlassStickyHeaderHost(
+                state = headerState,
+                statusBarInset = 0.dp,
+                contentStartInset = contentStartInset,
+            )
+            if (showMiniPlayer) Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(
-                        start = 12.dp,
+                        start = contentStartInset + 12.dp,
                         top = 8.dp,
                         end = 12.dp,
                         bottom = if (isDesktopPlatform()) 20.dp else 8.dp,

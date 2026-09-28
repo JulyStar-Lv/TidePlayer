@@ -2,6 +2,7 @@ package io.github.julystar.musicapp.plugin
 
 import io.github.julystar.musicapp.plugin.install.FakePluginDao
 import io.github.julystar.musicapp.plugin.install.PluginInstaller
+import io.github.julystar.musicapp.plugin.management.toEntity
 import io.github.julystar.musicapp.plugin.management.PluginRepository
 import io.github.julystar.musicapp.plugin.management.isPluginConfigFieldVisible
 import io.github.julystar.musicapp.plugin.runtime.InstalledPlugin
@@ -180,7 +181,7 @@ class PluginImportRuntimeDesktopTest {
         assertEquals("helper:Title Artist", songs[0].title)
         assertEquals("Artist A/Artist B", songs[0].artist)
         assertEquals("900150983cd24fb0d6963f7d28e17f72", songs[0].fields["md5"])
-        assertEquals("3", songs[0].fields["hostApiVersion"])
+        assertEquals("4", songs[0].fields["hostApiVersion"])
         assertNotNull(songs[0].contextToken)
 
         val lyrics = source.getLyrics(
@@ -240,7 +241,7 @@ class PluginImportRuntimeDesktopTest {
                         throw new Error("local-song leaked private internal state");
                       }
                       var info = Platform.runtime.getInfo();
-                      if (info.pluginApiVersion !== 4 || info.hostApiVersion !== 3 || info.engine !== "quickjs") {
+                      if (info.pluginApiVersion !== 5 || info.hostApiVersion !== 4 || info.engine !== "quickjs") {
                         throw new Error("incomplete runtime.info");
                       }
                       if (["cache.get", "xml.findElements", "http.get"].some(function(name) { return info.supportedHostApis.indexOf(name) < 0; })) {
@@ -404,7 +405,80 @@ class PluginImportRuntimeDesktopTest {
     }
 
     @Test
-    fun manifestAcceptsApi4IndependentCapabilitiesAndRejectsFutureProtocolOrHost() = runTest {
+    fun importsApi5WithHost4ResourcesAndPersistsExtendedLyrics() = runTest {
+        val temp = Files.createTempDirectory("musicapp-plugin-api5")
+        val zip = temp.resolve("plugin.zip")
+        writeZip(zip, mapOf(
+            "manifest.json" to """{
+                "id":"com.test.api5","name":"@name","description":"@description",
+                "versionCode":1,"versionName":"1","apiVersion":5,"minHostApiVersion":4,
+                "capabilities":["getLyrics"],
+                "configFields":[{"key":"region","title":"@region","defaultValue":"cn"},
+                  {"key":"help","title":"Help","type":"markdown","defaultValue":"@description"}],
+                "i18n":{"defaultLocale":"en","resources":{"en":"locales/en.json"}}
+            }""",
+            "locales/en.json" to """{"name":"API 5 Source","description":"Description","region":"Region","message":"Item %1${'$'}s: %2${'$'}d"}""",
+            "source.js" to """
+                function getLyrics(request) {
+                  var info = Platform.runtime.getInfo();
+                  if (info.pluginApiVersion !== 5 || info.hostApiVersion !== 4 || !info.supportedHostApis.includes('i18n.t')) throw new Error('wrong runtime info');
+                  if (Platform.i18n.getLocale() !== 'en' || Platform.i18n.t('message', 'A', 2) !== 'Item A: 2') throw new Error('wrong i18n formatting');
+                  if (Platform.i18n.t('message') !== 'Item %1${'$'}s: %2${'$'}d') throw new Error('changed unformatted message');
+                  ['unknown', 'types', 'count'].forEach(function(check) {
+                    var rejected = false;
+                    try {
+                      if (check === 'unknown') Platform.i18n.t('unknown');
+                      if (check === 'types') Platform.i18n.t('message', 'A', '2');
+                      if (check === 'count') Platform.i18n.t('message', 'A', 2, 3);
+                    } catch(e) { rejected = true; }
+                    if (!rejected) throw new Error('missing i18n validation: ' + check);
+                  });
+                  if (request.song.id !== 'local-song' || request.page !== 2 || request.pageSize !== 7) throw new Error('wrong API 5 request');
+                  return [{type:'structured',tags:{ti:'Song',ar:'Artist',al:'Album',date:'2026'},
+                    original:[[1000,2000,[[1000,2000,'詮',[[null,null,'せ'],[null,null,'ん']]]],{'ttm:agent':'v1'}]],
+                    romanization:[[1000,2000,[[1000,2000,'sen']]]],
+                    agents:[{id:'v1',type:'person'}],timing:'Word',language:'ja',bodyDur:'2s'}];
+                }
+            """.trimIndent(),
+        ))
+        val dao = FakePluginDao()
+        val pluginsDir = temp.resolve("plugins").toString().toPath()
+        val installed = PluginInstaller(dao, pluginsDir).installAllFromZip(zip.toString().toPath())
+        assertTrue(installed.failed.isEmpty(), installed.failed.toString())
+        assertEquals(5, installed.installed.single().apiVersion)
+        val repository = PluginRepository(dao, pluginsDir)
+        val summary = assertNotNull(repository.getPlugin("com.test.api5"))
+        assertEquals("API 5 Source", summary.name)
+        assertEquals("Region", summary.configFields.first().title)
+        assertEquals("cn", summary.configFields.first().defaultValue)
+        assertEquals("Description", summary.configFields.last().defaultValue)
+        assertEquals("@name", assertNotNull(dao.findByPluginId("com.test.api5")).name)
+        dao.setEnabled("com.test.api5", true)
+        val manager = PluginRuntimeManager(
+            PluginRuntimeFactory(PluginRuntimeSettings(appVersionName = "test", cacheDirectory = temp.resolve("cache").toString())),
+            PluginScriptBundleBuilder(),
+        )
+        try {
+            val source = LyricoJsMetaSource(
+                plugin = with(repository) { assertNotNull(getPlugin("com.test.api5")).toInstalledPlugin() },
+                runtimeManager = manager,
+                configProvider = repository,
+                resultParser = PluginResultParser(),
+            )
+            val candidate = source.getLyricsCandidates(MetaSongCandidate("local-song", "Song"), page = 2, pageSize = 7).single()
+            assertEquals("sen", candidate.lyrics.lines.single().romanization)
+            val entity = assertNotNull(candidate.lyrics.toEntity(42, 100))
+            assertEquals("TTML", entity.format)
+            assertTrue(entity.content.contains("tts:ruby=\"text\""))
+            javax.xml.parsers.DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+                .newDocumentBuilder().parse(entity.content.byteInputStream())
+        } finally {
+            manager.closeAll()
+        }
+    }
+
+    @Test
+    fun manifestAcceptsApi1Through5AndRejectsFutureProtocolOrHost() = runTest {
         val temp = Files.createTempDirectory("musicapp-plugin-manifest-boundaries")
         val zip = temp.resolve("plugins.zip")
         fun manifest(id: String, api: Int, host: Int, capability: String) =
@@ -422,11 +496,13 @@ class PluginImportRuntimeDesktopTest {
                 "api2/source.js" to "function searchSongs(){return [];}",
                 "api3/manifest.json" to manifest("com.test.api3", 3, 3, "searchSongs"),
                 "api3/source.js" to "function searchSongs(){return [];}",
-                "future-plugin/manifest.json" to manifest("com.test.future.plugin", 5, 3, "getLyrics"),
+                "api5/manifest.json" to manifest("com.test.api5", 5, 4, "getLyrics"),
+                "api5/source.js" to "function getLyrics(){return [];}",
+                "future-plugin/manifest.json" to manifest("com.test.future.plugin", 6, 3, "getLyrics"),
                 "future-plugin/source.js" to "function getLyrics(){return [];}",
                 "past-plugin/manifest.json" to manifest("com.test.past.plugin", 0, 1, "getLyrics"),
                 "past-plugin/source.js" to "function getLyrics(){return [];}",
-                "future-host/manifest.json" to manifest("com.test.future.host", 4, 4, "getLyrics"),
+                "future-host/manifest.json" to manifest("com.test.future.host", 5, 5, "getLyrics"),
                 "future-host/source.js" to "function getLyrics(){return [];}",
             ),
         )
@@ -443,13 +519,14 @@ class PluginImportRuntimeDesktopTest {
                 "com.test.api1",
                 "com.test.api2",
                 "com.test.api3",
+                "com.test.api5",
             ),
             result.installed.map { it.id }.toSet(),
         )
         assertEquals(3, result.failed.size)
-        assertTrue(result.failed.any { it.reason.contains("unsupported plugin protocol 5") })
+        assertTrue(result.failed.any { it.reason.contains("unsupported plugin protocol 6") })
         assertTrue(result.failed.any { it.reason.contains("unsupported plugin protocol 0") })
-        assertTrue(result.failed.any { it.reason.contains("unsupported host API 4") })
+        assertTrue(result.failed.any { it.reason.contains("unsupported host API 5") })
     }
 
     @Test
@@ -481,7 +558,7 @@ class PluginImportRuntimeDesktopTest {
         val repository = PluginRepository(dao, pluginsDir)
         val summaries = repository.allSnapshot()
         assertEquals(5, summaries.size)
-        assertTrue(summaries.all { it.apiVersion == 4 })
+        assertTrue(summaries.all { it.apiVersion in 4..5 })
         assertTrue(summaries.all { it.capabilities.containsAll(listOf("searchSongs", "getLyrics", "searchCovers")) })
         val manager = PluginRuntimeManager(
             factory = PluginRuntimeFactory(

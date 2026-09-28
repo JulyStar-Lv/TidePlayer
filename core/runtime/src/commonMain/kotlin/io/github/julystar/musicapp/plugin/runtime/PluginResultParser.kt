@@ -1,6 +1,8 @@
 package io.github.julystar.musicapp.plugin.runtime
 
 import io.github.julystar.musicapp.source.api.MetaCoverCandidate
+import io.github.julystar.musicapp.source.api.MetaLyricAgent
+import io.github.julystar.musicapp.source.api.MetaLyricMetadata
 import io.github.julystar.musicapp.source.api.MetaLyricLine
 import io.github.julystar.musicapp.source.api.MetaLyricWord
 import io.github.julystar.musicapp.source.api.MetaLyrics
@@ -260,15 +262,10 @@ class PluginResultParser(
             val start = tuple.getOrNull(0)?.primitiveLong()
             val end = tuple.getOrNull(1)?.primitiveLong()
             val payload = tuple.getOrNull(2) ?: return@mapIndexedNotNull null
-            val words = (payload as? JsonArray).orEmpty().mapNotNull { wordValue ->
-                val word = wordValue as? JsonArray ?: return@mapNotNull null
-                val text = word.getOrNull(2)?.primitiveString() ?: return@mapNotNull null
-                MetaLyricWord(
-                    text = text,
-                    startMs = word.getOrNull(0)?.primitiveLong() ?: start,
-                    endMs = word.getOrNull(1)?.primitiveLong() ?: end,
-                )
-            }
+            val words = parseWords(payload as? JsonArray, start, end)
+            val extensions = (tuple.getOrNull(3) as? JsonObject)?.stringMap().orEmpty()
+                .filterKeys { ':' !in it || it.startsWith("ttm:") || it.startsWith("itunes:") }
+            val romanization = matchTimedText(romanized, start, index)
             val text = if (payload is JsonArray) {
                 words.joinToString(separator = "", transform = MetaLyricWord::text)
             } else {
@@ -280,8 +277,11 @@ class PluginResultParser(
                 startMs = start,
                 endMs = end,
                 words = words,
-                translation = matchTimedText(translated, start, index),
-                romanization = matchTimedText(romanized, start, index),
+                translation = matchTimedText(translated, start, index)?.text,
+                romanization = romanization?.text,
+                romanizationWords = romanization?.words.orEmpty(),
+                extensions = extensions,
+                person = extensions["ttm:agent"],
             )
         }
         if (lines.isEmpty()) return null
@@ -289,6 +289,18 @@ class PluginResultParser(
             lines = lines,
             translated = (root["translated"] as? JsonPrimitive)?.contentOrNull,
             romanization = (root["romanization"] as? JsonPrimitive)?.contentOrNull,
+            tags = (root["tags"] as? JsonObject)?.stringMap().orEmpty(),
+            agents = root.firstArray("agents").orEmpty().mapNotNull { value ->
+                val agent = value as? JsonObject ?: return@mapNotNull null
+                val id = agent.firstString("id")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                MetaLyricAgent(id, agent.firstString("type"), agent.firstString("name"))
+            },
+            metadata = root.firstArray("metadata").orEmpty().mapNotNull { parseMetadata(it) },
+            timing = root.firstString("timing")?.takeIf { it == "Word" || it == "Line" },
+            language = root.firstString("language"),
+            bodyDur = root.firstString("bodyDur", "body_dur")?.takeIf { TTML_DURATION.matches(it) },
+            translatedLang = root.firstString("translatedLang"),
+            romanizationLang = root.firstString("romanizationLang"),
         )
     }
 
@@ -353,25 +365,56 @@ class PluginResultParser(
         }
     }
 
-    private fun timedTexts(array: JsonArray?): List<TimedText> = array.orEmpty().mapNotNull { value ->
-        val tuple = value as? JsonArray ?: return@mapNotNull null
-        val text = tuple.getOrNull(2)?.primitiveString() ?: return@mapNotNull null
-        TimedText(tuple.getOrNull(0)?.primitiveLong(), text)
+    private fun parseWords(array: JsonArray?, start: Long?, end: Long?): List<MetaLyricWord> =
+        array.orEmpty().mapNotNull { value ->
+            val tuple = value as? JsonArray ?: return@mapNotNull null
+            val text = tuple.getOrNull(2)?.primitiveString() ?: return@mapNotNull null
+            MetaLyricWord(
+                text = text,
+                startMs = tuple.getOrNull(0)?.primitiveLong() ?: start,
+                endMs = tuple.getOrNull(1)?.primitiveLong() ?: end,
+                ruby = (tuple.getOrNull(3) as? JsonArray).orEmpty().mapNotNull { rubyValue ->
+                    val ruby = rubyValue as? JsonArray ?: return@mapNotNull null
+                    val rubyText = ruby.getOrNull(2)?.primitiveString() ?: return@mapNotNull null
+                    MetaLyricWord(rubyText, ruby.getOrNull(0)?.primitiveLong(), ruby.getOrNull(1)?.primitiveLong())
+                },
+            )
+        }
+
+    private fun parseMetadata(value: JsonElement, depth: Int = 0): MetaLyricMetadata? {
+        if (depth > 16) return null
+        val node = value as? JsonObject ?: return null
+        val name = node.firstString("name") ?: return null
+        if (!XML_NAME.matches(name) || name in setOf("translations", "transliterations", "ttm:agent")) return null
+        val namespace = node.firstString("namespace")
+        if (':' in name && name.substringBefore(':') !in setOf("ttm", "itunes", "xml") && namespace.isNullOrBlank()) return null
+        val children = node.firstArray("children").orEmpty().mapNotNull { parseMetadata(it, depth + 1) }
+        if (name == "songwriters" && children.none { it.name == "songwriter" && !it.text.isNullOrBlank() }) return null
+        return MetaLyricMetadata(
+            name, namespace,
+            (node["attributes"] as? JsonObject)?.stringMap().orEmpty().filterKeys { XML_NAME.matches(it) },
+            node.firstString("text"), children,
+        )
     }
 
-    private fun matchTimedText(
-        values: List<TimedText>,
-        startMs: Long?,
-        index: Int,
-    ): String? = values.firstOrNull { value ->
-        value.startMs != null && value.startMs == startMs
-    }?.text
-        ?: values.getOrNull(index)?.text
-        ?: startMs?.let { start ->
-            values.filter { it.startMs != null }
-                .minByOrNull { value -> abs(value.startMs!! - start) }
-                ?.text
-        }
+    private fun JsonObject.stringMap(): Map<String, String> =
+        mapNotNull { (key, value) -> (value as? JsonPrimitive)?.contentOrNull?.let { key to it } }.toMap()
+
+    private fun timedTexts(array: JsonArray?): List<TimedText> = array.orEmpty().mapNotNull { value ->
+        val tuple = value as? JsonArray ?: return@mapNotNull null
+        val start = tuple.getOrNull(0)?.primitiveLong()
+        val words = parseWords(tuple.getOrNull(2) as? JsonArray, start, tuple.getOrNull(1)?.primitiveLong())
+        val text = if (tuple.getOrNull(2) is JsonArray) words.joinToString("") { it.text }
+            else tuple.getOrNull(2)?.primitiveString() ?: return@mapNotNull null
+        TimedText(start, text, words)
+    }
+
+    private fun matchTimedText(values: List<TimedText>, startMs: Long?, index: Int): TimedText? =
+        values.firstOrNull { it.startMs != null && it.startMs == startMs }
+            ?: values.getOrNull(index)
+            ?: startMs?.let { start ->
+                values.filter { it.startMs != null }.minByOrNull { abs(it.startMs!! - start) }
+            }
 
     private fun parseRoot(raw: String): JsonElement {
         val normalized = raw.ifBlank { "null" }
@@ -454,5 +497,10 @@ class PluginResultParser(
         else -> null
     }
 
-    private data class TimedText(val startMs: Long?, val text: String)
+    private data class TimedText(val startMs: Long?, val text: String, val words: List<MetaLyricWord>)
+
+    private companion object {
+        val XML_NAME = Regex("[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?")
+        val TTML_DURATION = Regex("(?:[0-9]{2,}:[0-5][0-9]:[0-5][0-9](?:[.][0-9]+)?|[0-9]+(?:[.][0-9]+)?(?:h|m|s|ms|f|t))")
+    }
 }

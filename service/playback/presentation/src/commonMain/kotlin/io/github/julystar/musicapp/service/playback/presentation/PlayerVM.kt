@@ -61,8 +61,8 @@ class PlayerVM constructor(
     val nowPlayingState = _nowPlayingState.asStateFlow()
     val nowPlayingEvents = _nowPlayingEvents.receiveAsFlow()
 
-    val playing = playbackState.map { state ->
-        state.status == PlaybackStatus.Playing
+    val playing = nowPlayingState.map { state ->
+        state.controls.isPlaying
     }.stateIn(viewModelScope, whileSubscribed, false)
 
     val currentDuration = playbackPosition.map { position ->
@@ -143,7 +143,9 @@ class PlayerVM constructor(
                     currentTrack = currentState.currentTrack?.let { track ->
                         playbackArtist?.let { artist -> track.copy(artist = artist) } ?: track
                     },
-                    controls = state.toNowPlayingControlsState(),
+                    controls = state.toNowPlayingControlsState(
+                        previousIsPlaying = currentState.controls.isPlaying,
+                    ),
                 )
             }
         }
@@ -154,9 +156,12 @@ class PlayerVM constructor(
             NowPlayingAction.NavigateBack -> Unit
             NowPlayingAction.AddLyric -> Unit
             NowPlayingAction.SearchMetadata -> Unit
+            NowPlayingAction.OpenMetadataSources -> Unit
+            is NowPlayingAction.CreatePlaylistWithCurrentTrack -> Unit
             NowPlayingAction.RemoveLyric -> removeLyric()
             NowPlayingAction.RemoveCurrentTrack -> remove()
             NowPlayingAction.DownloadCurrentTrack -> downloadCurrentTrack()
+            is NowPlayingAction.AddCurrentTrackToPlaylist -> Unit
             is NowPlayingAction.SelectPlaybackSource -> selectPlaybackSource(action.sourceItemId)
             NowPlayingAction.OpenSleepTimer -> Unit
             NowPlayingAction.OpenLyrics -> Unit
@@ -167,7 +172,8 @@ class PlayerVM constructor(
             NowPlayingAction.PlayNext -> playNext()
             NowPlayingAction.Resume -> resume()
             NowPlayingAction.Pause -> pause()
-            NowPlayingAction.CycleRepeatMode -> changePlayModeToNext()
+            NowPlayingAction.CycleRepeatMode -> cycleRepeatMode()
+            NowPlayingAction.CyclePlaybackMode -> changePlayModeToNext()
             is NowPlayingAction.SeekTo -> seek(action.positionMs)
         }
     }
@@ -242,11 +248,7 @@ class PlayerVM constructor(
     }
 
     fun cycleRepeatMode() {
-        val nextMode = when (playbackState.value.repeatMode) {
-            RepeatMode.Off -> RepeatMode.All
-            RepeatMode.All -> RepeatMode.One
-            RepeatMode.One -> RepeatMode.Off
-        }
+        val nextMode = playbackState.value.repeatMode.nextRepeatMode()
         playbackController.setRepeatMode(nextMode)
     }
 
@@ -332,4 +334,10 @@ internal fun PlayerState.nextPlaybackMode(): PlaybackModeSelection {
         repeatMode == RepeatMode.All -> PlaybackModeSelection(RepeatMode.All, shuffleEnabled = true)
         else -> PlaybackModeSelection(RepeatMode.All, shuffleEnabled = false)
     }
+}
+
+internal fun RepeatMode.nextRepeatMode(): RepeatMode = when (this) {
+    RepeatMode.Off -> RepeatMode.All
+    RepeatMode.All -> RepeatMode.One
+    RepeatMode.One -> RepeatMode.Off
 }

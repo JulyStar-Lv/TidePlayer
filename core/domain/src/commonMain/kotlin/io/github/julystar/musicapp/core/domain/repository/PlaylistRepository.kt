@@ -13,6 +13,8 @@ interface PlaylistRepository {
     fun observePlaylistTracks(playlistId: Long): Flow<List<DomainPlaylistTrack>>
     fun removePlaylist(id: Long)
     fun requestTotalDurationById(addedTrackIds: List<Long>)
+    suspend fun addMusic(playlistId: Long, musicId: Long): Boolean
+    suspend fun createPlaylistWithMusic(title: String, musicId: Long): Boolean
     suspend fun removeMusic(playlistId: Long, musicId: Long)
     suspend fun replaceMusicOrderById(
         playlistId: Long,

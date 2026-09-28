@@ -8,10 +8,12 @@ import io.github.julystar.musicapp.plugin.install.ManifestConfigField
 import io.github.julystar.musicapp.plugin.install.ManifestConfigOption
 import io.github.julystar.musicapp.plugin.install.ParsedManifest
 import io.github.julystar.musicapp.plugin.runtime.InstalledPlugin
+import io.github.julystar.musicapp.plugin.runtime.PluginI18n
 import io.github.julystar.musicapp.plugin.runtime.PluginConfigProvider
 import io.github.julystar.musicapp.plugin.runtime.PluginRuntimeDescriptor
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -48,10 +50,11 @@ data class PluginSummary(
 class PluginRepository(
     private val pluginDao: PluginDao,
     private val pluginsDir: Path,
+    private val localeChanges: Flow<Unit> = flowOf(Unit),
 ) : PluginConfigProvider {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun allPlugins(): Flow<List<PluginSummary>> = pluginDao.all().map { plugins ->
+    fun allPlugins(): Flow<List<PluginSummary>> = combine(pluginDao.all(), localeChanges) { plugins, _ ->
         plugins.map { plugin -> plugin.toSummary() }
     }
 
@@ -163,29 +166,41 @@ class PluginRepository(
         allowBatchLookup = allowBatchLookup,
     )
 
-    private fun PluginEntity.toSummary(): PluginSummary = PluginSummary(
-        id = pluginId,
-        name = name,
-        versionName = versionName,
-        versionCode = versionCode,
-        author = author,
-        description = description,
-        capabilities = decodeStringList(capabilitiesJson),
-        enabled = enabled,
-        allowManualLookup = allowManualLookup,
-        allowAutomaticLookup = allowAutomaticLookup,
-        allowBatchLookup = allowBatchLookup,
-        installedAt = installedAt,
-        updatedAt = updatedAt,
-        entryFile = entryFile,
-        includeDirs = decodeStringList(includeDirsJson),
-        iconPath = iconPath,
-        configFields = decodeConfigFields(manifestRawJson),
-        lastError = lastError,
-        lastErrorAt = lastErrorAt,
-        apiVersion = apiVersion,
-        minHostApiVersion = minHostApiVersion,
-    )
+    private fun PluginEntity.toSummary(): PluginSummary {
+        val manifest = json.parseToJsonElement(manifestRawJson).jsonObject
+        val i18n = PluginI18n.read(pluginsDir / pluginId, manifest)
+        return PluginSummary(
+            id = pluginId,
+            name = i18n.resolve(name),
+            versionName = versionName,
+            versionCode = versionCode,
+            author = author,
+            description = i18n.resolve(description),
+            capabilities = decodeStringList(capabilitiesJson),
+            enabled = enabled,
+            allowManualLookup = allowManualLookup,
+            allowAutomaticLookup = allowAutomaticLookup,
+            allowBatchLookup = allowBatchLookup,
+            installedAt = installedAt,
+            updatedAt = updatedAt,
+            entryFile = entryFile,
+            includeDirs = decodeStringList(includeDirsJson),
+            iconPath = iconPath,
+            configFields = decodeConfigFields(manifestRawJson).map { field ->
+                field.copy(
+                    title = i18n.resolve(field.title),
+                    summary = field.summary?.let(i18n::resolve),
+                    group = field.group?.let(i18n::resolve),
+                    defaultValue = if (field.type == "markdown") field.defaultValue?.let(i18n::resolve) else field.defaultValue,
+                    options = field.options.map { it.copy(label = i18n.resolve(it.label), summary = it.summary?.let(i18n::resolve)) },
+                )
+            },
+            lastError = lastError,
+            lastErrorAt = lastErrorAt,
+            apiVersion = apiVersion,
+            minHostApiVersion = minHostApiVersion,
+        )
+    }
 
     private fun decodeStringList(raw: String): List<String> = runCatching {
         json.decodeFromString<List<String>>(raw)

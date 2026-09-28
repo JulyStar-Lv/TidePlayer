@@ -1,7 +1,19 @@
 <resources>
     <string name="downloads_title">Downloads</string>
-    <string name="music_player_context_menu_remove">Remove</string>
+    <string name="music_player_context_menu_remove">Remove from queue</string>
     <string name="music_player_search_metadata">Search metadata</string>
+    <string name="player_update_metadata">Update Metadata Manually</string>
+    <string name="player_default_metadata_source">Default Metadata Sources</string>
+    <string name="player_new_playlist">New Playlist</string>
+    <string name="player_playlist_name">Playlist title</string>
+    <string name="player_create_playlist">Create</string>
+    <string name="player_create_playlist_track_hint">The current song will be added to this playlist</string>
+    <string name="player_all_playlists">All Playlists</string>
+    <string name="player_add_to_playlist">Add to Playlist</string>
+    <string name="player_download_to_local">Download</string>
+    <string name="player_menu_add_favorite">Favorite</string>
+    <string name="player_menu_remove_favorite">Undo Favorite</string>
+    <string name="player_no_playlists">No playlists</string>
     <string name="music_lyric_add">Add Lyric</string>
     <string name="music_lyric_remove">Remove Lyric</string>
     <string name="music_lyric_no_desc">No Lyric.</string>
@@ -53,4 +65,7 @@
     <string name="player_composed_by">Composed by · %1$s</string>
     <string name="player_exit_now_playing">Exit Now Playing</string>
     <string name="player_open_mini_player">Open Mini Player</string>
+    <string name="player_repeat_off">Repeat off</string>
+    <string name="player_shuffle_on">Enable shuffle</string>
+    <string name="player_shuffle_off">Disable shuffle</string>
 </resources>

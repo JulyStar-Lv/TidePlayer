@@ -19,6 +19,7 @@ data class PlaylistListItem(
     val musicCount: String,
     val durationLabel: String,
     val cover: Artwork?,
+    val createdAt: Long? = null,
 )
 
 enum class PlaylistsListMode {

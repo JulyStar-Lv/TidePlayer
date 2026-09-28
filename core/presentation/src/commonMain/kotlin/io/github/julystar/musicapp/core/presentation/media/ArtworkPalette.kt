@@ -1,11 +1,17 @@
 package io.github.julystar.musicapp.core.presentation.media
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import io.github.julystar.musicapp.core.domain.model.Artwork
@@ -22,6 +28,7 @@ data class ArtworkPalette(
     val muted: Color,
     val darkMuted: Color,
     val flowingLightColors: List<Color> = emptyList(),
+    val backgroundTexture: ImageBitmap? = null,
 ) {
     companion object {
         val Default = ArtworkPalette(
@@ -36,6 +43,15 @@ internal class ArtworkPaletteCache(
     private val maxEntries: Int = 48,
 ) {
     private val values = LinkedHashMap<Artwork, ArtworkPalette>()
+
+    private var revision: Long? = null
+
+    fun updateRevision(value: Long?) {
+        if (revision != value) {
+            values.clear()
+            revision = value
+        }
+    }
 
     fun get(artwork: Artwork): ArtworkPalette? = values[artwork]
 
@@ -62,7 +78,7 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
     val height = bitmap.height
 
     if (width < sampleSize || height < sampleSize) {
-        return ArtworkPalette.Default
+        return ArtworkPalette.Default.copy(backgroundTexture = createArtworkBackgroundTexture(bitmap))
     }
 
     val stepX = width / sampleSize
@@ -156,6 +172,7 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
         vibrant = tuneBackgroundColor(vibrant, darkness = 0.08f),
         muted = tuneBackgroundColor(muted, darkness = 0.18f).copy(alpha = 0.88f),
         darkMuted = tuneBackgroundColor(darkMuted, darkness = 0.42f).copy(alpha = 0.96f),
+        backgroundTexture = createArtworkBackgroundTexture(bitmap),
         flowingLightColors = List(9) { index ->
             average(
                 gridCount[index],
@@ -169,6 +186,21 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
     )
 }
 
+/** Preserve the cover's spatial colors instead of averaging them into a handful of swatches. */
+internal fun createArtworkBackgroundTexture(bitmap: ImageBitmap): ImageBitmap {
+    val side = minOf(bitmap.width, bitmap.height)
+    val texture = ImageBitmap(64, 64)
+    Canvas(texture).drawImageRect(
+        image = bitmap,
+        srcOffset = IntOffset((bitmap.width - side) / 2, (bitmap.height - side) / 2),
+        srcSize = IntSize(side, side),
+        dstOffset = IntOffset.Zero,
+        dstSize = IntSize(64, 64),
+        paint = Paint().apply { filterQuality = FilterQuality.Medium },
+    )
+    return texture
+}
+
 /**
  * Remembers and loads an [ArtworkPalette] from the given [artwork].
  * Uses the [ArtworkImageLoader] to load the bitmap, then extracts dominant colors.
@@ -176,13 +208,15 @@ internal fun extractPaletteFromBitmap(bitmap: ImageBitmap, sampleSize: Int = 16)
 @Composable
 fun rememberArtworkPalette(artwork: Artwork?): ArtworkPalette {
     val loader = koinInject<ArtworkImageLoader>()
-    var palette by remember(artwork) {
+    val revision = loader.revision?.collectAsState()?.value
+    var palette by remember {
         mutableStateOf(
             artwork?.let(artworkPaletteCache::get) ?: ArtworkPalette.Default,
         )
     }
 
-    LaunchedEffect(artwork) {
+    LaunchedEffect(artwork, loader, revision) {
+        artworkPaletteCache.updateRevision(revision)
         if (artwork == null) {
             palette = ArtworkPalette.Default
             return@LaunchedEffect
@@ -195,7 +229,7 @@ fun rememberArtworkPalette(artwork: Artwork?): ArtworkPalette {
             loader.cachedBitmap(artwork) ?: loader.loadBitmap(artwork)
         }
         if (bitmap != null) {
-            val extractedPalette = extractPaletteFromBitmap(bitmap)
+            val extractedPalette = withContext(Dispatchers.Default) { extractPaletteFromBitmap(bitmap) }
             artworkPaletteCache.put(artwork, extractedPalette)
             palette = extractedPalette
         } else {

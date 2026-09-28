@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
@@ -49,10 +48,8 @@ import musicapp.feature.settings.generated.resources.*
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
@@ -84,14 +81,11 @@ fun SettingsScreen(
 
     val bottomContentInset = LocalDesignBottomContentInset.current
     val pageScrollState = rememberScrollState()
-    val topAppBarScrollBehavior = MiuixScrollBehavior()
-    val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
     val pageTitle = stringResource(Res.string.settings_title)
 
     BoxWithConstraints(
         modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+            .fillMaxSize(),
     ) {
         val compact = maxWidth < DesignTokens.adaptive.largeMinWidth
         val pagePadding = if (compact) 24.dp else DesignTokens.spacing.pageExpanded
@@ -101,12 +95,8 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .verticalScroll(pageScrollState),
         ) {
-            TopAppBar(
-                title = pageTitle,
-                largeTitle = pageTitle,
-                color = Color.Transparent,
-                titleColor = Color.Transparent,
-                scrollBehavior = topAppBarScrollBehavior,
+            Box(
+                modifier = Modifier.fillMaxWidth().height(DesignTokens.adaptive.compactHeaderHeight),
             )
 
             Column(
@@ -349,7 +339,7 @@ fun SettingsScreen(
         }
         LiquidGlassActionBar(
             title = pageTitle,
-            collapseFraction = actionBarProgress,
+            collapseFraction = 1f,
             modifier = Modifier.align(Alignment.TopCenter),
         )
     }

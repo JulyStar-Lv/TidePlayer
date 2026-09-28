@@ -202,6 +202,7 @@ class IosPlayerController internal constructor(
         id: MusicId,
         playlistId: PlaylistId,
         startPositionMs: Long,
+        startPlayback: Boolean,
     ) {
         val normalizedStartPositionMs = startPositionMs.coerceAtLeast(0L)
         if (
@@ -212,7 +213,7 @@ class IosPlayerController internal constructor(
             if (normalizedStartPositionMs > 0L) {
                 playbackEngine.seekTo(normalizedStartPositionMs)
             }
-            resume()
+            if (startPlayback) resume() else pause()
             return
         }
 
@@ -268,8 +269,8 @@ class IosPlayerController internal constructor(
                 if (normalizedStartPositionMs > 0L) {
                     playbackEngine.seekTo(normalizedStartPositionMs)
                 }
-                playbackEngine.play()
-                playerRepository.setIsPlaying(true)
+                if (startPlayback) playbackEngine.play()
+                playerRepository.setIsPlaying(startPlayback)
                 playerRepository.notifyDurationChanged()
             } catch (error: CancellationException) {
                 throw error
@@ -321,7 +322,7 @@ class IosPlayerController internal constructor(
         val music = playerRepository.nextMusic.value
         val playlist = playerRepository.playlist.value
         if (music != null && playlist != null) {
-            play(music.meta.id, playlist.abstr.meta.id)
+            play(music.meta.id, playlist.abstr.meta.id, startPlayback = playerRepository.playing.value)
         }
     }
 
@@ -329,7 +330,7 @@ class IosPlayerController internal constructor(
         val music = playerRepository.previousMusic.value
         val playlist = playerRepository.playlist.value
         if (music != null && playlist != null) {
-            play(music.meta.id, playlist.abstr.meta.id)
+            play(music.meta.id, playlist.abstr.meta.id, startPlayback = playerRepository.playing.value)
         }
     }
 

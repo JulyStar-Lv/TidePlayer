@@ -40,7 +40,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -98,9 +97,7 @@ import musicapp.feature.home.generated.resources.home_title
 import musicapp.feature.home.generated.resources.home_your_listening
 import musicapp.feature.home.generated.resources.listening_plays
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -122,14 +119,11 @@ fun HomeDesignScreen(
         ?: fallbackTrack?.title
         ?: stringResource(Res.string.home_no_track)
     val bottomContentInset = LocalDesignBottomContentInset.current
-    val topAppBarScrollBehavior = MiuixScrollBehavior()
-    val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
     LiquidGlassScene(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background)
-                .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+                .background(MiuixTheme.colorScheme.background),
         ) {
             val compact = maxWidth < DesignTokens.adaptive.largeMinWidth
             val pagePadding = if (compact) 24.dp else DesignTokens.spacing.pageExpanded
@@ -143,13 +137,6 @@ fun HomeDesignScreen(
             val listState = rememberLazyListState()
 
             Column(modifier = Modifier.fillMaxSize()) {
-                TopAppBar(
-                    title = pageTitle,
-                    largeTitle = pageTitle,
-                    color = Color.Transparent,
-                    titleColor = Color.Transparent,
-                    scrollBehavior = topAppBarScrollBehavior,
-                )
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -159,7 +146,7 @@ fun HomeDesignScreen(
                         .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
                     contentPadding = PaddingValues(
                         start = pagePadding,
-                        top = 28.dp,
+                        top = DesignTokens.adaptive.compactHeaderHeight + 28.dp,
                         end = pagePadding,
                         bottom = maxOf(
                             scaffoldPadding.calculateBottomPadding(),
@@ -312,7 +299,7 @@ fun HomeDesignScreen(
             }
             LiquidGlassActionBar(
                 title = pageTitle,
-                collapseFraction = actionBarProgress,
+                collapseFraction = 1f,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }

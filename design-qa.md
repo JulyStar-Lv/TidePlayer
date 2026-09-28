@@ -2463,3 +2463,128 @@ final result: blocked
 The complete source, implementation, normalization, focused comparison, pixel samples, iteration history, and verification are recorded above in **Album detail toolbar shadow parity — 2026-09-25**. The final evidence is `docs/qa/album-toolbar-shadow-2026-09-25/12-tide-shadow-final-settled.png` and `16-focused-toolbar-comparison.png`. No actionable P0, P1, or P2 finding remains for the return-button, grouped download/more capsule, or search-capsule shadow treatment.
 
 final result: passed
+
+---
+
+## Now Playing more menu — 2026-09-27
+
+- Source visual truth: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-5254e898-191d-4576-9364-f611774fa54f.png` (838 × 590 pixels, cropped Apple Music dark context menu with playlist submenu).
+- Target state: Now Playing → more menu → Add to Playlist submenu. Main order: default metadata sources, manual metadata update, download, separator, add to playlist, favorite/undo favorite.
+- Implementation capture: unavailable. The native computer-use tool reports that the Mac is locked and cannot unlock automatically. No matched viewport, density normalization, full-view comparison, or focused visual comparison can be claimed.
+- Typography: implementation specifies the existing application sans family, normal 13sp menu text, and 24dp rows; visual comparison pending.
+- Spacing/layout: 212dp main menu, 156dp submenu, 10dp surface radius, 5dp hover radius, 3dp outer padding; submenu flips horizontally when near a window edge. Visual comparison pending.
+- Colors: translucent dark plum surface, neutral translucent hover, monochrome foreground, thin separator and border. Background blur parity remains unverified.
+- Assets: existing pencil, settings, download, playlist, star and chevron resources; the supplied screenshot's icon stroke/size parity remains unverified.
+- Copy/content: requested five actions and the separator are implemented. Playlist submenu includes New Playlist and All Playlists; no fabricated recent-playlist history is shown. Default metadata sources opens the existing metadata-plugin automatic lookup settings.
+- Functional evidence: `NowPlayingMoreMenuTest.playlistSubmenuAddsExistingTrackAndCreatesNamedPlaylist` passed, exercising the existing-list selection and named creation through the actual composed UI. `RoomLibraryIntegrationTest.roomLibraryStoreAddsExistingTrackToPlaylistOnlyOnce` passed, verifying deduplication and creating a playlist containing the current track.
+- Build evidence: desktop distributable and Android playback presentation compilation passed. `git diff --check` passed.
+- Remaining gate: unlock the Mac, launch the latest bundle, capture the main/secondary menus, compare with the supplied source, and correct any visual findings.
+
+final result: blocked
+
+### Native visual acceptance follow-up — 2026-09-27
+
+The Mac was unlocked and the latest distributable was relaunched. Native screenshots in the task show the five-item main menu, the adjacent playlist submenu in the empty state, and the create-playlist dialog at a 980 × 600 point window (1960 × 1200 screenshot pixels, 2× density). The supplied source is a cropped menu rather than a full window, so visual observations are limited to the menu regions and do not constitute a normalized pixel comparison. The computer-use capture API did not provide filesystem screenshot paths.
+
+- Verified: requested main-menu order, separator position, visible monochrome icons, one-line text, gray active playlist row, adjacent secondary menu, New Playlist entry, empty existing-list state, and opening/cancelling the new-playlist dialog.
+- [P1 resolved] New-playlist title rendered black against the dark dialog surface. Set an explicit white title color, rebuilt/relaunched, and recaptured; the title is now legible.
+- [P2 resolved] Cancel/confirm buttons touched. Added 8dp spacing and verified the separation in the revised native capture.
+- [P2 remaining] The menu surface is translucent but does not blur the underlying progress/transport controls. Those controls remain recognizable through the surface, unlike the Apple Music material. Native backdrop/material treatment is still required for strict visual parity.
+- Typography/layout: compact text and row spacing are consistent with the requested menu density; no visible clipping or overflow was observed in this window. Icon glyphs remain approximations of Apple Music's symbols.
+- Data/state limits: the real library has no ordinary playlists, so an existing-list populated state was not visually checked. Its action and persistence are covered by the earlier Compose and Room tests. Input-enable testing was interrupted by concurrent application state changes and is not claimed as a new real-device check.
+
+The functional layout acceptance is complete for the observed states. Strict Apple Music visual fidelity is not yet accepted because of the material difference and missing normalized comparison evidence.
+
+final result: blocked
+
+### Menu positioning and frosted material follow-up — 2026-09-27
+
+- New source: `/var/folders/jc/z_g_5hld77g5zmm6bxv83_5c0000gn/T/codex-clipboard-b1673e4b-3bb4-47ab-8fe6-407612cfa610.png`. The main menu starts at the More button's left edge and extends upward with a small gap.
+- Main positioning now uses the anchor's left edge and prefers the space above it, falling below only when insufficient vertical space is available. Existing window-bound clamping and secondary-menu horizontal flipping are retained.
+- Main and secondary menus use the scene backdrop with a 24dp blur and a dark neutral tint, without the lens distortion of the transport controls. The captured backdrop contains the artwork background rather than foreground lyrics/controls.
+- Relaunched the rebuilt desktop bundle and inspected both menus at 980 × 600 points (1960 × 1200 pixels). The main menu visibly opens above the button and aligns to its left edge; the secondary menu sits beside the playlist row without window overflow. Foreground lyrics do not show through either menu; text and separators remain legible.
+- Verification: desktop distributable build and `NowPlayingMoreMenuTest` passed; `git diff --check` passed. No real playlist or favorite data was changed during visual inspection.
+- Remaining evidence limitation: native screenshots were displayed in the task, but the capture API returned no filesystem paths for a normalized combined comparison. Compose's material is not identical to macOS native material; pixel-level Apple Music parity is not claimed.
+
+The requested positioning and blur implementation are verified in the observed desktop state. Strict pixel-parity QA remains blocked by the comparison evidence limitation.
+
+final result: blocked
+
+
+### Manual metadata search dialog — 2026-09-27
+
+Scope: use the supplied Apple Music screenshot as a reference for the dialog title and Cancel/Create control styling. Search results and metadata actions remain TidePlayer content.
+
+- Source visual truth: `docs/qa/manual-metadata-dialog/reference.png` (1964 × 1204 pixels).
+- Implementation: `docs/qa/manual-metadata-dialog/results.png` (1960 × 1200 pixels); loading state: `docs/qa/manual-metadata-dialog/implementation.png`.
+- Viewport: approximately 980 × 600 logical desktop points at 2× density, light theme, paused Now Playing screen. Both images were normalized to 1× for comparison. Source has a disabled Create button; implementation has an enabled Apply button after selecting a search result. Their content and selected song intentionally differ.
+- Combined full-view evidence: `docs/qa/manual-metadata-dialog/comparison.png`. Focused title/footer evidence: `docs/qa/manual-metadata-dialog/controls-comparison.png`.
+
+Findings and iteration history:
+
+- [P1 resolved] The first implementation inherited the overlay's two-thirds height limit and left no room for search feedback. The desktop minimum height now follows the window height (90%, capped at 640dp). The final loading screenshot shows a fully visible spinner and status, and the populated screenshot shows both candidate rows above the footer.
+- Typography: centered bold 16sp title and smaller centered supporting copy. Footer labels use the existing theme font and medium weight. Scoped title/controls comparison shows the requested hierarchy; no cropped labels.
+- Spacing/layout: an edge-to-edge divider separates the fixed footer. Cancel and Apply sit at opposite edges with 24dp horizontal insets and 32dp capsule controls. Buttons are slightly larger than the approximately 28dp reference controls to retain existing app readability; this is an accepted adaptation. The wider dialog accommodates metadata rows.
+- Colors/tokens: neutral gray button backgrounds use the theme's foreground at 8% opacity; disabled Apply uses a lighter background and 28% foreground. Existing themed surfaces and result-selection accent remain in use.
+- Image quality: cover previews remain real provider artwork and retain their existing crop and sharpness. No new image assets or replacement illustrations were needed for this title/button change.
+- Copy/content: Cancel is localized in Chinese and English. Apply retains its metadata meaning; Reset from file remains available alongside current-track information.
+
+Verification:
+
+- Desktop compilation and distributable packaging passed.
+- Native UI verified opening from Now Playing → More → Manual metadata update, loading state, two populated results, selecting the second candidate, enabled Apply, and Cancel dismissal. No metadata was applied or reset during inspection.
+- `git diff --check` passed for the changed source/resources.
+- `:shared:desktopTest --tests '*ManualMetadataServiceTest'` could not run: test compilation fails in the pre-existing modified `RootNavHostTest.kt` at lines 70, 82, and 114 due to unresolved `RECENTLY_ADDED`. No unrelated navigation files were changed for this task.
+- Residual test gaps: Android/iOS, dark theme, and actual metadata mutation were not exercised. Existing service logic was unchanged.
+
+Implementation checklist: title styling, footer separator, Cancel/Apply capsules, reset action relocation, localization, and desktop results visibility completed.
+
+final result: passed
+
+
+### Manual metadata results and search performance follow-up — 2026-09-27
+
+- Source: `docs/qa/manual-metadata-dialog/reference.png`; final implementation: `docs/qa/manual-metadata-dialog/results-expanded.png`. Both desktop captures use approximately 980 × 600 logical points and 2× density (source 1964 × 1204, implementation 1960 × 1200); combined evidence is normalized to 1× in `expanded-comparison.png` and `expanded-controls-comparison.png` in the same directory.
+- Reference scope remains the centered title and Cancel/Create styling. The final focused comparison retains the bold centered title, neutral capsules and full-width footer separator. The smaller supporting-copy gap and denser result rows are intentional follow-up changes requested by the user.
+- Typography and layout: current-track details now occupy two lines; candidate titles remain emphasized above smaller artist/album and provider/date/duration lines. Cover previews are 40dp. Supporting copy, row spacing, and partial-source-failure feedback take less space, increasing the visible result area. The list remains scrollable with fixed footer buttons.
+- Colors, imagery and copy: theme surfaces, selected-result accent, live provider artwork, and localized existing action labels remain intact. No substitute artwork was introduced. Long titles/providers continue to ellipsize within their row rather than overlap controls.
+- Search: per-source limit increased from 3 to 20. Manual sources execute concurrently and publish their completed results immediately. Each source has its own timeout, retaining successful results if another times out. Automatic/batch source ordering remains sequential. Lyrics are fetched only for the selected result during Apply; results without lyrics can update song metadata while retaining existing lyrics.
+- Cover caching: the dialog owns decoded previews and in-flight requests by normalized cover URL. Recycled rows retain completed images and cannot cancel the underlying request. Closing the dialog can cancel downloads; canceled requests can be retried on reopening.
+- Native evidence: the current track search returned 73 candidates compared with the previously observed 7. A snapshot showed the first 20 already selectable while other sources were still searching. Scrolling to additional results and back showed previously loaded covers retained. The final compact capture showed 40 results while other sources were still pending. These are observations for this track/network, not a general latency benchmark. No Apply or Reset mutation was performed during UI verification.
+- Regression verification: 9 `PluginProductionAssemblyTest`, 11 `ManualMetadataServiceTest`, and 2 `ManualMetadataCoverPreviewCacheTest` cases passed. These cover source concurrency/progressive delivery, timeout isolation, cancellation, deferred lyric eligibility, shared cover requests, recycled-row reuse, and dialog cancellation retry. Shared tests used a temporary Gradle init script excluding the pre-existing `RootNavHostTest.kt` compilation errors; no navigation source/test was modified. Desktop packaging and `git diff --check` passed.
+- Remaining verification gaps: Android/iOS, dark theme, and live metadata application were not exercised in this follow-up. Provider/network latency still determines individual source completion time.
+
+final result: passed
+
+
+### Manual metadata reset and relevance follow-up — 2026-09-27
+
+- Reset from file now appears as localized Reset / 重置 in the footer’s former Cancel position. The current-track card no longer repeats that action. Existing capsule styling and footer separator remain.
+- Default searches filter by normalized base song title before ranking; artist-only, album-only and duration-only matches are removed. Recognized live, cover and remaster version suffixes remain eligible. Custom searches match all typed tokens against title and artist, allowing incorrect file metadata to be corrected. Matching current albums rank ahead of compilations.
+- Progressive search automatically selects the best ranked candidate until the user makes a selection; later source results preserve that manual choice.
+- Native verification: the same 充氧期 search previously returned 73 candidates and now returns 6 title-matching candidates. Original-artist album versions precede compilation and cover entries. One provider reported failure, with successful results retained. Candidate selection and list scrolling were verified without applying or resetting metadata.
+- Final screenshot: `docs/qa/manual-metadata-dialog/results-filtered.png`; combined reference evidence: `docs/qa/manual-metadata-dialog/filtered-comparison.png`. Viewport remains approximately 980 × 600 logical points at 2× density. Current capture uses the system dark theme, whereas the supplied Apple Music reference uses light theme; comparison scope is centered title, capsule geometry and footer placement. The themed palette difference is intentional. Labels are unclipped and provider text ellipsizes inside candidate rows.
+- Verification: 15 metadata service tests and 2 cover cache tests passed, including title relevance, meaningful subtitle rejection, custom searches and album ordering. Shared test compilation used the temporary exclusion of the pre-existing broken RootNavHostTest; no navigation files changed. Desktop packaging and git diff --check passed. Android/iOS and actual metadata mutation remain untested.
+
+final result: passed
+
+
+### Manual metadata lyric status badges — 2026-09-27
+
+- Result titles now share their row with a compact localized lyric badge: checking, no lyrics, available (TTML / word synced / line synced / plain text), or check failed. Failure is explicitly distinct from no lyrics.
+- Visible rows start background checks with at most two concurrent requests. Dialog-owned cached requests survive row recycling, and completed lyrics are reused during Apply. Successful empty checks retain existing library lyrics without re-fetching. Provider failures are retried through the existing Apply error path.
+- Native verification: loading labels changed to available word-synced lyrics for QQ/Kugou and check failed for Apple Music/NetEase on the current track/network. Scrolling back retained completed labels. Evidence: `docs/qa/manual-metadata-dialog/lyrics-badges.png`. No metadata application or reset was performed.
+- Verification: all 20 scoped manual metadata tests passed (15 service, 2 artwork cache, 3 lyric cache). New cases cover empty/content types, row cancellation, request sharing, concurrency limit and timeout/error distinction. The temporary Gradle init script excludes the pre-existing broken RootNavHostTest; unrelated navigation files were unchanged. Desktop distributable and git diff --check passed. Android/iOS and actual metadata mutation remain untested.
+
+final result: passed
+
+
+### Duplicate metadata editions and manual cover refresh — 2026-09-27
+
+- Search originally de-duplicated only source IDs and external song IDs. Results now also merge entries within a source when normalized full title, artist, album, release year and duration in seconds agree. Region release dates and alternate image URLs no longer create duplicate entries. Different sources, albums, recording durations and version titles remain available. Entries missing artist or album retain external-ID identity to avoid merging uncertain matches.
+- Manual artwork now persists as a track-specific override, selected ahead of embedded artwork. Applying another cover replaces only the generated manual override; reset removes it and retains the original embedded artwork. Album artwork for other tracks is unchanged.
+- Repository revision updates clear byte/bitmap caches and restart artwork loading and palette extraction, so an unchanged track ID can display a changed cover. Old byte loads cannot repopulate invalidated caches.
+- Regression checks: 43 scoped tests passed (16 manual service, 4 lyric cache/ranking, 2 cover preview cache, 1 bitmap loader, 8 unified metadata/database, 12 legacy artwork repository). New coverage verifies regional/alternate artwork duplicate merging, source/version distinctions, embedded-cover precedence, repeat manual updates, reset restoration and decoded bitmap replacement for the same track ID. Shared tests used the temporary exclusion of the pre-existing RootNavHostTest compilation issue. Desktop distributable and git diff --check passed.
+- Native verification: restarted desktop application and searched the user’s See You Again track. The result count fell from 43 to 40; the top region-equivalent Apple Music duplicates merged while other-source and Deluxe album alternatives remained. No Apply or Reset mutation was performed against the user’s library during verification; cover persistence and refresh were verified in isolated database/bitmap tests. Android/iOS remain untested.
+
+final result: passed

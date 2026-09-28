@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,15 +75,16 @@ private fun ArtworkImageInternal(
     loader: ArtworkImageLoader,
     fallback: @Composable () -> Unit,
 ) {
+    val revision = loader.revision?.collectAsState()?.value
     Box(modifier = modifier) {
         var loadedArtwork: LoadedArtwork? by remember {
             mutableStateOf(null)
         }
-        val cachedBitmap = remember(artwork, loader) {
+        val cachedBitmap = remember(artwork, loader, revision) {
             artwork?.let(loader::cachedBitmap)
         }
 
-        LaunchedEffect(artwork, loader) {
+        LaunchedEffect(artwork, loader, revision) {
             when {
                 artwork == null -> loadedArtwork = null
                 cachedBitmap != null -> loadedArtwork = LoadedArtwork(artwork, cachedBitmap)

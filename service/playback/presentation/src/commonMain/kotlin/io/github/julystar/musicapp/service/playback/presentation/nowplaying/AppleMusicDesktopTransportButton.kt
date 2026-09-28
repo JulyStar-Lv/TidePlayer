@@ -18,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -42,9 +43,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.imageResource
 import top.yukonga.miuix.kmp.basic.Icon
 import kotlin.math.PI
 import kotlin.math.sin
@@ -83,6 +87,10 @@ internal fun AppleMusicDesktopTransportButton(
     motion: AppleMusicDesktopTransportMotion = AppleMusicDesktopTransportMotion.Standard,
     selected: Boolean? = null,
     seekDirection: Int = 0,
+    iconHeight: Dp = iconSize,
+    iconOffsetX: Dp = 0.dp,
+    iconOffsetY: Dp = 0.dp,
+    iconScaleY: Float = 1f,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -187,16 +195,21 @@ internal fun AppleMusicDesktopTransportButton(
             contentAlignment = Alignment.Center,
             label = "desktop-transport-symbol",
             modifier = Modifier
-                .requiredSize(iconSize)
+                .offset(x = iconOffsetX, y = iconOffsetY)
+                .requiredSize(width = iconSize, height = iconHeight)
                 .graphicsLayer {
                     val progress = if (enabled) pressProgress.value else 0f
                     val compression = if (motion == AppleMusicDesktopTransportMotion.Seek) 0.10f else 0.14f
                     scaleX = 1f - compression * progress
-                    scaleY = scaleX
+                    scaleY = scaleX * iconScaleY
                     alpha = 1f - 0.24f * progress.coerceIn(0f, 1f)
                 },
         ) { symbol ->
-            val effectiveTint = if (enabled) iconTint else tint.copy(alpha = 0.28f)
+            val effectiveTint = if (enabled || motion == AppleMusicDesktopTransportMotion.PlayPause) {
+                iconTint
+            } else {
+                tint.copy(alpha = 0.28f)
+            }
             if (motion == AppleMusicDesktopTransportMotion.PlayPause ||
                 motion == AppleMusicDesktopTransportMotion.Standard
             ) {
@@ -204,10 +217,10 @@ internal fun AppleMusicDesktopTransportButton(
                     painter = painterResource(symbol),
                     contentDescription = null,
                     tint = effectiveTint,
-                    modifier = Modifier.requiredSize(iconSize),
+                    modifier = Modifier.requiredSize(width = iconSize, height = iconHeight),
                 )
             } else {
-                TransportLayeredSymbol(symbol, effectiveTint, iconSize, motion, seekDirection) {
+                TransportLayeredSymbol(symbol, effectiveTint, iconSize, iconHeight, motion, seekDirection) {
                     symbolProgress.value
                 }
             }
@@ -220,12 +233,14 @@ private fun TransportLayeredSymbol(
     resource: DrawableResource,
     tint: Color,
     iconSize: Dp,
+    iconHeight: Dp,
     motion: AppleMusicDesktopTransportMotion,
     direction: Int,
     progress: () -> Float,
 ) {
     val painter = painterResource(resource)
-    Canvas(Modifier.requiredSize(iconSize)) {
+    val seekImage = if (motion == AppleMusicDesktopTransportMotion.Seek) imageResource(resource) else null
+    Canvas(Modifier.requiredSize(width = iconSize, height = iconHeight)) {
         val fraction = progress().coerceIn(0f, 1f)
         val filter = ColorFilter.tint(tint)
         // Match Icon's aspect-fit behavior. The mode assets are 60×44, not square;
@@ -246,19 +261,32 @@ private fun TransportLayeredSymbol(
             val forward = direction >= 0
             // The exported 64px canvases have optical centers at 34px/30px and
             // two 20px triangles. Animate those layers without moving the entire button.
-            val split = size.width * (if (forward) 34f else 30f) / 64f
-            val travel = size.width * 20f / 64f
+            val image = checkNotNull(seekImage)
+            val symbolLeft = (size.width - symbolSize.width) / 2f
+            val symbolTop = (size.height - symbolSize.height) / 2f
+            val splitX = if (forward) 34 else 30
+            val split = symbolLeft + splitX * fit
+            val travel = 20f * fit
             val sign = if (forward) 1f else -1f
             fun triangle(leading: Boolean, translation: Float, scale: Float, alpha: Float) {
                 val leftHalf = leading == forward
+                val sourceLeft = if (leftHalf) splitX - 20 else splitX
                 val pivot = Offset(split + (if (leftHalf) -0.5f else 0.5f) * travel, center.y)
                 withTransform({
                     translate(left = translation)
                     scale(scaleX = scale, scaleY = scale, pivot = pivot)
+                    translate(left = symbolLeft + sourceLeft * fit, top = symbolTop)
+                    scale(scaleX = fit, scaleY = fit, pivot = Offset.Zero)
                 }) {
-                    clipRect(left = if (leftHalf) 0f else split, right = if (leftHalf) split else size.width) {
-                        drawSymbol(alpha)
-                    }
+                    // Isolate each triangle before scaling so the neighboring edge cannot leak in.
+                    drawImage(
+                        image = image,
+                        srcOffset = IntOffset(sourceLeft, 0),
+                        srcSize = IntSize(20, image.height),
+                        dstSize = IntSize(20, image.height),
+                        alpha = alpha,
+                        colorFilter = filter,
+                    )
                 }
             }
             val outgoing = (1f - fraction / 0.55f).coerceIn(0f, 1f)

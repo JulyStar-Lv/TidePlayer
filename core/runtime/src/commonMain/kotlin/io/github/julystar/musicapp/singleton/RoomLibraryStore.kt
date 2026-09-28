@@ -338,6 +338,54 @@ class RoomLibraryStore(
         )
     }
 
+    suspend fun createPlaylistWithMusic(title: String, musicId: Long): Boolean {
+        if (title.isBlank() || trackDao.get(musicId) == null) return false
+        val now = currentTimeMillis()
+        database.useWriterConnection { connection ->
+            connection.immediateTransaction {
+                val playlistId = (playlistDao.maxId() ?: 0L) + 1L
+                playlistDao.upsert(
+                    PlaylistEntity(
+                        id = playlistId,
+                        title = title.trim(),
+                        artworkId = null,
+                        createdAt = now,
+                        updatedAt = now,
+                        sortOrder = (playlistDao.maxSortOrder() ?: -1L) + 1L,
+                    )
+                )
+                playlistDao.upsertTracks(listOf(PlaylistTrackCrossRef(playlistId, musicId, 0L, now)))
+            }
+        }
+        return true
+    }
+
+    suspend fun addExistingMusicToPlaylist(playlistId: Long, musicId: Long): Boolean {
+        val playlist = playlistDao.get(playlistId) ?: return false
+        if (trackDao.get(musicId) == null) return false
+
+        val currentRows = playlistDaoRows(playlistId)
+        if (currentRows.any { it.trackId == musicId }) return true
+
+        val now = currentTimeMillis()
+        database.useWriterConnection { connection ->
+            connection.immediateTransaction {
+                playlistDao.upsertTracks(
+                    listOf(
+                        PlaylistTrackCrossRef(
+                            playlistId = playlistId,
+                            trackId = musicId,
+                            sortOrder = (currentRows.maxOfOrNull { it.sortOrder } ?: -1L) + 1L,
+                            addedAt = now,
+                        )
+                    )
+                )
+                playlistDao.upsert(playlist.copy(updatedAt = now))
+            }
+        }
+        return true
+    }
+
     suspend fun removeMusic(playlistId: PlaylistId, musicId: MusicId) {
         playlistDao.deleteTrack(playlistId.value, musicId.value)
     }

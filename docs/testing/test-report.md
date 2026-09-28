@@ -1029,3 +1029,65 @@ that every test ran without skips.
   Arm64.
 - `git diff --check` succeeded. Schema 24 remained unchanged, schema 25 was
   absent, and no destructive migration fallback was introduced.
+
+## 2026-09-27 — Lyrico Plugin API 5 and Host API 4
+
+- Plugin imports accept API 1–5 / Host API 1–4 and reject API 6, Host API 5,
+  and API 0. Runtime information reports the same ceilings.
+- API 5 structured results preserve timed romanization, Ruby syllables, line
+  extensions, agents, metadata trees, language/timing flags, and valid body
+  duration expressions. Applying these results produces XML-valid TTML;
+  playback retains base text, word timing, pronunciation, and translations.
+- Host API 4 resources are validated at installation, manifest references are
+  resolved for display while raw values remain persisted, and QuickJS tests
+  check formatting plus unknown-key/type/count rejection.
+
+Validation commands and results:
+
+```bash
+./gradlew :core:runtime:desktopTest \
+  --tests '*PluginApi5Test' --tests '*PluginI18nTest' \
+  --tests '*PluginPipelineTest' --tests '*PluginProductionAssemblyTest' \
+  --tests '*PlaybackLyricsEnricherTest' \
+  :core:lyrics-core:desktopTest --tests '*TTMLParserTest' \
+  --no-daemon --no-configuration-cache --console=plain
+```
+
+Passed: 33 runtime tests and 8 TTML parser tests.
+
+```bash
+./gradlew -I /tmp/tideplayer-api5-tests.init.gradle \
+  :shared:desktopTest --tests '*PluginImportRuntimeDesktopTest' \
+  --no-daemon --no-configuration-cache --console=plain
+cargo test --manifest-path rust-libs/Cargo.toml -p plugin-runtime
+```
+
+Passed: the 6-test desktop ZIP/runtime suite and 24 Rust tests. The optional
+real-provider fixture test returns without exercising providers when
+`LYRICO_PLUGINS_DIR` is absent; no live provider HTTP was performed.
+
+The unmodified shared test build is blocked by existing `RootNavHostTest`
+references to removed `RECENTLY_ADDED`. The temporary init script only excludes
+`**/RootNavHostTest.kt` from `:shared`'s `commonTest` Kotlin sources:
+
+```groovy
+allprojects {
+    afterEvaluate { project ->
+        if (project.path == ':shared') {
+            project.extensions.getByName('kotlin').sourceSets
+                .getByName('commonTest').kotlin.exclude('**/RootNavHostTest.kt')
+        }
+    }
+}
+```
+
+The navigation test and repository build configuration were left unchanged.
+
+```bash
+./gradlew :core:runtime:compileDebugKotlinAndroid \
+  :core:runtime:compileKotlinIosSimulatorArm64 \
+  --no-daemon --no-configuration-cache --console=plain
+```
+
+Passed: Android Debug and iOS Simulator Arm64 compilation. `git diff --check`
+also passed. Existing Android deprecation and generated UniFFI warnings remain.

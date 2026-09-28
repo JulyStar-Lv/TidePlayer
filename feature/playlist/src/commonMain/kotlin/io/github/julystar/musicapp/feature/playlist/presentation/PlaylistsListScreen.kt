@@ -57,7 +57,7 @@ import sh.calvin.reorderable.ScrollMoveMode
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import io.github.julystar.musicapp.core.presentation.components.DesignTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme

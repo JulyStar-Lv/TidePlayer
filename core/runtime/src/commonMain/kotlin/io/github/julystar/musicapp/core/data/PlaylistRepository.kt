@@ -62,7 +62,7 @@ class PlaylistRepositoryImpl(
                 val mapped = rows.map(roomLibraryStore::mapPlaylistSummary).toPersistentList()
                 _playlists.value = mapped
                 _playlistSummaries.value = mapped.mapIndexed { index, playlist ->
-                    playlist.toPlaylistSummary(rows[index].firstTrackId)
+                    playlist.toPlaylistSummary(rows[index].firstTrackId).copy(createdAt = rows[index].createdAt)
                 }
             }
         }
@@ -133,6 +133,12 @@ class PlaylistRepositoryImpl(
         _preRemoveMusicEvent.emit(arg)
         roomLibraryStore.removeMusic(PlaylistId(playlistId), MusicId(musicId))
     }
+
+    override suspend fun addMusic(playlistId: Long, musicId: Long): Boolean =
+        roomLibraryStore.addExistingMusicToPlaylist(playlistId, musicId)
+
+    override suspend fun createPlaylistWithMusic(title: String, musicId: Long): Boolean =
+        roomLibraryStore.createPlaylistWithMusic(title, musicId)
 
     override suspend fun replaceMusicOrderById(
         playlistId: Long,

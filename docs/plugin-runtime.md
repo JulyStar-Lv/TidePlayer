@@ -1,13 +1,13 @@
 # TidePlayer Plugin Runtime
 
-TidePlayer implements JavaScript metadata plugins as Lyrico Plugin API v1–v4 compatible
+TidePlayer implements JavaScript metadata plugins as Lyrico Plugin API v1–v5 compatible
 `MetaSource` instances. Plugins are imported from local ZIP files and are never treated as
 general playback `MusicSource` implementations.
 
-The current protocol ceilings are intentionally different: the maximum Plugin API is **4** and
-the maximum Platform Host API is **3**. Manifest `apiVersion` selects the plugin function/result
-contract; `minHostApiVersion` declares the minimum Platform API the script needs. Plugin API 4
-does not imply or introduce Host API 4.
+The current protocol ceilings are intentionally different: the maximum Plugin API is **5** and
+the maximum Platform Host API is **4**. Manifest `apiVersion` selects the plugin function/result
+contract; `minHostApiVersion` declares the minimum Platform API the script needs. Plugin API 5
+does not require Host API 4; internationalization is the independent Host API 4 addition.
 
 ## Production pipeline
 
@@ -33,7 +33,7 @@ manifest dependencies are preserved, while markdown fields are display-only.
 - Single-plugin and aggregate ZIPs are extracted by the bounded Rust extractor.
 - Extraction rejects path traversal, absolute paths, links, excessive file count/depth, and
   excessive uncompressed size.
-- Installation validates reverse-domain plugin IDs, API versions 1–4, Host API versions 1–3,
+- Installation validates reverse-domain plugin IDs, API versions 1–5, Host API versions 1–4,
   version,
   capabilities, `.js` entry, include directories, supported icon type, and config fields.
 - `author` and `description` are optional. Empty capabilities default to `searchSongs`, matching
@@ -59,19 +59,19 @@ manifest dependencies are preserved, while markdown fields are display-only.
 - For Plugin API 1–3, `getLyrics` sends `{ song, config }` and accepts a single lyrics result, an
   LRC string, `null`, or the historical TidePlayer structures. The result is exposed as one
   compatibility `MetaLyricsCandidate` while the original `getLyrics(): MetaLyrics?` API remains.
-- For Plugin API 4, `getLyrics` also sends `page` and `pageSize` and preserves every valid result
+- For Plugin API 4–5, `getLyrics` also sends `page` and `pageSize` and preserves every valid result
   from a direct array or an `items`, `results`, or `candidates` wrapper. Each candidate must carry
   `tags.ti`, `tags.ar`, `tags.al`, and `tags.date`; missing judgment metadata makes that candidate
   invalid instead of producing an ambiguous row.
 - The nested song includes candidate fields, matching `sourceId`/`pluginId`, and only the same
-  plugin's private `internal` value. An API 4 lyrics-only source receives an exact
+  plugin's private `internal` value. An API 4–5 lyrics-only source receives an exact
   `id = "local-song"` request with empty `internal`, allowing it to perform its own song search.
-- For Plugin API 1–3, `searchCovers` sends `keyword`, `pageSize`, and merged `config`. API 4 also
+- For Plugin API 1–3, `searchCovers` sends `keyword`, `pageSize`, and merged `config`. API 4–5 also
   sends `page` and can send a local or same-source `song`.
 - Song parsing accepts arrays and `items`, `results`, `songs`, or `data` wrappers, documented
   aliases, array artists, numeric IDs, simple `fields`, and per-plugin private `internal`.
 - API 1–3 cover parsing accepts URL strings, explicit cover objects, song-shaped objects, and the
-  same wrappers plus `covers`. API 4 requires title, artist, album, date, and a URL; `id` remains
+  same wrappers plus `covers`. API 4–5 requires title, artist, album, date, and a URL; `id` remains
   optional. Candidate ID and `sourceId` are separate, and `sourceId` is always the plugin ID.
 - Lyrics payload parsing across all versions accepts structured line/word timing, translated and
   romanized tracks, raw plain/verbatim/enhanced/multi-person LRC, TTML, documented snake_case
@@ -79,11 +79,28 @@ manifest dependencies are preserved, while markdown fields are display-only.
 - The QuickJS boundary returns JavaScript strings directly and JSON-serializes other values.
   `null` and `undefined` normalize to the JSON text `null`; JSON strings are not double encoded.
 
+API 5 structured lyrics additionally preserve timed romanization words, per-word Ruby syllables,
+line extensions, agents, head metadata trees, timing, language codes, and `bodyDur` (`body_dur`
+is also accepted). Invalid duration strings and unsupported attribute prefixes are discarded.
+Applying extended structured lyrics stores TTML, including normalized missing Ruby boundaries,
+paragraph windows, regenerated `itunes:key` values, and escaped XML text. Playback reads Ruby
+base text and pronunciation without appending annotations to the sung text. Legacy structured
+lyrics without extensions continue through the existing LRC persistence path.
+
+Host API 4 exposes `Platform.i18n.getLocale()` and `Platform.i18n.t(key, ...args)`. Installation
+validates resource paths, JSON string dictionaries, resource sizes/counts, default keys, and
+placeholder signatures. UI references (`@key`, escaped `@@`) are resolved when reading plugin
+summaries; original manifest text and business configuration values remain stored unchanged.
+Resources follow exact locale, language/script, parent-key, and default fallback. Chinese region
+preferences select Hans/Hant resources. Locale changes refresh summaries and change the runtime
+bundle hash. Runtime formatting supports positional `%s`/`%d` and `%%`, and rejects unknown keys,
+wrong argument counts, non-string `%s` arguments, and unsafe/non-integer `%d` arguments.
+
 `MetaSource.capabilities` is a formal source-layer contract. The lookup use case selects sources
 before calling them: song search calls only `SEARCH_SONGS`, lyrics lookup only `GET_LYRICS`, and
 cover search only `SEARCH_COVERS`. A capability mismatch is skipped and never recorded as a
 plugin runtime error. Automatic and batch lyrics selection reuse the existing match scoring and
-remain deterministic within one source; manual mode keeps the complete API 4 candidate list.
+remain deterministic within one source; manual mode keeps the complete API 4–5 candidate list.
 
 Private `internal` data is stored in a bounded, TTL-based, thread-safe token store. Tokens are
 random and scoped to the producing plugin. The value is not written to normal music tags or
@@ -143,13 +160,14 @@ Default `PluginRuntimeSettings` values are 64 MiB heap, 2 MiB stack, 10 second l
 ## Host API and security
 
 The bootstrap exposes `Platform.app`, `Platform.runtime`, `Platform.cache`, `Platform.crypto`,
-`Platform.base64`, `Platform.bytes`, `Platform.compression`, `Platform.http`, `Platform.xml`, and
+`Platform.i18n`, `Platform.base64`, `Platform.bytes`, `Platform.compression`, `Platform.http`, `Platform.xml`, and
 `Platform.log`, including the Lyrico global app/runtime shortcuts. Cache paths are isolated by a
 hash of the plugin ID.
 
-`Platform.runtime.getInfo()` reports the host ceiling (`pluginApiVersion = 4`,
-`hostApiVersion = 3`), QuickJS engine information, OS/architecture, and the exact
-`supportedHostApis` list implemented by Rust.
+`Platform.runtime.getInfo()` reports the host ceiling (`pluginApiVersion = 5`,
+`hostApiVersion = 4`), QuickJS engine information, OS/architecture, and the exact
+`supportedHostApis` list provided by the host. Internationalization runs in the per-plugin JavaScript bootstrap;
+the other host operations dispatch to Rust.
 
 HTTP adds a TidePlayer User-Agent, supports text/binary bodies and responses, and applies request
 and response limits. HTTPS hostnames use the platform resolver and network stack so TUN/VPN
@@ -164,10 +182,12 @@ inspect 403/429 and empty bodies; connection, TLS, timeout, size, and security f
 ## Validation
 
 The focused contract suite retains a generated API 3 ZIP that returns `JSON.stringify(...)` and
-verifies the complete legacy metadata flow. API 4 fixtures directly return JavaScript arrays and
+verifies the complete legacy metadata flow. API 4–5 fixtures directly return JavaScript arrays and
 cover protocol bounds, independent lyrics/cover capabilities, `local-song`, paging, multiple
 lyrics candidates, judgment-field rejection, cover IDs, private-context isolation, runtime info,
-capability routing, and configuration regressions. Rust tests cover structured HTTP 200, 403, 429,
+capability routing, and configuration regressions. API 5 tests also exercise extended TTML persistence, Ruby
+normalization/playback, locale fallback, runtime text formatting, XML validity, and Host API 4
+resource validation. Rust tests cover structured HTTP 200, 403, 429,
 redirect, and empty-body behavior together with cache, XML, security, and QuickJS return handling.
 
 An opt-in desktop smoke test reads `LYRICO_PLUGINS_DIR`, packages the current Apple Music, QQ,

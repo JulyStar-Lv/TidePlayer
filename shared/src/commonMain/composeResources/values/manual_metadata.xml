@@ -2,7 +2,7 @@
 <resources>
     <string name="manual_metadata_title">Search metadata</string>
     <string name="manual_metadata_summary">Choose a result to update this library track. The music file itself will not be modified.</string>
-    <string name="manual_metadata_current_track">Current track</string>
+    <string name="manual_metadata_current_track">Current track: %1$s — %2$s</string>
     <string name="manual_metadata_keyword">Song or artist</string>
     <string name="manual_metadata_search">Search</string>
     <string name="manual_metadata_searching">Searching…</string>
@@ -14,10 +14,17 @@
     <string name="manual_metadata_partial_failure">%1$d results found; %2$d sources failed.</string>
     <string name="manual_metadata_unknown_artist">Unknown artist</string>
     <string name="manual_metadata_source">Source: %1$s</string>
-    <string name="manual_metadata_reset">Reset from file</string>
+    <string name="manual_metadata_reset">Reset</string>
     <string name="manual_metadata_resetting">Resetting…</string>
     <string name="manual_metadata_apply">Apply</string>
     <string name="manual_metadata_applying">Applying…</string>
     <string name="manual_metadata_apply_failed">Failed to apply metadata.</string>
     <string name="manual_metadata_reset_failed">Failed to reset metadata from the music file.</string>
+    <string name="manual_metadata_lyrics_checking">Checking</string>
+    <string name="manual_metadata_lyrics_failed">Check failed</string>
+    <string name="manual_metadata_lyrics_none">No lyrics</string>
+    <string name="manual_metadata_lyrics_ttml">TTML lyrics</string>
+    <string name="manual_metadata_lyrics_word">Word-synced lyrics</string>
+    <string name="manual_metadata_lyrics_line">Line-synced lyrics</string>
+    <string name="manual_metadata_lyrics_text">Plain text lyrics</string>
 </resources>

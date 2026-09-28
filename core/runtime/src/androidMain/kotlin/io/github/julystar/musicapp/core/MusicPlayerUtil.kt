@@ -151,12 +151,14 @@ fun playUtil(
     item: PlayableItem,
     player: Player,
     playbackUri: String,
+    startPlayback: Boolean = true,
 ) {
     val mediaItem = buildMediaItem(item, playbackUri)
+    if (!startPlayback) player.pause()
     player.stop()
     player.setMediaItem(mediaItem)
     player.prepare()
-    player.play()
+    if (startPlayback) player.play()
 }
 
 fun syncMetadataUtil(scope: CoroutineScope, playerRepository: PlayerRepository, player: Player, onUpdated: () -> Unit = {}) {

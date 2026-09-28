@@ -36,7 +36,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -90,12 +89,10 @@ import musicapp.feature.search.generated.resources.search_try_query
 import musicapp.feature.search.generated.resources.searching_library
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -106,8 +103,6 @@ fun SearchDesignScreen(
     modifier: Modifier = Modifier,
 ) {
     val bottomContentInset = LocalDesignBottomContentInset.current
-    val topAppBarScrollBehavior = MiuixScrollBehavior()
-    val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
     val pageTitle = stringResource(Res.string.search_title)
     var showDefaultRecentSearches by remember { mutableStateOf(true) }
     val clearRecentSearches = {
@@ -119,21 +114,13 @@ fun SearchDesignScreen(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background)
-                .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+                .background(MiuixTheme.colorScheme.background),
         ) {
         val compact = maxWidth < DesignTokens.adaptive.largeMinWidth
         val pagePadding = if (compact) 24.dp else DesignTokens.spacing.pageExpanded
         val listState = rememberLazyListState()
 
         Column(modifier = Modifier.fillMaxSize()) {
-            TopAppBar(
-                title = pageTitle,
-                largeTitle = pageTitle,
-                color = Color.Transparent,
-                titleColor = Color.Transparent,
-                scrollBehavior = topAppBarScrollBehavior,
-            )
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -143,7 +130,7 @@ fun SearchDesignScreen(
                     .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
                 contentPadding = PaddingValues(
                     start = pagePadding,
-                    top = if (compact) 20.dp else 28.dp,
+                    top = DesignTokens.adaptive.compactHeaderHeight + if (compact) 20.dp else 28.dp,
                     end = pagePadding,
                     bottom = 28.dp + bottomContentInset,
                 ),
@@ -255,7 +242,7 @@ fun SearchDesignScreen(
         }
         LiquidGlassActionBar(
             title = pageTitle,
-            collapseFraction = actionBarProgress,
+            collapseFraction = 1f,
             modifier = Modifier.align(Alignment.TopCenter),
         )
         }

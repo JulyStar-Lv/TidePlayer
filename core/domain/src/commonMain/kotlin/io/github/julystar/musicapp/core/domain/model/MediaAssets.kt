@@ -62,6 +62,7 @@ data class PlaylistSummary(
     val musicCount: Long,
     val durationMs: Long,
     val coverArtwork: Artwork?,
+    val createdAt: Long? = null,
 )
 
 

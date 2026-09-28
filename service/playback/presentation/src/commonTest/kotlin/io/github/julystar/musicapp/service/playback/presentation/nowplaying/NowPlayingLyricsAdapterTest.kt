@@ -9,11 +9,41 @@ import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class NowPlayingLyricsAdapterTest {
+    @Test
+    fun hidesTranslationPlaceholdersInPreviouslyLoadedLyricsWithoutChangingTiming() {
+        val lines = listOf(
+            LyricLine(1_000.milliseconds, "Yeah\n // "),
+            LyricLine(
+                2_000.milliseconds, "Woooh\n//",
+                words = persistentListOf(LyricWord("Woooh", 0.milliseconds, 500.milliseconds)),
+            ),
+            LyricLine(3_000.milliseconds, "Hello\n//\n你好\n//"),
+            LyricLine(4_000.milliseconds, "Text with // inside\n译文中 // 保留"),
+        )
+        val timeline = lines.toSyncedLyrics(
+            trackTitle = "Song", trackDurationMs = 5_000,
+            settings = LyricDisplaySettings.Default.copy(ignoreHeaderTags = false),
+        ).lines
+        val plain = assertIs<SyncedLine>(timeline[0])
+        assertEquals("Yeah", plain.content)
+        assertEquals(1_000, plain.start)
+        assertNull(plain.translation)
+        val wordTimed = assertIs<KaraokeLine>(timeline[1])
+        assertEquals(2_000, wordTimed.start)
+        assertEquals(500, wordTimed.syllables.single().end - wordTimed.syllables.single().start)
+        assertNull(wordTimed.translation)
+        assertEquals("你好", assertIs<SyncedLine>(timeline[2]).translation)
+        val meaningful = assertIs<SyncedLine>(timeline[3])
+        assertEquals("Text with // inside", meaningful.content)
+        assertEquals("译文中 // 保留", meaningful.translation)
+    }
+
     @Test
     fun filtersHeaderTagsOnly() {
         val lines = listOf(

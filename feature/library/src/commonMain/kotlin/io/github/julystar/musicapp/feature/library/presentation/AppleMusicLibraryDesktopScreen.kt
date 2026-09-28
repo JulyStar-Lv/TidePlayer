@@ -8,6 +8,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -37,11 +43,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,13 +55,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isCtrlPressed
@@ -65,13 +67,13 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -80,6 +82,9 @@ import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.LibraryAlbumItem
 import io.github.julystar.musicapp.core.domain.model.LibraryArtistItem
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
+import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
+import io.github.julystar.musicapp.core.presentation.components.DesktopCollectionToolbar
+import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.platform.rememberPlatformWindowFocused
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
@@ -92,10 +97,8 @@ import musicapp.core.presentation.generated.resources.icon_artist_microphone
 import musicapp.core.presentation.generated.resources.icon_more_horizontal
 import musicapp.core.presentation.generated.resources.icon_pause
 import musicapp.core.presentation.generated.resources.icon_play
-import musicapp.core.presentation.generated.resources.icon_search
 import musicapp.core.presentation.generated.resources.icon_shuffle
 import musicapp.core.presentation.generated.resources.icon_speaker
-import musicapp.core.presentation.generated.resources.icon_sort
 import musicapp.core.presentation.generated.resources.icon_star
 import musicapp.core.presentation.generated.resources.icon_star_filled
 import musicapp.feature.library.generated.resources.Res
@@ -127,7 +130,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val ApplePlaybackIndicatorLight = Color(0xFF3A7CED)
 private val AppleContentPadding = 20.dp
-private val AppleToolbarHeight = 52.dp
+private val AppleSongTableHeaderHeight = 21.dp
 private val AppleSongRowHeight = 22.dp
 private val AppleSongStatusWidth = 16.dp
 private val AppleSongTitleWidth = 196.dp
@@ -138,27 +141,6 @@ private val AppleSongDurationWidth = 39.dp
 private val AppleSongYearWidth = 48.dp
 private val AppleSongFavoriteWidth = 28.dp
 
-private fun Modifier.appleToolbarShadow(shape: Shape, isDark: Boolean): Modifier =
-    if (isDark) {
-        this
-    } else {
-        dropShadow(
-            shape = shape,
-            shadow = Shadow(
-                radius = 36.dp,
-                offset = DpOffset(0.dp, 6.dp),
-                color = Color.Black.copy(alpha = 0.04f),
-            ),
-        ).dropShadow(
-            shape = shape,
-            shadow = Shadow(
-                radius = 16.dp,
-                offset = DpOffset(0.dp, 5.dp),
-                color = Color.Black.copy(alpha = 0.04f),
-            ),
-        )
-    }
-
 private data class CompactMenuEntry(
     val text: String,
     val icon: org.jetbrains.compose.resources.DrawableResource?,
@@ -166,7 +148,7 @@ private data class CompactMenuEntry(
     val onClick: () -> Unit,
 )
 
-private enum class DesktopSort { Title, Artist, Album, Duration, Year }
+internal enum class DesktopSort { Title, Artist, Album, Duration, Year }
 
 @Composable
 internal fun AppleMusicLibraryDesktopScreen(
@@ -192,36 +174,62 @@ internal fun AppleMusicLibraryDesktopScreen(
         LibraryDesktopSection.Artists -> stringResource(Res.string.library_desktop_search_artists)
     }
     val favoriteIds = state.favorites.dataOrNull.orEmpty().mapTo(mutableSetOf()) { it.id }
+    val songWidths = remember { mutableStateListOf(AppleSongTitleWidth, AppleSongArtistWidth, AppleSongAlbumWidth, AppleSongDurationWidth, AppleSongYearWidth) }
+    val songHorizontalScroll = rememberScrollState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MiuixTheme.colorScheme.background),
-    ) {
-        DesktopLibraryToolbar(
-            title = title,
-            section = section,
-            sort = sort,
-            query = query,
-            searchHint = searchHint,
-            onQueryChange = { query = it },
-            onSort = { selected ->
-                if (sort == selected) sortDescending = !sortDescending
-                else {
-                    sort = selected
-                    sortDescending = false
-                }
-            },
-        )
-        when (section) {
-            LibraryDesktopSection.Songs -> DesktopSongs(
-                tracks = state.tracks,
-                albums = state.albums,
-                query = query,
+    LiquidGlassOverlayScene(
+        modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.background),
+        backdropContent = {
+            when (section) {
+                LibraryDesktopSection.Songs -> DesktopSongs(
+                    tracks = state.tracks,
+                    albums = state.albums,
+                    query = query,
+                    sort = sort,
+                    sortDescending = sortDescending,
+                    currentPlayingTrackId = currentPlayingTrackId,
+                    favoriteIds = favoriteIds,
+                    columnWidths = songWidths,
+                    horizontalScroll = songHorizontalScroll,
+                    onAction = onAction,
+                )
+                LibraryDesktopSection.Albums -> DesktopAlbums(
+                    albums = state.albums,
+                    tracks = state.tracks,
+                    query = query,
+                    sort = sort,
+                    sortDescending = sortDescending,
+                    onNavigateToAlbum = onNavigateToAlbum,
+                    onAction = onAction,
+                )
+                LibraryDesktopSection.Artists -> DesktopArtists(
+                    artists = state.artists,
+                    albums = state.albums,
+                    tracks = state.tracks,
+                    query = query,
+                    sortDescending = sortDescending,
+                    currentPlayingTrackId = currentPlayingTrackId,
+                    favoriteIds = favoriteIds,
+                    onNavigateToAlbum = onNavigateToAlbum,
+                    onAction = onAction,
+                )
+            }
+        },
+        overlayContent = {
+            DesktopLibraryToolbar(
+                title = title,
+                section = section,
                 sort = sort,
                 sortDescending = sortDescending,
-                currentPlayingTrackId = currentPlayingTrackId,
-                favoriteIds = favoriteIds,
+                query = query,
+                searchHint = searchHint,
+                columnWidths = songWidths,
+                horizontalScroll = songHorizontalScroll,
+                onColumnResize = { column, delta ->
+                    val minWidth = listOf(96.dp, 64.dp, 96.dp, 39.dp, 48.dp)[column]
+                    songWidths[column] = (songWidths[column] + delta).coerceIn(minWidth, 640.dp)
+                },
+                onQueryChange = { query = it },
                 onSort = { selected ->
                     if (sort == selected) sortDescending = !sortDescending
                     else {
@@ -229,30 +237,9 @@ internal fun AppleMusicLibraryDesktopScreen(
                         sortDescending = false
                     }
                 },
-                onAction = onAction,
             )
-            LibraryDesktopSection.Albums -> DesktopAlbums(
-                albums = state.albums,
-                tracks = state.tracks,
-                query = query,
-                sort = sort,
-                sortDescending = sortDescending,
-                onNavigateToAlbum = onNavigateToAlbum,
-                onAction = onAction,
-            )
-            LibraryDesktopSection.Artists -> DesktopArtists(
-                artists = state.artists,
-                albums = state.albums,
-                tracks = state.tracks,
-                query = query,
-                sortDescending = sortDescending,
-                currentPlayingTrackId = currentPlayingTrackId,
-                favoriteIds = favoriteIds,
-                onNavigateToAlbum = onNavigateToAlbum,
-                onAction = onAction,
-            )
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -260,8 +247,12 @@ private fun DesktopLibraryToolbar(
     title: String,
     section: LibraryDesktopSection,
     sort: DesktopSort,
+    sortDescending: Boolean,
     query: String,
     searchHint: String,
+    columnWidths: List<Dp>,
+    horizontalScroll: ScrollState,
+    onColumnResize: (Int, Dp) -> Unit,
     onQueryChange: (String) -> Unit,
     onSort: (DesktopSort) -> Unit,
 ) {
@@ -271,40 +262,14 @@ private fun DesktopLibraryToolbar(
         LibraryDesktopSection.Albums -> listOf(DesktopSort.Title, DesktopSort.Artist, DesktopSort.Year)
         LibraryDesktopSection.Artists -> listOf(DesktopSort.Artist)
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(AppleToolbarHeight)
-            .background(
-                MiuixTheme.colorScheme.background.copy(alpha = 0.42f)
-            )
-            .padding(start = AppleContentPadding, end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            color = if (LocalDesignIsDarkTheme.current) {
-                MiuixTheme.colorScheme.onBackground
-            } else {
-                Color.Black.copy(alpha = 0.69f)
-            },
-            fontSize = 13.sp,
-            lineHeight = 16.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.weight(1f))
-        Box {
-            DesktopRoundButton(
-                description = stringResource(Res.string.library_desktop_sort),
-                onClick = { sortMenuOpen = true },
-            ) {
-                Icon(
-                    painter = painterResource(CoreRes.drawable.icon_sort),
-                    contentDescription = null,
-                    tint = appleDesktopForeground(),
-                    modifier = Modifier.size(17.dp),
-                )
-            }
+    DesktopCollectionToolbar(
+        title = title,
+        query = query,
+        searchHint = searchHint,
+        onQueryChange = onQueryChange,
+        sortDescription = stringResource(Res.string.library_desktop_sort),
+        onSortClick = { sortMenuOpen = true },
+        sortMenu = {
             CompactContextMenu(
                 show = sortMenuOpen,
                 onDismiss = { sortMenuOpen = false },
@@ -325,98 +290,13 @@ private fun DesktopLibraryToolbar(
                     )
                 },
             )
-        }
-        Spacer(Modifier.width(8.dp))
-        DesktopSearchField(
-            value = query,
-            hint = searchHint,
-            onValueChange = onQueryChange,
-        )
-    }
-}
-
-@Composable
-private fun DesktopSearchField(
-    value: String,
-    hint: String,
-    onValueChange: (String) -> Unit,
-) {
-    val isDark = LocalDesignIsDarkTheme.current
-    val foreground = if (isDark) Color.White else Color.Black
-    val shape = RoundedCornerShape(18.dp)
-    Row(
-        Modifier
-            .width(196.dp)
-            .height(36.dp)
-            .appleToolbarShadow(shape, isDark)
-            .clip(shape)
-            .background(if (isDark) Color.White.copy(alpha = 0.075f) else Color.White.copy(alpha = 0.55f))
-            .border(
-                0.5.dp,
-                if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.86f),
-                shape,
-            )
-            .padding(horizontal = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(CoreRes.drawable.icon_search),
-            contentDescription = null,
-            tint = foreground.copy(alpha = 0.48f),
-            modifier = Modifier.size(17.dp),
-        )
-        Spacer(Modifier.width(6.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            textStyle = MiuixTheme.textStyles.body2.copy(color = foreground.copy(alpha = 0.86f), fontSize = 13.sp),
-            cursorBrush = SolidColor(appleAccent()),
-            modifier = Modifier.weight(1f),
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) {
-                        Text(
-                            text = hint,
-                            color = foreground.copy(alpha = 0.45f),
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                        )
-                    }
-                    inner()
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun DesktopRoundButton(
-    description: String,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    val isDark = LocalDesignIsDarkTheme.current
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
-    val background = if (isDark) {
-        Color.White.copy(alpha = when { pressed -> 0.14f; hovered -> 0.10f; else -> 0.075f })
-    } else {
-        Color.White.copy(alpha = when { pressed -> 0.70f; hovered -> 0.60f; else -> 0.55f })
-    }
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .appleToolbarShadow(CircleShape, isDark)
-            .clip(CircleShape)
-            .background(background)
-            .border(0.5.dp, if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.86f), CircleShape)
-            .hoverable(interaction)
-            .semantics { contentDescription = description }
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-        content = { content() },
+        },
+        extraContentHeight = if (section == LibraryDesktopSection.Songs) AppleSongTableHeaderHeight else 0.dp,
+        extraContent = {
+            if (section == LibraryDesktopSection.Songs) {
+                SongTableHeader(sort = sort, sortDescending = sortDescending, columnWidths = columnWidths, horizontalScroll = horizontalScroll, onColumnResize = onColumnResize, onSort = onSort)
+            }
+        },
     )
 }
 
@@ -430,7 +310,8 @@ private fun DesktopSongs(
     sortDescending: Boolean,
     currentPlayingTrackId: Long?,
     favoriteIds: Set<Long>,
-    onSort: (DesktopSort) -> Unit,
+    columnWidths: List<Dp>,
+    horizontalScroll: ScrollState,
     onAction: (LibraryAction) -> Unit,
 ) {
     val years = remember(albums) { albums.associate { it.id to it.year } }
@@ -451,64 +332,71 @@ private fun DesktopSongs(
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var lastSelectedIndex by remember { mutableIntStateOf(-1) }
 
-    Column(Modifier.fillMaxSize().padding(top = 2.dp)) {
-        SongTableHeader(sort = sort, sortDescending = sortDescending, onSort = onSort)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 78.dp),
-        ) {
-            itemsIndexed(filtered, key = { index, item -> item.lazyListKey(index) }) { index, track ->
-                DesktopSongRow(
-                    track = track,
-                    year = years[track.albumId],
-                    index = index,
-                    selected = track.id in selectedIds,
-                    playing = track.id == currentPlayingTrackId,
-                    favorite = track.id in favoriteIds,
-                    onSelect = { shift, additive ->
-                        selectedIds = updateDesktopSongSelection(
-                            current = selectedIds,
-                            orderedTrackIds = filteredIds,
-                            clickedIndex = index,
-                            lastSelectedIndex = lastSelectedIndex,
-                            shift = shift,
-                            additive = additive,
-                        )
-                        lastSelectedIndex = index
-                    },
-                    onPlay = { onAction(LibraryAction.PlayTrack(track.id)) },
-                    onToggleFavorite = { onAction(LibraryAction.ToggleFavorite(track.id)) },
-                    onDownload = track.mediaId?.let { { onAction(LibraryAction.DownloadTrack(track)) } },
-                )
-            }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            top = DesignTokens.adaptive.compactHeaderHeight + AppleSongTableHeaderHeight,
+            bottom = 78.dp,
+        ),
+    ) {
+        itemsIndexed(filtered, key = { index, item -> item.lazyListKey(index) }) { index, track ->
+            DesktopSongRow(
+                track = track,
+                year = years[track.albumId],
+                index = index,
+                selected = track.id in selectedIds,
+                playing = track.id == currentPlayingTrackId,
+                favorite = track.id in favoriteIds,
+                columnWidths = columnWidths,
+                horizontalScroll = horizontalScroll,
+                onSelect = { shift, additive ->
+                    selectedIds = updateDesktopSongSelection(
+                        current = selectedIds,
+                        orderedTrackIds = filteredIds,
+                        clickedIndex = index,
+                        lastSelectedIndex = lastSelectedIndex,
+                        shift = shift,
+                        additive = additive,
+                    )
+                    lastSelectedIndex = index
+                },
+                onPlay = { onAction(LibraryAction.PlayTrack(track.id)) },
+                onToggleFavorite = { onAction(LibraryAction.ToggleFavorite(track.id)) },
+                onDownload = track.mediaId?.let { { onAction(LibraryAction.DownloadTrack(track)) } },
+            )
         }
     }
 }
 
 @Composable
-private fun SongTableHeader(sort: DesktopSort, sortDescending: Boolean, onSort: (DesktopSort) -> Unit) {
+internal fun SongTableHeader(
+    sort: DesktopSort,
+    sortDescending: Boolean,
+    columnWidths: List<Dp>,
+    horizontalScroll: ScrollState,
+    onColumnResize: (Int, Dp) -> Unit,
+    onSort: (DesktopSort) -> Unit,
+) {
     val muted = appleDesktopForeground().copy(alpha = 0.90f)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(21.dp)
-            .padding(start = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(Modifier.width(AppleSongStatusWidth))
-        HeaderCell(
-            stringResource(Res.string.library_desktop_title),
-            AppleSongTitleWidth,
-            muted,
-            active = sort == DesktopSort.Title,
-            showChevron = false,
-        ) { onSort(DesktopSort.Title) }
-        HeaderGap(AppleSongMoreWidth, active = sort == DesktopSort.Title, descending = sortDescending, color = muted)
-        HeaderCell(stringResource(Res.string.library_desktop_artist), AppleSongArtistWidth, muted, active = sort == DesktopSort.Artist, descending = sortDescending) { onSort(DesktopSort.Artist) }
-        HeaderCell(stringResource(Res.string.library_desktop_album), AppleSongAlbumWidth, muted, active = sort == DesktopSort.Album, descending = sortDescending) { onSort(DesktopSort.Album) }
-        HeaderCell(stringResource(Res.string.library_desktop_time), AppleSongDurationWidth, muted, active = sort == DesktopSort.Duration, descending = sortDescending) { onSort(DesktopSort.Duration) }
-        HeaderCell(stringResource(Res.string.library_desktop_year), AppleSongYearWidth, muted, active = sort == DesktopSort.Year, descending = sortDescending) { onSort(DesktopSort.Year) }
-        HeaderGap(AppleSongFavoriteWidth, active = false, color = muted)
+    Box(Modifier.fillMaxWidth().height(AppleSongTableHeaderHeight)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(horizontalScroll)
+                .fillMaxHeight()
+                .padding(start = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.width(AppleSongStatusWidth))
+            HeaderCell(stringResource(Res.string.library_desktop_title), columnWidths[0], muted, active = sort == DesktopSort.Title, showChevron = false, onResize = { onColumnResize(0, it) }, resizeTag = "song-resize-title") { onSort(DesktopSort.Title) }
+            HeaderGap(AppleSongMoreWidth, active = sort == DesktopSort.Title, descending = sortDescending, color = muted)
+            HeaderCell(stringResource(Res.string.library_desktop_artist), columnWidths[1], muted, active = sort == DesktopSort.Artist, descending = sortDescending, onResize = { onColumnResize(1, it) }, resizeTag = "song-resize-artist") { onSort(DesktopSort.Artist) }
+            HeaderCell(stringResource(Res.string.library_desktop_album), columnWidths[2], muted, active = sort == DesktopSort.Album, descending = sortDescending, onResize = { onColumnResize(2, it) }, resizeTag = "song-resize-album") { onSort(DesktopSort.Album) }
+            HeaderCell(stringResource(Res.string.library_desktop_time), columnWidths[3], muted, active = sort == DesktopSort.Duration, descending = sortDescending, onResize = { onColumnResize(3, it) }, resizeTag = "song-resize-duration") { onSort(DesktopSort.Duration) }
+            HeaderCell(stringResource(Res.string.library_desktop_year), columnWidths[4], muted, active = sort == DesktopSort.Year, descending = sortDescending, onResize = { onColumnResize(4, it) }, resizeTag = "song-resize-year") { onSort(DesktopSort.Year) }
+            HeaderGap(AppleSongFavoriteWidth, active = false, color = muted)
+        }
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(0.5.dp).background(muted.copy(alpha = 0.24f)))
     }
 }
 
@@ -536,9 +424,12 @@ private fun RowScope.HeaderCell(
     active: Boolean = false,
     descending: Boolean = false,
     showChevron: Boolean = true,
+    onResize: (Dp) -> Unit,
+    resizeTag: String,
     onClick: () -> Unit,
 ) {
     val textColor = if (active) appleDesktopForeground().copy(alpha = 0.90f) else color
+    val density = LocalDensity.current
     Box(Modifier.width(width ?: 0.dp).fillMaxHeight().clickable(onClick = onClick)) {
         Text(
             text = text,
@@ -558,6 +449,15 @@ private fun RowScope.HeaderCell(
             )
         }
         Box(Modifier.align(Alignment.CenterEnd).width(0.5.dp).height(18.dp).background(color.copy(alpha = 0.32f)))
+        Box(
+            Modifier.align(Alignment.CenterEnd).width(8.dp).fillMaxHeight()
+                .testTag(resizeTag)
+                .draggable(
+                    state = rememberDraggableState { delta -> onResize(with(density) { delta.toDp() }) },
+                    orientation = Orientation.Horizontal,
+                    startDragImmediately = true,
+                ),
+        )
     }
 }
 
@@ -570,6 +470,8 @@ private fun DesktopSongRow(
     selected: Boolean,
     playing: Boolean,
     favorite: Boolean,
+    columnWidths: List<Dp>,
+    horizontalScroll: ScrollState,
     onSelect: (shift: Boolean, additive: Boolean) -> Unit,
     onPlay: () -> Unit,
     onToggleFavorite: () -> Unit,
@@ -599,6 +501,7 @@ private fun DesktopSongRow(
             modifier = Modifier
                 .fillMaxSize()
                 .background(selectionColor)
+                .horizontalScroll(horizontalScroll)
                 .hoverable(interaction)
                 .onPointerEvent(PointerEventType.Press) { event ->
                     shiftDown = event.keyboardModifiers.isShiftPressed
@@ -634,7 +537,7 @@ private fun DesktopSongRow(
                     )
                 }
             }
-            SongCell(track.title, Modifier.width(AppleSongTitleWidth), textColor)
+            SongCell(track.title, Modifier.width(columnWidths[0]), textColor)
             Box(Modifier.width(AppleSongMoreWidth), contentAlignment = Alignment.Center) {
                 Icon(
                     painterResource(CoreRes.drawable.icon_more_horizontal),
@@ -646,10 +549,10 @@ private fun DesktopSongRow(
                     },
                 )
             }
-            SongCell(track.artist.orEmpty(), Modifier.width(AppleSongArtistWidth), textColor)
-            SongCell(track.albumName.orEmpty(), Modifier.width(AppleSongAlbumWidth), textColor)
-            SongCell(formatDuration(track.durationMs), Modifier.width(AppleSongDurationWidth), textColor, align = TextAlign.Right)
-            SongCell(year?.toString().orEmpty(), Modifier.width(AppleSongYearWidth), textColor)
+            SongCell(track.artist.orEmpty(), Modifier.width(columnWidths[1]), textColor)
+            SongCell(track.albumName.orEmpty(), Modifier.width(columnWidths[2]), textColor)
+            SongCell(formatDuration(track.durationMs), Modifier.width(columnWidths[3]), textColor, align = TextAlign.Right)
+            SongCell(year?.toString().orEmpty(), Modifier.width(columnWidths[4]), textColor)
             Box(Modifier.width(AppleSongFavoriteWidth), contentAlignment = Alignment.Center) {
                 Icon(
                     painter = painterResource(if (favorite) CoreRes.drawable.icon_star_filled else CoreRes.drawable.icon_star),
@@ -768,7 +671,7 @@ private fun DesktopAlbums(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 42.dp, bottom = 86.dp),
+            contentPadding = PaddingValues(start = 18.dp, top = DesignTokens.adaptive.compactHeaderHeight + 16.dp, end = 42.dp, bottom = 86.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(33.dp),
         ) {
@@ -912,7 +815,7 @@ private fun DesktopArtists(
     Row(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.width(300.dp).fillMaxHeight(),
-            contentPadding = PaddingValues(bottom = 78.dp),
+            contentPadding = PaddingValues(top = DesignTokens.adaptive.compactHeaderHeight, bottom = 78.dp),
         ) {
             item("all") {
                 DesktopArtistRow(
@@ -1036,7 +939,7 @@ private fun ArtistContent(
     val visibleArtists = selectedArtist?.let(::listOf) ?: artists
     LazyColumn(
         modifier = modifier.fillMaxHeight(),
-        contentPadding = PaddingValues(start = 10.dp, top = 14.dp, end = 30.dp, bottom = 86.dp),
+        contentPadding = PaddingValues(start = 10.dp, top = DesignTokens.adaptive.compactHeaderHeight + 14.dp, end = 30.dp, bottom = 86.dp),
     ) {
         visibleArtists.forEach { artist ->
             val artistTracks = tracks.filter { trackArtistMatches(it.artist, artist.name) }

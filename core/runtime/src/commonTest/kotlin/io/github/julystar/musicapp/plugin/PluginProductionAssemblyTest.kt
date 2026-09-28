@@ -27,6 +27,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -127,6 +132,58 @@ class PluginProductionAssemblyTest {
             listOf("first", "first", "first", "second", "second", "second"),
             result.items.map { it.sourceId },
         )
+    }
+
+    @Test
+    fun manualSearchPublishesFastSourceBeforeSlowSourceAndRunsInParallel() = runTest {
+        val slow = FakeMetaSource(
+            id = "slow", searchDelayMs = 1_000,
+            songs = listOf(MetaSongCandidate(id = "slow-song", title = "Song")),
+        )
+        val fast = FakeMetaSource(
+            id = "fast", searchDelayMs = 100,
+            songs = (1..20).map { MetaSongCandidate(id = "$it", title = "Song $it") },
+        )
+        val useCase = MetadataLookupUseCase(
+            registry = MetaSourceRegistry(listOf(slow, fast)),
+            pluginRepository = PluginRepository(FakePluginDao(), "/plugins".toPath()),
+        )
+        val completed = mutableListOf<String>()
+        val search = async {
+            useCase.searchSongs(MetaSongQuery("Song", pageSize = 20), PluginLookupMode.MANUAL) {
+                completed += it.items.first().sourceId!!
+            }
+        }
+        advanceTimeBy(100)
+        runCurrent()
+        assertEquals(listOf("fast"), completed)
+        assertEquals(false, search.isCompleted)
+        advanceUntilIdle()
+        assertEquals(1_000, testScheduler.currentTime)
+        assertEquals(listOf("fast", "slow"), completed)
+        assertEquals(21, search.await().items.size)
+    }
+
+    @Test
+    fun timedOutManualSourceRetainsSuccessfulResultsAndParentCancellationPropagates() = runTest {
+        val useCase = MetadataLookupUseCase(
+            registry = MetaSourceRegistry(listOf(
+                FakeMetaSource(id = "timeout", searchDelayMs = 1_000),
+                FakeMetaSource(id = "fast", songs = listOf(MetaSongCandidate("1", "Song"))),
+            )),
+            pluginRepository = PluginRepository(FakePluginDao(), "/plugins".toPath()),
+            manualOperationTimeoutMs = 200,
+        )
+        val result = useCase.searchSongs(MetaSongQuery("Song"), PluginLookupMode.MANUAL)
+        assertEquals(listOf("fast"), result.items.map { it.sourceId })
+        assertEquals("timeout", result.failures.single().sourceId)
+        assertEquals("TimeoutCancellationException", result.failures.single().errorType)
+        assertEquals(2, result.queriedSourceCount)
+
+        val search = async { useCase.searchSongs(MetaSongQuery("Song"), PluginLookupMode.MANUAL) }
+        runCurrent()
+        search.cancelAndJoin()
+        assertTrue(search.isCancelled)
     }
 
     @Test
@@ -295,6 +352,7 @@ class PluginProductionAssemblyTest {
         private val covers: List<MetaCoverCandidate> = emptyList(),
         private val lyrics: MetaLyrics? = null,
         private val searchFailure: Throwable? = null,
+        private val searchDelayMs: Long = 0,
     ) : MetaSource {
         override val displayName: String = id
         var songSearchCalls: Int = 0
@@ -308,6 +366,7 @@ class PluginProductionAssemblyTest {
 
         override suspend fun searchSongs(query: MetaSongQuery): List<MetaSongCandidate> {
             songSearchCalls += 1
+            delay(searchDelayMs)
             searchFailure?.let { throw it }
             return songs
         }

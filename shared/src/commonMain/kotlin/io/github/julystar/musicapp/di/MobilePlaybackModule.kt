@@ -6,7 +6,7 @@ import org.koin.dsl.module
 
 val mobilePlaybackModule = module {
     includes(playbackPresentationModule)
-    single { ManualMetadataService(get(), get(), get(), get(), get(), get(), get()) }
+    single { ManualMetadataService(get(), get(), get(), get(), get(), get(), get(), get()) }
 }
 
 val playbackModule = module {

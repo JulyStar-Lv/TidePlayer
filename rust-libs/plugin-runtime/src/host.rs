@@ -25,6 +25,9 @@ pub const SUPPORTED_HOST_APIS: &[&str] = &[
     "app.info",
     "app.userAgent",
     "runtime.info",
+    // Internationalization is implemented by the per-plugin JavaScript bootstrap.
+    "i18n.getLocale",
+    "i18n.t",
     "cache.get",
     "cache.set",
     "cache.remove",
@@ -64,8 +67,8 @@ pub const SUPPORTED_HOST_APIS: &[&str] = &[
     "log.error",
 ];
 
-pub const PLUGIN_PROTOCOL_VERSION: u8 = 4;
-pub const HOST_API_VERSION: u8 = 3;
+pub const PLUGIN_PROTOCOL_VERSION: u8 = 5;
+pub const HOST_API_VERSION: u8 = 4;
 
 #[derive(Clone)]
 pub struct HostApiOptions {

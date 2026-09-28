@@ -66,8 +66,21 @@ class PluginArtworkResolver(
             bytes = bytes,
             cachePath = cachePath.takeIf { persist(cachePath, bytes) },
         )
-        persistMetadata(target, resolved)
-        return resolved.cachePath != null
+        val path = resolved.cachePath ?: return false
+        metadataDao.replaceManualArtwork(
+            ArtworkEntity(
+                trackId = target.track.id,
+                albumId = null,
+                contentHash = "manual:track-${target.track.id}:" + bytes.toByteString().sha256().hex(),
+                localPath = path.toString(),
+                thumbnailPath = null,
+                width = null,
+                height = null,
+                mimeType = bytes.detectImageMimeType(),
+                pictureType = "CoverFront",
+            ),
+        )
+        return true
     }
 
     suspend fun load(

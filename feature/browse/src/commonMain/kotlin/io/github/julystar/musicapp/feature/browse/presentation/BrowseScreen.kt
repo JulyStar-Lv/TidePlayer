@@ -51,7 +51,7 @@ import musicapp.feature.browse.generated.resources.browse_unavailable
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import io.github.julystar.musicapp.core.presentation.components.DesignTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 

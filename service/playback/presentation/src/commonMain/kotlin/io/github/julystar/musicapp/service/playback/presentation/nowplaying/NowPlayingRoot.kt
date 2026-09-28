@@ -19,8 +19,12 @@ import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRequester
 import io.github.julystar.musicapp.core.domain.repository.AudioMonitoringRepository
 import io.github.julystar.musicapp.core.domain.repository.AudioReactiveRepository
+import io.github.julystar.musicapp.core.domain.repository.PlaylistRepository
 import io.github.julystar.musicapp.core.domain.repository.SettingsRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
+import io.github.julystar.musicapp.core.domain.repository.UiMessage
+import io.github.julystar.musicapp.core.domain.repository.UiMessageKey
+import io.github.julystar.musicapp.service.playback.domain.PlaylistPlaybackSync
 import io.github.julystar.musicapp.service.playback.presentation.PlayerVM
 import io.github.julystar.musicapp.service.playback.presentation.sleep.SleepModeVM
 import io.github.julystar.musicapp.core.presentation.platform.KeepScreenOnEffect
@@ -28,6 +32,7 @@ import io.github.julystar.musicapp.core.presentation.platform.PlatformBackHandle
 import io.github.julystar.musicapp.core.presentation.platform.StatusBarIconsEffect
 import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.LocalThemeSeedState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -39,6 +44,7 @@ fun NowPlayingRoot(
     onOpenQueue: () -> Unit,
     onNavigateToLyricImport: () -> Unit,
     onSearchMetadata: (NowPlayingTrackItem) -> Unit,
+    onOpenMetadataSources: () -> Unit,
     drawBackground: Boolean = true,
     backEnabled: Boolean = true,
     playerViewModel: PlayerVM = koinViewModel(),
@@ -47,6 +53,8 @@ fun NowPlayingRoot(
     audioMonitoringRepository: AudioMonitoringRepository = koinInject(),
     audioReactiveRepository: AudioReactiveRepository = koinInject(),
     favoritesRepository: FavoritesRepository = koinInject(),
+    playlistRepository: PlaylistRepository = koinInject(),
+    playlistPlaybackSync: PlaylistPlaybackSync = koinInject(),
     toastRepository: ToastRepository = koinInject(),
 ) {
     val state by playerViewModel.nowPlayingState.collectAsState()
@@ -59,6 +67,7 @@ fun NowPlayingRoot(
     }
     val themeSeedState = LocalThemeSeedState.current
     val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
+    val playlistSummaries by playlistRepository.playlistSummaries.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     var playerCoversStatusBar by remember { mutableStateOf(false) }
     var desktopVolume by remember(playerViewModel) { mutableFloatStateOf(playerViewModel.volume()) }
@@ -109,6 +118,37 @@ fun NowPlayingRoot(
                 }
             }
             NowPlayingAction.SearchMetadata -> state.currentTrack?.let(onSearchMetadata)
+            NowPlayingAction.OpenMetadataSources -> onOpenMetadataSources()
+            is NowPlayingAction.CreatePlaylistWithCurrentTrack -> {
+                val trackId = state.currentTrack?.id ?: return
+                coroutineScope.launch {
+                    try {
+                        if (!playlistRepository.createPlaylistWithMusic(action.title, trackId)) {
+                            toastRepository.emit(UiMessage.Resource(UiMessageKey.PlaylistOperationFailed))
+                        }
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (exception: Throwable) {
+                        toastRepository.emit(UiMessage.Resource(UiMessageKey.PlaylistOperationFailed))
+                    }
+                }
+            }
+            is NowPlayingAction.AddCurrentTrackToPlaylist -> {
+                val trackId = state.currentTrack?.id ?: return
+                coroutineScope.launch {
+                    try {
+                        if (playlistRepository.addMusic(action.playlistId, trackId)) {
+                            playlistPlaybackSync.refreshPlaylistIfCurrent(action.playlistId)
+                        } else {
+                            toastRepository.emit(UiMessage.Resource(UiMessageKey.PlaylistOperationFailed))
+                        }
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (exception: Throwable) {
+                        toastRepository.emit(UiMessage.Resource(UiMessageKey.PlaylistOperationFailed))
+                    }
+                }
+            }
             NowPlayingAction.OpenSleepTimer -> sleepModeViewModel.openModal()
             NowPlayingAction.OpenLyrics -> state.currentTrack?.id?.let(onNavigateToLyrics)
             NowPlayingAction.OpenQueue -> onOpenQueue()
@@ -123,7 +163,11 @@ fun NowPlayingRoot(
         manageSystemBars = false,
     ) {
         NowPlayingScreen(
-            state = state,
+            state = state.copy(
+                playlists = playlistSummaries.map { playlist ->
+                    NowPlayingPlaylistItem(id = playlist.id, title = playlist.title)
+                },
+            ),
             lyricDisplaySettings = settings.lyrics,
             playerInteractionSettings = settings.playerInteraction,
             currentPositionMs = playbackPosition.positionMs,

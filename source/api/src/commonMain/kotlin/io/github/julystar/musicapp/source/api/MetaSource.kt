@@ -65,6 +65,7 @@ data class MetaLyricWord(
     val text: String,
     val startMs: Long? = null,
     val endMs: Long? = null,
+    val ruby: List<MetaLyricWord> = emptyList(),
 )
 
 data class MetaLyricLine(
@@ -75,6 +76,8 @@ data class MetaLyricLine(
     val translation: String? = null,
     val romanization: String? = null,
     val person: String? = null,
+    val romanizationWords: List<MetaLyricWord> = emptyList(),
+    val extensions: Map<String, String> = emptyMap(),
 )
 
 data class MetaLyrics(
@@ -86,6 +89,24 @@ data class MetaLyrics(
     val rawMultiPersonEnhancedLrc: String? = null,
     val translated: String? = null,
     val romanization: String? = null,
+    val tags: Map<String, String> = emptyMap(),
+    val agents: List<MetaLyricAgent> = emptyList(),
+    val metadata: List<MetaLyricMetadata> = emptyList(),
+    val timing: String? = null,
+    val language: String? = null,
+    val bodyDur: String? = null,
+    val translatedLang: String? = null,
+    val romanizationLang: String? = null,
+)
+
+data class MetaLyricAgent(val id: String, val type: String? = null, val name: String? = null)
+
+data class MetaLyricMetadata(
+    val name: String,
+    val namespace: String? = null,
+    val attributes: Map<String, String> = emptyMap(),
+    val text: String? = null,
+    val children: List<MetaLyricMetadata> = emptyList(),
 )
 
 data class MetaLyricsCandidate(

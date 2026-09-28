@@ -293,6 +293,31 @@ class LegacyPlaybackControllerTest {
     }
 
     @Test
+    fun onlyListRepeatWrapsManualNavigationAtQueueBoundaries() {
+        val queue = playlist(
+            id = 3,
+            musics = listOf(musicAbstract(1, "First"), musicAbstract(2, "Last")),
+        )
+        for (mode in listOf(PlayMode.SINGLE, PlayMode.LIST, PlayMode.SINGLE_LOOP, PlayMode.LIST_LOOP)) {
+            val first = playbackQueueNavigation(mode, music(1, "First"), queue)
+            val last = playbackQueueNavigation(mode, music(2, "Last"), queue)
+            assertEquals(if (mode == PlayMode.LIST_LOOP) 2L else null, first.previous?.meta?.id?.value)
+            assertEquals(if (mode == PlayMode.LIST_LOOP) 1L else null, last.next?.meta?.id?.value)
+            assertEquals(2L, first.next?.meta?.id?.value)
+            assertEquals(1L, last.previous?.meta?.id?.value)
+            assertEquals(if (mode == PlayMode.SINGLE_LOOP) 1L else 2L, first.onComplete?.meta?.id?.value)
+            assertEquals(
+                when (mode) {
+                    PlayMode.SINGLE_LOOP -> 2L
+                    PlayMode.LIST_LOOP -> 1L
+                    else -> null
+                },
+                last.onComplete?.meta?.id?.value,
+            )
+        }
+    }
+
+    @Test
     fun largeQueueReplacementDoesNotReusePreviousQueueIndex() {
         val currentMusic = music(id = 1_195, title = "Current")
         val oldQueue = playlist(
@@ -328,7 +353,7 @@ class LegacyPlaybackControllerTest {
 
         assertEquals(1_195L, replacementNavigation.onComplete?.meta?.id?.value)
         assertEquals(2_000L, replacementNavigation.next?.meta?.id?.value)
-        assertEquals(2_048L, replacementNavigation.previous?.meta?.id?.value)
+        assertEquals(null, replacementNavigation.previous)
     }
 
     @Test

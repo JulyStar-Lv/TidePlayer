@@ -22,15 +22,14 @@ import io.github.julystar.musicapp.source.api.MetaCoverCandidate
 import io.github.julystar.musicapp.source.api.MetaSongCandidate
 import io.github.julystar.musicapp.source.api.MetaSongQuery
 import io.github.julystar.musicapp.source.storage.RemoteMetadataReader
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import uniffi.app_backend.RemoteMetadata
 import kotlin.math.abs
 
 data class ManualMetadataResult(
     val song: MetaSongCandidate,
-    val lyrics: MetaLyricsCandidate,
+    val lyrics: MetaLyricsCandidate? = null,
 )
 
 class ManualMetadataService(
@@ -41,13 +40,20 @@ class ManualMetadataService(
     private val playerRepository: PlayerRepository,
     private val metadataReader: RemoteMetadataReader,
     private val artworkResolver: PluginArtworkResolver,
+    private val artworkRepository: io.github.julystar.musicapp.core.domain.repository.ArtworkRepository,
 ) {
     private val metadataGraphWriter = MetadataGraphWriter(metadataDao)
     suspend fun search(
         track: NowPlayingTrackItem,
         keyword: String,
+        onResults: (List<ManualMetadataResult>) -> Unit = {},
     ): MetadataLookupCollection<ManualMetadataResult> {
         val normalizedKeyword = keyword.trim()
+        val received = mutableListOf<MetaSongCandidate>()
+        val resultsMutex = Mutex()
+        fun results(candidates: List<MetaSongCandidate>): List<ManualMetadataResult> =
+            rankManualMetadataCandidates(candidates, track, normalizedKeyword)
+                .mapNotNull { it.toManualMetadataResult() }
         val songResult = lookup.searchSongs(
             query = MetaSongQuery(
                 title = track.title,
@@ -57,29 +63,16 @@ class ManualMetadataService(
                 pageSize = MANUAL_METADATA_RESULTS_PER_SOURCE,
             ),
             mode = PluginLookupMode.MANUAL,
-        )
-        val candidates = rankManualMetadataCandidates(
-            candidates = songResult.items,
-            track = track,
-            keyword = normalizedKeyword,
-        ).filter { candidate -> candidate.toManualCoverCandidate() != null }
-        val lyricResults = coroutineScope {
-            candidates.map { candidate ->
-                async {
-                    candidate to lookup.getLyricsCandidates(
-                        candidate = candidate,
-                        mode = PluginLookupMode.MANUAL,
-                        pageSize = 1,
-                    )
+            onSourceResult = { sourceResult ->
+                resultsMutex.withLock {
+                    received += sourceResult.items
+                    onResults(results(received))
                 }
-            }.awaitAll()
-        }
-        return MetadataLookupCollection(
-            items = lyricResults.mapNotNull { (candidate, lyricsResult) ->
-                candidate.toManualMetadataResult(lyricsResult.value.orEmpty())
             },
-            failures = (songResult.failures + lyricResults.flatMap { (_, result) -> result.failures })
-                .distinctBy { failure -> failure.sourceId to failure.operation },
+        )
+        return MetadataLookupCollection(
+            items = results(songResult.items),
+            failures = songResult.failures,
             queriedSourceCount = songResult.queriedSourceCount,
         )
     }
@@ -87,11 +80,24 @@ class ManualMetadataService(
     suspend fun loadCoverPreview(candidate: MetaSongCandidate): ByteArray? =
         candidate.toManualCoverCandidate()?.let { artworkResolver.loadPreview(it) }
 
+    suspend fun loadLyricsPreview(candidate: MetaSongCandidate): MetaLyricsCandidate? =
+        lookup.getLyricsCandidates(
+            candidate = candidate,
+            mode = PluginLookupMode.MANUAL,
+            pageSize = 1,
+        ).let { response ->
+            check(response.failures.isEmpty()) { "Failed to load selected result lyrics" }
+            response.value?.firstOrNull { it.lyrics.previewType() != null }
+        }
+
     suspend fun apply(
         trackId: Long,
         result: ManualMetadataResult,
+        lyricsChecked: Boolean = false,
     ) {
         val candidate = result.song
+        val lyrics = if (lyricsChecked || result.lyrics != null) result.lyrics
+            else loadLyricsPreview(candidate)
         val now = currentTimeMillis()
         database.useWriterConnection { connection ->
             connection.immediateTransaction {
@@ -127,7 +133,7 @@ class ManualMetadataService(
                     ),
                 )
                 candidate.artist?.let { replaceArtists(trackId, it) }
-                result.lyrics.lyrics.toEntity(trackId, now)?.let { lyrics ->
+                lyrics?.lyrics?.toEntity(trackId, now)?.let { lyrics ->
                     metadataDao.upsertLyrics(listOf(lyrics))
                 }
             }
@@ -136,6 +142,7 @@ class ManualMetadataService(
         if (resultCover != null && !artworkResolver.applyManual(trackId, resultCover)) {
             error("Failed to apply result cover")
         }
+        artworkRepository.invalidate()
         playerRepository.refreshCurrentMetadata()
     }
 
@@ -176,11 +183,13 @@ class ManualMetadataService(
                         ),
                     ),
                 )
+                metadataDao.deleteManualArtworkForTrack(trackId)
                 replaceTrackArtists(trackId, metadata.trackArtistNames())
                 replaceTrackGenre(trackId, metadata.genre)
                 albumId?.let { replaceAlbumArtist(it, metadata.albumArtist) }
             }
         }
+        artworkRepository.invalidate()
         playerRepository.refreshCurrentMetadata()
     }
 
@@ -207,14 +216,14 @@ class ManualMetadataService(
     }
 }
 
-private const val MANUAL_METADATA_RESULTS_PER_SOURCE = 3
+internal const val MANUAL_METADATA_RESULTS_PER_SOURCE = 20
 
 internal fun MetaSongCandidate.toManualMetadataResult(
-    lyricsCandidates: List<MetaLyricsCandidate>,
+    lyricsCandidates: List<MetaLyricsCandidate> = emptyList(),
 ): ManualMetadataResult? = if (toManualCoverCandidate() == null) {
     null
 } else {
-    lyricsCandidates.firstOrNull()?.let { lyrics -> ManualMetadataResult(this, lyrics) }
+    ManualMetadataResult(this, lyricsCandidates.firstOrNull())
 }
 
 internal fun MetaSongCandidate.toManualCoverCandidate(): MetaCoverCandidate? =
@@ -236,9 +245,63 @@ internal fun rankManualMetadataCandidates(
     keyword: String,
 ): List<MetaSongCandidate> = candidates
     .distinctBy { candidate -> candidate.sourceId to candidate.id }
+    .distinctBy { candidate -> candidate.manualMetadataDuplicateKey() }
+    .filter { candidate -> candidate.matchesManualMetadataSearch(track, keyword) }
     .sortedByDescending { candidate ->
         candidate.manualMetadataMatchScore(track, keyword)
     }
+
+private fun MetaSongCandidate.manualMetadataDuplicateKey(): List<String> {
+    if (artist.isNullOrBlank() || album.isNullOrBlank()) return listOf(sourceId.orEmpty(), id)
+    return listOf(
+        sourceId.orEmpty(),
+        title.manualMetadataMatchKey(),
+        artist.orEmpty().manualMetadataMatchKey(),
+        album.orEmpty().manualMetadataMatchKey(),
+        date?.trim()?.take(4).orEmpty(),
+        durationMs?.div(1000)?.toString().orEmpty(),
+    )
+}
+
+private fun MetaSongCandidate.matchesManualMetadataSearch(
+    track: NowPlayingTrackItem,
+    keyword: String,
+): Boolean {
+    val defaultKeyword = listOfNotNull(track.title, track.artist).joinToString(" ")
+    if (keyword.manualMetadataMatchKey() == defaultKeyword.manualMetadataMatchKey()) {
+        val expectedTitle = track.title.manualMetadataTitleKey()
+        return expectedTitle.isNotEmpty() && title.manualMetadataTitleKey() == expectedTitle
+    }
+    // A corrected query must be allowed to replace inaccurate file metadata.
+    val searchable = listOfNotNull(title, artist).joinToString(" ").manualMetadataMatchKey()
+    val tokens = keyword.split(Regex("\\s+"))
+        .map(String::manualMetadataMatchKey)
+        .filter(String::isNotEmpty)
+    return tokens.isNotEmpty() && tokens.all { it in searchable }
+}
+
+private val manualMetadataVersionLabel = Regex(
+    "^(?:[0-9]{4}\\s+)?(?:live\\b|现场|cover\\b|翻唱|remix\\b|混音|伴奏|纯音乐|" +
+        "instrumental\\b|acoustic\\b|不插电|remaster|重制|radio\\s+edit\\b|feat[.\\s]|ft[.\\s])",
+    RegexOption.IGNORE_CASE,
+)
+private val manualMetadataTitleAnnotation = Regex("[（(\\[]([^）)\\]]*)[）)\\]]")
+
+private fun String.manualMetadataTitleKey(): String {
+    val withoutVersions = manualMetadataTitleAnnotation.replace(this) { match ->
+        if (manualMetadataVersionLabel.containsMatchIn(match.groupValues[1].trim())) "" else match.value
+    }
+    val suffix = Regex("\\s+[-–—]\\s+").find(withoutVersions)
+    val title = if (suffix != null && manualMetadataVersionLabel.containsMatchIn(
+            withoutVersions.substring(suffix.range.last + 1).trim(),
+        )
+    ) {
+        withoutVersions.substring(0, suffix.range.first)
+    } else {
+        withoutVersions
+    }
+    return title.manualMetadataMatchKey()
+}
 
 private fun MetaSongCandidate.manualMetadataMatchScore(
     track: NowPlayingTrackItem,
@@ -251,6 +314,7 @@ private fun MetaSongCandidate.manualMetadataMatchScore(
     val keywordKey = keyword.manualMetadataMatchKey()
     val trackTitleKey = track.title.manualMetadataMatchKey()
     val trackArtistKey = track.artist?.manualMetadataMatchKey().orEmpty()
+    val trackAlbumKey = track.album?.manualMetadataMatchKey().orEmpty()
 
     var score = 0
     if (keywordKey.isNotEmpty() && keywordKey in combinedKey) score += 80
@@ -271,6 +335,15 @@ private fun MetaSongCandidate.manualMetadataMatchScore(
         score += when {
             artistKey == trackArtistKey -> 30
             artistKey in trackArtistKey || trackArtistKey in artistKey -> 15
+            else -> 0
+        }
+    }
+
+    if (trackAlbumKey.isNotEmpty() && albumKey.isNotEmpty()) {
+        score += when {
+            albumKey == trackAlbumKey -> 40
+            minOf(trackAlbumKey.length, albumKey.length) >= 3 &&
+                (trackAlbumKey in albumKey || albumKey in trackAlbumKey) -> 25
             else -> 0
         }
     }

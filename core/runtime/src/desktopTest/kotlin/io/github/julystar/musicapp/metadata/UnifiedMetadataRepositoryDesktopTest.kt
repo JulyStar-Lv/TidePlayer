@@ -2,6 +2,7 @@ package io.github.julystar.musicapp.metadata
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import io.github.julystar.musicapp.database.ArtworkEntity
 import io.github.julystar.musicapp.database.AlbumEntity
 import io.github.julystar.musicapp.database.AppDatabase
 import io.github.julystar.musicapp.database.AppDatabaseConstructor
@@ -239,6 +240,26 @@ class UnifiedMetadataRepositoryDesktopTest {
             assertEquals(TrackMetadataSources.Filename, updated.metadataSource)
             assertEquals(listOf("Rock"), database.metadataDao().genreNamesForTrack(1))
         }
+
+    @Test
+    fun manualCoverOverridesEmbeddedArtworkAndResetRestoresIt() = withDatabase { database ->
+        val dao = database.metadataDao()
+        val embedded = ArtworkEntity(
+            trackId = 1, albumId = null, contentHash = "embedded", localPath = "/embedded.jpg",
+            thumbnailPath = null, width = 3000, height = 3000, mimeType = "image/jpeg", pictureType = "CoverFront",
+        )
+        dao.upsertArtwork(listOf(embedded))
+        val manual = embedded.copy(contentHash = "manual:track-1:first", localPath = "/first.jpg", width = null, height = null)
+        dao.replaceManualArtwork(manual)
+        assertEquals("/first.jpg", dao.getArtworkForTrack(1)?.localPath)
+        dao.replaceManualArtwork(manual.copy(contentHash = "manual:track-1:second", localPath = "/second.jpg"))
+        assertEquals("/second.jpg", dao.getArtworkForTrack(1)?.localPath)
+        // Re-selecting an earlier cover must replace the previous manual override too.
+        dao.replaceManualArtwork(manual)
+        assertEquals("/first.jpg", dao.getArtworkForTrack(1)?.localPath)
+        dao.deleteManualArtworkForTrack(1)
+        assertEquals("/embedded.jpg", dao.getArtworkForTrack(1)?.localPath)
+    }
 
     private fun withDatabase(block: suspend (AppDatabase) -> Unit) = runBlocking {
         val database = Room.inMemoryDatabaseBuilder<AppDatabase> {

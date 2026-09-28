@@ -30,6 +30,7 @@ kotlin {
             implementation(project(":service:download:domain"))
             implementation(libs.runtime)
             implementation(libs.foundation)
+            implementation(libs.backdrop)
             implementation(libs.miuix.ui)
             implementation(libs.miuix.preference)
             implementation(libs.components.resources)

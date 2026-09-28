@@ -7,6 +7,18 @@ import kotlin.test.assertEquals
 
 class PlaybackModeCycleTest {
     @Test
+    fun repeatButtonCyclesOffAllOneWithoutChangingShuffle() {
+        for (shuffleEnabled in listOf(false, true)) {
+            var state = PlayerState(repeatMode = RepeatMode.Off, shuffleEnabled = shuffleEnabled)
+            for (expected in listOf(RepeatMode.All, RepeatMode.One, RepeatMode.Off)) {
+                state = state.copy(repeatMode = state.repeatMode.nextRepeatMode())
+                assertEquals(expected, state.repeatMode)
+                assertEquals(shuffleEnabled, state.shuffleEnabled)
+            }
+        }
+    }
+
+    @Test
     fun cyclesListRepeatShuffleAndSingleRepeat() {
         val shuffle = PlayerState(
             repeatMode = RepeatMode.All,

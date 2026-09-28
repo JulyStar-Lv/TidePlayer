@@ -84,6 +84,7 @@ class TTMLParser(
         sb.append(element.text)
         for (child in element.children) {
             // we don't extract from translation or ruby spans if they are just metadata, but for safe fallback let's just extract all text that isn't translation
+            if (child.attr("tts:ruby") == "text") continue
             if (child.name == "span" && (child.hasRole("x-translation") || child.hasRole("x-bg") || child.hasRole("x-roman"))) continue
             sb.append(extractAllText(child))
         }
@@ -116,7 +117,7 @@ class TTMLParser(
         // 3. 解析主音轨翻译
         val inlineTranslation = p.children.firstOrNull {
             it.name == "span" && it.hasRole("x-translation") && !it.hasRole("x-bg")
-        }?.text?.trim()
+        }?.text?.let(::decodeXmlEntities)?.trim()
         val itunesTranslationPair = translations[itunesKey]?.let { splitTranslationByBracket(it) }
 
         // 4. 解析和声轨 (Background Vocals)
@@ -275,9 +276,13 @@ class TTMLParser(
                 val spanBegin = child.attributes.find { it.name == "begin" }?.value
                 val spanEnd = child.attributes.find { it.name == "end" }?.value
 
-                if (spanBegin != null && spanEnd != null && child.text.isNotEmpty()) {
+                val rubyBase = child.children.firstOrNull { it.attr("tts:ruby") == "base" }
+                val rubyText = child.children.filter { it.attr("tts:ruby") == "text" }
+                    .joinToString("") { extractAllText(it) }.takeIf { it.isNotEmpty() }
+                val content = rubyBase?.let { extractAllText(it) } ?: child.text
+                if (spanBegin != null && spanEnd != null && content.isNotEmpty()) {
 
-                    var syllableContent = decodeXmlEntities(child.text)
+                    var syllableContent = decodeXmlEntities(content)
 
                     val nextSibling = children.getOrNull(i + 1)
                     if (nextSibling != null && nextSibling.name == "#text") {
@@ -288,7 +293,8 @@ class TTMLParser(
                         KaraokeSyllable(
                             content = syllableContent,
                             start = spanBegin.parseAsTime(),
-                            end = spanEnd.parseAsTime()
+                            end = spanEnd.parseAsTime(),
+                            phonetic = rubyText?.let(::decodeXmlEntities)
                         )
                     )
                 }

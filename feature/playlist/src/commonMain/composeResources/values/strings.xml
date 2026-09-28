@@ -46,4 +46,19 @@
     <string name="playlists_dialog_playlist_name">PLAYLIST NAME</string>
     <string name="playlists_dialog_tab_empty">EMPTY</string>
     <string name="playlists_dialog_tab_full">FULL</string>
+    <string name="playlist_desktop_all">All Playlists</string>
+    <string name="playlist_desktop_favorites">Favorite Songs</string>
+    <string name="playlist_desktop_search">Find in All Playlists</string>
+    <string name="playlist_desktop_favorites_only">Favorites Only</string>
+    <string name="playlist_desktop_sort">Sort Options</string>
+    <string name="playlist_desktop_title">Title</string>
+    <string name="playlist_desktop_recently_added">Recently Added</string>
+    <string name="playlist_desktop_recently_played">Recently Played</string>
+    <string name="playlist_desktop_type">Playlist Type</string>
+    <string name="playlist_desktop_ascending">Ascending</string>
+    <string name="playlist_desktop_descending">Descending</string>
+    <string name="playlist_desktop_open">Open</string>
+    <string name="playlist_desktop_play">Play</string>
+    <string name="playlist_desktop_not_favorited">Not Favorited</string>
+    <string name="playlist_desktop_no_results">No Results</string>
 </resources>

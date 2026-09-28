@@ -100,6 +100,32 @@ class NowPlayingStateTest {
     }
 
     @Test
+    fun switchingTracksKeepsPlayPauseIconStableWhileLoading() {
+        for (status in listOf(PlaybackStatus.Playing, PlaybackStatus.Paused)) {
+            var controls = PlayerState(status = status).toNowPlayingControlsState()
+            val initialIsPlaying = controls.isPlaying
+            for (nextStatus in listOf(PlaybackStatus.Loading, PlaybackStatus.Loading, status)) {
+                controls = PlayerState(status = nextStatus).toNowPlayingControlsState(
+                    previousIsPlaying = controls.isPlaying,
+                )
+                assertEquals(initialIsPlaying, controls.isPlaying)
+                assertEquals(nextStatus == PlaybackStatus.Loading, controls.isLoading)
+            }
+        }
+    }
+
+    @Test
+    fun explicitPauseAndPlaybackFailureUpdatePlayPauseIcon() {
+        for (status in listOf(PlaybackStatus.Paused, PlaybackStatus.Idle, PlaybackStatus.Error)) {
+            val controls = PlayerState(status = status).toNowPlayingControlsState(
+                previousIsPlaying = true,
+            )
+            assertEquals(false, controls.isPlaying)
+        }
+        assertEquals(false, PlayerState(status = PlaybackStatus.Loading).toNowPlayingControlsState().isPlaying)
+    }
+
+    @Test
     fun nowPlayingUsesEffectiveTranscodedAudioQuality() {
         val info = currentTrackInfo(Artwork.LibraryTrack(7)).copy(
             playbackAudioInfo = PlaybackAudioInfo(

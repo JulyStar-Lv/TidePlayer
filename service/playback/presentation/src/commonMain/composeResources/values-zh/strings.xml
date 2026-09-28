@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="downloads_title">下载</string>
-    <string name="music_player_context_menu_remove">移除</string>
+    <string name="music_player_context_menu_remove">从播放队列移除</string>
     <string name="music_player_search_metadata">搜索元数据</string>
+    <string name="player_update_metadata">手动更新元数据</string>
+    <string name="player_default_metadata_source">默认元数据来源</string>
+    <string name="player_new_playlist">新建播放列表</string>
+    <string name="player_playlist_name">播放列表标题</string>
+    <string name="player_create_playlist">创建</string>
+    <string name="player_create_playlist_track_hint">当前歌曲将添加到此播放列表</string>
+    <string name="player_all_playlists">所有播放列表</string>
+    <string name="player_add_to_playlist">添加到播放列表</string>
+    <string name="player_download_to_local">下载到本地</string>
+    <string name="player_menu_add_favorite">喜爱</string>
+    <string name="player_menu_remove_favorite">撤销喜爱</string>
+    <string name="player_no_playlists">暂无播放列表</string>
     <string name="music_lyric_add">添加歌词</string>
     <string name="music_lyric_remove">移除歌词</string>
     <string name="music_lyric_no_desc">没有歌词。</string>
@@ -54,4 +66,7 @@
     <string name="player_composed_by">作曲 · %1$s</string>
     <string name="player_exit_now_playing">退出正在播放</string>
     <string name="player_open_mini_player">打开迷你播放器</string>
+    <string name="player_repeat_off">关闭循环</string>
+    <string name="player_shuffle_on">开启随机播放</string>
+    <string name="player_shuffle_off">关闭随机播放</string>
 </resources>

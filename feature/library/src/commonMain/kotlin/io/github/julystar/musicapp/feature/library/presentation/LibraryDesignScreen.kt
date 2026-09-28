@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -105,11 +104,10 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import io.github.julystar.musicapp.core.presentation.components.DesignTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -186,8 +184,6 @@ fun LibraryDesignScreen(
                 }
             }
         } else {
-            val topAppBarScrollBehavior = MiuixScrollBehavior()
-            val actionBarProgress = topAppBarScrollBehavior.state.collapsedFraction
             val pageTitle = localizedLibraryText("Library")
             val pagerState = rememberPagerState(
                 initialPage = primaryLibraryCategories.indexOf(selectedCategory).coerceAtLeast(0),
@@ -218,15 +214,10 @@ fun LibraryDesignScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth)
-                    .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+                    .widthIn(max = DesignTokens.adaptive.contentMaxWidth),
             ) {
-                TopAppBar(
-                    title = pageTitle,
-                    largeTitle = pageTitle,
-                    color = Color.Transparent,
-                    titleColor = Color.Transparent,
-                    scrollBehavior = topAppBarScrollBehavior,
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(DesignTokens.adaptive.compactHeaderHeight),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Box(modifier = Modifier.padding(horizontal = pagePadding)) {
@@ -296,7 +287,7 @@ fun LibraryDesignScreen(
             }
             LiquidGlassActionBar(
                 title = pageTitle,
-                collapseFraction = actionBarProgress,
+                collapseFraction = 1f,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }

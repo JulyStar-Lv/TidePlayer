@@ -7,6 +7,7 @@ import io.github.julystar.musicapp.core.domain.model.LyricSourceMode
 import io.github.julystar.musicapp.core.domain.model.LyricWord
 import io.github.julystar.musicapp.core.domain.model.Lyrics
 import io.github.julystar.musicapp.core.domain.model.LyricsLoadState
+import io.github.julystar.musicapp.core.domain.model.normalizedLyricTranslation
 import io.github.julystar.musicapp.core.domain.model.isLyricHeaderTag
 import io.github.julystar.musicapp.database.LyricsEntity
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
@@ -175,6 +176,6 @@ private fun KaraokeLine.toDomainLine(): LyricLine {
 }
 
 private fun String.withTranslation(translation: String?): String {
-    val normalizedTranslation = translation?.trim()?.takeIf(String::isNotEmpty) ?: return this
+    val normalizedTranslation = translation?.normalizedLyricTranslation() ?: return this
     return "$this\n$normalizedTranslation"
 }

@@ -40,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
@@ -387,6 +388,7 @@ internal fun RootNavHost(
                         navController.navigate(MusicGraph.Playlist(id))
                     },
                     onCreatePlaylist = createPlaylistVM::openModal,
+                    onNavigateToFavorites = { navController.navigate(MusicGraph.Favorites) },
                 )
                 CreatePlaylistRoot(
                     createPlaylistVM = createPlaylistVM,
@@ -473,6 +475,7 @@ internal fun RootNavHost(
                 navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
             },
             onSearchMetadata = args.onSearchMetadata,
+            onOpenMetadataSources = { navController.navigate(MusicGraph.PluginSettings) },
         )
         }
         }
@@ -620,6 +623,11 @@ internal fun RootNavHost(
                                             navController.navigate(MusicGraph.Import(RouteImportType.Lyric))
                                         },
                                         onSearchMetadata = { track -> metadataTrack = track },
+                                        onOpenMetadataSources = {
+                                            showNowPlayingOverlay = false
+                                            nowPlayingOverlayHostEntryId = null
+                                            navController.navigate(MusicGraph.PluginSettings)
+                                        },
                                         backEnabled = !showImmersiveLyrics,
                                     )
                                 }
@@ -856,13 +864,17 @@ internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
         routeName == "Playlist" || routeName.endsWith(".Playlist") ||
         routeName == "Favorites" || routeName.endsWith(".Favorites") ||
         routeName == "Listening" || routeName.endsWith(".Listening") ||
-        routeName == "PluginSettings" || routeName.endsWith(".PluginSettings")
+        routeName == "PluginSettings" || routeName.endsWith(".PluginSettings") ||
+        listOf("Search", "Downloads", "Browse", "BrowseGenre", "Radio", "Playlists",
+            "RecentlyAdded", "RecentlyPlayed", "EditStorage").any { name ->
+            routeName == name || routeName.endsWith(".$name")
+        }
 }
 
 internal fun shouldHoistSecondaryStickyHeader(
     captureStickyHeader: Boolean,
-    windowSizeClass: WindowSizeClass,
-): Boolean = captureStickyHeader && windowSizeClass == WindowSizeClass.Compact
+    @Suppress("UNUSED_PARAMETER") windowSizeClass: WindowSizeClass,
+): Boolean = captureStickyHeader
 
 @Composable
 private fun SecondaryRootNavigationLayout(
@@ -899,9 +911,6 @@ private fun SecondaryRootNavigationLayout(
         val windowSizeClass = rememberWindowSizeClass(
             containerSize = androidx.compose.ui.unit.DpSize(maxWidth, maxHeight),
         )
-        val statusBarInset = WindowInsets.statusBars
-            .asPaddingValues()
-            .calculateTopPadding() + titleBarInset
         val hoistStickyHeader = shouldHoistSecondaryStickyHeader(
             captureStickyHeader = captureStickyHeader,
             windowSizeClass = windowSizeClass,
@@ -1006,13 +1015,15 @@ private fun SecondaryRootNavigationLayout(
                         LocalPlayerArtworkAnimatedVisibilityScope provides chromeVisibilityScope,
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
+                            LiquidGlassStickyHeaderHost(
+                                state = stickyHeaderState,
+                                statusBarInset = WindowInsets.statusBars.asPaddingValues()
+                                    .calculateTopPadding() + contentTitleBarInset,
+                                modifier = Modifier.align(Alignment.TopCenter),
+                                contentStartInset = sideNavigationWidth,
+                            )
                             when (windowSizeClass) {
                                 WindowSizeClass.Compact -> {
-                                    LiquidGlassStickyHeaderHost(
-                                        state = stickyHeaderState,
-                                        statusBarInset = statusBarInset,
-                                        modifier = Modifier.align(Alignment.TopCenter),
-                                    )
                                     BottomBar(
                                         currentTab = currentTab,
                                         onTabSelected = onTabSelected,
@@ -1031,7 +1042,8 @@ private fun SecondaryRootNavigationLayout(
                                         modifier = Modifier
                                             .align(Alignment.CenterStart)
                                             .fillMaxHeight()
-                                            .statusBarsPadding(),
+                                            .statusBarsPadding()
+                                            .zIndex(1f),
                                     )
                                     if (hasPlaybackItem) {
                                         Box(
@@ -1063,7 +1075,8 @@ private fun SecondaryRootNavigationLayout(
                                         modifier = Modifier
                                             .align(Alignment.CenterStart)
                                             .fillMaxHeight()
-                                            .statusBarsPadding(),
+                                            .statusBarsPadding()
+                                            .zIndex(1f),
                                     )
                                     if (hasPlaybackItem) {
                                         Box(

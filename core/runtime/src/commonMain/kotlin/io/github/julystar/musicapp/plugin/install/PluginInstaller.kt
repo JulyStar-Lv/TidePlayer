@@ -80,8 +80,8 @@ class PluginInstaller(
 ) {
     companion object {
         const val MIN_SUPPORTED_API_VERSION = 1
-        const val MAX_SUPPORTED_API_VERSION = 4
-        const val HOST_API_VERSION = 3
+        const val MAX_SUPPORTED_API_VERSION = 5
+        const val HOST_API_VERSION = 4
 
         private const val MAX_ARCHIVE_FILES = 512L
         private const val MAX_ARCHIVE_BYTES = 64L * 1024L * 1024L
@@ -336,6 +336,7 @@ class PluginInstaller(
     }
 
     private fun validatePluginLayout(root: Path, manifest: ParsedManifest) {
+        io.github.julystar.musicapp.plugin.runtime.PluginI18n.read(root, json.parseToJsonElement(manifest.raw).jsonObject, fileSystem)
         val entry = resolveUnder(root, manifest.entryFile, "entry")
         require(fileSystem.metadataOrNull(entry)?.isRegularFile == true) {
             "entry file not found: ${manifest.entryFile}"

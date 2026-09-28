@@ -11,6 +11,12 @@ import io.github.julystar.musicapp.source.api.MetaSource
 import io.github.julystar.musicapp.source.api.MetaSourceCapability
 import io.github.julystar.musicapp.source.api.MetaSourceRegistry
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeout
 
 enum class MetadataLookupOperation {
@@ -50,30 +56,53 @@ class MetadataLookupUseCase(
         query: MetaSongQuery,
         mode: PluginLookupMode,
         sourceIds: Set<String>? = null,
-    ): MetadataLookupCollection<MetaSongCandidate> = withinModeTimeout(mode) {
+        onSourceResult: (suspend (MetadataLookupCollection<MetaSongCandidate>) -> Unit)? = null,
+    ): MetadataLookupCollection<MetaSongCandidate> = coroutineScope {
         val sources = selectedSources(sourceIds, MetaSourceCapability.SEARCH_SONGS)
-        val candidates = mutableListOf<MetaSongCandidate>()
-        val failures = mutableListOf<MetadataLookupFailure>()
-        sources.forEach { source ->
-            try {
-                val sourceCandidates = when (source) {
-                    is LyricoJsMetaSource -> source.searchSongs(query, mode)
-                    else -> source.searchSongs(query)
-                }
-                candidates += sourceCandidates.take(query.pageSize.coerceAtLeast(1)).map { candidate ->
-                    candidate.copy(sourceId = source.id)
+        suspend fun searchSource(source: MetaSource): MetadataLookupCollection<MetaSongCandidate> {
+            val result = try {
+                val sourceCandidates = withinModeTimeout(mode) {
+                    when (source) {
+                        is LyricoJsMetaSource -> source.searchSongs(query, mode)
+                        else -> source.searchSongs(query)
+                    }
                 }
                 clearPluginError(source)
+                MetadataLookupCollection(
+                    items = sourceCandidates.take(query.pageSize.coerceAtLeast(1)).map { candidate ->
+                        candidate.copy(sourceId = source.id)
+                    },
+                    queriedSourceCount = 1,
+                )
+            } catch (timeout: TimeoutCancellationException) {
+                currentCoroutineContext().ensureActive()
+                recordPluginError(source, timeout)
+                MetadataLookupCollection(
+                    items = emptyList(),
+                    failures = listOf(timeout.toFailure(source.id, MetadataLookupOperation.SEARCH_SONGS)),
+                    queriedSourceCount = 1,
+                )
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
                 recordPluginError(source, error)
-                failures += error.toFailure(source.id, MetadataLookupOperation.SEARCH_SONGS)
+                MetadataLookupCollection(
+                    items = emptyList(),
+                    failures = listOf(error.toFailure(source.id, MetadataLookupOperation.SEARCH_SONGS)),
+                    queriedSourceCount = 1,
+                )
             }
+            onSourceResult?.invoke(result)
+            return result
+        }
+        val results = if (mode == PluginLookupMode.MANUAL) {
+            sources.map { source -> async { searchSource(source) } }.awaitAll()
+        } else {
+            sources.map { source -> searchSource(source) }
         }
         MetadataLookupCollection(
-            items = candidates,
-            failures = failures,
+            items = results.flatMap { it.items },
+            failures = results.flatMap { it.failures },
             queriedSourceCount = sources.size,
         )
     }

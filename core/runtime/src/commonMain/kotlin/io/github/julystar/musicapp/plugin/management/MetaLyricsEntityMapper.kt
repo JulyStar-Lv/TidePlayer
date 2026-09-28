@@ -12,6 +12,7 @@ import kotlin.math.abs
 
 fun MetaLyrics.toEntity(trackId: Long, updatedAt: Long): LyricsEntity? {
     val persistableLines = lines.attachTranslatedTrack(translated)
+    val extendedTtml = toExtendedTtmlOrNull()?.let { PersistedLyricPayload("TTML", it, wordTimed = timing != "Line" && lines.any { line -> line.words.isNotEmpty() }) }
     val structuredWordTimed = persistableLines.toEnhancedLrcOrNull()?.let { content ->
         PersistedLyricPayload("LRC", content, wordTimed = true)
     }
@@ -53,12 +54,12 @@ fun MetaLyrics.toEntity(trackId: Long, updatedAt: Long): LyricsEntity? {
     } else {
         plain ?: generatedPayload
     }
-    val payload = wordTimed ?: fallbackPayload ?: return null
+    val payload = extendedTtml ?: wordTimed ?: fallbackPayload ?: return null
     val synchronized = payload.format != "TEXT"
     return LyricsEntity(
         trackId = trackId,
         format = payload.format,
-        language = null,
+        language = language,
         synchronized = synchronized,
         content = payload.content,
         sourcePath = "external:plugin",

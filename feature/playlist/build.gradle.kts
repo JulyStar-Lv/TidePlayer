@@ -45,6 +45,12 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.core)
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.compose.ui.test)
+                implementation(compose.desktop.currentOs)
+            }
+        }
     }
 }
 

@@ -61,6 +61,8 @@ import io.github.julystar.musicapp.source.api.MetaSourceRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import okio.Path.Companion.toPath
 import org.koin.dsl.onClose
@@ -131,6 +133,7 @@ val coreDataModule = module {
         PluginRepository(
             pluginDao = get(),
             pluginsDir = getAppDataDirectory().toPath() / "plugins",
+            localeChanges = get<SettingsRepository>().settings.map { it.languageMode }.distinctUntilChanged().map { Unit },
         )
     }
     single {

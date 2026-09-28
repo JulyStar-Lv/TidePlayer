@@ -46,4 +46,19 @@
     <string name="playlists_dialog_playlist_name">播放列表名称</string>
     <string name="playlists_dialog_tab_empty">空白</string>
     <string name="playlists_dialog_tab_full">完整</string>
+    <string name="playlist_desktop_all">所有播放列表</string>
+    <string name="playlist_desktop_favorites">喜爱歌曲</string>
+    <string name="playlist_desktop_search">在所有播放列表中查找</string>
+    <string name="playlist_desktop_favorites_only">仅喜爱</string>
+    <string name="playlist_desktop_sort">排序选项</string>
+    <string name="playlist_desktop_title">标题</string>
+    <string name="playlist_desktop_recently_added">最近添加</string>
+    <string name="playlist_desktop_recently_played">最近播放</string>
+    <string name="playlist_desktop_type">播放列表类型</string>
+    <string name="playlist_desktop_ascending">升序</string>
+    <string name="playlist_desktop_descending">降序</string>
+    <string name="playlist_desktop_open">打开</string>
+    <string name="playlist_desktop_play">播放</string>
+    <string name="playlist_desktop_not_favorited">未喜爱</string>
+    <string name="playlist_desktop_no_results">无结果</string>
 </resources>

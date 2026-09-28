@@ -12,6 +12,25 @@ import kotlin.test.assertTrue
 
 class PersistedLyricsTest {
     @Test
+    fun hidesPlaceholderTranslationsWhenRestoringSavedTtml() {
+        val entity = LyricsEntity(
+            trackId = 1, format = "TTML", language = null, synchronized = true,
+            content = """
+                <tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+                    <body><div>
+                        <p begin="00:01.000" end="00:02.000">Yeah<span ttm:role="x-translation">//</span></p>
+                        <p begin="00:02.000" end="00:03.000">Hello<span ttm:role="x-translation">你好</span></p>
+                    </div></body>
+                </tt>
+            """.trimIndent(),
+            sourcePath = "external:plugin", updatedAt = 1,
+        )
+        val lines = entity.toPlaybackLyrics().lines
+        assertEquals(listOf("Yeah", "Hello\n你好"), lines.map { it.text })
+        assertEquals(listOf(1_000L, 2_000L), lines.map { it.duration.inWholeMilliseconds })
+    }
+
+    @Test
     fun selectsConfiguredSourcePriorityAndMode() {
         val embedded = lyricEntity("EmbeddedPlain", 1)
         val externalTtml = lyricEntity("ExternalTtml", 2)
@@ -194,7 +213,7 @@ class PersistedLyricsTest {
     }
 
     @Test
-    fun parsesWordTimedCreditLinesWithSlashTranslations() {
+    fun removesSlashPlaceholdersFromWordTimedCreditTranslations() {
         val lyrics = LyricsEntity(
             trackId = 1,
             format = "LRC",
@@ -219,10 +238,10 @@ class PersistedLyricsTest {
 
         assertEquals(
             listOf(
-                "My story\n//",
-                "Lyrics by：孙燕姿\n//",
-                "Composed by：李伟菘\n//",
-                "孙燕姿：\n//",
+                "My story",
+                "Lyrics by：孙燕姿",
+                "Composed by：李伟菘",
+                "孙燕姿：",
                 "Is your smile genuine\n你的笑是发自真心么",
             ),
             lyrics.lines.map { it.text },

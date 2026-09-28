@@ -17,6 +17,7 @@ interface PlayerController : SleepController {
         id: MusicId,
         playlistId: PlaylistId,
         startPositionMs: Long = 0L,
+        startPlayback: Boolean = true,
     )
     fun resume()
     fun pause()

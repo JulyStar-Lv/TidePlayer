@@ -61,9 +61,11 @@ public fun PlaybackQueue.toNowPlayingQueueState(
     )
 }
 
-public fun PlayerState.toNowPlayingControlsState(): NowPlayingControlsState {
+public fun PlayerState.toNowPlayingControlsState(
+    previousIsPlaying: Boolean = false,
+): NowPlayingControlsState {
     return NowPlayingControlsState(
-        isPlaying = status == PlaybackStatus.Playing,
+        isPlaying = if (status == PlaybackStatus.Loading) previousIsPlaying else status == PlaybackStatus.Playing,
         isLoading = status == PlaybackStatus.Loading,
         repeatMode = repeatMode,
         shuffleEnabled = shuffleEnabled,

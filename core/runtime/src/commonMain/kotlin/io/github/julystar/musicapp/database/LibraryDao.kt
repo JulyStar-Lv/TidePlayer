@@ -1357,11 +1357,21 @@ interface MetadataDao {
     @Upsert
     suspend fun upsertArtwork(values: List<ArtworkEntity>): List<Long>
 
+    @Query("DELETE FROM artwork WHERE trackId = :trackId AND contentHash LIKE 'manual:track-%'")
+    suspend fun deleteManualArtworkForTrack(trackId: Long)
+
+    @Transaction
+    suspend fun replaceManualArtwork(artwork: ArtworkEntity) {
+        deleteManualArtworkForTrack(requireNotNull(artwork.trackId))
+        upsertArtwork(listOf(artwork))
+    }
+
     @Query(
         """
         SELECT * FROM artwork
         WHERE trackId = :trackId
         ORDER BY
+          CASE WHEN contentHash LIKE 'manual:track-%' THEN 1 ELSE 0 END DESC,
           CASE WHEN trim(localPath) <> '' THEN 1 ELSE 0 END DESC,
           COALESCE(width, 0) * COALESCE(height, 0) DESC,
           CASE WHEN lower(COALESCE(mimeType, '')) LIKE 'image/%' THEN 1 ELSE 0 END DESC,

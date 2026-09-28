@@ -79,6 +79,40 @@ import kotlin.test.assertTrue
 
 class DesktopPlayerControllerTest {
     @Test
+    fun skippingTracksPreservesPausedAndPlayingStates() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),
+    ) { harness ->
+        setPlayModeAndAwaitPersistence(harness, PlayMode.LIST_LOOP)
+        harness.controller.play(MusicId(TRACK_ID), PlaylistId(PLAYLIST_ID))
+        awaitUntil { harness.playerRepository.playing.value && !harness.playerRepository.loading.value }
+        awaitUntil { harness.playerRepository.nextMusic.value?.meta?.id?.value == SECOND_TRACK_ID }
+        harness.controller.pause()
+
+        for (playing in listOf(false, true)) {
+            if (playing) harness.controller.resume()
+            val initialPlayCalls = harness.engine.playCalls
+            harness.controller.playNext()
+            awaitUntil {
+                harness.playerRepository.music.value?.meta?.id?.value == SECOND_TRACK_ID &&
+                    !harness.playerRepository.loading.value
+            }
+            assertEquals(playing, harness.playerRepository.playing.value)
+            assertEquals(initialPlayCalls + if (playing) 1 else 0, harness.engine.playCalls)
+
+            awaitUntil { harness.playerRepository.previousMusic.value?.meta?.id?.value == TRACK_ID }
+            harness.controller.playPrevious()
+            awaitUntil {
+                harness.playerRepository.music.value?.meta?.id?.value == TRACK_ID &&
+                    !harness.playerRepository.loading.value
+            }
+            assertEquals(playing, harness.playerRepository.playing.value)
+            assertEquals(initialPlayCalls + if (playing) 2 else 0, harness.engine.playCalls)
+            awaitUntil { harness.playerRepository.nextMusic.value?.meta?.id?.value == SECOND_TRACK_ID }
+        }
+    }
+
+    @Test
     fun selectingTrackAfterSessionRestoreKeepsRestoredQueueSubset() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
         engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),
@@ -119,6 +153,27 @@ class DesktopPlayerControllerTest {
             listOf(SECOND_TRACK_ID),
             harness.playerRepository.playlist.value?.musics?.map { it.meta.id.value },
         )
+    }
+
+    @Test
+    fun disablingShuffleRestoresOrderWithoutExpandingThePlaybackQueue() = withHarness(
+        sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
+        engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),
+    ) { harness ->
+        harness.controller.play(MusicId(SECOND_TRACK_ID), PlaylistId(PLAYLIST_ID))
+        awaitUntil { harness.playerRepository.playing.value && !harness.playerRepository.loading.value }
+        val current = requireNotNull(harness.playerRepository.playlist.value)
+        harness.playerRepository.setPlaybackQueue(
+            current.copy(musics = current.musics.filter { it.meta.id.value == SECOND_TRACK_ID }),
+        )
+
+        harness.playerRepository.restorePlaybackQueueOrder()
+
+        assertEquals(
+            listOf(SECOND_TRACK_ID),
+            harness.playerRepository.playlist.value?.musics?.map { it.meta.id.value },
+        )
+        assertEquals(SECOND_TRACK_ID, harness.playerRepository.music.value?.meta?.id?.value)
     }
 
     @Test
@@ -209,20 +264,28 @@ class DesktopPlayerControllerTest {
     }
 
     @Test
-    fun naturalPlaybackCompletionClearsPlayingStateWhenQueueHasNoNextTrack() = withHarness(
+    fun naturalCompletionWithoutRepeatAdvancesThenStopsAtQueueEnd() = withHarness(
         sourceResult = SourcePlaybackResult.Success(TEST_RESOURCE),
         engine = RecordingDesktopPlaybackEngine(PlaybackEngineLoadResult.Ready),
     ) { harness ->
         harness.controller.play(MusicId(TRACK_ID), PlaylistId(PLAYLIST_ID))
         awaitUntil {
             harness.playerRepository.playing.value &&
-                !harness.playerRepository.loading.value
+                !harness.playerRepository.loading.value &&
+                harness.playerRepository.onCompleteMusic.value?.meta?.id?.value == SECOND_TRACK_ID
         }
 
         harness.engine.playbackCompleted = true
+        awaitUntil {
+            harness.playerRepository.music.value?.meta?.id?.value == SECOND_TRACK_ID &&
+                harness.playerRepository.playing.value &&
+                !harness.playerRepository.loading.value &&
+                harness.playerRepository.onCompleteMusic.value == null
+        }
+        harness.engine.playbackCompleted = true
 
         awaitUntil { !harness.playerRepository.playing.value }
-        assertEquals(TRACK_ID, harness.playerRepository.music.value?.meta?.id?.value)
+        assertEquals(SECOND_TRACK_ID, harness.playerRepository.music.value?.meta?.id?.value)
     }
 
     @Test

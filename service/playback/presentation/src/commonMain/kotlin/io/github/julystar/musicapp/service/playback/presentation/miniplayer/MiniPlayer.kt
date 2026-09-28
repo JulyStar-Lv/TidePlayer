@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.AppleMusicDesktopTransportButton
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.AppleMusicDesktopTransportMotion
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
@@ -141,6 +143,9 @@ import musicapp.service.playback.presentation.generated.resources.player_queue
 import musicapp.service.playback.presentation.generated.resources.player_remove_favorite
 import musicapp.service.playback.presentation.generated.resources.player_repeat
 import musicapp.service.playback.presentation.generated.resources.player_shuffle
+import musicapp.service.playback.presentation.generated.resources.player_shuffle_on
+import musicapp.service.playback.presentation.generated.resources.player_shuffle_off
+import musicapp.service.playback.presentation.generated.resources.player_repeat_off
 import musicapp.service.playback.presentation.generated.resources.player_single_repeat
 import musicapp.service.playback.presentation.generated.resources.player_unknown_artist
 import musicapp.service.playback.presentation.generated.resources.player_unmute
@@ -528,11 +533,16 @@ private fun DesktopMiniPlayerBar(
             .liquidGlassSurface(
                 shape = DesktopPlayerShape,
                 surfaceColor = if (isDark) Color.Black else Color.White,
-                surfaceAlphaScale = if (isDark) 0.72f else 0.30f,
+                surfaceAlphaScale = if (isDark) 1f else 0.50f,
                 vibrant = true,
                 showHighlight = true,
             ),
     ) {
+        Box(
+            Modifier.fillMaxSize().background(
+                if (isDark) Color(0xFF5D5B59).copy(alpha = 0.51f) else Color.White.copy(alpha = 0.50f),
+            ),
+        )
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -545,8 +555,10 @@ private fun DesktopMiniPlayerBar(
             ) {
                 DesktopPlayerIconButton(
                     painter = painterResource(Res.drawable.icon_apple_music_shuffle),
-                    contentDescription = stringResource(Res.string.player_shuffle),
-                    tint = if (shuffleEnabled) DesignPalette.FavoriteRed else transportForeground.copy(alpha = 0.315f),
+                    contentDescription = stringResource(
+                        if (shuffleEnabled) Res.string.player_shuffle_off else Res.string.player_shuffle_on,
+                    ),
+                    tint = if (shuffleEnabled) transportForeground else transportForeground.copy(alpha = 0.315f),
                     selected = shuffleEnabled,
                     enabled = playbackAvailable,
                     buttonSize = 28.dp,
@@ -557,57 +569,53 @@ private fun DesktopMiniPlayerBar(
                     iconScaleY = 1.1125f,
                     onClick = onToggleShuffle,
                 )
-                DesktopPlayerIconButton(
-                    painter = painterResource(Res.drawable.icon_apple_music_previous),
+                AppleMusicDesktopTransportButton(
+                    painter = Res.drawable.icon_apple_music_previous,
+                    motion = AppleMusicDesktopTransportMotion.Seek,
+                    seekDirection = -1,
                     contentDescription = stringResource(Res.string.player_previous_track),
                     tint = transportForeground,
                     enabled = canPrevious,
-                    buttonSize = 28.dp,
+                    buttonWidth = 28.dp,
+                    modifier = Modifier.height(28.dp),
                     iconSize = 31.75.dp,
                     iconHeight = 30.dp,
                     iconOffsetX = 0.75.dp,
                     iconOffsetY = 0.75.dp,
                     iconScaleY = 0.92f,
-                    showsInteractionBackground = false,
-                    pressedIconAlpha = 0.58f,
                     onClick = onPrevious,
                 )
-                DesktopPlayerIconButton(
-                    painter = painterResource(
-                        if (isPlaying) {
-                            Res.drawable.icon_apple_music_pause
-                        } else {
-                            Res.drawable.icon_apple_music_play
-                        },
-                    ),
+                AppleMusicDesktopTransportButton(
+                    painter = if (isPlaying) Res.drawable.icon_apple_music_pause else Res.drawable.icon_apple_music_play,
+                    motion = AppleMusicDesktopTransportMotion.PlayPause,
                     contentDescription = stringResource(
                         if (isPlaying) Res.string.player_pause else Res.string.player_play,
                     ),
                     tint = transportForeground,
                     enabled = !loading,
-                    buttonSize = 36.dp,
+                    buttonWidth = 36.dp,
+                    modifier = Modifier.height(36.dp),
                     iconSize = 33.5.dp,
                     iconHeight = 34.5.dp,
                     iconOffsetX = (-1.5).dp,
                     iconOffsetY = 0.75.dp,
                     iconScaleY = 1.0125f,
-                    showsInteractionBackground = false,
-                    pressedIconAlpha = 0.58f,
                     onClick = if (isPlaying) onPause else onPlay,
                 )
-                DesktopPlayerIconButton(
-                    painter = painterResource(Res.drawable.icon_apple_music_next),
+                AppleMusicDesktopTransportButton(
+                    painter = Res.drawable.icon_apple_music_next,
+                    motion = AppleMusicDesktopTransportMotion.Seek,
+                    seekDirection = 1,
                     contentDescription = stringResource(Res.string.player_next_track),
                     tint = transportForeground,
                     enabled = canNext,
-                    buttonSize = 28.dp,
+                    buttonWidth = 28.dp,
+                    modifier = Modifier.height(28.dp),
                     iconSize = 31.75.dp,
                     iconHeight = 30.dp,
                     iconOffsetX = (-0.75).dp,
                     iconOffsetY = 0.75.dp,
                     iconScaleY = 0.92f,
-                    showsInteractionBackground = false,
-                    pressedIconAlpha = 0.58f,
                     onClick = onNext,
                 )
                 DesktopPlayerIconButton(
@@ -619,16 +627,16 @@ private fun DesktopMiniPlayerBar(
                         },
                     ),
                     contentDescription = stringResource(
-                        if (repeatMode == RepeatMode.One) {
-                            Res.string.player_single_repeat
-                        } else {
-                            Res.string.player_repeat
+                        when (repeatMode) {
+                            RepeatMode.Off -> Res.string.player_repeat_off
+                            RepeatMode.All -> Res.string.player_list_repeat
+                            RepeatMode.One -> Res.string.player_single_repeat
                         },
                     ),
                     tint = if (repeatMode == RepeatMode.Off) {
                         transportForeground.copy(alpha = 0.315f)
                     } else {
-                        DesignPalette.FavoriteRed
+                        transportForeground
                     },
                     selected = repeatMode != RepeatMode.Off,
                     enabled = playbackAvailable,
@@ -910,10 +918,10 @@ private fun DesktopPlayerMetadata(
     val artworkInteractionSource = remember { MutableInteractionSource() }
     val metadataInteractionSource = remember { MutableInteractionSource() }
     val artworkIsHovered by artworkInteractionSource.collectIsHoveredAsState()
-    val artworkScale by animateFloatAsState(
-        targetValue = if (artworkHovered) 1.06f else 1f,
+    val artworkHoverProgress by animateFloatAsState(
+        targetValue = if (artworkHovered) 1f else 0f,
         animationSpec = tween(if (artworkHovered) 150 else 180),
-        label = "desktop-player-artwork-scale",
+        label = "desktop-player-artwork-hover",
     )
     val metadataBlur by animateDpAsState(
         targetValue = if (progressExpanded) 7.dp else 0.dp,
@@ -961,7 +969,7 @@ private fun DesktopPlayerMetadata(
                     modifier = Modifier
                         .offset(x = DesktopArtworkLeadingInset)
                         .size(34.dp)
-                        .scale(artworkScale)
+                        .scale(1f + 0.06f * artworkHoverProgress)
                         .then(
                             if (artworkHovered) {
                                 Modifier.dropShadow(
@@ -985,19 +993,28 @@ private fun DesktopPlayerMetadata(
                         modifier = Modifier.fillMaxSize(),
                         artwork = cover,
                     )
-                    if (artworkHovered && !progressExpanded) {
-                        Image(
-                            painter = painterResource(Res.drawable.icon_apple_music_artwork_overlay),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        Icon(
-                            painter = painterResource(Res.drawable.icon_apple_music_artwork_overlay_icon),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(36.dp),
-                        )
-                    }
+                    Image(
+                        painter = painterResource(Res.drawable.icon_apple_music_artwork_overlay),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                alpha = if (progressExpanded) 0f else artworkHoverProgress
+                            },
+                    )
+                    Icon(
+                        painter = painterResource(Res.drawable.icon_apple_music_artwork_overlay_icon),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .requiredSize(56.dp)
+                            .graphicsLayer {
+                                alpha = if (progressExpanded) 0f else artworkHoverProgress
+                                rotationZ = 90f
+                                scaleX = 0.8f + 0.2f * artworkHoverProgress
+                                scaleY = scaleX
+                            },
+                    )
                 }
             }
             Column(
@@ -1530,7 +1547,7 @@ fun MiniPlayer(
         ?: 0
 
     MiniPlayerCore(
-        isPlaying = playbackState.status == PlaybackStatus.Playing,
+        isPlaying = nowPlayingState.controls.isPlaying,
         title = currentTrack?.title ?: playbackState.currentItem?.title ?: "",
         subtitle = listOfNotNull(
             currentTrack?.artist?.takeIf { it.isNotBlank() }

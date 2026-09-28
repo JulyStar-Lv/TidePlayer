@@ -649,6 +649,46 @@ class RoomLibraryIntegrationTest {
         }
 
     @Test
+    fun roomLibraryStoreAddsExistingTrackToPlaylistOnlyOnce() = withDatabase { database ->
+        seedStorageAndFolder(database)
+        val store = roomLibraryStore(database)
+        val sourcePlaylist = assertNotNull(
+            store.createPlaylist(
+                CreatePlaylistRequest(
+                    title = "Source",
+                    cover = null,
+                    entries = listOf(
+                        sourceSelection(
+                            path = "/Music/Track.flac",
+                            name = "Track.flac",
+                            type = SourceNodeType.Track,
+                        )
+                    ),
+                )
+            )
+        )
+        val targetPlaylist = assertNotNull(
+            store.createPlaylist(
+                CreatePlaylistRequest(title = "Target", cover = null, entries = emptyList())
+            )
+        )
+        val trackId = sourcePlaylist.musics.single().meta.id.value
+        val playlistId = targetPlaylist.abstr.meta.id.value
+
+        assertTrue(store.addExistingMusicToPlaylist(playlistId, trackId))
+        assertTrue(store.addExistingMusicToPlaylist(playlistId, trackId))
+
+        val rows = database.playlistDao().observeTracks(playlistId).first()
+        assertEquals(listOf(trackId), rows.map { it.trackId })
+        assertEquals(0L, rows.single().sortOrder)
+
+        assertTrue(store.createPlaylistWithMusic("From Now Playing", trackId))
+        val created = database.playlistDao().observeSummaries().first()
+            .single { it.title == "From Now Playing" }
+        assertEquals(listOf(trackId), database.playlistDao().observeTracks(created.id).first().map { it.trackId })
+    }
+
+    @Test
     fun roomLibraryStorePersistsSourceAudioPropertiesForPlayback() = withDatabase { database ->
         seedStorageAndFolder(database)
         val store = roomLibraryStore(database)

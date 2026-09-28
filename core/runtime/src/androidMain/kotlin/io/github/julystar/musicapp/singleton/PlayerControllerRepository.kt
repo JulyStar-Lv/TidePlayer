@@ -47,6 +47,7 @@ import kotlin.math.max
 internal interface AndroidPlayerStateStore {
     val playlist: StateFlow<Playlist?>
     val music: StateFlow<Music?>
+    val playing: StateFlow<Boolean>
     val nextMusic: StateFlow<MusicAbstract?>
     val previousMusic: StateFlow<MusicAbstract?>
     val pauseRequest: Flow<Unit>
@@ -257,6 +258,7 @@ class PlayerControllerRepository internal constructor(
         id: MusicId,
         playlistId: PlaylistId,
         startPositionMs: Long,
+        startPlayback: Boolean,
     ) {
         val engine = playbackEngine ?: return
         val normalizedStartPositionMs = startPositionMs.coerceAtLeast(0L)
@@ -269,7 +271,7 @@ class PlayerControllerRepository internal constructor(
             if (normalizedStartPositionMs > 0L) {
                 engine.seekTo(normalizedStartPositionMs)
             }
-            resume()
+            if (startPlayback) resume() else pause()
             return
         }
 
@@ -347,7 +349,8 @@ class PlayerControllerRepository internal constructor(
                 ) {
                     playerState.setCurrent(music, playlist)
                 }
-                playerState.setIsPlaying(true)
+                if (startPlayback) engine.play()
+                playerState.setIsPlaying(startPlayback)
                 playerState.notifyDurationChanged()
             } catch (exception: CancellationException) {
                 throw exception
@@ -420,7 +423,7 @@ class PlayerControllerRepository internal constructor(
         val m = nextMusic.value
         val p = _playlist.value
         if (m != null && p != null) {
-            play(m.meta.id, p.abstr.meta.id)
+            play(m.meta.id, p.abstr.meta.id, startPlayback = playerState.playing.value)
         }
     }
 
@@ -428,7 +431,7 @@ class PlayerControllerRepository internal constructor(
         val m = previousMusic.value
         val p = _playlist.value
         if (m != null && p != null) {
-            play(m.meta.id, p.abstr.meta.id)
+            play(m.meta.id, p.abstr.meta.id, startPlayback = playerState.playing.value)
         }
     }
 
@@ -484,6 +487,7 @@ private class AndroidPlayerRepositoryStateStore(
 ) : AndroidPlayerStateStore {
     override val playlist = playerRepository.playlist
     override val music = playerRepository.music
+    override val playing = playerRepository.playing
     override val nextMusic = playerRepository.nextMusic
     override val previousMusic = playerRepository.previousMusic
     override val pauseRequest = playerRepository.pauseRequest

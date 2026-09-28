@@ -30,6 +30,15 @@ class LegacyArtworkRepository(
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
     private val navidromeArtworkResolver: NavidromeArtworkResolver? = null,
 ) : ArtworkRepository, RemoteArtworkCacheAware {
+    private val artworkRevision = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    override val revision: kotlinx.coroutines.flow.StateFlow<Long> = artworkRevision
+
+    override fun invalidate() {
+        cache.clear()
+        remoteArtwork.clear()
+        artworkRevision.value += 1
+    }
+
     private val cache = HashMap<Artwork, ByteArray>()
     private val remoteArtwork = HashSet<Artwork>()
 
@@ -50,19 +59,20 @@ class LegacyArtworkRepository(
     }
 
     override suspend fun load(artwork: Artwork): ByteArray? {
+        val loadRevision = revision.value
         val isRemote = isRemoteArtwork(artwork)
         if (isRemote) remoteArtwork += artwork
         if (!isRemote) cache[artwork]?.let { return it }
 
         if (!isRemote) {
             cacheKey(artwork)?.readLocalArtworkBytes(fileSystem)?.let { bytes ->
-                cache[artwork] = bytes
+                if (revision.value == loadRevision) cache[artwork] = bytes
                 return bytes
             }
         }
 
         navidromeArtworkResolver?.load(artwork)?.let { bytes ->
-            cache[artwork] = bytes
+            if (revision.value == loadRevision) cache[artwork] = bytes
             return bytes
         }
 
@@ -71,7 +81,7 @@ class LegacyArtworkRepository(
             artwork is Artwork.LibraryAlbum
         ) {
             pluginArtworkResolver?.load(artwork)?.let { bytes ->
-                cache[artwork] = bytes
+                if (revision.value == loadRevision) cache[artwork] = bytes
                 return bytes
             }
             return null
@@ -85,7 +95,7 @@ class LegacyArtworkRepository(
         val bytes = bridge.run { backend ->
             ctGetAsset(backend, storage, loc)
         } ?: return null
-        cache[artwork] = bytes
+        if (revision.value == loadRevision) cache[artwork] = bytes
         return bytes
     }
 
