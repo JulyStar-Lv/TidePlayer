@@ -9,6 +9,8 @@ OpenSubsonic, Emby, and OpenList support. It describes the repository before
 implementation work begins. A task is complete only after Luna implements it
 and Sol reads the resulting diff and accepts the relevant tests.
 
+> **Historical implementation plan.** This document remains evidence for the concrete Navidrome/OpenSubsonic/Emby/OpenList work completed around the audited baseline. It is not the long-term Provider architecture. Future source/plugin evolution is governed by [Universal Provider Architecture v3.3 Roadmap](./universal-provider-roadmap.md), while current shipped behavior remains documented in [final-architecture.md](./final-architecture.md).
+
 ## Repository audit
 
 | Feature | Current status | Code location | Problem | Target state | Priority | Task |
