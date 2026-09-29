@@ -133,10 +133,12 @@ flowchart TD
 4. **临时播放资源不属于曲目元数据**：签名 URL、HTTP 请求头、Token、Cookie 和临时回环地址在播放时动态解析，不作为曲目字段持久化。
 5. **功能模块依赖契约，而不是平台播放引擎**：commonMain 仅使用播放、下载、同步、音源和 Repository 接口；Media3、AVPlayer、rodio、Room 和 UniFFI 保留在平台层或数据边界。
 6. **元数据插件不是播放音源**：JavaScript 插件通过 `MetaSource` 提供元数据查询；当前 8 类来源统一通过 `MusicSource` 提供各自声明的浏览、搜索、播放或下载能力。
+7. **未来 Provider 插件化方向已冻结**：后续远程音源演进以 capability-driven Source Plugin 为目标，Provider 特有的 API、认证规则和配置 UI 留在插件；Native Core 统一负责身份、凭据、路由、同步一致性、大字节数据面和播放。该 Roadmap 不代表当前功能已经迁移完成。
 
 详细文档：
 
 - [架构报告](./docs/architecture/final-architecture.md)
+- [Universal Provider Architecture v3.3 Roadmap](./docs/architecture/universal-provider-roadmap.md)
 - [下载文件最终化](./docs/architecture/download-finalization.md)
 - [Android 备份与恢复策略](./docs/platform/android-backup-policy.md)
 - [Room KMP 数据库结构](./docs/database/schema.md)
