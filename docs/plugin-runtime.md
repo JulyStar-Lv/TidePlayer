@@ -4,6 +4,8 @@ TidePlayer implements JavaScript metadata plugins as Lyrico Plugin API v1–v5 c
 `MetaSource` instances. Plugins are imported from local ZIP files and are never treated as
 general playback `MusicSource` implementations.
 
+> **Current runtime boundary.** The statement above remains true for the shipped metadata plugin runtime. The future Source Plugin system is a separate protocol/runtime track and must not silently reinterpret Lyrico metadata plugins as playback sources. Its frozen roadmap is [architecture/universal-provider-roadmap.md](architecture/universal-provider-roadmap.md).
+
 The current protocol ceilings are intentionally different: the maximum Plugin API is **5** and
 the maximum Platform Host API is **4**. Manifest `apiVersion` selects the plugin function/result
 contract; `minHostApiVersion` declares the minimum Platform API the script needs. Plugin API 5
