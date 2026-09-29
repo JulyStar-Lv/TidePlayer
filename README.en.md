@@ -128,10 +128,12 @@ Core architecture rules:
 4. Signed URLs, headers, tokens, cookies, and temporary loopback URLs are resolved at playback time and are not canonical track metadata.
 5. Feature code depends on contracts rather than Media3, AVPlayer, rodio, Room, or UniFFI implementations.
 6. Metadata plugins implement `MetaSource`; all eight current source types use `MusicSource` for only the browse, search, stream, or download capabilities they declare.
+7. The future provider direction is frozen around a capability-driven Source Plugin architecture: provider-specific APIs, authentication rules, and configuration UI move into plugins, while Native Core owns identity, credentials, routing, synchronization consistency, large-byte data paths, and playback. This roadmap is a future target, not a claim that current sources have already migrated.
 
 Detailed documents:
 
 - [Architecture report](./docs/architecture/final-architecture.md)
+- [Universal Provider Architecture v3.3 Roadmap](./docs/architecture/universal-provider-roadmap.md)
 - [Android backup and restore policy](./docs/platform/android-backup-policy.md)
 - [Room KMP schema](./docs/database/schema.md)
 - [SMB music source](./docs/music-sources/smb.md)
