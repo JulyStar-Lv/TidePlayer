@@ -2,6 +2,11 @@ package io.github.julystar.musicapp.singleton
 
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
+import io.github.julystar.musicapp.database.ArtworkEntity
+import io.github.julystar.musicapp.platform.getAppDataDirectory
+import okio.ByteString.Companion.toByteString
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.github.julystar.musicapp.database.MetadataDao
 import io.github.julystar.musicapp.database.LyricsEntity
 import io.github.julystar.musicapp.database.PlaylistDao
@@ -70,6 +75,7 @@ class RoomLibraryStore(
     private val metadataDao: MetadataDao,
     private val settingsRepository: SettingsRepository? = null,
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
+    private val playlistCoverDirectory: String = "${getAppDataDirectory()}/playlist-covers",
 ) {
     suspend fun getMusic(id: MusicId): Music? {
         val track = trackDao.get(id.value) ?: return null
@@ -217,6 +223,7 @@ class RoomLibraryStore(
             entries = request.entries
                 .filter { selection -> selection.node.type == SourceNodeType.Track }
                 .mapNotNull(SourceNodeSelection::toTrackEntryInputOrNull),
+            coverImage = request.coverImage,
         )
     }
 
@@ -224,16 +231,18 @@ class RoomLibraryStore(
         title: String,
         cover: StorageEntryLoc?,
         entries: List<TrackEntryInput>,
+        coverImage: ByteArray? = null,
     ): Playlist? {
         val now = currentTimeMillis()
         val playlistId = (playlistDao.maxId() ?: 0L) + 1L
+        val savedArtworkId = coverImage?.let { savePlaylistCover(it) }
         database.useWriterConnection { connection ->
             connection.immediateTransaction {
                 playlistDao.upsert(
                     PlaylistEntity(
                         id = playlistId,
                         title = title,
-                        artworkId = null,
+                        artworkId = savedArtworkId,
                         coverStorageId = cover?.storageId?.value,
                         coverPath = cover?.path,
                         createdAt = now,
@@ -257,11 +266,13 @@ class RoomLibraryStore(
         return getPlaylist(PlaylistId(playlistId))
     }
 
-    suspend fun updatePlaylist(arg: ArgUpdatePlaylist) {
+    suspend fun updatePlaylist(arg: ArgUpdatePlaylist, coverImage: ByteArray? = null) {
         val current = playlistDao.get(arg.id.value) ?: return
+        val savedArtworkId = coverImage?.let { savePlaylistCover(it) }
         playlistDao.upsert(
             current.copy(
                 title = arg.title,
+                artworkId = savedArtworkId ?: if (arg.cover != null) null else current.artworkId,
                 coverStorageId = arg.cover?.storageId?.value,
                 coverPath = arg.cover?.path,
                 updatedAt = currentTimeMillis(),
@@ -274,10 +285,11 @@ class RoomLibraryStore(
             ArgUpdatePlaylist(
                 id = PlaylistId(request.id),
                 title = request.title,
-                cover = request.cover
+                cover = request.cover?.takeIf { request.coverImage == null }
                     ?.takeIf { selection -> selection.node.type == SourceNodeType.Image }
                     ?.toLegacyStorageEntryLoc(),
-            )
+            ),
+            coverImage = request.coverImage,
         )
     }
 
@@ -338,8 +350,9 @@ class RoomLibraryStore(
         )
     }
 
-    suspend fun createPlaylistWithMusic(title: String, musicId: Long): Boolean {
+    suspend fun createPlaylistWithMusic(title: String, musicId: Long, coverImage: ByteArray? = null): Boolean {
         if (title.isBlank() || trackDao.get(musicId) == null) return false
+        val savedArtworkId = coverImage?.let { savePlaylistCover(it) }
         val now = currentTimeMillis()
         database.useWriterConnection { connection ->
             connection.immediateTransaction {
@@ -348,7 +361,7 @@ class RoomLibraryStore(
                     PlaylistEntity(
                         id = playlistId,
                         title = title.trim(),
-                        artworkId = null,
+                        artworkId = savedArtworkId,
                         createdAt = now,
                         updatedAt = now,
                         sortOrder = (playlistDao.maxSortOrder() ?: -1L) + 1L,
@@ -358,6 +371,27 @@ class RoomLibraryStore(
             }
         }
         return true
+    }
+
+    private suspend fun savePlaylistCover(bytes: ByteArray): Long {
+        val hash = "playlist:" + bytes.toByteString().sha256().hex()
+        metadataDao.getArtworkByContentHash(hash)?.let { return it.id }
+        val path = playlistCoverDirectory.toPath() / "${hash.substringAfter(':')}.png"
+        withContext(Dispatchers.IO) {
+            fileSystem.createDirectories(path.parent!!)
+            fileSystem.write(path) { write(bytes) }
+        }
+        return metadataDao.upsertArtwork(listOf(ArtworkEntity(
+            trackId = null,
+            albumId = null,
+            contentHash = hash,
+            localPath = path.toString(),
+            thumbnailPath = null,
+            width = 512,
+            height = 512,
+            mimeType = "image/png",
+            pictureType = "CoverFront",
+        ))).single()
     }
 
     suspend fun addExistingMusicToPlaylist(playlistId: Long, musicId: Long): Boolean {

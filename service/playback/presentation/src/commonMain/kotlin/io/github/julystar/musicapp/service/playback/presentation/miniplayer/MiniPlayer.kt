@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -65,8 +66,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import io.github.julystar.musicapp.service.playback.presentation.nowplaying.AppleMusicDesktopTransportButton
-import io.github.julystar.musicapp.service.playback.presentation.nowplaying.AppleMusicDesktopTransportMotion
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.DesktopTransportButton
+import io.github.julystar.musicapp.service.playback.presentation.nowplaying.DesktopTransportMotion
 import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.domain.model.PlaybackAudioInfo
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
@@ -100,26 +101,26 @@ import org.koin.compose.viewmodel.koinViewModel
 import musicapp.service.playback.presentation.generated.resources.Res
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact
 import musicapp.service.playback.presentation.generated.resources.icon_heart_compact_filled
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_artwork_overlay
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_artwork_overlay_icon
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_dolby
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_favorite
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_favorite_outline
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lyrics
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_more
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_next
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_pause
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_play
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_previous
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_queue
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat_one
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_shuffle
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lossless
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_high
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_low
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_medium
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_mute
+import musicapp.service.playback.presentation.generated.resources.icon_player_artwork_overlay
+import musicapp.service.playback.presentation.generated.resources.icon_player_artwork_overlay_icon
+import musicapp.service.playback.presentation.generated.resources.icon_player_dolby
+import musicapp.service.playback.presentation.generated.resources.icon_player_favorite
+import musicapp.service.playback.presentation.generated.resources.icon_player_favorite_outline
+import musicapp.service.playback.presentation.generated.resources.icon_player_lyrics
+import musicapp.service.playback.presentation.generated.resources.icon_player_more
+import musicapp.service.playback.presentation.generated.resources.icon_player_next
+import musicapp.service.playback.presentation.generated.resources.icon_player_pause
+import musicapp.service.playback.presentation.generated.resources.icon_player_play
+import musicapp.service.playback.presentation.generated.resources.icon_player_previous
+import musicapp.service.playback.presentation.generated.resources.icon_player_queue
+import musicapp.service.playback.presentation.generated.resources.icon_player_repeat
+import musicapp.service.playback.presentation.generated.resources.icon_player_repeat_one
+import musicapp.service.playback.presentation.generated.resources.icon_player_shuffle
+import musicapp.service.playback.presentation.generated.resources.icon_player_lossless
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_high
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_low
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_medium
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_mute
 import musicapp.service.playback.presentation.generated.resources.icon_pause
 import musicapp.service.playback.presentation.generated.resources.icon_play
 import musicapp.service.playback.presentation.generated.resources.icon_play_next
@@ -535,12 +536,13 @@ private fun DesktopMiniPlayerBar(
                 surfaceColor = if (isDark) Color.Black else Color.White,
                 surfaceAlphaScale = if (isDark) 1f else 0.50f,
                 vibrant = true,
-                showHighlight = true,
-            ),
+                showHighlight = !isDark,
+            )
+            .then(if (isDark) Modifier.border(0.5.dp, Color.White.copy(alpha = 0.14f), DesktopPlayerShape) else Modifier),
     ) {
         Box(
             Modifier.fillMaxSize().background(
-                if (isDark) Color(0xFF5D5B59).copy(alpha = 0.51f) else Color.White.copy(alpha = 0.50f),
+                if (isDark) Color(0xFF302E33).copy(alpha = 0.70f) else Color.White.copy(alpha = 0.50f),
             ),
         )
         Row(
@@ -554,7 +556,7 @@ private fun DesktopMiniPlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 DesktopPlayerIconButton(
-                    painter = painterResource(Res.drawable.icon_apple_music_shuffle),
+                    painter = painterResource(Res.drawable.icon_player_shuffle),
                     contentDescription = stringResource(
                         if (shuffleEnabled) Res.string.player_shuffle_off else Res.string.player_shuffle_on,
                     ),
@@ -569,9 +571,9 @@ private fun DesktopMiniPlayerBar(
                     iconScaleY = 1.1125f,
                     onClick = onToggleShuffle,
                 )
-                AppleMusicDesktopTransportButton(
-                    painter = Res.drawable.icon_apple_music_previous,
-                    motion = AppleMusicDesktopTransportMotion.Seek,
+                DesktopTransportButton(
+                    painter = Res.drawable.icon_player_previous,
+                    motion = DesktopTransportMotion.Seek,
                     seekDirection = -1,
                     contentDescription = stringResource(Res.string.player_previous_track),
                     tint = transportForeground,
@@ -585,9 +587,9 @@ private fun DesktopMiniPlayerBar(
                     iconScaleY = 0.92f,
                     onClick = onPrevious,
                 )
-                AppleMusicDesktopTransportButton(
-                    painter = if (isPlaying) Res.drawable.icon_apple_music_pause else Res.drawable.icon_apple_music_play,
-                    motion = AppleMusicDesktopTransportMotion.PlayPause,
+                DesktopTransportButton(
+                    painter = if (isPlaying) Res.drawable.icon_player_pause else Res.drawable.icon_player_play,
+                    motion = DesktopTransportMotion.PlayPause,
                     contentDescription = stringResource(
                         if (isPlaying) Res.string.player_pause else Res.string.player_play,
                     ),
@@ -602,9 +604,9 @@ private fun DesktopMiniPlayerBar(
                     iconScaleY = 1.0125f,
                     onClick = if (isPlaying) onPause else onPlay,
                 )
-                AppleMusicDesktopTransportButton(
-                    painter = Res.drawable.icon_apple_music_next,
-                    motion = AppleMusicDesktopTransportMotion.Seek,
+                DesktopTransportButton(
+                    painter = Res.drawable.icon_player_next,
+                    motion = DesktopTransportMotion.Seek,
                     seekDirection = 1,
                     contentDescription = stringResource(Res.string.player_next_track),
                     tint = transportForeground,
@@ -621,9 +623,9 @@ private fun DesktopMiniPlayerBar(
                 DesktopPlayerIconButton(
                     painter = painterResource(
                         if (repeatMode == RepeatMode.One) {
-                            Res.drawable.icon_apple_music_repeat_one
+                            Res.drawable.icon_player_repeat_one
                         } else {
-                            Res.drawable.icon_apple_music_repeat
+                            Res.drawable.icon_player_repeat
                         },
                     ),
                     contentDescription = stringResource(
@@ -749,7 +751,7 @@ private fun DesktopMiniPlayerBar(
                         horizontalArrangement = Arrangement.spacedBy(1.dp),
                     ) {
                         DesktopPlayerIconButton(
-                            painter = painterResource(Res.drawable.icon_apple_music_lyrics),
+                            painter = painterResource(Res.drawable.icon_player_lyrics),
                             contentDescription = stringResource(Res.string.player_lyrics),
                             tint = foreground,
                             selected = lyricsSelected,
@@ -760,7 +762,7 @@ private fun DesktopMiniPlayerBar(
                             onClick = onOpenLyrics,
                         )
                         DesktopPlayerIconButton(
-                            painter = painterResource(Res.drawable.icon_apple_music_queue),
+                            painter = painterResource(Res.drawable.icon_player_queue),
                             contentDescription = stringResource(Res.string.player_queue),
                             tint = foreground,
                             selected = queueSelected,
@@ -825,10 +827,10 @@ private fun DesktopMiniPlayerBar(
                     DesktopPlayerIconButton(
                         painter = painterResource(
                             when (desktopVolumeIconLevel(volumeLevel)) {
-                                DesktopVolumeIconLevel.Mute -> Res.drawable.icon_apple_music_volume_mute
-                                DesktopVolumeIconLevel.Low -> Res.drawable.icon_apple_music_volume_low
-                                DesktopVolumeIconLevel.Medium -> Res.drawable.icon_apple_music_volume_medium
-                                DesktopVolumeIconLevel.High -> Res.drawable.icon_apple_music_volume_high
+                                DesktopVolumeIconLevel.Mute -> Res.drawable.icon_player_volume_mute
+                                DesktopVolumeIconLevel.Low -> Res.drawable.icon_player_volume_low
+                                DesktopVolumeIconLevel.Medium -> Res.drawable.icon_player_volume_medium
+                                DesktopVolumeIconLevel.High -> Res.drawable.icon_player_volume_high
                             },
                         ),
                         contentDescription = stringResource(
@@ -994,7 +996,7 @@ private fun DesktopPlayerMetadata(
                         artwork = cover,
                     )
                     Image(
-                        painter = painterResource(Res.drawable.icon_apple_music_artwork_overlay),
+                        painter = painterResource(Res.drawable.icon_player_artwork_overlay),
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxSize()
@@ -1003,7 +1005,7 @@ private fun DesktopPlayerMetadata(
                             },
                     )
                     Icon(
-                        painter = painterResource(Res.drawable.icon_apple_music_artwork_overlay_icon),
+                        painter = painterResource(Res.drawable.icon_player_artwork_overlay_icon),
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier
@@ -1065,9 +1067,9 @@ private fun DesktopPlayerMetadata(
         DesktopPlayerIconButton(
             painter = painterResource(
                 if (isFavorite) {
-                    Res.drawable.icon_apple_music_favorite
+                    Res.drawable.icon_player_favorite
                 } else {
-                    Res.drawable.icon_apple_music_favorite_outline
+                    Res.drawable.icon_player_favorite_outline
                 },
             ),
             contentDescription = stringResource(
@@ -1089,7 +1091,7 @@ private fun DesktopPlayerMetadata(
             )
         }
         DesktopPlayerIconButton(
-            painter = painterResource(Res.drawable.icon_apple_music_more),
+            painter = painterResource(Res.drawable.icon_player_more),
             contentDescription = stringResource(Res.string.player_more_options),
             tint = foreground,
             enabled = !progressExpanded,
@@ -1122,8 +1124,8 @@ private fun DesktopPlayerAudioBadge(
 ) {
     val painter = painterResource(
         when (badge) {
-            DesktopAudioBadge.Lossless -> Res.drawable.icon_apple_music_lossless
-            DesktopAudioBadge.Dolby -> Res.drawable.icon_apple_music_dolby
+            DesktopAudioBadge.Lossless -> Res.drawable.icon_player_lossless
+            DesktopAudioBadge.Dolby -> Res.drawable.icon_player_dolby
         },
     )
     val description = stringResource(

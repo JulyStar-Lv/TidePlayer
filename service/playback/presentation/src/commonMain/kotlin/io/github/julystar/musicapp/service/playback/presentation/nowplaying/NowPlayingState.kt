@@ -100,7 +100,7 @@ sealed interface NowPlayingAction {
     data object AddLyric : NowPlayingAction
     data object SearchMetadata : NowPlayingAction
     data object OpenMetadataSources : NowPlayingAction
-    data class CreatePlaylistWithCurrentTrack(val title: String) : NowPlayingAction
+    data class CreatePlaylistWithCurrentTrack(val title: String, val coverImage: ByteArray? = null) : NowPlayingAction
     data object RemoveLyric : NowPlayingAction
     data object RemoveCurrentTrack : NowPlayingAction
     data object DownloadCurrentTrack : NowPlayingAction

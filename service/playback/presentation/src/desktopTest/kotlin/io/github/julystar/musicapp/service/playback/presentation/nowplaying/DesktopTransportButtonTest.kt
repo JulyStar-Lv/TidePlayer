@@ -21,12 +21,12 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import musicapp.service.playback.presentation.generated.resources.Res
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_next
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_pause
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_play
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_previous
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat_one
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_shuffle
+import musicapp.service.playback.presentation.generated.resources.icon_player_next
+import musicapp.service.playback.presentation.generated.resources.icon_player_pause
+import musicapp.service.playback.presentation.generated.resources.icon_player_play
+import musicapp.service.playback.presentation.generated.resources.icon_player_previous
+import musicapp.service.playback.presentation.generated.resources.icon_player_repeat_one
+import musicapp.service.playback.presentation.generated.resources.icon_player_shuffle
 import org.jetbrains.compose.resources.DrawableResource
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.abs
@@ -35,14 +35,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
-class AppleMusicDesktopTransportButtonTest {
+class DesktopTransportButtonTest {
     @Test
     fun animatedModeSymbolsPreserveTheStaticIconsAspectRatio() = runComposeUiTest {
-        val motion = mutableStateOf(AppleMusicDesktopTransportMotion.Standard)
+        val motion = mutableStateOf(DesktopTransportMotion.Standard)
         setContent {
             MiuixTheme {
-                AppleMusicDesktopTransportButton(
-                    painter = Res.drawable.icon_apple_music_shuffle,
+                DesktopTransportButton(
+                    painter = Res.drawable.icon_player_shuffle,
                     contentDescription = "mode", tint = Color.White,
                     iconSize = 60.dp, buttonWidth = 80.dp, onClick = {},
                     motion = motion.value, modifier = Modifier.size(80.dp).testTag("mode"),
@@ -51,7 +51,7 @@ class AppleMusicDesktopTransportButtonTest {
         }
         waitForIdle()
         val reference = onNodeWithTag("mode").captureToImage()
-        runOnIdle { motion.value = AppleMusicDesktopTransportMotion.Shuffle }
+        runOnIdle { motion.value = DesktopTransportMotion.Shuffle }
         waitForIdle()
         assertTrue(pixelDifference(reference, onNodeWithTag("mode").captureToImage()) < 0.0001f)
     }
@@ -59,18 +59,18 @@ class AppleMusicDesktopTransportButtonTest {
     @Test
     fun allFiveControlsAnimateForAccessibilityClicksAndSettleWithoutDuplicateActions() = runComposeUiTest {
         val cases = listOf(
-            Triple(Res.drawable.icon_apple_music_shuffle, AppleMusicDesktopTransportMotion.Shuffle, 0),
-            Triple(Res.drawable.icon_apple_music_previous, AppleMusicDesktopTransportMotion.Seek, -1),
-            Triple(Res.drawable.icon_apple_music_next, AppleMusicDesktopTransportMotion.Seek, 1),
-            Triple(Res.drawable.icon_apple_music_play, AppleMusicDesktopTransportMotion.PlayPause, 0),
-            Triple(Res.drawable.icon_apple_music_repeat_one, AppleMusicDesktopTransportMotion.Repeat, 0),
+            Triple(Res.drawable.icon_player_shuffle, DesktopTransportMotion.Shuffle, 0),
+            Triple(Res.drawable.icon_player_previous, DesktopTransportMotion.Seek, -1),
+            Triple(Res.drawable.icon_player_next, DesktopTransportMotion.Seek, 1),
+            Triple(Res.drawable.icon_player_play, DesktopTransportMotion.PlayPause, 0),
+            Triple(Res.drawable.icon_player_repeat_one, DesktopTransportMotion.Repeat, 0),
         )
         val current = mutableStateOf(cases.first())
         var clicks = 0
         setContent {
             MiuixTheme {
                 Box(Modifier.size(80.dp).background(Color(0xFF493124))) {
-                    AppleMusicDesktopTransportButton(
+                    DesktopTransportButton(
                         painter = current.value.first,
                         motion = current.value.second,
                         seekDirection = current.value.third,
@@ -107,9 +107,9 @@ class AppleMusicDesktopTransportButtonTest {
         setContent {
             MiuixTheme {
                 Box(Modifier.size(80.dp).background(Color(0xFF493124))) {
-                    AppleMusicDesktopTransportButton(
-                        painter = if (playing.value) Res.drawable.icon_apple_music_pause else Res.drawable.icon_apple_music_play,
-                        motion = AppleMusicDesktopTransportMotion.PlayPause,
+                    DesktopTransportButton(
+                        painter = if (playing.value) Res.drawable.icon_player_pause else Res.drawable.icon_player_play,
+                        motion = DesktopTransportMotion.PlayPause,
                         contentDescription = if (playing.value) "pause" else "play",
                         tint = Color.White,
                         iconSize = 43.dp,
@@ -141,10 +141,10 @@ class AppleMusicDesktopTransportButtonTest {
         setContent {
             MiuixTheme {
                 Box(Modifier.size(80.dp)) {
-                    AppleMusicDesktopTransportButton(
-                        painter = Res.drawable.icon_apple_music_shuffle,
+                    DesktopTransportButton(
+                        painter = Res.drawable.icon_player_shuffle,
                         contentDescription = "shuffle",
-                        motion = AppleMusicDesktopTransportMotion.Shuffle,
+                        motion = DesktopTransportMotion.Shuffle,
                         selected = true,
                         enabled = enabled.value,
                         tint = Color.White,

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="playlist_desktop_edit_title">编辑播放列表</string>
+    <string name="playlist_desktop_save">保存</string>
     <string name="music_count_unit">首歌曲</string>
     <string name="playlist_empty">暂无播放列表</string>
     <string name="playlist_empty_message">创建播放列表来整理音乐。</string>
@@ -61,4 +63,11 @@
     <string name="playlist_desktop_play">播放</string>
     <string name="playlist_desktop_not_favorited">未喜爱</string>
     <string name="playlist_desktop_no_results">无结果</string>
+    <string name="playlist_desktop_search_favorites">在播放列表中查找</string>
+    <string name="playlist_desktop_shuffle">随机播放</string>
+    <string name="playlist_desktop_song">歌曲</string>
+    <string name="playlist_desktop_artist">艺人</string>
+    <string name="playlist_desktop_duration">时长</string>
+    <string name="playlist_desktop_order">播放列表顺序</string>
+    <string name="playlist_desktop_album">专辑</string>
 </resources>

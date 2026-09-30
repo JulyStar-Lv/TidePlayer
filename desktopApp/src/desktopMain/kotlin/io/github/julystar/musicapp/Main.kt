@@ -62,8 +62,8 @@ import org.koin.core.KoinApplication
 
 private const val MinWindowWidth = 960
 private const val MinWindowHeight = 520
-private const val AppleMusicWindowWidth = 980
-private const val AppleMusicWindowHeight = 600
+private const val DesktopWindowWidth = 980
+private const val DesktopWindowHeight = 600
 private const val SeekStepMs = 10_000L
 
 private val desktopAccountName: String = System.getProperty("user.name")
@@ -378,8 +378,8 @@ private fun calculateInitialWindowSize(): DpSize {
     val availableSize = calculateAvailableScreenSize(configuration)
 
     return DpSize(
-        minOf(AppleMusicWindowWidth, availableSize.width).dp,
-        minOf(AppleMusicWindowHeight, availableSize.height).dp,
+        minOf(DesktopWindowWidth, availableSize.width).dp,
+        minOf(DesktopWindowHeight, availableSize.height).dp,
     )
 }
 

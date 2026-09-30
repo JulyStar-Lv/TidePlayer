@@ -174,7 +174,8 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import musicapp.core.presentation.generated.resources.Res as CoreRes
-import musicapp.core.presentation.generated.resources.icon_apple_music_download
+import musicapp.core.presentation.generated.resources.icon_player_download
+import musicapp.core.presentation.generated.resources.icon_player_more
 import musicapp.core.presentation.generated.resources.icon_chevron_right
 import musicapp.core.presentation.generated.resources.icon_pencil
 import musicapp.core.presentation.generated.resources.icon_settings_sliders
@@ -183,25 +184,24 @@ import musicapp.core.presentation.generated.resources.icon_star
 import musicapp.core.presentation.generated.resources.icon_star_filled
 import musicapp.service.playback.presentation.generated.resources.Res
 import musicapp.service.playback.presentation.generated.resources.downloads_title
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_dolby
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_favorite
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_favorite_outline
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lossless
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_lyrics
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_more
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_playlist_add
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_next
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_pause
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_play
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_previous
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_queue
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_repeat_one
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_shuffle
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_high
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_low
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_medium
-import musicapp.service.playback.presentation.generated.resources.icon_apple_music_volume_mute
+import musicapp.service.playback.presentation.generated.resources.icon_player_dolby
+import musicapp.service.playback.presentation.generated.resources.icon_player_favorite
+import musicapp.service.playback.presentation.generated.resources.icon_player_favorite_outline
+import musicapp.service.playback.presentation.generated.resources.icon_player_lossless
+import musicapp.service.playback.presentation.generated.resources.icon_player_lyrics
+import musicapp.service.playback.presentation.generated.resources.icon_player_playlist_add
+import musicapp.service.playback.presentation.generated.resources.icon_player_next
+import musicapp.service.playback.presentation.generated.resources.icon_player_pause
+import musicapp.service.playback.presentation.generated.resources.icon_player_play
+import musicapp.service.playback.presentation.generated.resources.icon_player_previous
+import musicapp.service.playback.presentation.generated.resources.icon_player_queue
+import musicapp.service.playback.presentation.generated.resources.icon_player_repeat
+import musicapp.service.playback.presentation.generated.resources.icon_player_repeat_one
+import musicapp.service.playback.presentation.generated.resources.icon_player_shuffle
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_high
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_low
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_medium
+import musicapp.service.playback.presentation.generated.resources.icon_player_volume_mute
 import musicapp.service.playback.presentation.generated.resources.icon_back
 import musicapp.service.playback.presentation.generated.resources.icon_now_playing_translation
 import musicapp.service.playback.presentation.generated.resources.icon_now_playing_lyrics
@@ -305,7 +305,7 @@ private val MeloXDesktopArtworkExpandedSize = 308.dp
 private val MeloXDesktopArtworkPausedScale = 0.74f
 private val MeloXDesktopPlayerBaseArtworkTopInset = 56.dp
 private val MeloXDesktopPlayerExpandedArtworkTopInset = 116.dp
-private val AppleMusicDesktopLyricsMotion = LyricsMotionSpec()
+private val DesktopLyricsMotion = LyricsMotionSpec()
 private val NowPlayingDismissDistanceThreshold = 240.dp
 private val NowPlayingDismissVelocityThreshold = 1_250.dp
 private const val NowPlayingDismissSettleDurationMillis = 260
@@ -373,7 +373,7 @@ private fun NowPlayingMoreButton(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(Res.drawable.icon_apple_music_more),
+                    painter = painterResource(CoreRes.drawable.icon_player_more),
                     contentDescription = stringResource(Res.string.player_more_options),
                     tint = Color.White,
                     modifier = Modifier.size(compactIconSize),
@@ -433,7 +433,7 @@ fun NowPlayingMoreMenuPopup(
         onDismiss()
     }
 
-    AppleMusicNowPlayingPopup(
+    DesktopNowPlayingPopup(
         show = show,
         onDismiss = ::dismissMenus,
         onHoverChanged = ::onMenuHoverChanged,
@@ -458,24 +458,24 @@ fun NowPlayingMoreMenuPopup(
         )
         NowPlayingMoreMenuItem(
             text = stringResource(Res.string.player_download_to_local),
-            icon = CoreRes.drawable.icon_apple_music_download,
+            icon = CoreRes.drawable.icon_player_download,
             onHover = { playlistMenuExpanded = false },
             onClick = {
                 dismissMenus()
                 onAction(NowPlayingAction.DownloadCurrentTrack)
             },
         )
-        AppleMusicMenuSeparator()
+        DesktopMenuSeparator()
         Box(Modifier.fillMaxWidth()) {
             NowPlayingMoreMenuItem(
                 text = stringResource(Res.string.player_add_to_playlist),
-                icon = Res.drawable.icon_apple_music_playlist_add,
+                icon = Res.drawable.icon_player_playlist_add,
                 trailingIcon = CoreRes.drawable.icon_chevron_right,
                 selected = playlistMenuExpanded,
                 onHover = { playlistMenuExpanded = true },
                 onClick = { playlistMenuExpanded = true },
             )
-            AppleMusicNowPlayingPopup(
+            DesktopNowPlayingPopup(
                 show = playlistMenuExpanded,
                 submenu = true,
                 onDismiss = { playlistMenuExpanded = false },
@@ -490,7 +490,7 @@ fun NowPlayingMoreMenuPopup(
                         createPlaylistOpen = true
                     },
                 )
-                AppleMusicMenuSeparator()
+                DesktopMenuSeparator()
                 Text(
                     text = stringResource(Res.string.player_all_playlists),
                     color = Color.White.copy(alpha = 0.38f),
@@ -548,11 +548,15 @@ fun NowPlayingMoreMenuPopup(
             createPlaylistOpen = false
             onAction(NowPlayingAction.CreatePlaylistWithCurrentTrack(playlistName.trim()))
         },
+        onCreateWithCover = { coverImage ->
+            createPlaylistOpen = false
+            onAction(NowPlayingAction.CreatePlaylistWithCurrentTrack(playlistName.trim(), coverImage))
+        },
     )
 }
 
 @Composable
-private fun AppleMusicNowPlayingPopup(
+private fun DesktopNowPlayingPopup(
     show: Boolean,
     submenu: Boolean = false,
     onDismiss: () -> Unit,
@@ -658,7 +662,7 @@ private fun AppleMusicNowPlayingPopup(
 }
 
 @Composable
-private fun AppleMusicMenuSeparator() {
+private fun DesktopMenuSeparator() {
     val foreground = if (LocalDesignIsDarkTheme.current) Color.White else Color.Black
     Box(
         modifier = Modifier
@@ -1366,10 +1370,10 @@ private fun MeloXDesktopTitlebar(
 ) {
     var volumeBeforeMute by remember { mutableFloatStateOf(volume.coerceAtLeast(0.2f)) }
     val volumeIcon = when {
-        volume <= 0.001f -> Res.drawable.icon_apple_music_volume_mute
-        volume < 0.35f -> Res.drawable.icon_apple_music_volume_low
-        volume < 0.7f -> Res.drawable.icon_apple_music_volume_medium
-        else -> Res.drawable.icon_apple_music_volume_high
+        volume <= 0.001f -> Res.drawable.icon_player_volume_mute
+        volume < 0.35f -> Res.drawable.icon_player_volume_low
+        volume < 0.7f -> Res.drawable.icon_player_volume_medium
+        else -> Res.drawable.icon_player_volume_high
     }
 
     Box(modifier = modifier.height(44.dp)) {
@@ -1682,7 +1686,7 @@ internal fun MeloXDesktopMetadataRow(
             )
         }
         MeloXDesktopGlassAction(
-            painter = if (liked) Res.drawable.icon_apple_music_favorite else Res.drawable.icon_apple_music_favorite_outline,
+            painter = if (liked) Res.drawable.icon_player_favorite else Res.drawable.icon_player_favorite_outline,
             contentDescription = stringResource(
                 if (liked) Res.string.player_remove_favorite else Res.string.player_add_favorite,
             ),
@@ -1699,7 +1703,7 @@ internal fun MeloXDesktopMetadataRow(
             compact = true,
             compactButtonSize = 28.dp * elementScale,
             compactIconSize = 25.dp * elementScale,
-            compactBackgroundAlpha = AppleMusicDesktopControlFillAlpha,
+            compactBackgroundAlpha = DesktopControlFillAlpha,
             modifier = Modifier.offset(x = 1.dp * elementScale),
         )
     }
@@ -1820,8 +1824,8 @@ internal fun MeloXDesktopProgress(
 private fun MeloXDesktopAudioBadge(badge: DesktopAudioBadge) {
     val painter = painterResource(
         when (badge) {
-            DesktopAudioBadge.Lossless -> Res.drawable.icon_apple_music_lossless
-            DesktopAudioBadge.Dolby -> Res.drawable.icon_apple_music_dolby
+            DesktopAudioBadge.Lossless -> Res.drawable.icon_player_lossless
+            DesktopAudioBadge.Dolby -> Res.drawable.icon_player_dolby
         },
     )
     Icon(
@@ -1850,9 +1854,9 @@ private fun MeloXDesktopTransportControls(
     val controls = state.controls
     val queue = state.queue
     val repeatPainter = if (controls.repeatMode == RepeatMode.One) {
-        Res.drawable.icon_apple_music_repeat_one
+        Res.drawable.icon_player_repeat_one
     } else {
-        Res.drawable.icon_apple_music_repeat
+        Res.drawable.icon_player_repeat
     }
 
     Box(
@@ -1860,9 +1864,9 @@ private fun MeloXDesktopTransportControls(
             .fillMaxWidth()
             .height(36.dp * elementScale),
     ) {
-        AppleMusicDesktopTransportButton(
-            painter = Res.drawable.icon_apple_music_shuffle,
-            motion = AppleMusicDesktopTransportMotion.Shuffle,
+        DesktopTransportButton(
+            painter = Res.drawable.icon_player_shuffle,
+            motion = DesktopTransportMotion.Shuffle,
             contentDescription = stringResource(
                 if (controls.shuffleEnabled) Res.string.player_shuffle_off else Res.string.player_shuffle_on,
             ),
@@ -1873,9 +1877,9 @@ private fun MeloXDesktopTransportControls(
             onClick = { onAction(NowPlayingAction.ToggleShuffle) },
             modifier = Modifier.fillMaxHeight().offset(x = 1.dp * elementScale),
         )
-        AppleMusicDesktopTransportButton(
-            painter = Res.drawable.icon_apple_music_previous,
-            motion = AppleMusicDesktopTransportMotion.Seek,
+        DesktopTransportButton(
+            painter = Res.drawable.icon_player_previous,
+            motion = DesktopTransportMotion.Seek,
             seekDirection = -1,
             contentDescription = stringResource(Res.string.player_previous_track),
             tint = Color.White,
@@ -1885,9 +1889,9 @@ private fun MeloXDesktopTransportControls(
             onClick = { onAction(NowPlayingAction.PlayPrevious) },
             modifier = Modifier.fillMaxHeight().offset(x = 58.dp * elementScale),
         )
-        AppleMusicDesktopTransportButton(
-            painter = if (controls.isPlaying) Res.drawable.icon_apple_music_pause else Res.drawable.icon_apple_music_play,
-            motion = AppleMusicDesktopTransportMotion.PlayPause,
+        DesktopTransportButton(
+            painter = if (controls.isPlaying) Res.drawable.icon_player_pause else Res.drawable.icon_player_play,
+            motion = DesktopTransportMotion.PlayPause,
             contentDescription = stringResource(
                 if (controls.isPlaying) Res.string.player_pause else Res.string.player_play,
             ),
@@ -1900,9 +1904,9 @@ private fun MeloXDesktopTransportControls(
             },
             modifier = Modifier.fillMaxHeight().offset(x = 134.5.dp * elementScale),
         )
-        AppleMusicDesktopTransportButton(
-            painter = Res.drawable.icon_apple_music_next,
-            motion = AppleMusicDesktopTransportMotion.Seek,
+        DesktopTransportButton(
+            painter = Res.drawable.icon_player_next,
+            motion = DesktopTransportMotion.Seek,
             seekDirection = 1,
             contentDescription = stringResource(Res.string.player_next_track),
             tint = Color.White,
@@ -1912,9 +1916,9 @@ private fun MeloXDesktopTransportControls(
             onClick = { onAction(NowPlayingAction.PlayNext) },
             modifier = Modifier.fillMaxHeight().offset(x = 227.dp * elementScale),
         )
-        AppleMusicDesktopTransportButton(
+        DesktopTransportButton(
             painter = repeatPainter,
-            motion = AppleMusicDesktopTransportMotion.Repeat,
+            motion = DesktopTransportMotion.Repeat,
             contentDescription = stringResource(
                 when (controls.repeatMode) {
                     RepeatMode.Off -> Res.string.player_repeat_off
@@ -2185,7 +2189,7 @@ private fun MeloXDesktopPageSwitcher(
                 onClick = onLyricsClick,
             )
             MeloXDesktopPageSwitchButton(
-                painter = Res.drawable.icon_apple_music_queue,
+                painter = Res.drawable.icon_player_queue,
                 contentDescription = stringResource(Res.string.player_queue),
                 selected = page == MeloXDesktopNowPlayingPage.Queue,
                 selectedSize = 36.dp,
@@ -2384,7 +2388,7 @@ private fun LyricsSurface(
                     focusLineContentAnchorFraction = 0f,
                     focusPrimaryText = true,
                     contextLinesBeforeActive = 0,
-                    motionSpec = AppleMusicDesktopLyricsMotion,
+                    motionSpec = DesktopLyricsMotion,
                     blurAdjacentLines = true,
                     balancedLineWrap = false,
                     karaokeInactiveAlpha = 0.50f,
@@ -3458,7 +3462,7 @@ fun ImmersivePlayerBackground(
         label = "playerBackgroundAccentColor",
     )
     if (meloxDesktopStyle) {
-        AppleMusicDesktopBackground(palette = palette)
+        DesktopBackground(palette = palette)
     } else if (enabled) {
         AudioReactiveBackground(
             artwork = artwork,

@@ -16,7 +16,7 @@ fun PlaylistsListRoot(
     val state by playlistsViewModel.state.collectAsState()
 
     if (isDesktopPlatform()) {
-        AppleMusicPlaylistsDesktopRoot(
+        DesktopPlaylistsRoot(
             state = state,
             onNavigateToPlaylist = onNavigateToPlaylist,
             onNavigateToFavorites = onNavigateToFavorites,

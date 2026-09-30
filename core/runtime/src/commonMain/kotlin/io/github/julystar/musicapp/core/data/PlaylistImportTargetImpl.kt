@@ -11,12 +11,14 @@ class PlaylistImportTargetImpl(
         title: String,
         cover: SourceNodeSelection?,
         entries: List<SourceNodeSelection>,
+        coverImage: ByteArray?,
     ) {
         roomLibraryStore.createPlaylist(
             CreatePlaylistRequest(
                 title = title,
                 cover = cover,
                 entries = entries,
+                coverImage = coverImage,
             )
         )
     }

@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlin.collections.firstOrNull
 
@@ -26,15 +25,16 @@ class EditPlaylistVM constructor(
     private val _modalOpen = MutableStateFlow(false)
     private val _name = MutableStateFlow("")
     private val _cover = MutableStateFlow<SourceNodeSelection?>(null)
+    private val _existingCoverArtwork = MutableStateFlow<Artwork?>(null)
     val name = _name.asStateFlow()
     val cover = _cover.asStateFlow()
-    val coverArtwork = _cover.map { cover ->
+    val coverArtwork = combine(_cover, _existingCoverArtwork) { cover, existing ->
         cover?.let { sel ->
             Artwork.LegacyStorageEntry(
                 storageId = sel.accountId.toStorageRouteIdOrNull() ?: 0L,
                 path = "/" + sel.node.path.trimStart('/'),
             )
-        }
+        } ?: existing
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
     val modalOpen = _modalOpen.asStateFlow()
 
@@ -52,6 +52,7 @@ class EditPlaylistVM constructor(
 
     fun clearCover() {
         _cover.value = null
+        _existingCoverArtwork.value = null
     }
 
     fun openModal() {
@@ -61,6 +62,7 @@ class EditPlaylistVM constructor(
         if (meta != null) {
             _name.value = meta.title
             _cover.value = meta.coverSelection
+            _existingCoverArtwork.value = meta.coverArtwork
         }
     }
 
@@ -72,6 +74,7 @@ class EditPlaylistVM constructor(
     fun reset() {
         _name.value = ""
         _cover.value = null
+        _existingCoverArtwork.value = null
     }
 
     fun prepareImportCover() {
@@ -80,8 +83,8 @@ class EditPlaylistVM constructor(
         }
     }
 
-    fun finish() {
-        editPlaylistGateway.updatePlaylist(_id, _name.value, _cover.value)
+    fun finish(coverImage: ByteArray? = null) {
+        editPlaylistGateway.updatePlaylist(_id, _name.value, if (coverImage == null) _cover.value else null, coverImage)
         closeModal()
     }
 }

@@ -103,7 +103,7 @@ fun AlbumScreen(
     onAction: (AlbumAction) -> Unit,
 ) {
     if (isDesktopPlatform()) {
-        AppleMusicAlbumDesktopScreen(
+        DesktopAlbumScreen(
             state = state,
             currentPlayingTrackId = currentPlayingTrackId,
             favoriteTrackIds = favoriteTrackIds,

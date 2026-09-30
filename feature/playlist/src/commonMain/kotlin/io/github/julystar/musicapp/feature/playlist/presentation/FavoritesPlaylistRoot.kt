@@ -10,15 +10,18 @@ import io.github.julystar.musicapp.core.domain.model.LIBRARY_PLAYBACK_PLAYLIST_I
 import io.github.julystar.musicapp.core.domain.model.LibraryTrackItem
 import io.github.julystar.musicapp.core.domain.model.RepositoryState
 import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.service.download.domain.DownloadRequest
 import io.github.julystar.musicapp.service.download.domain.EnqueueDownloadUseCase
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackController
+import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import musicapp.feature.playlist.generated.resources.Res
 import musicapp.feature.playlist.generated.resources.playlist_favorites_title
+import musicapp.feature.playlist.generated.resources.playlist_desktop_favorites
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -26,6 +29,7 @@ import org.koin.compose.koinInject
 fun FavoritesPlaylistRoot(
     scaffoldPadding: PaddingValues,
     onNavigateBack: () -> Unit,
+    showBackButton: Boolean = false,
 ) {
     val favoritesRepository = koinInject<FavoritesRepository>()
     val playbackController = koinInject<PlaybackController>()
@@ -34,66 +38,89 @@ fun FavoritesPlaylistRoot(
     val favoriteTracksState by favoritesRepository.favoriteTracks().collectAsState(RepositoryState.Loading)
     val favoriteTrackIds by favoritesRepository.favoriteTrackIds.collectAsState(emptySet())
     val playerState by playbackController.state.collectAsState()
-    val title = stringResource(Res.string.playlist_favorites_title)
+    val title = stringResource(if (isDesktopPlatform()) Res.string.playlist_desktop_favorites else Res.string.playlist_favorites_title)
     val state = remember(title, favoriteTracksState) {
         favoriteTracksState.dataOrNull.orEmpty().toFavoritesPlaylistState(title)
     }
 
-    PlaylistScreen(
+    val onToggleFavorite: (Long) -> Unit = { trackId ->
+        coroutineScope.launch { favoritesRepository.toggleFavorite(trackId) }
+    }
+    val onAction: (PlaylistAction) -> Unit = { action ->
+        when (action) {
+            PlaylistAction.NavigateBack -> onNavigateBack()
+            PlaylistAction.PlayAll -> {
+                val items = state.tracks.map(PlaylistTrackItem::toFavoritesPlayableItem)
+                if (items.isNotEmpty()) {
+                    coroutineScope.launch { playbackController.play(items = items) }
+                }
+            }
+            is PlaylistAction.PlayTrack -> {
+                val items = state.tracks.map(PlaylistTrackItem::toFavoritesPlayableItem)
+                val startIndex = state.tracks.indexOfFirst { track -> track.id == action.trackId }
+                if (items.isNotEmpty() && startIndex >= 0) {
+                    coroutineScope.launch {
+                        playbackController.play(items = items, startIndex = startIndex)
+                    }
+                }
+            }
+            is PlaylistAction.DownloadTrack -> {
+                action.track.mediaId?.let { mediaId ->
+                    coroutineScope.launch {
+                        try {
+                            enqueueDownload(
+                                DownloadRequest(
+                                    mediaId = mediaId,
+                                    title = action.track.title,
+                                    artist = action.track.artist,
+                                    durationMs = action.track.durationMs,
+                                ),
+                            )
+                        } catch (exception: CancellationException) {
+                            throw exception
+                        } catch (_: Throwable) {
+                            return@launch
+                        }
+                    }
+                }
+            }
+            PlaylistAction.ImportTracks,
+            PlaylistAction.EditPlaylist,
+            PlaylistAction.OpenRemoveDialog,
+            PlaylistAction.CloseRemoveDialog,
+            PlaylistAction.ConfirmRemovePlaylist,
+            is PlaylistAction.RemoveTrack,
+            is PlaylistAction.MoveTrack -> Unit
+        }
+    }
+
+    if (isDesktopPlatform()) {
+        DesktopFavoritesScreen(
+            state = state,
+            currentPlayingTrackId = playerState.currentItem?.libraryTrackId,
+            isPlaying = playerState.status == PlaybackStatus.Playing,
+            favoriteTrackIds = favoriteTrackIds,
+            onToggleFavorite = onToggleFavorite,
+            onAction = onAction,
+            onBack = if (showBackButton) {
+                { onAction(PlaylistAction.NavigateBack) }
+            } else {
+                null
+            },
+            onShuffle = {
+                val items = state.tracks.shuffled().map(PlaylistTrackItem::toFavoritesPlayableItem)
+                if (items.isNotEmpty()) {
+                    coroutineScope.launch { playbackController.play(items = items) }
+                }
+            },
+        )
+    } else PlaylistScreen(
         state = state,
         currentPlayingTrackId = playerState.currentItem?.libraryTrackId,
         favoriteTrackIds = favoriteTrackIds,
         scaffoldPadding = scaffoldPadding,
-        onToggleFavorite = { trackId ->
-            coroutineScope.launch { favoritesRepository.toggleFavorite(trackId) }
-        },
-        onAction = { action ->
-            when (action) {
-                PlaylistAction.NavigateBack -> onNavigateBack()
-                PlaylistAction.PlayAll -> {
-                    val items = state.tracks.map(PlaylistTrackItem::toFavoritesPlayableItem)
-                    if (items.isNotEmpty()) {
-                        coroutineScope.launch { playbackController.play(items = items) }
-                    }
-                }
-                is PlaylistAction.PlayTrack -> {
-                    val items = state.tracks.map(PlaylistTrackItem::toFavoritesPlayableItem)
-                    val startIndex = state.tracks.indexOfFirst { track -> track.id == action.trackId }
-                    if (items.isNotEmpty() && startIndex >= 0) {
-                        coroutineScope.launch {
-                            playbackController.play(items = items, startIndex = startIndex)
-                        }
-                    }
-                }
-                is PlaylistAction.DownloadTrack -> {
-                    action.track.mediaId?.let { mediaId ->
-                        coroutineScope.launch {
-                            try {
-                                enqueueDownload(
-                                    DownloadRequest(
-                                        mediaId = mediaId,
-                                        title = action.track.title,
-                                        artist = action.track.artist,
-                                        durationMs = action.track.durationMs,
-                                    ),
-                                )
-                            } catch (exception: CancellationException) {
-                                throw exception
-                            } catch (_: Throwable) {
-                                return@launch
-                            }
-                        }
-                    }
-                }
-                PlaylistAction.ImportTracks,
-                PlaylistAction.EditPlaylist,
-                PlaylistAction.OpenRemoveDialog,
-                PlaylistAction.CloseRemoveDialog,
-                PlaylistAction.ConfirmRemovePlaylist,
-                is PlaylistAction.RemoveTrack,
-                is PlaylistAction.MoveTrack -> Unit
-            }
-        },
+        onToggleFavorite = onToggleFavorite,
+        onAction = onAction,
         editable = false,
     )
 }
@@ -109,6 +136,8 @@ internal fun List<LibraryTrackItem>.toFavoritesPlaylistState(title: String): Pla
                 id = track.id,
                 title = track.title,
                 artist = track.artist,
+                albumName = track.albumName,
+                albumId = track.albumId,
                 durationMs = track.durationMs,
                 sortOrder = index.toLong(),
                 mediaId = track.mediaId,

@@ -47,7 +47,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.presentation.components.DesktopCreatePlaylistDialog
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -58,8 +60,9 @@ import musicapp.service.playback.presentation.generated.resources.player_create_
 import musicapp.service.playback.presentation.generated.resources.player_create_playlist_track_hint
 import musicapp.service.playback.presentation.generated.resources.player_new_playlist
 import musicapp.service.playback.presentation.generated.resources.player_playlist_name
-import musicapp.service.playback.presentation.generated.resources.playlist_cover_moss
 import musicapp.service.playback.presentation.generated.resources.playlists_dialog_button_cancel
+import musicapp.core.presentation.generated.resources.Res as CoreRes
+import musicapp.core.presentation.generated.resources.playlist_cover_moss
 
 @Composable
 internal fun NowPlayingCreatePlaylistDialog(
@@ -70,7 +73,21 @@ internal fun NowPlayingCreatePlaylistDialog(
     onNameChange: (String) -> Unit,
     onCancel: () -> Unit,
     onCreate: () -> Unit,
+    onCreateWithCover: ((ByteArray?) -> Unit)? = null,
 ) {
+    if (isDesktopPlatform()) {
+        DesktopCreatePlaylistDialog(
+            show = show,
+            name = name,
+            onNameChange = onNameChange,
+            onCancel = onCancel,
+            onCreate = onCreate,
+            modifier = Modifier.testTag("now-playing-create-playlist-dialog"),
+            colorArtwork = currentTrackArtwork,
+            onCreateWithCover = onCreateWithCover,
+        )
+        return
+    }
     val dark = LocalDesignIsDarkTheme.current
     val surface = if (dark) Color(0xFF292929) else Color.White
     val foreground = if (dark) Color.White else Color(0xFF202020)
@@ -124,7 +141,7 @@ internal fun NowPlayingCreatePlaylistDialog(
                     )
                 } else {
                     Image(
-                        painter = painterResource(Res.drawable.playlist_cover_moss),
+                        painter = painterResource(CoreRes.drawable.playlist_cover_moss),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().padding(3.dp).clip(RoundedCornerShape(6.dp)),

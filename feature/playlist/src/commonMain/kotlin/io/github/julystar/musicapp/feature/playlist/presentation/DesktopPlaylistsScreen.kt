@@ -44,6 +44,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.selected
@@ -110,7 +111,7 @@ internal fun shownDesktopPlaylists(
 }
 
 @Composable
-internal fun AppleMusicPlaylistsDesktopScreen(
+internal fun DesktopPlaylistsScreen(
     state: PlaylistsListState,
     favoriteCount: Int,
     onOpenPlaylist: (Long) -> Unit,
@@ -309,7 +310,8 @@ private fun DesktopPlaylistCard(
     Column(verticalArrangement = Arrangement.spacedBy(7.5.dp)) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(1f).clip(shape)
-                .background(if (isDark) Color(0xFF28282A) else Color(0xFFEDEEF0))
+                .background(if (isFavorites) Color.White else if (isDark) Color(0xFF28282A) else Color(0xFFEDEEF0))
+                .then(if (isFavorites) Modifier.testTag("desktop-favorites-cover") else Modifier)
                 .onPointerEvent(PointerEventType.Enter) { hovered = true }
                 .onPointerEvent(PointerEventType.Exit) { hovered = false }
                 .onPointerEvent(PointerEventType.Press) { event ->

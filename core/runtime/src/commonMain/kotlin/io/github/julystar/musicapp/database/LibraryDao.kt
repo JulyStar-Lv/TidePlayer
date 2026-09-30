@@ -1397,6 +1397,9 @@ interface MetadataDao {
     )
     suspend fun getArtworkForAlbum(albumId: Long): ArtworkEntity?
 
+    @Query("SELECT * FROM artwork WHERE id = (SELECT artworkId FROM playlist WHERE id = :playlistId)")
+    suspend fun getArtworkForPlaylist(playlistId: Long): ArtworkEntity?
+
     @Query("SELECT * FROM artwork WHERE contentHash = :contentHash LIMIT 1")
     suspend fun getArtworkByContentHash(contentHash: String): ArtworkEntity?
 

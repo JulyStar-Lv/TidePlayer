@@ -6,7 +6,7 @@ import io.github.julystar.musicapp.core.presentation.navigation.NEW_STORAGE_ID
 import io.github.julystar.musicapp.core.presentation.components.StickyHeaderState
 import io.github.julystar.musicapp.core.presentation.layout.WindowSizeClass
 import io.github.julystar.musicapp.feature.importing.presentation.navigation.RouteImportType
-import io.github.julystar.musicapp.widgets.appbar.AppleMusicSidebarDestination
+import io.github.julystar.musicapp.widgets.appbar.DesktopSidebarDestination
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -67,59 +67,67 @@ class RootNavHostTest {
     @Test
     fun `desktop sidebar selection follows the current back stack route`() {
         assertEquals(
-            AppleMusicSidebarDestination.RECENTLY_ADDED,
+            DesktopSidebarDestination.ALL_PLAYLISTS,
             desktopSidebarDestinationForRoute(
-                route = "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.RecentlyAdded",
+                route = "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Playlists",
                 selectedRootTab = HomeTab.HOME,
-                fallback = AppleMusicSidebarDestination.HOME,
+                fallback = DesktopSidebarDestination.HOME,
             ),
         )
         assertEquals(
-            AppleMusicSidebarDestination.HOME,
+            DesktopSidebarDestination.HOME,
             desktopSidebarDestinationForRoute(
                 route = "io.github.julystar.musicapp.core.presentation.navigation.MusicGraph.Home",
                 selectedRootTab = HomeTab.HOME,
-                fallback = AppleMusicSidebarDestination.RECENTLY_ADDED,
+                fallback = DesktopSidebarDestination.ALL_PLAYLISTS,
             ),
         )
         assertEquals(
-            AppleMusicSidebarDestination.HOME,
+            DesktopSidebarDestination.HOME,
             desktopSidebarDestinationForRoute(
                 route = "Home",
                 selectedRootTab = HomeTab.HOME,
-                fallback = AppleMusicSidebarDestination.FAVORITES,
+                fallback = DesktopSidebarDestination.FAVORITES,
             ),
         )
         assertEquals(
-            AppleMusicSidebarDestination.ALBUMS,
+            DesktopSidebarDestination.ALBUMS,
             desktopSidebarDestinationForRoute(
                 route = "Home",
                 selectedRootTab = HomeTab.LIBRARY,
-                fallback = AppleMusicSidebarDestination.ALBUMS,
+                fallback = DesktopSidebarDestination.ALBUMS,
             ),
         )
         assertEquals(
-            AppleMusicSidebarDestination.ARTISTS,
+            DesktopSidebarDestination.ARTISTS,
             desktopSidebarDestinationForRoute(
                 route = "Home",
                 selectedRootTab = HomeTab.LIBRARY,
-                fallback = AppleMusicSidebarDestination.ARTISTS,
+                fallback = DesktopSidebarDestination.ARTISTS,
             ),
         )
         assertEquals(
-            AppleMusicSidebarDestination.FAVORITES,
+            DesktopSidebarDestination.ALL_PLAYLISTS,
             desktopSidebarDestinationForRoute(
                 route = "Favorites",
                 selectedRootTab = HomeTab.HOME,
-                fallback = AppleMusicSidebarDestination.RECENTLY_ADDED,
+                fallback = DesktopSidebarDestination.ALL_PLAYLISTS,
             ),
         )
         assertEquals(
-            AppleMusicSidebarDestination.ALBUMS,
+            DesktopSidebarDestination.FAVORITES,
+            desktopSidebarDestinationForRoute(
+                route = "Favorites",
+                selectedRootTab = HomeTab.HOME,
+                fallback = DesktopSidebarDestination.FAVORITES,
+            ),
+        )
+        assertEquals(
+            DesktopSidebarDestination.ALBUMS,
             desktopSidebarDestinationForRoute(
                 route = "Browse",
                 selectedRootTab = HomeTab.HOME,
-                fallback = AppleMusicSidebarDestination.FAVORITES,
+                fallback = DesktopSidebarDestination.FAVORITES,
             ),
         )
     }

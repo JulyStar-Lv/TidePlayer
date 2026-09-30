@@ -14,6 +14,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asSkiaBitmap
+import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
+import io.github.julystar.musicapp.core.presentation.media.ArtworkImageLoader
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.EncodedImageFormat
+import java.io.File
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
@@ -22,6 +34,8 @@ import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -30,6 +44,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.navigation.HomeTab
+import io.github.julystar.musicapp.core.presentation.theme.AppTheme
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -40,6 +55,58 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class DesktopNavigationTest {
+    @Test
+    fun sidebarShowsLivePlaylistsAndSelectsTheirRows() = runComposeUiTest {
+        fun playlist(id: Long, title: String) = PlaylistSummary(id, title, 0, 0, Artwork.LibraryPlaylist(id))
+        var playlists by mutableStateOf(listOf(playlist(1, "Demo"), playlist(2, "Demo2")))
+        var selectedId by mutableStateOf<Long?>(null)
+        val blue = ImageBitmap(24, 24).also { Canvas(it).drawRect(0f, 0f, 24f, 24f, Paint().apply { color = Color.Blue }) }
+        startKoin {
+            modules(module {
+                single<ArtworkImageLoader> {
+                    object : ArtworkImageLoader {
+                        override fun cachedBitmap(artwork: Artwork) = blue
+                        override suspend fun loadBitmap(artwork: Artwork) = blue
+                    }
+                }
+            })
+        }
+        try {
+            setContent {
+                AppTheme(darkTheme = true, manageSystemBars = false) {
+                    CompositionLocalProvider(LocalDesignIsDarkTheme provides true) {
+                        DesktopNavigationSidebar(
+                            selectedDestination = DesktopSidebarDestination.ALL_PLAYLISTS,
+                            onDestinationSelected = {},
+                            modifier = Modifier.height(500.dp),
+                            playlists = playlists,
+                            selectedPlaylistId = selectedId,
+                            onPlaylistSelected = { selectedId = it },
+                        )
+                    }
+                }
+            }
+            onNodeWithTag("desktop-sidebar-playlist-1").assertIsDisplayed().performClick()
+            assertEquals(1L, selectedId)
+            onNodeWithTag("desktop-sidebar-playlist-1").assertIsSelected()
+            onNodeWithTag("apple-music-sidebar-all_playlists").assertIsNotSelected()
+            runOnIdle { playlists = playlists + playlist(3, "New playlist") }
+            onNodeWithTag("desktop-sidebar-playlist-3").assertIsDisplayed().performClick()
+            assertEquals(3L, selectedId)
+            onNodeWithTag("desktop-sidebar-playlist-3").assertIsSelected()
+            val row = onNodeWithTag("desktop-sidebar-playlist-3").captureToImage()
+            val pixels = row.toPixelMap()
+            assertTrue(pixels[25, pixels.height / 2].blue > pixels[25, pixels.height / 2].red + 0.5f)
+            val output = File("build/reports/sidebar-playlist.png")
+            output.parentFile.mkdirs()
+            output.writeBytes(Image.makeFromBitmap(row.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            runOnIdle { playlists = playlists.filter { it.id != 1L } }
+            onNodeWithTag("desktop-sidebar-playlist-1").assertDoesNotExist()
+        } finally {
+            stopKoin()
+        }
+    }
+
     @Test
     fun sidebarMaterialAdoptsNearbyContentColor() = runComposeUiTest {
         setContent {
@@ -67,8 +134,8 @@ class DesktopNavigationTest {
                             }
                         },
                         overlayContent = {
-                            AppleMusicNavigationSidebar(
-                                selectedDestination = AppleMusicSidebarDestination.HOME,
+                            DesktopNavigationSidebar(
+                                selectedDestination = DesktopSidebarDestination.HOME,
                                 onDestinationSelected = {},
                                 modifier = Modifier.height(500.dp),
                             )
@@ -95,7 +162,7 @@ class DesktopNavigationTest {
 
     private fun verifyFocusColors(darkTheme: Boolean) = runComposeUiTest {
         var focused by mutableStateOf(true)
-        var clicked: AppleMusicSidebarDestination? = null
+        var clicked: DesktopSidebarDestination? = null
         setContent {
             val windowInfo = LocalWindowInfo.current
             val controlledWindowInfo = remember(windowInfo) {
@@ -107,9 +174,9 @@ class DesktopNavigationTest {
                 LocalWindowInfo provides controlledWindowInfo,
                 LocalDesignIsDarkTheme provides darkTheme,
             ) {
-                MiuixTheme {
-                    AppleMusicNavigationSidebar(
-                        selectedDestination = AppleMusicSidebarDestination.HOME,
+                AppTheme(darkTheme = darkTheme, manageSystemBars = false) {
+                    DesktopNavigationSidebar(
+                        selectedDestination = DesktopSidebarDestination.HOME,
                         onDestinationSelected = { clicked = it },
                     )
                 }
@@ -143,11 +210,11 @@ class DesktopNavigationTest {
 
         runOnIdle { focused = false }
         settings.performClick()
-        assertEquals(AppleMusicSidebarDestination.SETTINGS, clicked)
+        assertEquals(DesktopSidebarDestination.SETTINGS, clicked)
     }
 
     @Test
-    fun expandedSidebarUsesAppleMusicShellWithoutBranding() = runComposeUiTest {
+    fun expandedSidebarUsesDesktopShellWithoutBranding() = runComposeUiTest {
         setContent {
             MiuixTheme {
                 HomeNavigationRail(
@@ -166,8 +233,8 @@ class DesktopNavigationTest {
     }
 
     @Test
-    fun expandedSidebarDispatchesAppleMusicDestination() = runComposeUiTest {
-        var selectedDestination = AppleMusicSidebarDestination.HOME
+    fun expandedSidebarDispatchesDesktopDestination() = runComposeUiTest {
+        var selectedDestination = DesktopSidebarDestination.HOME
         setContent {
             MiuixTheme {
                 HomeNavigationRail(
@@ -181,7 +248,7 @@ class DesktopNavigationTest {
         }
 
         onNodeWithTag("apple-music-sidebar-settings").performClick()
-        assertEquals(AppleMusicSidebarDestination.SETTINGS, selectedDestination)
+        assertEquals(DesktopSidebarDestination.SETTINGS, selectedDestination)
     }
 }
 

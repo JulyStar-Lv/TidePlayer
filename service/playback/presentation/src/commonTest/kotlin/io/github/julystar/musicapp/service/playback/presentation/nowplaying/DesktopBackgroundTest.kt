@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class AppleMusicDesktopBackgroundTest {
+class DesktopBackgroundTest {
     @Test
     fun monochromeArtworkStaysNeutralIncludingBlackAndWhite() {
         for (level in listOf(0f, 0.15f, 0.5f, 1f)) {

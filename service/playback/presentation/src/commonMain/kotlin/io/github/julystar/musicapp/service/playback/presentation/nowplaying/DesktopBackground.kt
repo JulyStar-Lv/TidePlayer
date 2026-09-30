@@ -39,7 +39,7 @@ import kotlin.math.sin
 
 /** Layered artwork and blur, following the approach used by AMLL's Pixi renderer. */
 @Composable
-internal fun AppleMusicDesktopBackground(palette: ArtworkPalette) {
+internal fun DesktopBackground(palette: ArtworkPalette) {
     if (palette.backgroundTexture != null) {
         Crossfade(
             targetState = palette.backgroundTexture,

@@ -17,6 +17,7 @@ class LegacyEditPlaylistGateway(
                     coverSelection = item.meta.cover?.toSourceNodeSelection(
                         storageRepository.storages.value,
                     ),
+                    coverArtwork = playlistRepository.playlistSummaries.value.find { it.id == id }?.coverArtwork,
                 )
             }
     }
@@ -25,12 +26,14 @@ class LegacyEditPlaylistGateway(
         id: Long,
         title: String,
         cover: SourceNodeSelection?,
+        coverImage: ByteArray?,
     ) {
         playlistRepository.editPlaylist(
             UpdatePlaylistRequest(
                 id = id,
                 title = title,
                 cover = cover,
+                coverImage = coverImage,
             ),
         )
     }

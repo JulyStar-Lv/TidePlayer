@@ -120,12 +120,16 @@ class CreatePlaylistVM constructor(
         }
     }
 
-    fun finish() {
+    fun finish(coverImage: ByteArray? = null) {
+        val title = _name.value
+        val cover = if (coverImage == null) _cover.value else null
+        val entries = _entries.value
         viewModelScope.launch {
             playlistImportTarget.createPlaylistFromSelections(
-                title = _name.value,
-                cover = _cover.value,
-                entries = _entries.value,
+                title = title,
+                cover = cover,
+                entries = entries,
+                coverImage = coverImage,
             )
         }
     }

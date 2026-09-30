@@ -27,6 +27,7 @@ data class PlaylistTrackItem(
     val title: String,
     val artist: String? = null,
     val albumName: String? = null,
+    val albumId: Long? = null,
     val durationMs: Long?,
     val sortOrder: Long,
     val mediaId: MediaId?,

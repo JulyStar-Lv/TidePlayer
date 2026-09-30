@@ -48,6 +48,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.toRoute
 import io.github.julystar.musicapp.core.isRouteHome
 import io.github.julystar.musicapp.core.isRouteLyrics
 import io.github.julystar.musicapp.core.isRouteNowPlaying
@@ -103,7 +104,9 @@ import io.github.julystar.musicapp.service.playback.presentation.sleep.TimeToPau
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkAnimatedVisibilityScope
 import io.github.julystar.musicapp.service.playback.presentation.transition.LocalPlayerArtworkSharedTransitionScope
 import io.github.julystar.musicapp.widgets.appbar.BottomBar
-import io.github.julystar.musicapp.widgets.appbar.AppleMusicSidebarDestination
+import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
+import io.github.julystar.musicapp.core.domain.repository.PlaylistRepository
+import io.github.julystar.musicapp.widgets.appbar.DesktopSidebarDestination
 import io.github.julystar.musicapp.widgets.appbar.HomeNavigationRail
 import io.github.julystar.musicapp.widgets.appbar.defaultSidebarDestination
 import io.github.julystar.musicapp.widgets.appbar.getHomeNavigationRailWidth
@@ -137,9 +140,10 @@ internal fun RootNavHost(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     var selectedDesktopDestinationName by rememberSaveable {
-        mutableStateOf(AppleMusicSidebarDestination.HOME.name)
+        mutableStateOf(DesktopSidebarDestination.HOME.name)
     }
-    val savedDesktopDestination = AppleMusicSidebarDestination.entries.firstOrNull {
+    var previousAlbumId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val savedDesktopDestination = DesktopSidebarDestination.entries.firstOrNull {
         it.name == selectedDesktopDestinationName
     } ?: selectedRootTab.defaultSidebarDestination()
     val selectedDesktopDestination = desktopSidebarDestinationForRoute(
@@ -161,6 +165,12 @@ internal fun RootNavHost(
     val nowPlayingOverlayVisibilityState = remember { MutableTransitionState(false) }
     nowPlayingOverlayVisibilityState.targetState = nowPlayingOverlayResident
     val playerViewModel: PlayerVM = koinViewModel()
+    val playlistRepository: PlaylistRepository = koinInject()
+    val desktopPlaylists by playlistRepository.playlistSummaries.collectAsState()
+    val routeName = currentRoute?.substringBefore('/')
+    val selectedDesktopPlaylistId = if (routeName == "Playlist" || routeName?.endsWith(".Playlist") == true) {
+        currentBackStackEntry?.toRoute<MusicGraph.Playlist>()?.takeIf { it.fromSidebar }?.id
+    } else null
     val settingsRepository: SettingsRepository = koinInject()
     val nowPlayingState by playerViewModel.nowPlayingState.collectAsState()
     val settings by settingsRepository.settings.collectAsState(AppSettings.Default)
@@ -213,6 +223,14 @@ internal fun RootNavHost(
                     )
                 ) {
                     playerSheetEnterTransition(PlayerSheetTransitionDurationMillis)
+                } else if (shouldUseDesktopSidebarFade(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                        restoringAlbum = previousAlbumId != null &&
+                            selectedDesktopDestinationName == DesktopSidebarDestination.ALBUMS.name,
+                    )
+                ) {
+                    fadeIn(tween(300))
                 } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
@@ -234,7 +252,7 @@ internal fun RootNavHost(
                 ) {
                     fadeIn(tween(SettingsDetailTransitionDurationMillis))
                 } else {
-                    slideIn(
+                    if (isDesktopPlatform()) fadeIn(tween(300)) else slideIn(
                         animationSpec = tween(300),
                         initialOffset = { fullSize -> IntOffset(fullSize.width, 0) },
                     )
@@ -247,6 +265,14 @@ internal fun RootNavHost(
                     )
                 ) {
                     holdExitTransition(PlayerSheetTransitionDurationMillis)
+                } else if (shouldUseDesktopSidebarFade(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                        restoringAlbum = previousAlbumId != null &&
+                            selectedDesktopDestinationName == DesktopSidebarDestination.ALBUMS.name,
+                    )
+                ) {
+                    fadeOut(tween(300))
                 } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
@@ -277,7 +303,7 @@ internal fun RootNavHost(
                 ) {
                     fadeOut(tween(SettingsDetailTransitionDurationMillis))
                 } else {
-                    slideOut(
+                    if (isDesktopPlatform()) fadeOut(tween(300)) else slideOut(
                         animationSpec = tween(300),
                         targetOffset = { fullSize -> IntOffset(-fullSize.width, 0) },
                     )
@@ -290,6 +316,14 @@ internal fun RootNavHost(
                     )
                 ) {
                     immediateEnterTransition(playerTransitionDurationMillis)
+                } else if (shouldUseDesktopSidebarFade(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                        restoringAlbum = previousAlbumId != null &&
+                            selectedDesktopDestinationName == DesktopSidebarDestination.ALBUMS.name,
+                    )
+                ) {
+                    fadeIn(tween(300))
                 } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
@@ -311,7 +345,7 @@ internal fun RootNavHost(
                 ) {
                     fadeIn(tween(SettingsDetailTransitionDurationMillis))
                 } else {
-                    slideIn(
+                    if (isDesktopPlatform()) fadeIn(tween(300)) else slideIn(
                         animationSpec = tween(300),
                         initialOffset = { fullSize -> IntOffset(fullSize.width, 0) },
                     )
@@ -324,6 +358,14 @@ internal fun RootNavHost(
                     )
                 ) {
                     playerSheetExitTransition(PlayerSheetTransitionDurationMillis)
+                } else if (shouldUseDesktopSidebarFade(
+                        initialRoute = initialState.destination.route,
+                        targetRoute = targetState.destination.route,
+                        restoringAlbum = previousAlbumId != null &&
+                            selectedDesktopDestinationName == DesktopSidebarDestination.ALBUMS.name,
+                    )
+                ) {
+                    fadeOut(tween(300))
                 } else if (isArtworkDetailTransition(
                         initialRoute = initialState.destination.route,
                         targetRoute = targetState.destination.route,
@@ -354,7 +396,7 @@ internal fun RootNavHost(
                 ) {
                     fadeOut(tween(SettingsDetailTransitionDurationMillis))
                 } else {
-                    slideOut(
+                    if (isDesktopPlatform()) fadeOut(tween(300)) else slideOut(
                         animationSpec = tween(300),
                         targetOffset = { fullSize -> IntOffset(-fullSize.width, 0) },
                     )
@@ -369,7 +411,10 @@ internal fun RootNavHost(
             onOpenQueue = args.onOpenQueue,
         )
         albumGraph(
-            onNavigateBack = { navController.popBackStack() },
+            onNavigateBack = {
+                previousAlbumId = null
+                navController.popBackStack()
+            },
         )
         artistGraph(
             onNavigateBack = { navController.popBackStack() },
@@ -385,13 +430,18 @@ internal fun RootNavHost(
                 val createPlaylistVM: CreatePlaylistVM = koinViewModel()
                 PlaylistsListRoot(
                     onNavigateToPlaylist = { id ->
+                        selectedDesktopDestinationName = DesktopSidebarDestination.ALL_PLAYLISTS.name
                         navController.navigate(MusicGraph.Playlist(id))
                     },
                     onCreatePlaylist = createPlaylistVM::openModal,
-                    onNavigateToFavorites = { navController.navigate(MusicGraph.Favorites) },
+                    onNavigateToFavorites = {
+                        selectedDesktopDestinationName = DesktopSidebarDestination.ALL_PLAYLISTS.name
+                        navController.navigate(MusicGraph.Favorites)
+                    },
                 )
                 CreatePlaylistRoot(
                     createPlaylistVM = createPlaylistVM,
+                    colorArtwork = nowPlayingState.currentTrack?.artwork,
                     onNavigateToImport = {
                         navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylist))
                     },
@@ -401,19 +451,23 @@ internal fun RootNavHost(
                 )
             }
         }
-        composable<MusicGraph.Playlist> {
+        composable<MusicGraph.Playlist> { playlistEntry ->
             val animatedVisibilityScope = this
             CompositionLocalProvider(
                 LocalDetailArtworkAnimatedVisibilityScope provides animatedVisibilityScope,
             ) {
                 PlaylistRoot(
                     scaffoldPadding = args.scaffoldPadding,
+                    showDesktopBackButton = !playlistEntry.toRoute<MusicGraph.Playlist>().fromSidebar &&
+                        navController.previousBackStackEntry?.destination?.route?.substringBefore('/')
+                            ?.let { it == "Playlists" || it.endsWith(".Playlists") } == true,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToImport = {
                         navController.navigate(MusicGraph.Import(RouteImportType.Music))
                     },
                 )
                 EditPlaylistRoot(
+                    colorArtwork = nowPlayingState.currentTrack?.artwork,
                     onNavigateToCoverImport = {
                         navController.navigate(MusicGraph.Import(RouteImportType.EditPlaylistCover))
                     },
@@ -428,6 +482,8 @@ internal fun RootNavHost(
                 FavoritesPlaylistRoot(
                     scaffoldPadding = args.scaffoldPadding,
                     onNavigateBack = { navController.popBackStack() },
+                    showBackButton = navController.previousBackStackEntry?.destination?.route
+                        ?.substringBefore('/')?.let { it == "Playlists" || it.endsWith(".Playlists") } == true,
                 )
             }
         }
@@ -505,22 +561,35 @@ internal fun RootNavHost(
             }
         }
     }
-    val onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit = { destination ->
+    val onDesktopDestinationSelected: (DesktopSidebarDestination) -> Unit = { destination ->
+        val routeName = currentBackStackEntry?.destination?.route?.substringBefore('/')
+        if (selectedDesktopDestination == DesktopSidebarDestination.ALBUMS &&
+            destination != DesktopSidebarDestination.ALBUMS &&
+            (routeName == "Album" || routeName?.endsWith(".Album") == true)
+        ) {
+            previousAlbumId = currentBackStackEntry?.toRoute<MusicGraph.Album>()?.id
+        }
         selectedDesktopDestinationName = destination.name
         when (destination) {
-            AppleMusicSidebarDestination.SEARCH -> selectRootTabAndReturnHome(HomeTab.SEARCH)
-            AppleMusicSidebarDestination.HOME -> selectRootTabAndReturnHome(HomeTab.HOME)
-            AppleMusicSidebarDestination.SETTINGS -> selectRootTabAndReturnHome(HomeTab.SETTINGS)
-            AppleMusicSidebarDestination.SONGS,
-            AppleMusicSidebarDestination.ALBUMS,
-            AppleMusicSidebarDestination.ARTISTS,
+            DesktopSidebarDestination.SEARCH -> selectRootTabAndReturnHome(HomeTab.SEARCH)
+            DesktopSidebarDestination.HOME -> selectRootTabAndReturnHome(HomeTab.HOME)
+            DesktopSidebarDestination.SETTINGS -> selectRootTabAndReturnHome(HomeTab.SETTINGS)
+            DesktopSidebarDestination.SONGS,
+            DesktopSidebarDestination.ARTISTS,
             -> {
                 selectRootTabAndReturnHome(HomeTab.LIBRARY)
                 selectedDesktopDestinationName = destination.name
             }
-            AppleMusicSidebarDestination.ALL_PLAYLISTS ->
+            DesktopSidebarDestination.ALBUMS -> {
+                selectRootTabAndReturnHome(HomeTab.LIBRARY)
+                selectedDesktopDestinationName = destination.name
+                previousAlbumId?.let { albumId ->
+                    navController.navigate(MusicGraph.Album(albumId)) { launchSingleTop = true }
+                }
+            }
+            DesktopSidebarDestination.ALL_PLAYLISTS ->
                 navController.navigate(MusicGraph.Playlists) { launchSingleTop = true }
-            AppleMusicSidebarDestination.FAVORITES ->
+            DesktopSidebarDestination.FAVORITES ->
                 navController.navigate(MusicGraph.Favorites) { launchSingleTop = true }
         }
     }
@@ -535,6 +604,17 @@ internal fun RootNavHost(
                 onTabSelected = selectRootTabAndReturnHome,
                 selectedDesktopDestination = selectedDesktopDestination,
                 onDesktopDestinationSelected = onDesktopDestinationSelected,
+                desktopPlaylists = desktopPlaylists,
+                selectedDesktopPlaylistId = selectedDesktopPlaylistId,
+                onDesktopPlaylistSelected = { playlistId ->
+                    if (routeName == "Album" || routeName?.endsWith(".Album") == true) {
+                        previousAlbumId = currentBackStackEntry?.toRoute<MusicGraph.Album>()?.id
+                    }
+                    selectedDesktopDestinationName = DesktopSidebarDestination.ALL_PLAYLISTS.name
+                    navController.navigate(MusicGraph.Playlist(playlistId, fromSidebar = true)) {
+                        launchSingleTop = selectedDesktopPlaylistId == playlistId
+                    }
+                },
                 scaffoldPadding = scaffoldPadding,
                 onOpenNowPlaying = {
                     nowPlayingOverlayHostEntryId = currentBackStackEntry?.id
@@ -677,9 +757,9 @@ private data class RootNavigationContentArgs(
     val onNavigateBackFromLyrics: () -> Unit,
 )
 
-private fun AppleMusicSidebarDestination.toLibraryDesktopSection(): LibraryDesktopSection = when (this) {
-    AppleMusicSidebarDestination.ALBUMS -> LibraryDesktopSection.Albums
-    AppleMusicSidebarDestination.ARTISTS -> LibraryDesktopSection.Artists
+private fun DesktopSidebarDestination.toLibraryDesktopSection(): LibraryDesktopSection = when (this) {
+    DesktopSidebarDestination.ALBUMS -> LibraryDesktopSection.Albums
+    DesktopSidebarDestination.ARTISTS -> LibraryDesktopSection.Artists
     else -> LibraryDesktopSection.Songs
 }
 
@@ -781,16 +861,16 @@ internal fun shouldReturnToHome(route: String?): Boolean =
 internal fun desktopSidebarDestinationForRoute(
     route: String?,
     selectedRootTab: HomeTab,
-    fallback: AppleMusicSidebarDestination,
-): AppleMusicSidebarDestination {
+    fallback: DesktopSidebarDestination,
+): DesktopSidebarDestination {
     val routeName = route?.substringBefore('/')?.substringBefore('?')
     return when {
         routeName == null || routeName == "Home" || routeName.endsWith(".Home") ->
             if (
                 selectedRootTab == HomeTab.LIBRARY && fallback in setOf(
-                    AppleMusicSidebarDestination.SONGS,
-                    AppleMusicSidebarDestination.ALBUMS,
-                    AppleMusicSidebarDestination.ARTISTS,
+                    DesktopSidebarDestination.SONGS,
+                    DesktopSidebarDestination.ALBUMS,
+                    DesktopSidebarDestination.ARTISTS,
                 )
             ) {
                 fallback
@@ -798,14 +878,15 @@ internal fun desktopSidebarDestinationForRoute(
                 selectedRootTab.defaultSidebarDestination()
             }
         routeName == "Favorites" || routeName.endsWith(".Favorites") ->
-            AppleMusicSidebarDestination.FAVORITES
+            if (fallback == DesktopSidebarDestination.ALL_PLAYLISTS) fallback
+            else DesktopSidebarDestination.FAVORITES
         routeName == "Playlists" || routeName.endsWith(".Playlists") ->
-            AppleMusicSidebarDestination.ALL_PLAYLISTS
+            DesktopSidebarDestination.ALL_PLAYLISTS
         routeName == "Browse" || routeName.endsWith(".Browse") -> when (fallback) {
-            AppleMusicSidebarDestination.ALBUMS,
-            AppleMusicSidebarDestination.ARTISTS,
+            DesktopSidebarDestination.ALBUMS,
+            DesktopSidebarDestination.ARTISTS,
             -> fallback
-            else -> AppleMusicSidebarDestination.ALBUMS
+            else -> DesktopSidebarDestination.ALBUMS
         }
         else -> fallback
     }
@@ -855,6 +936,20 @@ internal fun isSourceEditorRoute(route: String?): Boolean {
 internal fun isSourceEditorTransition(initialRoute: String?, targetRoute: String?): Boolean =
     isSourceEditorRoute(initialRoute) || isSourceEditorRoute(targetRoute)
 
+private fun shouldUseDesktopSidebarFade(
+    initialRoute: String?,
+    targetRoute: String?,
+    restoringAlbum: Boolean,
+): Boolean {
+    if (!isDesktopPlatform() || isImmersivePlayerRoute(initialRoute) ||
+        isSourceEditorTransition(initialRoute, targetRoute)
+    ) return false
+    val routeName = targetRoute?.substringBefore('/')?.substringBefore('?') ?: return false
+    return listOf("Home", "Playlists", "Favorites").any { name ->
+        routeName == name || routeName.endsWith(".$name")
+    } || restoringAlbum && (routeName == "Album" || routeName.endsWith(".Album"))
+}
+
 internal fun shouldCaptureSecondaryStickyHeader(route: String?): Boolean {
     if (isRouteHome(route)) return true
     val routeName = route?.substringBefore('/') ?: return false
@@ -880,8 +975,11 @@ internal fun shouldHoistSecondaryStickyHeader(
 private fun SecondaryRootNavigationLayout(
     currentTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
-    selectedDesktopDestination: AppleMusicSidebarDestination,
-    onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit,
+    selectedDesktopDestination: DesktopSidebarDestination,
+    onDesktopDestinationSelected: (DesktopSidebarDestination) -> Unit,
+    desktopPlaylists: List<PlaylistSummary>,
+    selectedDesktopPlaylistId: Long?,
+    onDesktopPlaylistSelected: (Long) -> Unit,
     scaffoldPadding: PaddingValues,
     onOpenNowPlaying: () -> Unit,
     onOpenLyrics: (Long) -> Unit,
@@ -935,7 +1033,7 @@ private fun SecondaryRootNavigationLayout(
         } else {
             titleBarInset
         }
-        val usesAppleMusicDesktopContent = isDesktopPlatform() && when (windowSizeClass) {
+        val usesDesktopContent = isDesktopPlatform() && when (windowSizeClass) {
             WindowSizeClass.Expanded,
             WindowSizeClass.Large,
             WindowSizeClass.XL,
@@ -944,7 +1042,7 @@ private fun SecondaryRootNavigationLayout(
             WindowSizeClass.Medium,
             -> false
         }
-        val contentBackground = if (usesAppleMusicDesktopContent) {
+        val contentBackground = if (usesDesktopContent) {
             desktopWindowBackgroundColor()
         } else {
             MiuixTheme.colorScheme.background
@@ -987,7 +1085,7 @@ private fun SecondaryRootNavigationLayout(
                             content(Modifier.fillMaxSize())
                         }
                     }
-                    if (usesAppleMusicDesktopContent) {
+                    if (usesDesktopContent) {
                         MiuixTheme(
                             colors = MiuixTheme.colorScheme.copy(
                                 background = contentBackground,
@@ -1072,6 +1170,9 @@ private fun SecondaryRootNavigationLayout(
                                         expanded = true,
                                         selectedDesktopDestination = selectedDesktopDestination,
                                         onDesktopDestinationSelected = onDesktopDestinationSelected,
+                                        desktopPlaylists = desktopPlaylists,
+                                        selectedDesktopPlaylistId = selectedDesktopPlaylistId,
+                                        onDesktopPlaylistSelected = onDesktopPlaylistSelected,
                                         modifier = Modifier
                                             .align(Alignment.CenterStart)
                                             .fillMaxHeight()

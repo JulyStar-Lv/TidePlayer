@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.presentation.components.BottomBarSpacer
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.media.FavoritesPlaylistArtwork
 import io.github.julystar.musicapp.core.presentation.theme.DesignFontFamilies
@@ -121,7 +122,27 @@ fun PlaylistScreen(
     onAction: (PlaylistAction) -> Unit,
     editable: Boolean = true,
     modifier: Modifier = Modifier,
+    onShuffle: () -> Unit = {},
+    showDesktopBackButton: Boolean = true,
+    isPlaying: Boolean = false,
 ) {
+    if (isDesktopPlatform() && !state.isFavorites) {
+        Box(modifier.fillMaxSize()) {
+            DesktopPlaylistScreen(
+                state = state,
+                currentPlayingTrackId = currentPlayingTrackId,
+                isPlaying = isPlaying,
+                favoriteTrackIds = favoriteTrackIds,
+                onToggleFavorite = onToggleFavorite,
+                onAction = onAction,
+                onShuffle = onShuffle,
+                onBack = if (showDesktopBackButton) { { onAction(PlaylistAction.NavigateBack) } } else null,
+                editable = editable,
+            )
+        }
+        if (editable) RemovePlaylistDialog(state = state, onAction = onAction)
+        return
+    }
     var editing by remember(state.playlistId) { mutableStateOf(false) }
     var selectedTrackIds by remember(state.playlistId) { mutableStateOf(emptySet<Long>()) }
     val listState = rememberLazyListState()
@@ -712,7 +733,7 @@ private fun PlaylistTrackItem.trackSubtitle(): String {
 }
 
 @Composable
-private fun playlistDurationLabel(durationMs: Long): String {
+internal fun playlistDurationLabel(durationMs: Long): String {
     val totalSeconds = (durationMs / 1_000).coerceAtLeast(0)
     val hours = totalSeconds / 3_600
     val minutes = totalSeconds / 60 % 60

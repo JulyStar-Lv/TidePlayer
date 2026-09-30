@@ -58,6 +58,9 @@ fun DesktopCollectionToolbar(
     sortDescription: String,
     onSortClick: () -> Unit,
     sortMenu: @Composable () -> Unit,
+    navigationIcon: (@Composable () -> Unit)? = null,
+    toolbarActions: @Composable () -> Unit = {},
+    showTitle: Boolean = true,
     extraContentHeight: Dp = 0.dp,
     extraContent: @Composable () -> Unit = {},
 ) {
@@ -71,18 +74,24 @@ fun DesktopCollectionToolbar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(DesignTokens.adaptive.compactHeaderHeight)
-                        .padding(start = TopAppBarDefaults.TitlePadding, end = 10.dp),
+                        .padding(start = if (navigationIcon == null) TopAppBarDefaults.TitlePadding else 8.dp, end = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = title,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        fontSize = MiuixTheme.textStyles.title3.fontSize,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    navigationIcon?.invoke()
+                    if (showTitle) {
+                        Text(
+                            text = title,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            fontSize = MiuixTheme.textStyles.title3.fontSize,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                    toolbarActions()
                     Box {
                         DesktopRoundButton(description = sortDescription, onClick = onSortClick) {
                             Icon(
@@ -116,14 +125,7 @@ private fun DesktopSearchField(
         Modifier
             .width(196.dp)
             .height(36.dp)
-            .appleToolbarShadow(shape, isDark)
-            .clip(shape)
-            .background(if (isDark) Color.White.copy(alpha = 0.075f) else Color.White.copy(alpha = 0.55f))
-            .border(
-                0.5.dp,
-                if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.86f),
-                shape,
-            )
+            .desktopToolbarCapsule(shape)
             .padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -156,6 +158,20 @@ private fun DesktopSearchField(
             },
         )
     }
+}
+
+@Composable
+fun Modifier.desktopToolbarCapsule(shape: Shape): Modifier {
+    val isDark = LocalDesignIsDarkTheme.current
+    return this
+        .appleToolbarShadow(shape, isDark)
+        .clip(shape)
+        .background(if (isDark) Color.White.copy(alpha = 0.075f) else Color.White.copy(alpha = 0.55f))
+        .border(
+            0.5.dp,
+            if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.86f),
+            shape,
+        )
 }
 
 @Composable

@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @Composable
-internal fun AppleMusicPlaylistsDesktopRoot(
+internal fun DesktopPlaylistsRoot(
     state: PlaylistsListState,
     onNavigateToPlaylist: (Long) -> Unit,
     onNavigateToFavorites: (() -> Unit)?,
@@ -27,7 +27,7 @@ internal fun AppleMusicPlaylistsDesktopRoot(
     val scope = rememberCoroutineScope()
     val favoriteCount by favorites.favoriteCount.collectAsState(0)
 
-    AppleMusicPlaylistsDesktopScreen(
+    DesktopPlaylistsScreen(
         state = state,
         favoriteCount = favoriteCount,
         onOpenPlaylist = onNavigateToPlaylist,

@@ -8,16 +8,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.ImportCover
+import io.github.julystar.musicapp.core.domain.model.Artwork
+import io.github.julystar.musicapp.core.presentation.components.DesktopCreatePlaylistDialog
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import org.jetbrains.compose.resources.stringResource
 import musicapp.feature.playlist.generated.resources.Res
 import musicapp.feature.playlist.generated.resources.playlists_dialog_button_cancel
 import musicapp.feature.playlist.generated.resources.playlists_dialog_button_ok
 import musicapp.feature.playlist.generated.resources.playlists_dialog_cover
 import musicapp.feature.playlist.generated.resources.playlists_dialog_playlist_name
+import musicapp.feature.playlist.generated.resources.playlist_desktop_edit_title
+import musicapp.feature.playlist.generated.resources.playlist_desktop_save
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
@@ -28,7 +34,25 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun EditPlaylistScreen(
     state: EditPlaylistState,
     onAction: (EditPlaylistAction) -> Unit,
+    colorArtwork: Artwork? = null,
 ) {
+    if (isDesktopPlatform()) {
+        DesktopCreatePlaylistDialog(
+            show = state.isOpen,
+            name = state.name,
+            onNameChange = { onAction(EditPlaylistAction.UpdateName(it)) },
+            onCancel = { onAction(EditPlaylistAction.Close) },
+            onCreate = { onAction(EditPlaylistAction.Submit) },
+            coverArtwork = state.coverArtwork,
+            onImportCover = { onAction(EditPlaylistAction.NavigateToCoverImport) },
+            colorArtwork = colorArtwork,
+            onCreateWithCover = { onAction(EditPlaylistAction.SubmitWithCover(it)) },
+            title = stringResource(Res.string.playlist_desktop_edit_title),
+            confirmText = stringResource(Res.string.playlist_desktop_save),
+            modifier = Modifier.testTag("desktop-edit-playlist-dialog"),
+        )
+        return
+    }
     OverlayDialog(
         show = state.isOpen,
         onDismissRequest = { onAction(EditPlaylistAction.Close) },

@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -39,6 +40,31 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class DesktopPlaylistsRenderTest {
     @Test
+    fun keepsFavoritesCoverWhiteInDarkGrid() = runDesktopComposeUiTest(width = 900, height = 700) {
+        setContent {
+            AppTheme(darkTheme = true, manageSystemBars = false) {
+                CompositionLocalProvider(LocalDensity provides Density(2f)) {
+                    DesktopPlaylistsScreen(
+                        state = PlaylistsListState(),
+                        favoriteCount = 0,
+                        onOpenPlaylist = {},
+                        onOpenFavorites = {},
+                        onCreatePlaylist = {},
+                        onPlayPlaylist = {},
+                        onPlayFavorites = {},
+                    )
+                }
+            }
+        }
+        val cover = onNodeWithTag("desktop-favorites-cover").captureToImage()
+        val pixel = cover.toPixelMap()[20, 20]
+        assertTrue(pixel.red > 0.98f && pixel.green > 0.98f && pixel.blue > 0.98f)
+        val output = File("build/reports/playlists/favorites-cover-dark.png")
+        output.parentFile.mkdirs()
+        output.writeBytes(Image.makeFromBitmap(cover.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+    }
+
+    @Test
     fun rendersTheGridAndSupportsSearchSortingAndOpeningFavorites() = runDesktopComposeUiTest(width = 1544, height = 1200) {
         startKoin {
             modules(module {
@@ -56,7 +82,7 @@ class DesktopPlaylistsRenderTest {
                 AppTheme(darkTheme = false, manageSystemBars = false) {
                     CompositionLocalProvider(LocalDensity provides Density(2f), LocalDesktopWindowFocused provides true) {
                         Box(Modifier.fillMaxSize().testTag("playlists")) {
-                            AppleMusicPlaylistsDesktopScreen(
+                            DesktopPlaylistsScreen(
                                 state = PlaylistsListState(
                                     playlists = persistentListOf(
                                         PlaylistListItem(1, "Demo", "1", "3:00", null, 100),
@@ -76,6 +102,8 @@ class DesktopPlaylistsRenderTest {
                 }
             }
             waitForIdle()
+            val coverPixel = onNodeWithTag("desktop-favorites-cover").captureToImage().toPixelMap()[20, 20]
+            assertTrue(coverPixel.red > 0.98f && coverPixel.green > 0.98f && coverPixel.blue > 0.98f)
             val image = onNodeWithTag("playlists").captureToImage()
             assertEquals(1544, image.width)
             assertEquals(1200, image.height)

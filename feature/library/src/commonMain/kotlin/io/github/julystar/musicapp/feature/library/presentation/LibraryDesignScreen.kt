@@ -127,7 +127,7 @@ fun LibraryDesignScreen(
     onAction: (LibraryAction) -> Unit,
 ) {
     if (isDesktopPlatform()) {
-        AppleMusicLibraryDesktopScreen(
+        DesktopLibraryScreen(
             state = state,
             section = desktopSection,
             currentPlayingTrackId = currentPlayingTrackId,

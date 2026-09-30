@@ -62,17 +62,17 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassOverlayScene
 import io.github.julystar.musicapp.core.presentation.components.LiquidGlassActionBar
+import io.github.julystar.musicapp.core.presentation.components.DesktopBackButton
+import io.github.julystar.musicapp.core.presentation.components.DesktopPlaybackActionPill
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import io.github.julystar.musicapp.core.presentation.platform.rememberPlatformWindowFocused
 import io.github.julystar.musicapp.core.presentation.theme.LocalDesignIsDarkTheme
 import musicapp.core.presentation.generated.resources.Res as CoreRes
-import musicapp.core.presentation.generated.resources.icon_apple_music_download
-import musicapp.core.presentation.generated.resources.icon_apple_music_more
-import musicapp.core.presentation.generated.resources.icon_apple_music_search
-import musicapp.core.presentation.generated.resources.icon_chevron_left
+import musicapp.core.presentation.generated.resources.icon_player_download
+import musicapp.core.presentation.generated.resources.icon_player_more
+import musicapp.core.presentation.generated.resources.icon_player_search
 import musicapp.core.presentation.generated.resources.icon_download
-import musicapp.core.presentation.generated.resources.icon_more_horizontal
 import musicapp.core.presentation.generated.resources.icon_pause
 import musicapp.core.presentation.generated.resources.icon_play
 import musicapp.core.presentation.generated.resources.icon_search
@@ -113,7 +113,7 @@ private data class AlbumMenuEntry(
 )
 
 @Composable
-internal fun AppleMusicAlbumDesktopScreen(
+internal fun DesktopAlbumScreen(
     state: AlbumState,
     currentPlayingTrackId: Long?,
     favoriteTrackIds: Set<Long>,
@@ -209,14 +209,7 @@ private fun AlbumDesktopToolbar(
                     .padding(start = 8.dp, end = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AlbumRoundButton(stringResource(Res.string.album_back), onBack) {
-                    Icon(
-                        painterResource(CoreRes.drawable.icon_chevron_left),
-                        null,
-                        tint = albumToolbarIconColor(),
-                        modifier = Modifier.size(15.dp).offset(x = (-1.5).dp),
-                    )
-                }
+                DesktopBackButton(stringResource(Res.string.album_back), onBack)
                 Text(
                     text = title,
                     modifier = Modifier.weight(1f).padding(horizontal = 20.dp),
@@ -245,7 +238,7 @@ private fun AlbumDesktopToolbar(
                         standalone = false,
                     ) {
                         Icon(
-                            painterResource(CoreRes.drawable.icon_apple_music_download),
+                            painterResource(CoreRes.drawable.icon_player_download),
                             null,
                             tint = albumToolbarIconColor().copy(alpha = if (canDownload) 1f else 0.28f),
                             modifier = Modifier.size(20.dp).offset(x = 0.5.dp, y = 0.5.dp),
@@ -258,7 +251,7 @@ private fun AlbumDesktopToolbar(
                             standalone = false,
                         ) {
                             Icon(
-                                painterResource(CoreRes.drawable.icon_apple_music_more),
+                                painterResource(CoreRes.drawable.icon_player_more),
                                 null,
                                 tint = albumToolbarIconColor(),
                                 modifier = Modifier.size(20.dp).offset(x = (-0.5).dp),
@@ -302,7 +295,7 @@ private fun AlbumSearchField(value: String, onValueChange: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            painterResource(CoreRes.drawable.icon_apple_music_search),
+            painterResource(CoreRes.drawable.icon_player_search),
             null,
             tint = foreground.copy(alpha = 0.48f),
             modifier = Modifier.size(17.dp),
@@ -472,15 +465,15 @@ private fun AlbumDesktopHero(state: AlbumState, onAction: (AlbumAction) -> Unit)
                     )
                 }
                 Spacer(Modifier.height(67.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AlbumActionPill(
-                        text = stringResource(Res.string.album_play),
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DesktopPlaybackActionPill(
+                        label = stringResource(Res.string.album_play),
                         icon = CoreRes.drawable.icon_play,
                         enabled = state.tracks.isNotEmpty(),
                         onClick = { onAction(AlbumAction.PlayAll) },
                     )
-                    AlbumActionPill(
-                        text = stringResource(Res.string.album_shuffle),
+                    DesktopPlaybackActionPill(
+                        label = stringResource(Res.string.album_shuffle),
                         icon = CoreRes.drawable.icon_shuffle,
                         enabled = state.tracks.isNotEmpty(),
                         onClick = { onAction(AlbumAction.Shuffle) },
@@ -488,40 +481,6 @@ private fun AlbumDesktopHero(state: AlbumState, onAction: (AlbumAction) -> Unit)
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AlbumActionPill(
-    text: String,
-    icon: DrawableResource,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
-    val foreground = albumAccent().copy(alpha = if (enabled) 1f else 0.32f)
-    Row(
-        modifier = Modifier.width(128.dp).height(36.dp).clip(RoundedCornerShape(8.dp))
-            .background(
-                albumDesktopForeground().copy(
-                    alpha = when {
-                        !enabled -> 0.040f
-                        pressed -> 0.145f
-                        hovered -> 0.095f
-                        else -> 0.060f
-                    },
-                ),
-            )
-            .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(icon), null, tint = foreground, modifier = Modifier.size(15.dp))
-        Spacer(Modifier.width(7.dp))
-        Text(text, color = foreground, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -622,7 +581,7 @@ private fun AlbumDesktopTrackRow(
         Spacer(Modifier.width(10.dp))
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             Icon(
-                painterResource(CoreRes.drawable.icon_more_horizontal),
+                painterResource(CoreRes.drawable.icon_player_more),
                 stringResource(Res.string.album_track_more_actions, track.title),
                 tint = foreground.copy(alpha = 0.52f),
                 modifier = Modifier.size(15.dp).clickable { menuOpen = true },

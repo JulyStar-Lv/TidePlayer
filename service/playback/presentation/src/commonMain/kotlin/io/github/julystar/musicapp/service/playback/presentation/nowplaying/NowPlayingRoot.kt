@@ -123,7 +123,7 @@ fun NowPlayingRoot(
                 val trackId = state.currentTrack?.id ?: return
                 coroutineScope.launch {
                     try {
-                        if (!playlistRepository.createPlaylistWithMusic(action.title, trackId)) {
+                        if (!playlistRepository.createPlaylistWithMusic(action.title, trackId, action.coverImage)) {
                             toastRepository.emit(UiMessage.Resource(UiMessageKey.PlaylistOperationFailed))
                         }
                     } catch (exception: CancellationException) {

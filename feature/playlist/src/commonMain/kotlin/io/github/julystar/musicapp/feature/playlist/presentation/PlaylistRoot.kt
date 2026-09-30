@@ -10,6 +10,7 @@ import io.github.julystar.musicapp.core.domain.repository.FavoritesRepository
 import io.github.julystar.musicapp.core.domain.repository.ToastRepository
 import io.github.julystar.musicapp.service.playback.domain.PlayableItem
 import io.github.julystar.musicapp.service.playback.domain.PlaybackController
+import io.github.julystar.musicapp.service.playback.domain.PlaybackStatus
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -21,6 +22,7 @@ fun PlaylistRoot(
     onNavigateToImport: () -> Unit,
     playlistViewModel: PlaylistVM = koinViewModel(),
     editPlaylistViewModel: EditPlaylistVM = koinViewModel(),
+    showDesktopBackButton: Boolean = true,
 ) {
     val playbackController = koinInject<PlaybackController>()
     val favoritesRepository = koinInject<FavoritesRepository>()
@@ -41,10 +43,18 @@ fun PlaylistRoot(
     PlaylistScreen(
         state = state,
         currentPlayingTrackId = playerState.currentItem?.libraryTrackId,
+        isPlaying = playerState.status == PlaybackStatus.Playing,
         favoriteTrackIds = favoriteTrackIds,
         scaffoldPadding = scaffoldPadding,
+        showDesktopBackButton = showDesktopBackButton,
         onToggleFavorite = { trackId ->
             coroutineScope.launch { favoritesRepository.toggleFavorite(trackId) }
+        },
+        onShuffle = {
+            val items = state.tracks.shuffled().map { it.toPlayableItem(state.playlistId) }
+            if (items.isNotEmpty()) {
+                coroutineScope.launch { playbackController.play(items = items) }
+            }
         },
         onAction = { action ->
             when (action) {

@@ -29,6 +29,7 @@ sealed interface CreatePlaylistAction {
     data object ClearCover : CreatePlaylistAction
     data object Reset : CreatePlaylistAction
     data object Submit : CreatePlaylistAction
+    data class SubmitWithCover(val coverImage: ByteArray?) : CreatePlaylistAction
 }
 
 @Immutable
@@ -45,4 +46,5 @@ sealed interface EditPlaylistAction {
     data object NavigateToCoverImport : EditPlaylistAction
     data object ClearCover : EditPlaylistAction
     data object Submit : EditPlaylistAction
+    data class SubmitWithCover(val coverImage: ByteArray?) : EditPlaylistAction
 }

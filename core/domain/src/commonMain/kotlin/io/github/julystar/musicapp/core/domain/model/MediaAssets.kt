@@ -10,6 +10,7 @@ sealed interface Artwork {
         val allowPluginLookup: Boolean = false,
     ) : Artwork
     data class LibraryAlbum(val albumId: Long) : Artwork
+    data class LibraryPlaylist(val playlistId: Long, val revision: Long = 0L) : Artwork
     data class LibraryCover(val trackId: Long) : Artwork
     data class SourceMedia(val mediaId: MediaId) : Artwork
     data class LegacyStorageEntry(

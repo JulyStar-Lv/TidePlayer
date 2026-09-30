@@ -107,4 +107,11 @@
     <string name="log_title">Log</string>
     <string name="debug_trigger_rs_panic">Trigger Rust panic!</string>
     <string name="search_clear">Clear search</string>
+    <string name="playlist_desktop_create_title">New Playlist</string>
+    <string name="playlist_desktop_create">Create</string>
+    <string name="playlist_desktop_description">Description (Optional)</string>
+    <string name="playlist_desktop_name">Playlist Title</string>
+    <string name="playlist_cover_previous">Previous Cover</string>
+    <string name="playlist_cover_next">Next Cover</string>
+    <string name="playlist_cover_pattern">Cover Pattern %1$d</string>
 </resources>

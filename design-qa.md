@@ -2588,3 +2588,30 @@ final result: passed
 - Native verification: restarted desktop application and searched the user’s See You Again track. The result count fell from 43 to 40; the top region-equivalent Apple Music duplicates merged while other-source and Deluxe album alternatives remained. No Apply or Reset mutation was performed against the user’s library during verification; cover persistence and refresh were verified in isolated database/bitmap tests. Android/iOS remain untested.
 
 final result: passed
+
+
+## Playlist cover playback indicator — 2026-09-30
+
+Scope: reproduce the Apple Music playlist-row activity indicator in the existing native desktop UI. No surrounding page redesign is included.
+
+Source visual truth: `build/ui-qa/apple-music-bars/reference-0.png` through `reference-7.png`, captured from the installed Music.app while playing. Pause reference: `reference-paused.png`. The previously supplied screenshot is also consistent with the measured four-bar geometry.
+Implementation: `build/ui-qa/apple-music-bars/implementation-live.png`, from the freshly packaged running TidePlayer, plus `feature/playlist/build/reports/playlists/playlist-playing.png` and `playlist-bars-0.png` through `playlist-bars-7.png` from the actual composed playlist screen.
+Viewport: both native windows captured at 1960 × 1200 pixels (980 × 600 points, 2× density). Both cover crops are 80 × 80 pixels (40 × 40 points); comparison crops are enlarged equally by 3×. Source and implementation contain different tracks/artwork and scroll positions. Whole-page layout, artwork content, row selection color, and time phase are outside this scoped indicator comparison.
+Full-view evidence: `build/ui-qa/apple-music-bars/full-comparison.png`.
+Focused evidence: `live-cover-comparison.png` and `motion-comparison.png` in the same directory. The latter uses white-pixel masks to isolate glyph geometry; Apple frames are sampled roughly 3 seconds apart, implementation frames at 160 ms intervals. They are not synchronized motion samples.
+
+Findings and fixes:
+- [P1 resolved] The earlier version moved each bar between only two endpoints with a reversing tween. Replaced it with six smooth height segments per cycle, independent bar sequences, and staggered cycle durations. The eight implementation frames show varied rising/falling combinations instead of the earlier repetitive stretch.
+- [P2 resolved] Pausing left four static short bars in the earlier implementation. Music.app hides the glyph when paused. The implementation now removes both the indicator and its dark overlay when paused; resume recreates the active animation.
+- [P2 resolved] Hovering anywhere in the active row replaced the indicator with a play triangle. Music.app retains the bars while hovering its title/artist region. Active playback now takes priority over the row hover overlay, and the test explicitly verifies title/artist hover preserves the indicator.
+
+Required fidelity surfaces:
+- Fonts/typography: the indicator contains no text; existing row fonts and copy are untouched.
+- Spacing/layout rhythm: four 3-point capsules with 1-point gaps, a 15 × 16-point fixed container, and a shared lower baseline. The equally scaled cover comparison confirms size, placement, round caps, and clear spacing.
+- Colors/tokens: opaque white bars over the existing restrained dark cover overlay. Theme and surrounding semantic colors remain unchanged.
+- Image quality: actual album artwork is retained beneath the native animated UI; no rasterized animation or substituted cover asset. Different source and implementation album art is an intentional data difference.
+- Copy/content: no visible wording changes.
+
+Validation: 4 desktop playlist/favorites tests passed, covering changing rendered pixels during playback, absence during pause, resuming animation, retaining bars during row hover, switching tracks, and clearing the current item. Desktop createDistributable succeeded; the new executable is running. A native read-only capture confirms the activity indicator while Breathe (Taylor's Version) is playing.
+Follow-up polish / evidence limits: Apple Music's private keyframe/timing data is unavailable. Heights were reconstructed from observed frames and cadence is an approximation; exact frame-by-frame timing equivalence is not verified. This pass confirms the measured geometry and observed playback/hover states, not private implementation identity.
+final result: passed

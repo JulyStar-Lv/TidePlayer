@@ -55,6 +55,7 @@ class LegacyArtworkRepository(
             findTrack = trackDao::get,
             findTrackArtwork = metadataDao::getArtworkForTrack,
             findAlbumArtwork = metadataDao::getArtworkForAlbum,
+            findPlaylistArtwork = metadataDao::getArtworkForPlaylist,
         )
     }
 
@@ -86,7 +87,7 @@ class LegacyArtworkRepository(
             }
             return null
         }
-        if (artwork is Artwork.LibraryTrack || artwork is Artwork.LibraryCover) return null
+        if (artwork is Artwork.LibraryTrack || artwork is Artwork.LibraryCover || artwork is Artwork.LibraryPlaylist) return null
 
         val loc = artwork.resolveLegacyStorageEntryLoc { trackId ->
             roomLibraryStore.resolveTrackLoc(MusicId(trackId))
@@ -123,11 +124,13 @@ internal suspend fun Artwork.resolveRoomArtworkCacheKey(
     findTrack: suspend (trackId: Long) -> TrackEntity?,
     findTrackArtwork: suspend (trackId: Long) -> ArtworkEntity?,
     findAlbumArtwork: suspend (albumId: Long) -> ArtworkEntity?,
+    findPlaylistArtwork: suspend (playlistId: Long) -> ArtworkEntity? = { null },
 ): ArtworkCacheKey? {
     val entity = when (this) {
         is Artwork.LibraryTrack -> findTrackArtwork(trackId)
             ?: findTrack(trackId)?.albumId?.let { albumId -> findAlbumArtwork(albumId) }
         is Artwork.LibraryAlbum -> findAlbumArtwork(albumId)
+        is Artwork.LibraryPlaylist -> findPlaylistArtwork(playlistId)
         is Artwork.LibraryCover -> findTrackArtwork(trackId)
             ?: findTrack(trackId)?.albumId?.let { albumId -> findAlbumArtwork(albumId) }
         is Artwork.SourceMedia -> null
@@ -154,6 +157,7 @@ internal suspend fun Artwork.resolveLegacyStorageEntryLoc(
     return when (this) {
         is Artwork.LibraryTrack -> resolveTrackLoc(trackId)
         is Artwork.LibraryAlbum -> null
+        is Artwork.LibraryPlaylist -> null
         is Artwork.LibraryCover -> null
         is Artwork.SourceMedia -> {
             val target = mediaId.toLegacyStorageArtworkTarget() ?: return null

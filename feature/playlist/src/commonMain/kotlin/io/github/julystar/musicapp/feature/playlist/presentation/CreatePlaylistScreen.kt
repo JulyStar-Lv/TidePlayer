@@ -23,7 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.julystar.musicapp.core.domain.model.Artwork
 import io.github.julystar.musicapp.core.presentation.components.ImportCover
+import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
 import io.github.julystar.musicapp.core.presentation.theme.DesignTokens
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -52,7 +54,12 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun CreatePlaylistScreen(
     state: CreatePlaylistState,
     onAction: (CreatePlaylistAction) -> Unit,
+    colorArtwork: Artwork? = null,
 ) {
+    if (isDesktopPlatform()) {
+        DesktopCreatePlaylistDialog(state, onAction, colorArtwork)
+        return
+    }
     OverlayDialog(
         show = state.isOpen,
         onDismissRequest = { onAction(CreatePlaylistAction.Close) },

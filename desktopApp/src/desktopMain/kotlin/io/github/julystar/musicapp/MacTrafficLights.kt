@@ -14,11 +14,11 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JFrame
 
 // Native title-bar coordinates measured from the 980 × 600 Apple Music reference.
-private val AppleMusicTrafficLightOriginsX = doubleArrayOf(17.0, 40.0, 63.0)
-private const val AppleMusicTrafficLightSize = 18.0
-private const val AppleMusicTrafficLightOriginY = 5.0
-private const val AppleMusicTitleBarHeight = 40.0
-private const val AppleMusicWindowCornerRadius = 26.0
+private val DesktopTrafficLightOriginsX = doubleArrayOf(17.0, 40.0, 63.0)
+private const val DesktopTrafficLightSize = 18.0
+private const val DesktopTrafficLightOriginY = 5.0
+private const val DesktopTitleBarHeight = 40.0
+private const val DesktopWindowCornerRadius = 26.0
 
 internal fun positionMacTrafficLights(window: JFrame) {
     var repositionScheduled = false
@@ -88,12 +88,12 @@ private object MacTrafficLightBridge {
                 repeat(3) { buttonType ->
                     val button = sendPointer(window, "standardWindowButton:", buttonType.toLong()) ?: return@repeat
                     val size = NSSize().apply {
-                        width = AppleMusicTrafficLightSize
-                        height = AppleMusicTrafficLightSize
+                        width = DesktopTrafficLightSize
+                        height = DesktopTrafficLightSize
                     }
                     val origin = NSPoint().apply {
-                        x = AppleMusicTrafficLightOriginsX[buttonType]
-                        y = AppleMusicTrafficLightOriginY
+                        x = DesktopTrafficLightOriginsX[buttonType]
+                        y = DesktopTrafficLightOriginY
                     }
                     sendVoid(button, "setFrameSize:", size)
                     sendVoid(button, "setFrameOrigin:", origin)
@@ -110,11 +110,11 @@ private object MacTrafficLightBridge {
     ) {
         val containerOrigin = NSPoint().apply {
             x = 0.0
-            y = frameHeight - AppleMusicTitleBarHeight
+            y = frameHeight - DesktopTitleBarHeight
         }
         val titleBarSize = NSSize().apply {
             width = frameWidth
-            height = AppleMusicTitleBarHeight
+            height = DesktopTitleBarHeight
         }
         sendVoid(titleBarContainer, "setFrameOrigin:", containerOrigin)
         sendVoid(titleBarContainer, "setFrameSize:", titleBarSize)
@@ -129,7 +129,7 @@ private object MacTrafficLightBridge {
 
         sendBoolean(frameView, "setWantsLayer:", true)
         val layer = sendPointer(frameView, "layer") ?: return
-        sendVoid(layer, "setCornerRadius:", AppleMusicWindowCornerRadius)
+        sendVoid(layer, "setCornerRadius:", DesktopWindowCornerRadius)
         sendBoolean(layer, "setMasksToBounds:", true)
 
         val stringClass = objcGetClass.invokePointer(arrayOf("NSString")) ?: return

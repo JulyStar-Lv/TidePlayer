@@ -55,15 +55,15 @@ import kotlin.math.sin
 
 // Native reference circles lift each background channel by approximately 25/255.
 // Additive white retains the artwork's chroma instead of washing it toward gray.
-internal const val AppleMusicDesktopControlFillAlpha = 0.10f
+internal const val DesktopControlFillAlpha = 0.10f
 
 internal fun Modifier.appleMusicDesktopControlBackground(
-    alpha: Float = AppleMusicDesktopControlFillAlpha,
+    alpha: Float = DesktopControlFillAlpha,
 ): Modifier = drawBehind {
     drawCircle(Color.White.copy(alpha = alpha), blendMode = BlendMode.Plus)
 }
 
-internal enum class AppleMusicDesktopTransportMotion {
+internal enum class DesktopTransportMotion {
     Standard,
     Shuffle,
     Repeat,
@@ -75,7 +75,7 @@ internal enum class AppleMusicDesktopTransportMotion {
 private const val TransportPressDurationMillis = 70
 
 @Composable
-internal fun AppleMusicDesktopTransportButton(
+internal fun DesktopTransportButton(
     painter: DrawableResource,
     contentDescription: String,
     tint: Color,
@@ -84,7 +84,7 @@ internal fun AppleMusicDesktopTransportButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
-    motion: AppleMusicDesktopTransportMotion = AppleMusicDesktopTransportMotion.Standard,
+    motion: DesktopTransportMotion = DesktopTransportMotion.Standard,
     selected: Boolean? = null,
     seekDirection: Int = 0,
     iconHeight: Dp = iconSize,
@@ -104,7 +104,7 @@ internal fun AppleMusicDesktopTransportButton(
         label = "desktop-transport-tint",
     )
     val selectionAlpha by animateFloatAsState(
-        targetValue = if (enabled && selected == true) AppleMusicDesktopControlFillAlpha else 0f,
+        targetValue = if (enabled && selected == true) DesktopControlFillAlpha else 0f,
         animationSpec = tween(180),
         label = "desktop-transport-selection",
     )
@@ -199,19 +199,19 @@ internal fun AppleMusicDesktopTransportButton(
                 .requiredSize(width = iconSize, height = iconHeight)
                 .graphicsLayer {
                     val progress = if (enabled) pressProgress.value else 0f
-                    val compression = if (motion == AppleMusicDesktopTransportMotion.Seek) 0.10f else 0.14f
+                    val compression = if (motion == DesktopTransportMotion.Seek) 0.10f else 0.14f
                     scaleX = 1f - compression * progress
                     scaleY = scaleX * iconScaleY
                     alpha = 1f - 0.24f * progress.coerceIn(0f, 1f)
                 },
         ) { symbol ->
-            val effectiveTint = if (enabled || motion == AppleMusicDesktopTransportMotion.PlayPause) {
+            val effectiveTint = if (enabled || motion == DesktopTransportMotion.PlayPause) {
                 iconTint
             } else {
                 tint.copy(alpha = 0.28f)
             }
-            if (motion == AppleMusicDesktopTransportMotion.PlayPause ||
-                motion == AppleMusicDesktopTransportMotion.Standard
+            if (motion == DesktopTransportMotion.PlayPause ||
+                motion == DesktopTransportMotion.Standard
             ) {
                 Icon(
                     painter = painterResource(symbol),
@@ -234,12 +234,12 @@ private fun TransportLayeredSymbol(
     tint: Color,
     iconSize: Dp,
     iconHeight: Dp,
-    motion: AppleMusicDesktopTransportMotion,
+    motion: DesktopTransportMotion,
     direction: Int,
     progress: () -> Float,
 ) {
     val painter = painterResource(resource)
-    val seekImage = if (motion == AppleMusicDesktopTransportMotion.Seek) imageResource(resource) else null
+    val seekImage = if (motion == DesktopTransportMotion.Seek) imageResource(resource) else null
     Canvas(Modifier.requiredSize(width = iconSize, height = iconHeight)) {
         val fraction = progress().coerceIn(0f, 1f)
         val filter = ColorFilter.tint(tint)
@@ -257,7 +257,7 @@ private fun TransportLayeredSymbol(
         }
         if (fraction == 0f || fraction == 1f) {
             drawSymbol()
-        } else if (motion == AppleMusicDesktopTransportMotion.Seek) {
+        } else if (motion == DesktopTransportMotion.Seek) {
             val forward = direction >= 0
             // The exported 64px canvases have optical centers at 34px/30px and
             // two 20px triangles. Animate those layers without moving the entire button.
@@ -300,7 +300,7 @@ private fun TransportLayeredSymbol(
                 val pulse = sin(phase * PI.toFloat())
                 val sign = if (half == 0) -1f else 1f
                 withTransform({
-                    if (motion == AppleMusicDesktopTransportMotion.Shuffle) {
+                    if (motion == DesktopTransportMotion.Shuffle) {
                         translate(top = sign * size.height * 0.035f * pulse)
                     } else {
                         translate(left = sign * size.width * 0.05f * pulse)

@@ -3,12 +3,14 @@ package io.github.julystar.musicapp.feature.playlist.presentation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import io.github.julystar.musicapp.core.domain.model.Artwork
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun EditPlaylistRoot(
     onNavigateToCoverImport: () -> Unit,
     editPlaylistVM: EditPlaylistVM = koinViewModel(),
+    colorArtwork: Artwork? = null,
 ) {
     val isOpen by editPlaylistVM.modalOpen.collectAsState()
     val name by editPlaylistVM.name.collectAsState()
@@ -24,6 +26,7 @@ fun EditPlaylistRoot(
 
     EditPlaylistScreen(
         state = state,
+        colorArtwork = colorArtwork,
         onAction = { action ->
             when (action) {
                 EditPlaylistAction.Close -> editPlaylistVM.closeModal()
@@ -34,6 +37,7 @@ fun EditPlaylistRoot(
                 }
                 EditPlaylistAction.ClearCover -> editPlaylistVM.clearCover()
                 EditPlaylistAction.Submit -> editPlaylistVM.finish()
+                is EditPlaylistAction.SubmitWithCover -> editPlaylistVM.finish(action.coverImage)
             }
         },
     )

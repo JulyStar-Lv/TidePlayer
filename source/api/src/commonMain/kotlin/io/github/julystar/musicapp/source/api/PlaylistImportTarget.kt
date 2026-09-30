@@ -5,6 +5,7 @@ interface PlaylistImportTarget {
         title: String,
         cover: SourceNodeSelection?,
         entries: List<SourceNodeSelection>,
+        coverImage: ByteArray? = null,
     )
 
     suspend fun addMusicSelectionsToPlaylist(

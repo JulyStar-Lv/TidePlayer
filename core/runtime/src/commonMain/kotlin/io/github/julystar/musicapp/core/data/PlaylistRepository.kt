@@ -62,7 +62,7 @@ class PlaylistRepositoryImpl(
                 val mapped = rows.map(roomLibraryStore::mapPlaylistSummary).toPersistentList()
                 _playlists.value = mapped
                 _playlistSummaries.value = mapped.mapIndexed { index, playlist ->
-                    playlist.toPlaylistSummary(rows[index].firstTrackId).copy(createdAt = rows[index].createdAt)
+                    playlist.toPlaylistSummary(rows[index].firstTrackId, rows[index].artworkId).copy(createdAt = rows[index].createdAt)
                 }
             }
         }
@@ -137,8 +137,8 @@ class PlaylistRepositoryImpl(
     override suspend fun addMusic(playlistId: Long, musicId: Long): Boolean =
         roomLibraryStore.addExistingMusicToPlaylist(playlistId, musicId)
 
-    override suspend fun createPlaylistWithMusic(title: String, musicId: Long): Boolean =
-        roomLibraryStore.createPlaylistWithMusic(title, musicId)
+    override suspend fun createPlaylistWithMusic(title: String, musicId: Long, coverImage: ByteArray?): Boolean =
+        roomLibraryStore.createPlaylistWithMusic(title, musicId, coverImage)
 
     override suspend fun replaceMusicOrderById(
         playlistId: Long,
@@ -156,13 +156,14 @@ class PlaylistRepositoryImpl(
     companion object {
         internal fun PlaylistAbstract.toPlaylistSummary(
             firstTrackId: Long? = null,
+            savedArtworkId: Long? = null,
         ): PlaylistSummary {
             return PlaylistSummary(
                 id = meta.id.value,
                 title = meta.title,
                 musicCount = musicCount.toLong(),
                 durationMs = duration?.inWholeMilliseconds ?: 0L,
-                coverArtwork = resolvePlaylistCoverArtwork(
+                coverArtwork = savedArtworkId?.let { Artwork.LibraryPlaylist(meta.id.value, revision = it) } ?: resolvePlaylistCoverArtwork(
                     explicitArtwork = meta.showCover?.toArtwork(),
                     firstTrackId = firstTrackId,
                 ),

@@ -35,6 +35,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.ContentScale
+import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
+import io.github.julystar.musicapp.core.presentation.media.ArtworkImage
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.julystar.musicapp.core.presentation.components.desktopSidebarSurface
@@ -73,9 +77,9 @@ import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-internal val AppleMusicSidebarWidth = 208.dp
+internal val DesktopSidebarWidth = 208.dp
 
-enum class AppleMusicSidebarDestination(
+enum class DesktopSidebarDestination(
     val icon: DrawableResource,
     val label: StringResource,
     val rootTab: HomeTab? = null,
@@ -92,31 +96,34 @@ enum class AppleMusicSidebarDestination(
 }
 
 private val PrimaryDestinations = listOf(
-    AppleMusicSidebarDestination.SEARCH,
-    AppleMusicSidebarDestination.HOME,
-    AppleMusicSidebarDestination.SETTINGS,
+    DesktopSidebarDestination.SEARCH,
+    DesktopSidebarDestination.HOME,
+    DesktopSidebarDestination.SETTINGS,
 )
 private val LibraryDestinations = listOf(
-    AppleMusicSidebarDestination.SONGS,
-    AppleMusicSidebarDestination.ALBUMS,
-    AppleMusicSidebarDestination.ARTISTS,
+    DesktopSidebarDestination.SONGS,
+    DesktopSidebarDestination.ALBUMS,
+    DesktopSidebarDestination.ARTISTS,
 )
 private val PlaylistDestinations = listOf(
-    AppleMusicSidebarDestination.ALL_PLAYLISTS,
-    AppleMusicSidebarDestination.FAVORITES,
+    DesktopSidebarDestination.ALL_PLAYLISTS,
+    DesktopSidebarDestination.FAVORITES,
 )
 
 @Composable
-internal fun AppleMusicNavigationSidebar(
-    selectedDestination: AppleMusicSidebarDestination,
-    onDestinationSelected: (AppleMusicSidebarDestination) -> Unit,
+internal fun DesktopNavigationSidebar(
+    selectedDestination: DesktopSidebarDestination,
+    onDestinationSelected: (DesktopSidebarDestination) -> Unit,
     modifier: Modifier = Modifier,
+    playlists: List<PlaylistSummary> = emptyList(),
+    selectedPlaylistId: Long? = null,
+    onPlaylistSelected: (Long) -> Unit = {},
 ) {
     val titleBarInset = LocalDesktopTitleBarInset.current
     val panelShape = RoundedCornerShape(18.dp)
     Box(
         modifier = modifier
-            .width(AppleMusicSidebarWidth)
+            .width(DesktopSidebarWidth)
             .fillMaxHeight()
             .background(desktopWindowBackgroundColor()),
     ) {
@@ -134,35 +141,51 @@ internal fun AppleMusicNavigationSidebar(
                 .selectableGroup()
                 .padding(top = titleBarInset + 22.dp, bottom = 8.dp),
         ) {
-            AppleMusicDestinationGroup(
+            DesktopDestinationGroup(
                 destinations = PrimaryDestinations,
-                selectedDestination = selectedDestination,
+                selectedDestination = selectedDestination.takeIf { selectedPlaylistId == null },
                 onDestinationSelected = onDestinationSelected,
             )
-            AppleMusicSectionTitle(stringResource(Res.string.sidebar_library_section))
-            AppleMusicDestinationGroup(
+            DesktopSectionTitle(stringResource(Res.string.sidebar_library_section))
+            DesktopDestinationGroup(
                 destinations = LibraryDestinations,
-                selectedDestination = selectedDestination,
+                selectedDestination = selectedDestination.takeIf { selectedPlaylistId == null },
                 onDestinationSelected = onDestinationSelected,
             )
-            AppleMusicSectionTitle(stringResource(Res.string.sidebar_playlists_section))
-            AppleMusicDestinationGroup(
+            DesktopSectionTitle(stringResource(Res.string.sidebar_playlists_section))
+            DesktopDestinationGroup(
                 destinations = PlaylistDestinations,
-                selectedDestination = selectedDestination,
+                selectedDestination = selectedDestination.takeIf { selectedPlaylistId == null },
                 onDestinationSelected = onDestinationSelected,
             )
+            playlists.forEach { playlist ->
+                DesktopSidebarRow(
+                    label = playlist.title,
+                    tag = "desktop-sidebar-playlist-${playlist.id}",
+                    selected = selectedPlaylistId == playlist.id,
+                    enabled = true,
+                    onClick = { onPlaylistSelected(playlist.id) },
+                    icon = { _ ->
+                        ArtworkImage(
+                            modifier = Modifier.size(24.dp).clip(RoundedCornerShape(3.dp)),
+                            artwork = playlist.coverArtwork,
+                            contentScale = ContentScale.Crop,
+                        )
+                    },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun AppleMusicDestinationGroup(
-    destinations: List<AppleMusicSidebarDestination>,
-    selectedDestination: AppleMusicSidebarDestination,
-    onDestinationSelected: (AppleMusicSidebarDestination) -> Unit,
+private fun DesktopDestinationGroup(
+    destinations: List<DesktopSidebarDestination>,
+    selectedDestination: DesktopSidebarDestination?,
+    onDestinationSelected: (DesktopSidebarDestination) -> Unit,
 ) {
     destinations.forEach { destination ->
-        AppleMusicNavigationItem(
+        DesktopNavigationItem(
             destination = destination,
             selected = selectedDestination == destination,
             onClick = { onDestinationSelected(destination) },
@@ -171,7 +194,7 @@ private fun AppleMusicDestinationGroup(
 }
 
 @Composable
-private fun AppleMusicSectionTitle(text: String) {
+private fun DesktopSectionTitle(text: String) {
     Text(
         text = text,
         modifier = Modifier
@@ -190,10 +213,36 @@ private fun AppleMusicSectionTitle(text: String) {
 }
 
 @Composable
-private fun AppleMusicNavigationItem(
-    destination: AppleMusicSidebarDestination,
+private fun DesktopNavigationItem(
+    destination: DesktopSidebarDestination,
     selected: Boolean,
     onClick: () -> Unit,
+) {
+    DesktopSidebarRow(
+        label = stringResource(destination.label),
+        tag = "apple-music-sidebar-${destination.name.lowercase()}",
+        selected = selected,
+        enabled = destination.enabled,
+        onClick = onClick,
+        icon = { tint ->
+            Image(
+                painter = painterResource(destination.icon),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(tint),
+                modifier = Modifier.size(24.dp),
+            )
+        },
+    )
+}
+
+@Composable
+private fun DesktopSidebarRow(
+    label: String,
+    tag: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable (Color) -> Unit,
 ) {
     val isDark = LocalDesignIsDarkTheme.current
     val isWindowFocused = rememberPlatformWindowFocused()
@@ -231,14 +280,14 @@ private fun AppleMusicNavigationItem(
             .padding(start = 18.dp, end = 10.dp)
             .clip(RoundedCornerShape(7.dp))
             .background(containerColor)
-            .testTag("apple-music-sidebar-${destination.name.lowercase()}")
+            .testTag(tag)
             .hoverable(
                 interactionSource = interactionSource,
-                enabled = destination.enabled,
+                enabled = enabled,
             )
             .selectable(
                 selected = selected,
-                enabled = destination.enabled,
+                enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
@@ -247,20 +296,16 @@ private fun AppleMusicNavigationItem(
             .padding(start = 15.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Image(
-            painter = painterResource(destination.icon),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(tint),
-            modifier = Modifier.size(24.dp),
-        )
+        icon(tint)
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = stringResource(destination.label),
+            text = label,
             color = tint,
             fontSize = 13.sp,
             lineHeight = 16.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

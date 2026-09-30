@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="playlist_desktop_edit_title">Edit Playlist</string>
+    <string name="playlist_desktop_save">Save</string>
     <string name="music_count_unit">Musics</string>
     <string name="playlist_empty">No playlists yet</string>
     <string name="playlist_empty_message">Create a playlist to organize your music.</string>
@@ -61,4 +63,11 @@
     <string name="playlist_desktop_play">Play</string>
     <string name="playlist_desktop_not_favorited">Not Favorited</string>
     <string name="playlist_desktop_no_results">No Results</string>
+    <string name="playlist_desktop_search_favorites">Find in Playlist</string>
+    <string name="playlist_desktop_shuffle">Shuffle</string>
+    <string name="playlist_desktop_song">Song</string>
+    <string name="playlist_desktop_artist">Artist</string>
+    <string name="playlist_desktop_duration">Time</string>
+    <string name="playlist_desktop_order">Playlist Order</string>
+    <string name="playlist_desktop_album">Album</string>
 </resources>

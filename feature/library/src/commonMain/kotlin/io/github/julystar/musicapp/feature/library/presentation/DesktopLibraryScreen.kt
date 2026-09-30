@@ -94,7 +94,7 @@ import musicapp.core.presentation.generated.resources.icon_chevron_down
 import musicapp.core.presentation.generated.resources.icon_chevron_up
 import musicapp.core.presentation.generated.resources.icon_download
 import musicapp.core.presentation.generated.resources.icon_artist_microphone
-import musicapp.core.presentation.generated.resources.icon_more_horizontal
+import musicapp.core.presentation.generated.resources.icon_player_more
 import musicapp.core.presentation.generated.resources.icon_pause
 import musicapp.core.presentation.generated.resources.icon_play
 import musicapp.core.presentation.generated.resources.icon_shuffle
@@ -151,7 +151,7 @@ private data class CompactMenuEntry(
 internal enum class DesktopSort { Title, Artist, Album, Duration, Year }
 
 @Composable
-internal fun AppleMusicLibraryDesktopScreen(
+internal fun DesktopLibraryScreen(
     state: LibraryState,
     section: LibraryDesktopSection,
     currentPlayingTrackId: Long?,
@@ -540,7 +540,7 @@ private fun DesktopSongRow(
             SongCell(track.title, Modifier.width(columnWidths[0]), textColor)
             Box(Modifier.width(AppleSongMoreWidth), contentAlignment = Alignment.Center) {
                 Icon(
-                    painterResource(CoreRes.drawable.icon_more_horizontal),
+                    painterResource(CoreRes.drawable.icon_player_more),
                     contentDescription = stringResource(Res.string.library_desktop_more),
                     tint = if (selected && selectionActive) textColor else appleAccent(),
                     modifier = Modifier.size(15.dp).clickable {
@@ -1031,7 +1031,7 @@ private fun ArtistHeading(
             Spacer(Modifier.width(8.dp))
             Box {
                 ArtistRoundButton(stringResource(Res.string.library_desktop_more), { menuOpen = true }) {
-                    Icon(painterResource(CoreRes.drawable.icon_more_horizontal), null, tint = appleAccent(), modifier = Modifier.size(15.dp))
+                    Icon(painterResource(CoreRes.drawable.icon_player_more), null, tint = appleAccent(), modifier = Modifier.size(15.dp))
                 }
                 CompactContextMenu(
                     show = menuOpen,
@@ -1129,7 +1129,7 @@ private fun ArtistAlbumGroup(
             }
             Box {
                 ArtistRoundButton(stringResource(Res.string.library_desktop_more), { menuOpen = true }) {
-                    Icon(painterResource(CoreRes.drawable.icon_more_horizontal), null, tint = appleAccent(), modifier = Modifier.size(15.dp))
+                    Icon(painterResource(CoreRes.drawable.icon_player_more), null, tint = appleAccent(), modifier = Modifier.size(15.dp))
                 }
                 CompactContextMenu(
                     show = menuOpen,
@@ -1273,7 +1273,7 @@ private fun ArtistTrackLine(
             }
             Box(Modifier.width(35.dp), contentAlignment = Alignment.CenterEnd) {
                 Icon(
-                    painter = painterResource(CoreRes.drawable.icon_more_horizontal),
+                    painter = painterResource(CoreRes.drawable.icon_player_more),
                     contentDescription = stringResource(Res.string.library_desktop_more),
                     tint = appleAccent(),
                     modifier = Modifier.size(13.dp).clickable {

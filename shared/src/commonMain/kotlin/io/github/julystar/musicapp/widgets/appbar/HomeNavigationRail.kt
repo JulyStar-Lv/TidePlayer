@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import io.github.julystar.musicapp.core.presentation.components.appIconPainter
 import io.github.julystar.musicapp.core.presentation.platform.LocalDesktopTitleBarInset
 import io.github.julystar.musicapp.core.presentation.platform.isDesktopPlatform
+import io.github.julystar.musicapp.core.domain.model.PlaylistSummary
 import io.github.julystar.musicapp.navigation.HomeTab
 import musicapp.shared.generated.resources.Res
 import musicapp.shared.generated.resources.app_name
@@ -27,7 +28,7 @@ import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 fun getHomeNavigationRailWidth(expanded: Boolean): Dp = if (expanded) {
-    if (isDesktopPlatform()) AppleMusicSidebarWidth else NavigationRailDefaults.ExpandedWidth
+    if (isDesktopPlatform()) DesktopSidebarWidth else NavigationRailDefaults.ExpandedWidth
 } else {
     NavigationRailDefaults.MinWidth
 }
@@ -38,16 +39,22 @@ fun HomeNavigationRail(
     onTabSelected: (HomeTab) -> Unit,
     expanded: Boolean,
     modifier: Modifier = Modifier,
-    selectedDesktopDestination: AppleMusicSidebarDestination = currentTab.defaultSidebarDestination(),
-    onDesktopDestinationSelected: (AppleMusicSidebarDestination) -> Unit = { destination ->
+    selectedDesktopDestination: DesktopSidebarDestination = currentTab.defaultSidebarDestination(),
+    onDesktopDestinationSelected: (DesktopSidebarDestination) -> Unit = { destination ->
         destination.rootTab?.let(onTabSelected)
     },
+    desktopPlaylists: List<PlaylistSummary> = emptyList(),
+    selectedDesktopPlaylistId: Long? = null,
+    onDesktopPlaylistSelected: (Long) -> Unit = {},
 ) {
     if (isDesktopPlatform() && expanded) {
-        AppleMusicNavigationSidebar(
+        DesktopNavigationSidebar(
             selectedDestination = selectedDesktopDestination,
             onDestinationSelected = onDesktopDestinationSelected,
             modifier = modifier,
+            playlists = desktopPlaylists,
+            selectedPlaylistId = selectedDesktopPlaylistId,
+            onPlaylistSelected = onDesktopPlaylistSelected,
         )
         return
     }
@@ -100,9 +107,9 @@ fun HomeNavigationRail(
     }
 }
 
-internal fun HomeTab.defaultSidebarDestination(): AppleMusicSidebarDestination = when (this) {
-    HomeTab.HOME -> AppleMusicSidebarDestination.HOME
-    HomeTab.SEARCH -> AppleMusicSidebarDestination.SEARCH
-    HomeTab.LIBRARY -> AppleMusicSidebarDestination.SONGS
-    HomeTab.SETTINGS -> AppleMusicSidebarDestination.SETTINGS
+internal fun HomeTab.defaultSidebarDestination(): DesktopSidebarDestination = when (this) {
+    HomeTab.HOME -> DesktopSidebarDestination.HOME
+    HomeTab.SEARCH -> DesktopSidebarDestination.SEARCH
+    HomeTab.LIBRARY -> DesktopSidebarDestination.SONGS
+    HomeTab.SETTINGS -> DesktopSidebarDestination.SETTINGS
 }

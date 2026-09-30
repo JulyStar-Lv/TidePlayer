@@ -15,6 +15,8 @@ class FavoritesPlaylistStateTest {
                 id = 7L,
                 title = "First",
                 artist = "Artist",
+                albumName = "Album",
+                albumId = 3L,
                 durationMs = 60_000L,
             ),
             LibraryTrackItem(
@@ -31,5 +33,7 @@ class FavoritesPlaylistStateTest {
         assertEquals(90_000L, state.durationMs)
         assertEquals(listOf(7L, 9L), state.tracks.map { track -> track.id })
         assertEquals(listOf(0L, 1L), state.tracks.map { track -> track.sortOrder })
+        assertEquals("Album", state.tracks.first().albumName)
+        assertEquals(3L, state.tracks.first().albumId)
     }
 }

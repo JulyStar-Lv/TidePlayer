@@ -37,7 +37,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
-class AppleMusicArtworkBackgroundRenderTest {
+class DesktopArtworkBackgroundRenderTest {
     @Test
     fun layeredArtworkPreservesHuesFlowsAndHasNoHardEdges() = runComposeUiTest {
         val texture = ImageBitmap(64, 64)
@@ -114,7 +114,7 @@ class AppleMusicArtworkBackgroundRenderTest {
         mainClock.autoAdvance = false
         setContent {
             Box(Modifier.size(480.dp, 300.dp).background(Color.Magenta).testTag("background")) {
-                AppleMusicDesktopBackground(palette.value)
+                DesktopBackground(palette.value)
             }
         }
         mainClock.advanceTimeBy(1000)
