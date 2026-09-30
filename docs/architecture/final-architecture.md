@@ -4,7 +4,7 @@ Date: 2026-08-21
 
 This document records the current architecture after the Komi Store-style KMP/CMP refactor. It reflects the physical module split and playback engine adapter work completed through Round 34 in `docs/architecture/komi-cmp-task.md`.
 
-> **Current-state document.** This report describes the implemented repository architecture, not the future Source Plugin target. The frozen direction for provider/plugin evolution is [Universal Provider Architecture v3.4 Roadmap](./universal-provider-roadmap.md). Until roadmap phases are implemented and accepted, the concrete `source:*` adapters and metadata-only JavaScript plugin boundary documented here remain authoritative current behavior.
+> **Current-state document.** This report describes the implemented repository architecture, not the future Source Plugin target. The frozen direction for provider/plugin evolution is [Universal Provider Architecture v3.5 Roadmap](./universal-provider-roadmap.md). Until roadmap phases are implemented and accepted, the concrete `source:*` adapters and metadata-only JavaScript plugin boundary documented here remain authoritative current behavior.
 
 ## 1. Module Tree
 
@@ -498,7 +498,7 @@ Exact commands and per-module counts are recorded in
 These steps describe the **current implementation path only**. New long-term provider work should
 not expand this pattern with additional provider-specific Native editors, registries, scanners, or
 playback resolvers. The migration target is the dynamic, capability-driven Source Plugin runtime in
-[Universal Provider Architecture v3.4 Roadmap](./universal-provider-roadmap.md). Existing adapters
+[Universal Provider Architecture v3.5 Roadmap](./universal-provider-roadmap.md). Existing adapters
 remain supported until their roadmap migration reaches behavioral and migration parity.
 
 ### Replacing Playback Engine
