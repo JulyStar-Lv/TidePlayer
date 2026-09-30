@@ -133,7 +133,7 @@ Core architecture rules:
 Detailed documents:
 
 - [Architecture report](./docs/architecture/final-architecture.md)
-- [Universal Provider Architecture v3.3 Roadmap](./docs/architecture/universal-provider-roadmap.md)
+- [Universal Provider Architecture v3.4 Roadmap](./docs/architecture/universal-provider-roadmap.md)
 - [Android backup and restore policy](./docs/platform/android-backup-policy.md)
 - [Room KMP schema](./docs/database/schema.md)
 - [SMB music source](./docs/music-sources/smb.md)
