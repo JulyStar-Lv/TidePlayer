@@ -1,4 +1,4 @@
-# Universal Provider Architecture v3.4 Roadmap
+# Universal Provider Architecture v3.5 Roadmap
 
 Status: **FROZEN TARGET / FUTURE ROADMAP**  
 Frozen: 2026-09-30  
@@ -52,6 +52,13 @@ adding a new provider enum, Native editor, Koin branch, player, scanner, or Room
 11. Provider plugins contribute normalized home/catalog/collection data, not arbitrary primary
     application UI. Home, Library, playlist, album, artist, search, and Now Playing remain Native
     TidePlayer product surfaces.
+12. Cross-provider query aggregation and cross-provider playback fallback are independent user
+    policies. Enabling one must never silently enable the other.
+13. Playback source identity is independent from lyrics, artwork, and other asset source identity.
+    Cross-provider assets use explicit bindings/policy rather than mutating the playback source.
+14. Native analysis of the currently selected playback variant must consume the exact selected
+    playback resource/session when available; it must not silently re-resolve a different provider
+    resource or quality.
 
 ## 3. Target topology
 
@@ -73,8 +80,12 @@ TidePlayer
 ├── Resource Core
 ├── Playback Core
 ├── Query / Resolution Policy
+│   ├── ProviderParticipationPolicy
+│   └── PlaybackFallbackPolicy
 ├── Home Composition Core
 ├── Collection Core
+├── Asset Binding Core
+├── Playback Artifact Core
 ├── Canonical Media Library
 └── Persistence / Credential Vault
 ```
@@ -1123,7 +1134,329 @@ The v3.4 contract freezes these rules:
 9. Remote writes require explicit capability and should use a durable mutation/outbox model.
 10. Provider-specific Native Home/Playlist/Favorite screens are prohibited.
 
-## 31. Operation epochs
+## 31. Cross-Provider Policy, Asset Binding & Playback Artifact Contract
+
+This contract incorporates three cross-provider rules that must remain independent from any
+specific Source Plugin implementation:
+
+1. federated query/search participation is not playback fallback permission;
+2. playback source is not the owner of lyrics/artwork/other media assets;
+3. analysis of current playback should reuse the exact selected playback artifact instead of
+   resolving a second potentially different resource.
+
+These rules belong in Native Core because they coordinate multiple providers and product-level
+policy.
+
+### 31.1 ProviderParticipationPolicy
+
+Provider participation is scoped by operation. A single global "unified mode" boolean is not
+sufficient.
+
+Target model:
+
+```text
+ProviderParticipationPolicy
+├── homeProviders
+├── searchProviders
+├── recommendationProviders
+├── trackMatchProviders
+└── playbackFallbackProviders
+```
+
+The exact storage representation may evolve, but the semantic separation is frozen.
+
+Rules:
+
+- each scope contains only providers/accounts explicitly allowed by user/product policy;
+- enabling federated search does not enable playback fallback;
+- enabling Home contributions does not opt a provider into track matching or playback fallback;
+- disabling aggregation disables dependent fallback only when the user has explicitly configured
+  that dependency; otherwise policies remain independently editable;
+- an empty allowlist means "no providers for this operation" or falls back to the explicitly
+  selected/current provider according to the calling product surface; it must never mean "all
+  installed providers";
+- newly installed plugins are not automatically opted into every federated operation;
+- participation is evaluated together with runtime capability, account readiness, provider health,
+  and privacy/network constraints.
+
+A generic eligibility calculation may be expressed as:
+
+```text
+EligibleProviders(operation)
+=
+UserParticipationAllowlist
+∩ EnabledProviders
+∩ RuntimeCapabilities
+∩ ReadyAccounts
+∩ ProviderHealth
+∩ PlatformPolicy
+```
+
+Provider names must never be hard-coded into eligibility.
+
+### 31.2 Federated query is not automatic source replacement
+
+Federated search/query returns provider-preserving results. A search hit from another provider is
+not permission to substitute playback.
+
+The cross-provider flow is:
+
+```text
+FederatedQueryEngine
+        ↓
+provider-preserving candidates
+        ↓
+TrackMatchEngine
+        ↓
+explicit PlaybackFallbackPolicy
+        ↓
+ResolutionPolicyEngine
+```
+
+The following implication is forbidden:
+
+```text
+federatedSearchEnabled
+=> automaticPlaybackFallbackEnabled
+```
+
+Automatic fallback should default to off unless a future product decision explicitly changes that
+default with clear user-facing semantics.
+
+Before a fallback candidate is eligible, it must pass normal capability/account/rights checks and
+the TrackMatchEngine must establish an adequate identity match. "A provider search returned a
+similar title" is not sufficient proof.
+
+### 31.3 Track matching must preserve recording variants
+
+Cross-provider matching should distinguish materially different recordings such as:
+
+```text
+studio
+live
+remix
+cover
+instrumental
+acoustic
+radioEdit
+extended
+unknown
+```
+
+A future `RecordingVariant`/equivalent normalized trait may participate in matching alongside
+stronger identifiers such as ISRC/provider cross-reference, artist identity, title, duration, and
+release metadata.
+
+Provider-specific source bonuses are prohibited. Candidate ranking belongs to generic policy and
+may consider actual availability, local/cache state, quality, network cost, account entitlement,
+health, and user preference.
+
+### 31.4 AssetBinding
+
+Playback, lyrics, artwork, and other media assets have independent provenance.
+
+Target model:
+
+```text
+AssetBinding
+├── canonicalMediaId
+├── assetType
+├── sourceRef
+├── sourceRevision?
+├── userPinned
+├── confidence?
+└── updatedAt
+```
+
+Initial asset types may include:
+
+```text
+lyrics
+artwork
+albumArtwork
+artistArtwork
+video
+metadataOverride
+```
+
+An asset source reference may identify a Source Provider asset, Metadata Plugin result, embedded
+asset, local sidecar, or another host-supported asset source without changing the canonical
+playback source.
+
+Example:
+
+```text
+CanonicalTrack
+├── playback  -> Local FLAC
+├── lyrics    -> NetEase word-timed lyrics
+├── artwork   -> Apple Music artwork
+└── metadata  -> embedded / metadata plugin
+```
+
+Rules:
+
+- changing an AssetBinding does not mutate `ProviderMediaRef` or queue identity;
+- playback failover does not automatically rewrite a user-pinned lyric/artwork binding;
+- a user-pinned binding outranks automatic asset selection until removed or proven unusable;
+- automatic bindings must carry enough source revision/fingerprint information to invalidate stale
+  assets;
+- asset bindings store stable source identity, not temporary URLs, cookies, authorization headers,
+  or other secrets;
+- missing/expired asset resources are re-resolved through their owning source at use time;
+- provider/metadata-specific matching logic remains outside canonical UI.
+
+A future `AssetResolutionPolicy` may rank candidate lyrics/artwork while preserving explicit
+bindings and source provenance.
+
+### 31.5 PlaybackArtifactLease
+
+Native playback enhancements often need bytes from the exact media variant being prepared or
+played. They must not independently call the provider and accidentally analyze another quality,
+transcode, URL, session, or recording.
+
+Target abstraction:
+
+```text
+PlaybackVariant
+      ↓
+ResourceSession / ManagedPlayback
+      ↓
+PlaybackArtifactLease
+      ├── stable playback identity
+      ├── selected variant facts
+      ├── cache/resource key
+      ├── analysis byte source? 
+      ├── observed media facts?
+      └── bounded lifetime
+```
+
+A `PlaybackArtifactLease` is Native-owned and scoped to a selected playback instance/resource
+generation. It may expose a safe seekable/readable analysis source when the selected backend can
+provide one.
+
+Potential consumers include:
+
+```text
+AutoMix
+waveform
+ReplayGain analysis
+BPM / key detection
+audio visualization preprocessing
+playback-specific diagnostics
+```
+
+The lease never grants JavaScript a large-byte stream.
+
+### 31.6 Original-resource analysis versus playback-resource analysis
+
+The existing purpose-aware resource model remains valid, but the architecture must distinguish two
+different intents:
+
+```text
+original-resource purpose
+    metadata
+    fingerprintOriginal
+    downloadOriginal
+
+selected-playback purpose
+    playback
+    playbackAnalysis
+```
+
+`fingerprintOriginal` may legitimately resolve the stable/original media resource.
+
+`playbackAnalysis` must instead consume the current `PlaybackArtifactLease` when available. It
+must not call `resource.resolve` again merely to obtain bytes.
+
+This distinction prevents cases such as:
+
+```text
+player       -> 320 kbps selected variant
+analysis     -> independently re-resolved 128 kbps variant   // forbidden
+```
+
+or:
+
+```text
+player       -> transcoded stream
+analysis     -> unrelated original/alternate provider source // forbidden for playbackAnalysis
+```
+
+### 31.7 Lease lifecycle and security
+
+A playback artifact lease is transient runtime state.
+
+It must not persist:
+
+- signed playback URLs;
+- cookies/Authorization headers;
+- browser session state;
+- decrypted temporary secrets;
+- provider-specific session credentials.
+
+The lease is invalidated when the selected playback generation/resource changes, expires, becomes
+unusable, or the owning playback backend closes.
+
+Concurrent consumers should share the same underlying cache/resource where practical rather than
+trigger duplicate provider resolution or duplicate downloads.
+
+### 31.8 Managed playback behavior
+
+Some ManagedPlayback backends cannot legally or technically expose decoded/source bytes.
+
+In that case:
+
+```text
+analysis byte source = unavailable
+```
+
+and byte-dependent enhancements must degrade cleanly.
+
+The architecture must not bypass an authorized managed/DRM playback environment merely to satisfy
+AutoMix, waveform, fingerprinting, or another analysis feature.
+
+### 31.9 Playback selection observation
+
+Although not a separate Provider contract, the Native playback state should preserve the
+difference between requested quality and the actual selected/observed resource.
+
+A future provider-neutral observation can include:
+
+```text
+PlaybackSelectionObservation
+├── requestedQuality / requestedVariant
+├── selectedVariant
+├── actualCodec?
+├── actualBitrate?
+├── actualSampleRate?
+├── actualBitDepth?
+└── fallbackReason?
+```
+
+Now Playing should prefer actual observed/selected facts over simply echoing the user's requested
+quality.
+
+This state is runtime/playback truth and must not become provider-specific UI logic.
+
+### 31.10 Frozen rules
+
+The v3.5 contract freezes the following:
+
+1. Federated search/query and automatic playback fallback are separate opt-ins/policies.
+2. Provider participation is scoped per operation; an empty list never means "query every
+   installed provider".
+3. Cross-provider fallback requires explicit policy and adequate TrackMatch evidence.
+4. Playback source and lyrics/artwork/metadata asset sources are independent.
+5. User-pinned AssetBinding is stable product state and must not be overwritten by ordinary
+   playback source changes.
+6. Asset bindings contain stable references, never temporary authenticated resource URLs.
+7. Playback analysis consumes the exact current PlaybackArtifactLease when available.
+8. `playbackAnalysis` and original-resource fingerprint/metadata purposes are not interchangeable.
+9. Managed playback may report analysis unavailable; Core must degrade rather than bypass the
+   managed playback boundary.
+10. Requested playback quality and actual selected/observed quality are distinct runtime facts.
+
+## 32. Operation epochs
 
 Every asynchronous provider/search/resolve/auth/sync result must be fenced by operation
 generation/epoch so a stale response cannot overwrite newer state after account change, track
@@ -1132,7 +1465,7 @@ change, navigation, or cancellation.
 This applies to catalog search, playback resolve, auth verification, library sync, BrowserSession,
 lyrics, artwork, and metadata lookup.
 
-## 32. Dynamic registry
+## 33. Dynamic registry
 
 The current static MusicSource registry is a migration target.
 
@@ -1150,7 +1483,7 @@ registry dynamically.
 Any temporary adapters for `storage`, `server`, or `platform` must remain generic and must not
 contain provider-specific logic.
 
-## 33. Lifecycle
+## 34. Lifecycle
 
 Provider lifecycle:
 
@@ -1172,7 +1505,7 @@ provider key can recover it. Explicit account/data deletion performs destructive
 Multi-step deletion/cleanup work should use a durable lifecycle intent journal so crashes cannot
 leave credentials or source records in ambiguous partial states.
 
-## 34. Plugin install security
+## 35. Plugin install security
 
 Source Plugin installation should present a user-visible permission summary covering:
 
@@ -1190,7 +1523,7 @@ Source Plugin installation should present a user-visible permission summary cove
 Official bundled plugins and user-installed plugins must use the same runtime path. Trust level may
 change permissions/defaults, but not architecture.
 
-## 35. Host API direction
+## 36. Host API direction
 
 Existing metadata Host APIs remain compatible.
 
@@ -1212,7 +1545,7 @@ bounded HTTP belong in Host API.
 Provider constants, signing secrets, API endpoints, provider cookie names, and protocol-specific
 business logic do not.
 
-## 36. Persistence boundaries
+## 37. Persistence boundaries
 
 Room stores:
 
@@ -1234,7 +1567,7 @@ CredentialVault stores:
 Memory-only state includes OTP/captcha responses, temporary login state, temporary playback URLs,
 ephemeral headers, BrowserSession state, and other short-lived credentials.
 
-## 37. Migration plan
+## 38. Migration plan
 
 ### Phase 1 — Protocol foundation
 
@@ -1272,12 +1605,27 @@ No existing provider behavior should be removed in this phase.
 
 Use fake providers to prove that no provider-specific Native Home/Playlist/Favorite UI is needed.
 
-### Phase 4 — Conformance providers
+### Phase 4 — Cross-provider policy, asset binding, and playback artifacts
+
+- ProviderParticipationPolicy with independent Home/Search/Recommendation/TrackMatch/Fallback
+  allowlists;
+- explicit separation of federated query from automatic playback fallback;
+- TrackMatch recording-variant safeguards;
+- AssetBinding and asset provenance/invalidation rules;
+- PlaybackArtifactLease and exact-resource analysis reuse;
+- playbackAnalysis versus original-resource purpose separation;
+- requested-versus-actual playback selection observation;
+- clean degradation for ManagedPlayback backends that expose no analysis bytes.
+
+Use fake providers/backends to prove that enabling federated search never enables fallback and that
+playback analysis does not trigger a second provider resolution.
+
+### Phase 5 — Conformance providers
 
 Create deterministic fake Storage, Server, and Platform providers to validate the protocol before
 migrating real services.
 
-### Phase 5 — Storage migration
+### Phase 6 — Storage migration
 
 Migrate WebDAV first, then OneDrive. Keep the existing OneDrive implementation as an A/B/reference
 baseline until the plugin path reaches parity.
@@ -1286,11 +1634,11 @@ Migrate SMB as plugin control plane + Native SMB transport.
 
 Add OpenList early as the compatibility aggregator/escape hatch.
 
-### Phase 6 — Server migration
+### Phase 7 — Server migration
 
 Migrate Navidrome/OpenSubsonic and Emby through normalized server/catalog actions.
 
-### Phase 7 — Platform validation
+### Phase 8 — Platform validation
 
 Use representative providers with different complexity:
 
@@ -1298,12 +1646,12 @@ Use representative providers with different complexity:
 - Bilibili — account session + collection APIs + playback variants;
 - YouTube Music — browser/header/session state + Innertube + background browser needs.
 
-### Phase 8 — Managed playback
+### Phase 9 — Managed playback
 
 Validate the ManagedPlayback abstraction independently. Apple Music Web is an experimental
 catalog/session/managed-playback validation target; no DRM bypass is part of the project.
 
-### Phase 9 — Remove provider-specific Core
+### Phase 10 — Remove provider-specific Core
 
 Only after parity and migration tests pass:
 
@@ -1313,7 +1661,7 @@ Only after parity and migration tests pass:
 - remove provider-specific sync coordinator branches;
 - retain compatibility migrations only where needed for existing user data.
 
-## 38. Conformance and acceptance
+## 39. Conformance and acceptance
 
 The roadmap is not complete until tests cover:
 
@@ -1339,6 +1687,19 @@ The roadmap is not complete until tests cover:
 - plugin timeout/OOM/poison/rebuild;
 - domain/credential isolation and secret redaction;
 - provider unavailable -> reinstall recovery;
+- federated search enablement does not enable playback fallback;
+- per-operation provider allowlists do not interpret empty selection as all installed providers;
+- cross-provider fallback rejects weak/variant-mismatched candidates;
+- playback source can differ from lyrics/artwork asset source without changing queue identity;
+- user-pinned AssetBinding survives playback source changes and invalidates only under explicit
+  binding/source rules;
+- AssetBinding persistence contains no transient authenticated URL/header/credential material;
+- playbackAnalysis reuses the current PlaybackArtifactLease and does not invoke a second provider
+  resolve;
+- original fingerprint/metadata resolution remains distinct from exact-playback analysis;
+- ManagedPlayback with no byte exposure disables byte-dependent analysis without bypassing the
+  managed backend;
+- requested and actual playback quality/resource facts remain distinguishable;
 - incremental Home sections where one provider is slow/failing;
 - Home presentation remains Native across phone/Desktop/Automotive;
 - provider recommendations/search do not pollute canonical library before durable user action;
@@ -1349,20 +1710,20 @@ The roadmap is not complete until tests cover:
 - remote collection mutation outbox success/retry/failure recovery;
 - Android/iOS/Desktop compilation and focused runtime gates.
 
-## 39. Core review gate
+## 40. Core review gate
 
 A future change that adds provider-specific Native code must answer:
 
 > Can this requirement be expressed using the existing capability, AuthFlow, Enumeration,
-> ResourcePlan, NativeTransport, BrowserSession, ManagedPlayback, Route, or generic policy
-> contracts?
+> ResourcePlan, NativeTransport, BrowserSession, ManagedPlayback, Route, ProviderParticipation,
+> AssetBinding, PlaybackArtifactLease, or other generic policy contracts?
 
 If yes, it belongs in the plugin or generic runtime path.
 
 Core/Host protocol changes are acceptable only when the missing capability is demonstrably reusable
 across providers and cannot be represented honestly by the frozen contracts.
 
-## 40. Explicitly out of initial scope
+## 41. Explicitly out of initial scope
 
 The first implementation does not include:
 
@@ -1376,7 +1737,7 @@ The first implementation does not include:
 OpenList is the preferred bridge for these uncommon storage/data-plane cases until a reusable need
 is proven.
 
-## 41. Frozen architectural definition
+## 42. Frozen architectural definition
 
 The implementation target is summarized as:
 
