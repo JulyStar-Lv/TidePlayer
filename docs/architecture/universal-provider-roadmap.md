@@ -1,7 +1,7 @@
-# Universal Provider Architecture v3.3 Roadmap
+# Universal Provider Architecture v3.4 Roadmap
 
 Status: **FROZEN TARGET / FUTURE ROADMAP**  
-Frozen: 2026-09-29  
+Frozen: 2026-09-30  
 Source Plugin Protocol target: `source/1`  
 Source Host API target: `host/4+`
 
@@ -49,6 +49,9 @@ adding a new provider enum, Native editor, Koin branch, player, scanner, or Room
    responsibility.
 10. Provider-specific Native code is prohibited unless the requirement is first proven to be a
     reusable transport/platform/data-plane capability.
+11. Provider plugins contribute normalized home/catalog/collection data, not arbitrary primary
+    application UI. Home, Library, playlist, album, artist, search, and Now Playing remain Native
+    TidePlayer product surfaces.
 
 ## 3. Target topology
 
@@ -70,6 +73,8 @@ TidePlayer
 ├── Resource Core
 ├── Playback Core
 ├── Query / Resolution Policy
+├── Home Composition Core
+├── Collection Core
 ├── Canonical Media Library
 └── Persistence / Credential Vault
 ```
@@ -695,7 +700,430 @@ Future multi-provider search should support:
 
 A slow provider must not block presentation of useful results from faster providers.
 
-## 30. Operation epochs
+## 30. Home & Collection Contract
+
+This contract defines how provider-owned recommendations, liked/saved items, user libraries, and
+playlists enter TidePlayer without turning the main product into a collection of provider WebViews.
+
+The governing rule is:
+
+> **Home UI stays TidePlayer-owned. Providers contribute normalized content and collection
+> semantics, not arbitrary main-screen layout or Native views.**
+
+Plugin Offline Web UI remains appropriate for provider setup, account management, diagnostics,
+specialized management workflows, and other provider-specific configuration. It is not the primary
+Home/Library rendering path.
+
+### 30.1 Home ownership
+
+The main Home screen is Native TidePlayer UI and may combine:
+
+```text
+TidePlayer Core Sections
++
+Provider Home Contributions
++
+User Pins / Home Preferences
+```
+
+Examples of Core-owned sections include Continue Listening, Recently Played, Recently Added, and
+TidePlayer Favorites.
+
+Providers that support personalized/editorial home data expose a capability such as:
+
+```text
+feed.home
+```
+
+and return normalized data, never HTML/Compose/SwiftUI.
+
+A target response shape is:
+
+```json
+{
+  "sections": [
+    {
+      "id": "daily-recommend",
+      "semantic": "recommendation",
+      "title": "Daily Mix",
+      "presentationHint": "carousel",
+      "items": [],
+      "continuation": null
+    }
+  ]
+}
+```
+
+### 30.2 HomeSection
+
+A provider-neutral `HomeSection` should include:
+
+```text
+HomeSection
+├── id
+├── provider/account provenance
+├── semantic
+├── title?
+├── subtitle?
+├── presentationHint?
+├── items[]
+└── continuation?
+```
+
+Initial semantic vocabulary may include:
+
+```text
+recommendation
+recent
+newRelease
+chart
+mix
+playlist
+album
+artist
+continueListening
+editorial
+generic
+```
+
+Initial presentation hints may include:
+
+```text
+hero
+carousel
+grid
+list
+compact
+```
+
+Presentation hints are advisory. Native responsive UI decides the actual rendering for phone,
+tablet, Desktop, and Automotive. Plugins must not provide pixel dimensions, Compose code, SwiftUI
+code, arbitrary CSS for the main application, or ordering that overrides Native product policy.
+
+### 30.3 HomeCompositionEngine
+
+Native Core owns a `HomeCompositionEngine`.
+
+It:
+
+- loads Core sections immediately;
+- queries enabled/account-ready providers that expose `feed.home`;
+- accepts provider sections incrementally;
+- applies provider-health/circuit-breaker and operation-epoch rules;
+- caps/filters provider contribution according to product policy;
+- applies user pin/hide/reorder preferences;
+- adapts section presentation to the current platform/window;
+- prevents one slow or failing provider from blocking the whole Home screen.
+
+Provider `rankHint` may be accepted as input but is never authoritative.
+
+### 30.4 Provider Hub
+
+A provider/account may have a Native `ProviderHubScreen`.
+
+It is rendered from generic provider/account data and normalized sections/collections:
+
+```text
+ProviderHub(account)
+├── account identity/status
+├── provider search entry
+├── feed.home sections when available
+├── remote collections
+└── generic capability-driven actions
+```
+
+A provider without `feed.home` may still receive a useful Hub assembled from available
+capabilities, such as recent items, recently added items, liked items, playlists, and folders.
+
+Provider-specific management pages that cannot be represented by the generic media model may open
+the plugin's bundled Web UI under the existing security boundary.
+
+### 30.5 Ephemeral catalog boundary
+
+Home recommendations, charts, search results, and other global catalog browsing are ephemeral
+catalog data and must not automatically become canonical library rows merely because they were
+displayed.
+
+Target persistence rule:
+
+| Content | Persistence |
+| --- | --- |
+| Home recommendation sections | Ephemeral catalog cache |
+| Charts/editorial feeds | Ephemeral catalog cache |
+| Search results | Ephemeral catalog cache |
+| Provider user library / liked items | Remote collection mirror |
+| Provider user playlists | Remote collection mirror |
+| TidePlayer favorites | Canonical Room |
+| TidePlayer playlists | Canonical Room |
+| Downloaded/saved/playlist-added media | Canonicalize on demand |
+
+A remote catalog entity is canonicalized when durable product behavior requires it, for example
+playback history, local favorite, local playlist membership, download, or library import.
+
+### 30.6 Collection model
+
+Liked tracks, saved albums, followed artists, remote playlists, and provider user libraries should
+converge on a provider-neutral collection model rather than growing separate per-provider Core
+APIs.
+
+Target model:
+
+```text
+LibraryCollection
+├── collectionId
+├── providerRef?
+├── role
+├── ownership
+├── title
+├── entityTypes
+├── writeCapability
+├── syncPolicy
+└── ordering
+```
+
+Initial ownership values:
+
+```text
+local
+remote
+bound
+virtual
+```
+
+- `local` — TidePlayer-owned collection.
+- `remote` — provider-authoritative collection mirror.
+- `bound` — local collection with an explicit synchronization relationship.
+- `virtual` — computed projection with no authoritative item list of its own.
+
+Initial collection roles may include:
+
+```text
+likedTracks
+libraryTracks
+savedAlbums
+followedArtists
+savedPlaylists
+playlist
+history
+recentlyPlayed
+generic
+```
+
+Role describes semantics. Write capabilities describe what operations are actually supported.
+
+### 30.7 TidePlayer Favorite versus provider favorite
+
+The primary TidePlayer heart/favorite state belongs to the canonical media entity and is not
+implicitly equivalent to any provider's like/library state.
+
+A canonical track may therefore have:
+
+```text
+TidePlayer favorite = true
+
+remote memberships:
+  provider A / likedTracks = true
+  provider B / libraryTracks = true
+  provider C / likedTracks = false
+```
+
+This separation is mandatory so multi-source tracks do not acquire ambiguous provider ownership.
+
+Provider liked/saved states are represented as remote collection membership.
+
+### 30.8 Unified favorite projection
+
+TidePlayer may expose a read-only or safely scoped virtual collection such as "All Favorites":
+
+```text
+TidePlayer Favorite
+UNION
+remote liked/library collections
+        ↓
+Canonical Track Deduplication
+        ↓
+VirtualCollection
+```
+
+Removing an item from this aggregate must not silently issue destructive writes to every provider.
+
+The default heart action modifies TidePlayer's canonical favorite state. Provider-specific
+like/unlike or add/remove-library actions are explicit secondary actions.
+
+Optional favorite synchronization may be added later as a user-configured policy and defaults to
+off.
+
+### 30.9 Local and remote playlists
+
+TidePlayer playlists and provider playlists are separate ownership domains.
+
+A TidePlayer playlist:
+
+- is canonical/local;
+- stores canonical media identity, not temporary URLs;
+- may contain tracks whose best playback source comes from different providers;
+- is resolved at playback time through the existing ResolutionPolicyEngine.
+
+A provider playlist:
+
+- retains provider/account/remote playlist identity;
+- is mirrored through the Collection contract;
+- remains provider authoritative unless explicitly cloned or bound;
+- uses provider write capabilities only when those capabilities are exposed and user policy allows
+  remote writes.
+
+The product should support at least:
+
+```text
+Clone to TidePlayer Playlist
+Remote Mirror
+```
+
+Two-way bound playlist synchronization is a later capability and is not required by the initial
+contract.
+
+### 30.10 Collection RPC direction
+
+Long-term collection capabilities should converge on generic actions such as:
+
+```text
+collection.list
+collection.itemsPage
+collection.create
+collection.rename
+collection.delete
+collection.add
+collection.remove
+collection.reorder
+```
+
+Legacy/finer provider actions such as `favorite.*`, `playlist.*`, or provider-specific library
+APIs may remain inside plugin implementation, but Native product code should consume normalized
+`LibraryCollection` and `CollectionMembership`.
+
+### 30.11 Collection membership
+
+Target membership model:
+
+```text
+CollectionMembership
+├── collectionId
+├── canonicalMediaId?
+├── providerItemRef?
+├── remotePosition?
+├── addedAt?
+├── revision?
+└── syncState
+```
+
+A provider item may be mirrored before full canonicalization. Canonical identity can be attached
+later without blocking large playlist/library synchronization.
+
+### 30.12 Remote mutation outbox
+
+Remote collection writes are unreliable network operations and should not be modeled as completed
+merely because the UI changed.
+
+A future `CollectionMutationOutbox` should support durable operations such as:
+
+```text
+add
+remove
+reorder
+create
+rename
+delete
+```
+
+The UI may optimistically reflect a pending mutation while exposing sync/failure state. Local
+TidePlayer collections do not require a remote outbox.
+
+### 30.13 Generic collection UI
+
+Core Native UI should render collection data using generic screens:
+
+```text
+HomeScreen
+ProviderHubScreen
+CollectionScreen
+EntityGridScreen
+EntityListScreen
+TrackScreen
+AlbumScreen
+ArtistScreen
+PlaylistScreen
+SearchScreen
+```
+
+Provider additions must not introduce `NeteasePlaylistScreen`,
+`AppleLibraryScreen`, `BiliFavoriteScreen`, or equivalent provider-specific Native pages.
+
+### 30.14 Library information architecture
+
+The long-term Library can present provider-neutral destinations such as:
+
+```text
+Library
+├── Songs
+├── Albums
+├── Artists
+├── Favorites
+├── Playlists
+└── Sources / Providers
+```
+
+Favorites and Playlists may expose provider/account filters and provenance badges without changing
+the canonical/local ownership rules.
+
+Provider collections should visibly retain source/account provenance.
+
+### 30.15 Automotive policy
+
+Automotive surfaces consume the same normalized HomeSection and Collection data, but Native
+Automotive policy decides what is safe to expose.
+
+Plugins must never inject an arbitrary provider Home WebView into the driving UI.
+
+### 30.16 Home/Collection persistence modules
+
+Target Core additions:
+
+```text
+home/
+├── HomeCompositionEngine
+├── HomeSection
+├── HomePresentationPolicy
+└── EphemeralCatalogCache
+
+collection/
+├── LibraryCollection
+├── CollectionRole
+├── CollectionMembership
+├── CollectionSyncEngine
+├── CollectionMutationOutbox
+└── UnifiedCollectionProjection
+```
+
+These are cross-provider product capabilities and therefore belong in Native Core.
+
+### 30.17 Frozen Home & Collection rules
+
+The v3.4 contract freezes these rules:
+
+1. Home remains TidePlayer Native UI; providers contribute normalized data only.
+2. Provider setup/management UI may be plugin-owned, but primary media browsing uses generic
+   Native TidePlayer screens.
+3. Home/search/chart/catalog browsing is ephemeral until a durable user action requires
+   canonicalization.
+4. TidePlayer Favorite is canonical/local and is distinct from provider like/library membership.
+5. Provider liked/saved/user-library semantics are normalized as remote collections.
+6. TidePlayer playlists are canonical and may span providers.
+7. Provider playlists retain provider authority and identity.
+8. Unified favorites are a projection, not an implicit multi-provider write target.
+9. Remote writes require explicit capability and should use a durable mutation/outbox model.
+10. Provider-specific Native Home/Playlist/Favorite screens are prohibited.
+
+## 31. Operation epochs
 
 Every asynchronous provider/search/resolve/auth/sync result must be fenced by operation
 generation/epoch so a stale response cannot overwrite newer state after account change, track
@@ -704,7 +1132,7 @@ change, navigation, or cancellation.
 This applies to catalog search, playback resolve, auth verification, library sync, BrowserSession,
 lyrics, artwork, and metadata lookup.
 
-## 31. Dynamic registry
+## 32. Dynamic registry
 
 The current static MusicSource registry is a migration target.
 
@@ -722,7 +1150,7 @@ registry dynamically.
 Any temporary adapters for `storage`, `server`, or `platform` must remain generic and must not
 contain provider-specific logic.
 
-## 32. Lifecycle
+## 33. Lifecycle
 
 Provider lifecycle:
 
@@ -744,7 +1172,7 @@ provider key can recover it. Explicit account/data deletion performs destructive
 Multi-step deletion/cleanup work should use a durable lifecycle intent journal so crashes cannot
 leave credentials or source records in ambiguous partial states.
 
-## 33. Plugin install security
+## 34. Plugin install security
 
 Source Plugin installation should present a user-visible permission summary covering:
 
@@ -762,7 +1190,7 @@ Source Plugin installation should present a user-visible permission summary cove
 Official bundled plugins and user-installed plugins must use the same runtime path. Trust level may
 change permissions/defaults, but not architecture.
 
-## 34. Host API direction
+## 35. Host API direction
 
 Existing metadata Host APIs remain compatible.
 
@@ -784,7 +1212,7 @@ bounded HTTP belong in Host API.
 Provider constants, signing secrets, API endpoints, provider cookie names, and protocol-specific
 business logic do not.
 
-## 35. Persistence boundaries
+## 36. Persistence boundaries
 
 Room stores:
 
@@ -806,7 +1234,7 @@ CredentialVault stores:
 Memory-only state includes OTP/captcha responses, temporary login state, temporary playback URLs,
 ephemeral headers, BrowserSession state, and other short-lived credentials.
 
-## 36. Migration plan
+## 37. Migration plan
 
 ### Phase 1 — Protocol foundation
 
@@ -831,12 +1259,25 @@ No existing provider behavior should be removed in this phase.
 - RouteSet / RoutePlanner / NetworkGeneration;
 - ResourceProbe.
 
-### Phase 3 — Conformance providers
+### Phase 3 — Home & Collection contract
+
+- HomeSection and HomeCompositionEngine;
+- EphemeralCatalogCache;
+- LibraryCollection / CollectionRole / CollectionMembership;
+- TidePlayer Favorite versus remote membership separation;
+- canonical local playlists versus provider playlist mirrors;
+- generic Provider Hub / Collection screens;
+- mutation outbox contract;
+- Automotive filtering policy.
+
+Use fake providers to prove that no provider-specific Native Home/Playlist/Favorite UI is needed.
+
+### Phase 4 — Conformance providers
 
 Create deterministic fake Storage, Server, and Platform providers to validate the protocol before
 migrating real services.
 
-### Phase 4 — Storage migration
+### Phase 5 — Storage migration
 
 Migrate WebDAV first, then OneDrive. Keep the existing OneDrive implementation as an A/B/reference
 baseline until the plugin path reaches parity.
@@ -845,11 +1286,11 @@ Migrate SMB as plugin control plane + Native SMB transport.
 
 Add OpenList early as the compatibility aggregator/escape hatch.
 
-### Phase 5 — Server migration
+### Phase 6 — Server migration
 
 Migrate Navidrome/OpenSubsonic and Emby through normalized server/catalog actions.
 
-### Phase 6 — Platform validation
+### Phase 7 — Platform validation
 
 Use representative providers with different complexity:
 
@@ -857,12 +1298,12 @@ Use representative providers with different complexity:
 - Bilibili — account session + collection APIs + playback variants;
 - YouTube Music — browser/header/session state + Innertube + background browser needs.
 
-### Phase 7 — Managed playback
+### Phase 8 — Managed playback
 
 Validate the ManagedPlayback abstraction independently. Apple Music Web is an experimental
 catalog/session/managed-playback validation target; no DRM bypass is part of the project.
 
-### Phase 8 — Remove provider-specific Core
+### Phase 9 — Remove provider-specific Core
 
 Only after parity and migration tests pass:
 
@@ -872,7 +1313,7 @@ Only after parity and migration tests pass:
 - remove provider-specific sync coordinator branches;
 - retain compatibility migrations only where needed for existing user data.
 
-## 37. Conformance and acceptance
+## 38. Conformance and acceptance
 
 The roadmap is not complete until tests cover:
 
@@ -898,9 +1339,17 @@ The roadmap is not complete until tests cover:
 - plugin timeout/OOM/poison/rebuild;
 - domain/credential isolation and secret redaction;
 - provider unavailable -> reinstall recovery;
+- incremental Home sections where one provider is slow/failing;
+- Home presentation remains Native across phone/Desktop/Automotive;
+- provider recommendations/search do not pollute canonical library before durable user action;
+- canonical TidePlayer favorite remains distinct from remote provider memberships;
+- remote liked/library collections mirror and deduplicate through canonical identity;
+- local cross-provider playlists resolve through candidate sources;
+- provider playlist mirrors retain provenance and authority;
+- remote collection mutation outbox success/retry/failure recovery;
 - Android/iOS/Desktop compilation and focused runtime gates.
 
-## 38. Core review gate
+## 39. Core review gate
 
 A future change that adds provider-specific Native code must answer:
 
@@ -913,7 +1362,7 @@ If yes, it belongs in the plugin or generic runtime path.
 Core/Host protocol changes are acceptable only when the missing capability is demonstrably reusable
 across providers and cannot be represented honestly by the frozen contracts.
 
-## 39. Explicitly out of initial scope
+## 40. Explicitly out of initial scope
 
 The first implementation does not include:
 
@@ -927,7 +1376,7 @@ The first implementation does not include:
 OpenList is the preferred bridge for these uncommon storage/data-plane cases until a reusable need
 is proven.
 
-## 40. Frozen architectural definition
+## 41. Frozen architectural definition
 
 The implementation target is summarized as:
 
