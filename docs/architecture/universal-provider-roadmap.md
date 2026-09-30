@@ -1119,7 +1119,7 @@ These are cross-provider product capabilities and therefore belong in Native Cor
 
 ### 30.17 Frozen Home & Collection rules
 
-The v3.4 contract freezes these rules:
+The v3.5 contract freezes these Home & Collection rules:
 
 1. Home remains TidePlayer Native UI; providers contribute normalized data only.
 2. Provider setup/management UI may be plugin-owned, but primary media browsing uses generic
